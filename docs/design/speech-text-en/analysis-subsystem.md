@@ -124,14 +124,12 @@ one mutable field of an analyzer is the flag that makes the model warning once p
 atomic exchange.
 
 **Cancellation.** The analyzer, the adapter, the override lookup and the normalizer check the token before any
-work, after the
-tagger is obtained, after each sentence is tagged, every 256 visited tokens while the overrides are looked up
+work, after the tagger is obtained, after each sentence is tagged, every 256 visited tokens
+while the overrides are looked up
 and while the text is normalized (a token consumed by a numeric expression still counts as visited), and while
-the result is built, and the analyzer checks it before each heteronym candidate word is handled and one last time
-before reporting, so a
-canceled request throws `OperationCanceledException` at the next check, never returns a result and never
-reports diagnostics, including when the cancellation arrives during tagger initialization, during
-the override lookup, during normalization, during a heteronym classification or during the only or last sentence.
+the result is built; the analyzer also checks it before each heteronym candidate word is handled and one last time
+before reporting. A canceled request therefore throws `OperationCanceledException` at the next check, never returns a
+result and never reports diagnostics, wherever the cancellation arrives.
 
 **Dependency boundary.** The adapter's constructor takes a tagger factory so tests can count tagger
 creation without disturbing the process-wide tagger; the shared adapter's factory is the package's own

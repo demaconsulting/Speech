@@ -40,6 +40,7 @@ internal sealed record ParityCounts(int Compared, int Mismatched, int Suppressed
 /// <param name="ByConfidence">The tallies by reported confidence bucket.</param>
 /// <param name="Interval">The paired clustered bootstrap interval of model minus own-part-of-speech baseline.</param>
 /// <param name="Parity">The parity of the analyzer and the direct path; empty when only the direct path was evaluated.</param>
+/// <param name="AccuracyInterval">The clustered bootstrap interval of the model accuracy itself (its point estimate is the accuracy in basis points); null when not requested.</param>
 internal sealed record SetEvaluation(
     string Set,
     int Rows,
@@ -54,7 +55,8 @@ internal sealed record SetEvaluation(
     IReadOnlyList<GroupTally> ByReading,
     IReadOnlyList<GroupTally> ByConfidence,
     BootstrapInterval Interval,
-    ParityCounts Parity);
+    ParityCounts Parity,
+    BootstrapInterval? AccuracyInterval = null);
 
 /// <summary>One cluster of rows that a bootstrap resamples as a unit.</summary>
 /// <param name="Id">The cluster id (a source document, or a row id for an independent row).</param>
@@ -202,7 +204,58 @@ internal sealed class HeteronymEvaluator
     /// <exception cref="InvalidDataException">The set is unknown or its file is malformed, or the model does not load.</exception>
     public SetEvaluation Evaluate(string set, byte[] image)
     {
-        var rows = Prepare(set);
+        var file = SetFiles.GetValueOrDefault(set, set);
+        return EvaluateEndToEnd(set, Prepare(set), image, row => ClusterOf(row, file), withAccuracyInterval: false);
+    }
+
+    /// <summary>
+    ///     Evaluates a model on caller-supplied rows through the analyzer, with caller-supplied clustering, exactly as
+    ///     <see cref="Evaluate"/> does for a data file, and adds the clustered interval of the accuracy itself.
+    /// </summary>
+    /// <param name="set">The set name; the prepared rows are cached under it, so one name must always mean the same rows.</param>
+    /// <param name="rows">The labeled rows; each target must be a form of the inventory and each label one of its candidates.</param>
+    /// <param name="image">The model file bytes (compressed or not).</param>
+    /// <param name="clusterOf">Names the cluster of a row; rows with the same name resample together.</param>
+    /// <returns>The evaluation, with <see cref="SetEvaluation.AccuracyInterval"/> set.</returns>
+    /// <exception cref="InvalidDataException">A row is not a form of the inventory or has a label that is not a candidate, or the model does not load.</exception>
+    public SetEvaluation EvaluateRows(string set, IReadOnlyList<LabeledRow> rows, byte[] image, Func<LabeledRow, string> clusterOf)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(clusterOf);
+        return EvaluateEndToEnd(set, PrepareRows(set, rows), image, clusterOf, withAccuracyInterval: true);
+    }
+
+    /// <summary>
+    ///     Evaluates a model on caller-supplied rows with the direct path only, as the multi-seed study does.
+    /// </summary>
+    /// <param name="set">The set name (see <see cref="EvaluateRows"/>).</param>
+    /// <param name="rows">The labeled rows.</param>
+    /// <param name="image">The model file bytes.</param>
+    /// <param name="clusterOf">Names the cluster of a row.</param>
+    /// <returns>The evaluation; its parity counts are zero and it has no accuracy interval.</returns>
+    /// <exception cref="InvalidDataException">A row is not a form of the inventory or has a label that is not a candidate, or the model does not load.</exception>
+    public SetEvaluation EvaluateRowsDirect(string set, IReadOnlyList<LabeledRow> rows, byte[] image, Func<LabeledRow, string> clusterOf)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(clusterOf);
+        return EvaluateDirectRows(set, PrepareRows(set, rows), image, clusterOf);
+    }
+
+    /// <summary>
+    ///     Evaluates prepared rows through the analyzer and checks parity with the direct path.
+    /// </summary>
+    /// <param name="set">The set name.</param>
+    /// <param name="rows">The prepared rows.</param>
+    /// <param name="image">The model file bytes.</param>
+    /// <param name="clusterOf">Names the cluster of a row.</param>
+    /// <param name="withAccuracyInterval">Whether to compute the interval of the accuracy itself.</param>
+    /// <returns>The evaluation.</returns>
+    private SetEvaluation EvaluateEndToEnd(string set, IReadOnlyList<PreparedRow> rows, byte[] image, Func<LabeledRow, string> clusterOf, bool withAccuracyInterval)
+    {
         var provider = new HeteronymModelProvider(() => new MemoryStream(image, writable: false), _corpus.Inventory);
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
         var classifier = CreateClassifier(image);
@@ -230,7 +283,7 @@ internal sealed class HeteronymEvaluator
             }
         }
 
-        return Summarize(set, outcomes, new ParityCounts(compared, mismatched, suppressed));
+        return Summarize(outcomes, new ParityCounts(compared, mismatched, suppressed), set, clusterOf, withAccuracyInterval);
     }
 
     /// <summary>
@@ -242,7 +295,20 @@ internal sealed class HeteronymEvaluator
     /// <exception cref="InvalidDataException">The set is unknown or its file is malformed, or the model does not load.</exception>
     public SetEvaluation EvaluateDirect(string set, byte[] image)
     {
-        var rows = Prepare(set);
+        var file = SetFiles.GetValueOrDefault(set, set);
+        return EvaluateDirectRows(set, Prepare(set), image, row => ClusterOf(row, file));
+    }
+
+    /// <summary>
+    ///     Evaluates prepared rows with the direct path only.
+    /// </summary>
+    /// <param name="set">The set name.</param>
+    /// <param name="rows">The prepared rows.</param>
+    /// <param name="image">The model file bytes.</param>
+    /// <param name="clusterOf">Names the cluster of a row.</param>
+    /// <returns>The evaluation; its parity counts are zero.</returns>
+    private SetEvaluation EvaluateDirectRows(string set, IReadOnlyList<PreparedRow> rows, byte[] image, Func<LabeledRow, string> clusterOf)
+    {
         var classifier = CreateClassifier(image);
         var outcomes = new List<Outcome>(rows.Count);
         foreach (var row in rows)
@@ -251,7 +317,7 @@ internal sealed class HeteronymEvaluator
             outcomes.Add(new Outcome(row, direct?.ReadingIndex ?? -1, direct?.Confidence ?? 0.0));
         }
 
-        return Summarize(set, outcomes, new ParityCounts(0, 0, 0));
+        return Summarize(outcomes, new ParityCounts(0, 0, 0), set, clusterOf, withAccuracyInterval: false);
     }
 
     /// <summary>
@@ -320,7 +386,25 @@ internal sealed class HeteronymEvaluator
             throw new InvalidDataException($"unknown set '{set}'; use train, dev, holdout-natural or holdout-independent");
         }
 
-        var prepared = RowPreparer.ReadRows(Path.Combine(_dataRoot, file), file)
+        var prepared = PrepareRows(set, RowPreparer.ReadRows(Path.Combine(_dataRoot, file), file));
+        return prepared;
+    }
+
+    /// <summary>
+    ///     Prepares rows once under a set name, keeping the classifier contexts.
+    /// </summary>
+    /// <param name="set">The set name the prepared rows are cached under.</param>
+    /// <param name="rows">The labeled rows.</param>
+    /// <returns>The prepared rows in order.</returns>
+    /// <exception cref="InvalidDataException">A row is not a form of the inventory or its label is not a candidate of the form.</exception>
+    private IReadOnlyList<PreparedRow> PrepareRows(string set, IReadOnlyList<LabeledRow> rows)
+    {
+        if (_prepared.TryGetValue(set, out var cached))
+        {
+            return cached;
+        }
+
+        var prepared = rows
             .Select(row => RowPreparer.Prepare(row, _corpus.Inventory, PartOfSpeechAdapter.Shared, keepContext: true))
             .ToList();
         _prepared[set] = prepared;
@@ -421,11 +505,13 @@ internal sealed class HeteronymEvaluator
     /// <summary>
     ///     Reduces the per-row outcomes to the set evaluation.
     /// </summary>
-    /// <param name="set">The set name.</param>
     /// <param name="outcomes">The outcomes in file order.</param>
     /// <param name="parity">The parity counts.</param>
+    /// <param name="set">The set name.</param>
+    /// <param name="clusterOf">Names the cluster of a row.</param>
+    /// <param name="withAccuracyInterval">Whether to compute the interval of the accuracy itself.</param>
     /// <returns>The evaluation.</returns>
-    private SetEvaluation Summarize(string set, List<Outcome> outcomes, ParityCounts parity)
+    private SetEvaluation Summarize(List<Outcome> outcomes, ParityCounts parity, string set, Func<LabeledRow, string> clusterOf, bool withAccuracyInterval)
     {
         var bySource = new SortedDictionary<string, int[]>(StringComparer.Ordinal);
         var byReading = new SortedDictionary<string, int[]>(StringComparer.Ordinal);
@@ -459,7 +545,7 @@ internal sealed class HeteronymEvaluator
             byConfidence[bucket][0]++;
             byConfidence[bucket][1] += isCorrect ? 1 : 0;
 
-            var cluster = ClusterOf(row.Row, SetFiles.GetValueOrDefault(set, set));
+            var cluster = clusterOf(row.Row);
             if (!clusters.TryGetValue(cluster, out var stats))
             {
                 stats = new int[3];
@@ -472,7 +558,13 @@ internal sealed class HeteronymEvaluator
             stats[2] += baseline ? 1 : 0;
         }
 
-        var interval = Bootstrap(clusterOrder.Select(id => new ClusterStats(id, clusters[id][0], clusters[id][1], clusters[id][2])).ToList(), _settings);
+        var clusterStats = clusterOrder.Select(id => new ClusterStats(id, clusters[id][0], clusters[id][1], clusters[id][2])).ToList();
+        var interval = Bootstrap(clusterStats, _settings);
+
+        // The interval of the accuracy itself: the same resampling with the baseline counts taken as zero.
+        BootstrapInterval? accuracyInterval = withAccuracyInterval
+            ? Bootstrap(clusterStats.Select(static c => c with { BaselineCorrect = 0 }).ToList(), _settings)
+            : null;
         var reading = byReading.Select(static pair => new GroupTally(pair.Key, pair.Value[0], pair.Value[1], pair.Value[2]))
             .OrderBy(static tally => tally, Comparer<GroupTally>.Create(static (a, b) =>
             {
@@ -495,7 +587,8 @@ internal sealed class HeteronymEvaluator
             reading,
             ConfidenceBuckets.Select((name, index) => new GroupTally(name, byConfidence[index][0], byConfidence[index][1], 0)).ToList(),
             interval,
-            parity);
+            parity,
+            accuracyInterval);
     }
 
     /// <summary>

@@ -1,0 +1,79 @@
+---
+# Software Unit Requirements for ExternalSourceCache
+#
+# These requirements describe the design-level behavior of the ExternalSourceCache unit (and the pin records that
+# are documented with it), the part of the Text.En trainer that holds the pins of the external datasets, fetches a
+# pinned revision into a local cache, verifies every file against its pin and hands out only verified bytes,
+# decomposing the parent SpeechTextEn ExternalEvaluationSubsystem requirements. Each requirement states one
+# observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/ExternalSourceCacheTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        sections:
+          - title: ExternalSourceCache Requirements
+            requirements:
+              - id: SpeechTextEn-ExternalEvaluation-ExternalSourceCache-Pins
+                title: >-
+                  The ExternalSourceCache unit shall load the pins of the external sources from the
+                  committed pins file and its sibling per-file list, giving for each source its revision,
+                  its archive address, its license statement and every pinned file with its size and hash,
+                  and shall refuse pins that are not consistent, throwing InvalidDataException when the
+                  pins file is missing, when the two files disagree on the file count, the total size or
+                  the hash of the listing of a source, or when a revision is not a full hexadecimal
+                  commit, an archive address is not an HTTPS address of its revision, a path is not a safe
+                  relative path, or the rows are not unique and sorted.
+                justification: |
+                  Everything that the external evaluation reads is defined by the pins, so the committed
+                  pins are the one statement of which revision of which dataset is measured. They are in
+                  two files so that they are easy to review, and editing one file alone, or loosening a
+                  path so that it can leave the cache folder, must be found when the pins are loaded and
+                  not after something was fetched.
+                tests:
+                  - ExternalSourcePins_Load_CommittedConfig_IsConsistent
+                  - ExternalSourcePins_Load_EditedFilesTsv_FailsConsistencyCheck
+                  - ExternalSourcePins_Load_MalformedPins_Throws
+                  - ExternalSourcePins_Load_MissingFile_Throws
+
+              - id: SpeechTextEn-ExternalEvaluation-ExternalSourceCache-VerifiedFetch
+                title: >-
+                  The ExternalSourceCache unit shall, when it is allowed to fetch, publish a downloaded
+                  source into the cache only when every pinned file is present with its pinned size and
+                  hash, shall otherwise leave the cache exactly as it was, shall write only the pinned
+                  files and ignore every other entry of the archive, including an entry whose path would
+                  leave the cache folder, and shall refuse a file whose hash differs from its pin or an
+                  entry larger than its pinned size, throwing InvalidDataException that names the source
+                  and the file and not its content, when a download is verified, when a cache is verified
+                  and when a file is read.
+                justification: |
+                  A cache that holds half a download would be read as if it were complete, so a source is
+                  published whole or not at all. The hash is the only evidence that the data is the pinned
+                  data, and an archive is data from the network: writing only the paths that the pins name,
+                  with the pinned size as a limit, means a hostile or damaged archive can neither write
+                  outside the cache nor fill the disk.
+                tests:
+                  - ExternalSourceCache_EnsureCached_ValidArchive_ExtractsOnlyPinnedFiles
+                  - ExternalSourceCache_EnsureCached_MissingPinnedFile_Throws
+                  - ExternalSourceCache_EnsureCached_FetchFails_LeavesCacheUnchanged
+                  - ExternalSourceCache_EnsureCached_Sha256Mismatch_ThrowsAndLeavesNothingInCache
+                  - ExternalSourceCache_EnsureCached_OversizedEntry_Throws
+                  - ExternalSourceCache_ReadAllBytes_ModifiedFileOrUnpinnedPath_Throws
+
+              - id: SpeechTextEn-ExternalEvaluation-ExternalSourceCache-CacheReuse
+                title: >-
+                  The ExternalSourceCache unit shall not fetch when the cache of a source is already valid,
+                  shall replace a damaged cache by a verified download when it is allowed to fetch, and
+                  shall not fetch when it is not allowed to and the cache is missing or invalid, throwing
+                  InvalidDataException that says to run with the fetch option.
+                justification: |
+                  The network is used only when the owner asks for it. A valid cache makes the evaluation
+                  repeatable and offline, and a missing or damaged one must say what to do instead of
+                  failing in some other way or reaching out on its own.
+                tests:
+                  - ExternalSourceCache_EnsureCached_CacheAlreadyValid_DoesNotFetch
+                  - ExternalSourceCache_EnsureCached_DamagedCacheWithFetch_IsReplacedByVerifiedDownload
+                  - ExternalSourceCache_EnsureCached_NoCacheAndNoFetch_ThrowsWithoutFetching
+                  - ExternalSourceCache_EnsureCached_DamagedCacheAndNoFetch_ThrowsWithoutFetching

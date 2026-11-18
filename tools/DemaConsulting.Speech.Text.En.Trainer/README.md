@@ -4,12 +4,14 @@ Developer tool for the Text.En training data in `data/text-en/` and for the hete
 It is never packed or shipped. The `check-data` units use only the base class library; the `train` and `evaluate`
 units reference the Text.En library (its internals are visible to this tool) so a model is trained with the
 analyzer's own tokenization, part-of-speech tagging, feature extractor, scoring and model format, not a copy of them.
+The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache.
 
 Commands:
 
 - `check-data`: verify the data folder
 - `train`: train the heteronym model, or verify a committed one with `--check`
 - `evaluate`: measure a model on the development and holdout sets and decide the quality gate
+- `evaluate-external`: measure the embedded model on external, evaluation-only datasets fetched at evaluation time
 
 ## check-data
 
@@ -107,6 +109,62 @@ instead of guessing when a harvested row has no source document.
 Reading a holdout set is the one irreversible act of model development: a set that has guided a choice no longer
 measures anything. The tool says so when it reads one, and `RUN-LOG.md` counts the runs of the gate.
 
+## evaluate-external
+
+```text
+dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- evaluate-external [options]
+```
+
+Measures the embedded model on two external, evaluation-only datasets: Google's WikipediaHomographData (WHD; the `eval`
+split is the headline set `whd-eval`, the `train` split is `whd-train`) and the English read set of heteronym-bench
+(`bench`). The datasets are fetched on demand from commit-pinned archives into the git-ignored cache
+`data/text-en/external/`, each file verified against its SHA-256 pin; nothing of them is committed, embedded or used for
+training or for any choice, and no setting may ever be chosen from these numbers. Rows are converted at evaluation time
+(WHD byte offsets become character offsets, bench offset defects are repaired), mapped to our reading ids by the id-only
+files `data/text-en/whd-mapping.tsv` and `data/text-en/bench-mapping.tsv`, and evaluated with the same end-to-end
+evaluator as `evaluate`. Rows that cannot be used are skipped and reported by reason (`bad-offsets`, `duplicate-of-whd`,
+`reading-not-candidate`, `unknown-form`, `unmapped-label`); the 267 bench items copied from WHD are skipped as
+`duplicate-of-whd`. The report has, per set, accuracy with a clustered bootstrap interval, the always-default, majority
+and own-part-of-speech baselines, the improvement with its interval, accuracy by reading and by confidence, and, with
+`--seeds`, the model retrained with each of the five evaluation seeds. The console output and the record hold only
+counts, our own ids, set names and pins, never a sentence, target word or external label.
+
+Options:
+
+- `--fetch`: download the pinned archives that are missing or fail verification (HTTPS; published into the cache only
+  when every pinned file matches), then evaluate. Without it the network is never used and a missing or modified cache
+  stops the command with exit code `2`
+- `--set <name>`: `whd-eval`, `whd-train`, `bench` or `all` (repeatable; default `all`)
+- `--cache <dir>`: the cache folder (default `<data>/external`); it must be that folder or outside the repository
+- `--pins <file>`: the pins (default `external-sources.json` in this folder, with the sibling `external-files.tsv`)
+- `--data <dir>`, `--model-dir <dir>`, `--model <file>`: as for `evaluate`
+- `--seeds`: also retrain with each evaluation seed (implied by `--write` and `--check`)
+- `--write`, `--check`, `--record-dir <dir>`: write or verify the deterministic external evaluation record (default
+  folder `docs/evaluation/text-en/external`)
+
+Exit codes: `0` done or record current, `1` record stale, `2` usage, I/O, pin, hash or data error (no figures are
+printed).
+
+To reproduce the committed record: `evaluate-external --fetch --write` (network once, about a minute), then
+`evaluate-external --check`. The command is never run by `build.ps1`, `lint.ps1` or a workflow: it needs the network and
+third-party data, so it is a manual, local procedure; there is deliberately no `workflow_dispatch` workflow for it.
+
+### How the pins were made
+
+`external-sources.json` names each source (repository, commit, archive URL, license statement, file count, byte total
+and the SHA-256 of the listing of its files). `external-files.tsv` lists every pinned file as `source`, `path`,
+`sha256`, `bytes`, sorted by source and path in ordinal order. They were generated once with a throwaway script that
+downloaded the archive of each commit (`https://codeload.github.com/<repository>/tar.gz/<commit>`), took the pinned
+files (WHD: `LICENSE`, `data/eval/*.tsv`, `data/train/*.tsv`; heteronym-bench: `LICENSE`, `LICENSE-DATA` and the English
+read set file of the benchmark) and hashed them. The listing hash is the SHA-256 of the lines `path TAB sha256 LF` in
+ordinal path order. Changing a pin is a reviewed change: a different commit means a different evaluation.
+
+### License note
+
+WHD is Apache-2.0 code with Wikipedia text (CC BY-SA 3.0); the heteronym-bench data is CC BY-SA 4.0. Neither is
+committed, embedded or used to train. The record and the two mapping files contain no text of either dataset, only
+numbers, the pins and our own ids.
+
 ## Files
 
 - `training.json`: the committed training record of the shipped model: the settings, the hash of the inputs and of
@@ -116,6 +174,10 @@ measures anything. The tool says so when it reads one, and `RUN-LOG.md` counts t
 - `RUN-LOG.md`: the protocol, the development-set exploration, and every run of the gate with its numbers
 - `docs/evaluation/text-en/` (in the repository root): the committed evaluation record that `evaluate --write` writes
   and `evaluate --check` verifies, with the headline results and the limits of the evidence in its `README.md`
+- `external-sources.json`, `external-files.tsv`: the pins of the external evaluation datasets (see `evaluate-external`)
+- `docs/evaluation/text-en/external/` (in the repository root): the committed external evaluation record that
+  `evaluate-external --write` writes and `evaluate-external --check` verifies, with its results and caveats in its
+  `README.md`
 
 ## Licensing of the model
 

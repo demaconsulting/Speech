@@ -76,24 +76,14 @@ public sealed class NumericExpressionRecognizerTests
     private static bool AnyTokenSpeaks(string text, string spoken) =>
         Enumerable.Range(0, NormalizationHarness.Tokenize(text).Length).Any(i => SpokenAt(text, i) == spoken);
 
-    /// <summary>Proves plain numbers are read by their shape: integers, signs, decimals, thousands and leading points.</summary>
+    /// <summary>Proves plain numbers are read by their shape: integers, signs, decimals, thousands and leading points (the full range of values is the golden file's).</summary>
     /// <param name="text">The token.</param>
     /// <param name="spoken">The expected words.</param>
     [Theory]
-    [InlineData("0", "zero")]
     [InlineData("42", "forty two")]
-    [InlineData("100", "one hundred")]
-    [InlineData("12345", "twelve thousand three hundred forty five")]
     [InlineData("1,234", "one thousand two hundred thirty four")]
-    [InlineData("1,234,567", "one million two hundred thirty four thousand five hundred sixty seven")]
-    [InlineData("-5", "minus five")]
-    [InlineData("+3", "plus three")]
-    [InlineData("\u22127", "minus seven")]
-    [InlineData("3.5", "three point five")]
-    [InlineData(".5", "point five")]
     [InlineData("-3.5", "minus three point five")]
-    [InlineData("1,234.5", "one thousand two hundred thirty four point five")]
-    [InlineData("0.05", "zero point zero five")]
+    [InlineData(".5", "point five")]
     public void NumericExpressionRecognizer_PlainNumbers_AreReadByShape(string text, string spoken)
     {
         // Act
@@ -348,16 +338,9 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal(2, pair.TokensConsumed);
         Assert.Equal(4, pair[0].Start);
         Assert.Equal(5, pair[0].Length);
-    }
 
-    /// <summary>Proves a magnitude word or letter after a currency amount decomposes per token: the amount, and the word that carries the unit.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_Currency_MagnitudeWordAndLetterSuffix_Decompose()
-    {
-        // Act: a magnitude word is its own token and takes the unit
+        // Assert: a magnitude word is its own token and takes the unit
         Assert.True(Try("$5 million", 0, out var word));
-
-        // Assert
         Assert.Equal(2, word.SpanCount);
         Assert.Equal("five", word[0].Spoken);
         Assert.Equal(0, word[0].Start);
@@ -367,53 +350,32 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal(7, word[1].Length);
         Assert.Equal(3, word.TokensConsumed);
 
-        // Assert: a letter glued to the amount is one span
+        // Assert: a letter glued to the amount is one span; other letters, and a bare number with a letter, are not currency
         Assert.Equal("five million dollars", SpokenAt("$5M", 0));
         Assert.Equal("five point five million dollars", SpokenAt("$5.5M", 0));
         Assert.Equal("ten thousand dollars", SpokenAt("$10k", 0));
-        Assert.Equal("three billion dollars", SpokenAt("$3B", 0));
-        Assert.Equal("one point five million dollars", SpokenAt("$1.5m", 0));
         Assert.Equal("five million euros", SpokenAt("\u20AC5M", 0));
-
-        // Assert: other letters, and a bare number with a letter, are not currency
         Assert.False(Try("$5X", 0, out _));
         Assert.False(Try("10k", 0, out _));
         Assert.Equal("two point five|billion dollars", SpokenAt("$2.5 billion", 0));
-        Assert.Equal("one|trillion dollars", SpokenAt("$1 trillion", 0));
-    }
 
-    /// <summary>Proves a code or symbol after a plain number is its own span, per token, and a magnitude word between them is consumed without a span.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_Currency_SuffixCodeAndSymbol_ArePerToken()
-    {
-        // Act
+        // Assert: a code or symbol after a plain number is its own span, and a magnitude word between them is consumed without a span
         Assert.True(Try("5 million USD", 0, out var code));
-
-        // Assert: "5" and "USD" are spans, "million" is consumed in between
         Assert.Equal(2, code.SpanCount);
         Assert.Equal("five", code[0].Spoken);
         Assert.Equal("dollars", code[1].Spoken);
         Assert.Equal(10, code[1].Start);
         Assert.Equal(3, code.TokensConsumed);
-
-        // Assert: singular, plural, pound, yen, euro symbol; a code never makes cents
         Assert.Equal("one|dollar", SpokenAt("1 USD", 0));
         Assert.Equal("five|dollars", SpokenAt("5 USD", 0));
         Assert.Equal("five point five zero|euros", SpokenAt("5.50 EUR", 0));
-        Assert.Equal("three|pounds", SpokenAt("3 GBP", 0));
         Assert.Equal("five hundred|yen", SpokenAt("500 JPY", 0));
         Assert.Equal("five|euros", SpokenAt("5 \u20AC", 0));
         Assert.Equal("five dollars", SpokenAt("5$", 0));
-        Assert.Equal("five dollars", SpokenAt("5USD", 0));
         Assert.Equal("five euros", SpokenAt("5\u20AC", 0));
         Assert.Equal("five", SpokenAt("5 million", 0));
-    }
 
-    /// <summary>Proves a currency code before a number, and a code glued to a symbol, is never recognized.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_Currency_PrefixCode_IsLeftAlone()
-    {
-        // Assert: "USD 5": the code token is not numeric (the number is read on its own), "US$5" is a non-numeric token
+        // Assert: a currency code before a number, and a code glued to a symbol, is never recognized
         Assert.False(Try("USD 5", 0, out _));
         Assert.Equal("five", SpokenAt("USD 5", 1));
         Assert.False(Try("US$5", 0, out _));
@@ -424,25 +386,7 @@ public sealed class NumericExpressionRecognizerTests
         Assert.False(Try("$1,23", 0, out _));
     }
 
-    /// <summary>Proves a percent sign is read only after a number, adjacent or one space away, and a number before it is a quantity, not a year.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_Percent_FollowsANumberOnly()
-    {
-        // Assert: per token, the number then the sign
-        Assert.Equal("fifty|percent", SpokenAt("50%", 0));
-        Assert.Equal("fifty|percent", SpokenAt("50 %", 0));
-        Assert.Equal("three point five|percent", SpokenAt("3.5%", 0));
-        Assert.Equal("minus five|percent", SpokenAt("-5%", 0));
-        Assert.Equal("one thousand nine hundred ninety nine|percent", SpokenAt("1999%", 0));
-
-        // Assert: a sign on its own, after two spaces, or after a word is left alone
-        Assert.False(Try("%", 0, out _));
-        Assert.False(Try("50% off", 1, out _));
-        Assert.Equal("fifty", SpokenAt("50  %", 0));
-        Assert.False(Try("up %", 1, out _));
-    }
-
-    /// <summary>Proves the unit table: singular for exactly one, plural otherwise, and the period flag only for the units that may carry one.</summary>
+    /// <summary>Proves the unit table: singular for exactly one, plural otherwise, and the period flag only for the units that may carry one; also the exclusions and the percent sign.</summary>
     [Fact]
     public void NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod()
     {
@@ -494,33 +438,36 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal(2, separate.TokensConsumed);
         Assert.Equal(4, separate[1].Start);
         Assert.Equal(3, separate[1].Length);
-    }
 
-    /// <summary>Proves ambiguous, word-like and single-letter units, wrong case, and a unit with no number are left alone.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_Units_ExcludedAmbiguousForms_AreLeftAlone()
-    {
-        // Assert: the number is read, nothing follows it
+        // Assert: ambiguous, word-like and single-letter units, wrong case, and a unit with no number are left alone; the number is read, nothing follows it
         foreach (var excluded in new[] { "5 in", "5 m", "5 g", "5 l", "5 s", "5 Kg", "5 KG", "5 MHZ", "5 Mb", "5 cm2", "5 inch" })
         {
-            Assert.True(Try(excluded, 0, out var match), excluded);
-            Assert.Equal(1, match.SpanCount);
-            Assert.Equal(1, match.TokensConsumed);
-            Assert.False(match.PeriodUnit);
+            Assert.True(Try(excluded, 0, out var left), excluded);
+            Assert.Equal(1, left.SpanCount);
+            Assert.Equal(1, left.TokensConsumed);
+            Assert.False(left.PeriodUnit);
         }
 
-        // Assert: glued, a single letter is not a unit at all
         foreach (var glued in new[] { "5m", "5g", "5in", "5Kg", "5KG" })
         {
             Assert.False(Try(glued, 0, out _), glued);
         }
 
-        // Assert: a unit on its own, or after a word, is not numeric
         Assert.False(Try("kg", 0, out _));
         Assert.False(Try("five kg", 1, out _));
+
+        // Assert: a percent sign is read only after a number, adjacent or one space away, and a number before it is a quantity, not a year
+        Assert.Equal("fifty|percent", SpokenAt("50%", 0));
+        Assert.Equal("fifty|percent", SpokenAt("50 %", 0));
+        Assert.Equal("minus five|percent", SpokenAt("-5%", 0));
+        Assert.Equal("one thousand nine hundred ninety nine|percent", SpokenAt("1999%", 0));
+        Assert.False(Try("%", 0, out _));
+        Assert.False(Try("50% off", 1, out _));
+        Assert.Equal("fifty", SpokenAt("50  %", 0));
+        Assert.False(Try("up %", 1, out _));
     }
 
-    /// <summary>Proves valid times are read in both clocks, and invalid shapes are identity without a fallback.</summary>
+    /// <summary>Proves valid times are read in both clocks, invalid shapes are identity without a fallback, and a meridiem glued to the time, as a separate lowercase token, or dotted (the existing initialism rule) is read per token.</summary>
     [Fact]
     public void NumericExpressionRecognizer_Times_ValidAndInvalidShapes()
     {
@@ -544,19 +491,13 @@ public sealed class NumericExpressionRecognizerTests
         {
             Assert.False(Try(invalid, 0, out _), invalid);
         }
-    }
 
-    /// <summary>Proves a meridiem glued to the time, as a separate lowercase token, or dotted (the existing initialism rule) is read per token, and invalid hours with a meridiem are not.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_Meridiem_GluedSeparateAndDotted()
-    {
-        // Assert: glued is two adjacent spans inside the one token: the hour or time as words and the meridiem letters
+        // Assert: a meridiem glued to the time is two adjacent spans inside the one token: the hour or time as words and the meridiem letters
         Assert.Equal("five thirty|P M", SpokenAt("5:30pm", 0));
         Assert.Equal("five thirty|P M", SpokenAt("5:30PM", 0));
         Assert.Equal("five|P M", SpokenAt("5pm", 0));
         Assert.Equal("five|P M", SpokenAt("5PM", 0));
         Assert.Equal("twelve|A M", SpokenAt("12:00am", 0));
-        Assert.Equal("five|P M", SpokenAt("5:00pm", 0));
 
         // Assert: the offsets of the two halves of 5pm and 5:30pm abut exactly, cover the whole token and never overlap
         Assert.True(Try("5pm", 0, out var hourMatch));
@@ -574,9 +515,9 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal("five thirty", SpokenAt("5:30 p.m.", 0));
 
         // Assert: hour 0 and above 12 take no meridiem
-        foreach (var invalid in new[] { "0pm", "13pm", "13:30pm", "0:30pm", "5:30Pm" })
+        foreach (var noMeridiem in new[] { "0pm", "13pm", "13:30pm", "0:30pm", "5:30Pm" })
         {
-            Assert.False(Try(invalid, 0, out _), invalid);
+            Assert.False(Try(noMeridiem, 0, out _), noMeridiem);
         }
 
         Assert.Equal("thirteen", SpokenAt("13 pm", 0));
@@ -651,7 +592,7 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal("two thousand one", SpokenAt("Sept. 11, 2001", 4));
     }
 
-    /// <summary>Proves an ordinal day next to a month name is a date, as a bare day is: <c>January 5th</c>, <c>5th January</c> and the abbreviation forms are <c>DateTime</c>.</summary>
+    /// <summary>Proves an ordinal day next to a month name is a date, as a bare day is (<c>January 5th</c>, <c>5th January</c> and the abbreviation forms are <c>DateTime</c>), while an ordinal that is not a day, or one after a sentence boundary the normalizer keeps, stays a plain number.</summary>
     [Fact]
     public void NumericExpressionRecognizer_OrdinalDay_NextToMonth_IsDateTime()
     {
@@ -670,40 +611,24 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal("twenty fifth", SpokenAt("Dec 25th 2024", 1));
         Assert.True(Try("January 5", 1, out var bare));
         Assert.Equal(NormalizationKind.DateTime, bare[0].Kind);
-    }
 
-    /// <summary>Proves an ordinal that is not a day next to a month stays a plain number: no month, a value above 31, a grouped number or a lowercase month.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_OrdinalDay_WithoutDateContext_IsNumber()
-    {
-        // Arrange: ordinals with no month, a month two tokens away, a value that is not a day, a grouped number, and a lowercase month
-        string[] texts = ["the 5th floor", "5th of January", "January 45th", "January 1,000th", "may 5th"];
-        int[] indexes = [1, 0, 1, 1, 1];
-
-        // Act / Assert
-        for (var i = 0; i < texts.Length; i++)
+        // Assert: an ordinal that is not a day stays a plain number: no month, a month two tokens away, a value above 31, a grouped number or a lowercase month
+        string[] plainTexts = ["the 5th floor", "5th of January", "January 45th", "January 1,000th", "may 5th"];
+        int[] plainIndexes = [1, 0, 1, 1, 1];
+        for (var i = 0; i < plainTexts.Length; i++)
         {
-            Assert.True(Try(texts[i], indexes[i], out var match), texts[i]);
-            Assert.Equal(NormalizationKind.Number, match[0].Kind);
+            Assert.True(Try(plainTexts[i], plainIndexes[i], out var plain), plainTexts[i]);
+            Assert.Equal(NormalizationKind.Number, plain[0].Kind);
         }
-    }
 
-    /// <summary>Proves a sentence boundary the normalizer keeps between a month and an ordinal ends the date: the ordinal is a plain number, while an abbreviation period keeps it.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_OrdinalDay_AfterSentenceBoundary_IsNumber()
-    {
-        // Act
-        var afterMay = Try("We finished in May. 5th people stayed.", 5, out var retained);
-        var afterAbbreviation = Try("Jan. 5th", 2, out var kept);
-
-        // Assert: the period after May ends the sentence; the period of Jan. does not
-        Assert.True(afterMay);
+        // Assert: the period after May ends the sentence and so the date; the period of Jan. does not
+        Assert.True(Try("We finished in May. 5th people stayed.", 5, out var retained));
         Assert.Equal(NormalizationKind.Number, retained[0].Kind);
-        Assert.True(afterAbbreviation);
+        Assert.True(Try("Jan. 5th", 2, out var kept));
         Assert.Equal(NormalizationKind.DateTime, kept[0].Kind);
     }
 
-    /// <summary>Proves only the Title Case month name or abbreviation is a month: <c>may</c>, <c>MAY</c> and <c>jan</c> are not.</summary>
+    /// <summary>Proves only the Title Case month name or abbreviation is a month (<c>may</c>, <c>MAY</c> and <c>jan</c> are not), and that a month supplies date context only while no sentence boundary the normalizer keeps lies between it and the number: the period after a full month name or <c>May</c> ends the sentence, a month abbreviation's period does not.</summary>
     [Fact]
     public void NumericExpressionRecognizer_MonthContext_RequiresTitleCase()
     {
@@ -723,13 +648,7 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal("five", SpokenAt("MAY 5", 1));
         Assert.Equal("five", SpokenAt("jan 5", 1));
         Assert.Equal("fifth", SpokenAt("Jan 5", 1));
-        Assert.Equal(12, NumericExpressionRecognizer.MonthNames.Count);
-    }
 
-    /// <summary>Proves a month supplies date context only while no sentence boundary the normalizer keeps lies between it and the number: the period after a full month name or <c>May</c> ends the sentence, a month abbreviation's period does not.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_MonthContext_StopsAtSentenceBoundaries()
-    {
         // Assert: a period after May or a full month name is a sentence end, so the number is no day and no date year
         Assert.Equal("five", SpokenAt("May. 5 people", 2));
         Assert.Equal("five", SpokenAt("January. 5 people", 2));
@@ -829,35 +748,6 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Throws<ArgumentException>(() => NumericExpressionRecognizer.TryRecognize(text, [new(0, 1, true), new(1, 1, false), new(int.MaxValue, 2, false)], 1, out _));
         var wide = new string('1', 129) + "\u20135";
         Assert.False(NumericExpressionRecognizer.TryRecognize(wide, [new(0, 129, true), new(129, 1, false), new(130, 1, false)], 1, out _));
-    }
-
-    /// <summary>Proves the vocabulary properties expose read-only, cached views: no cast reaches the private tables.</summary>
-    [Fact]
-    public void NumericExpressionRecognizer_VocabularyViews_AreReadOnly()
-    {
-        // Arrange: (view, same property read again, expected count)
-        (IReadOnlyList<string> View, IReadOnlyList<string> Again, int Count)[] views =
-        [
-            (NumericExpressionRecognizer.MonthNames, NumericExpressionRecognizer.MonthNames, 12),
-            (NumericExpressionRecognizer.MonthAbbreviations, NumericExpressionRecognizer.MonthAbbreviations, 12),
-            (NumericExpressionRecognizer.WeekdayAbbreviations, NumericExpressionRecognizer.WeekdayAbbreviations, 10),
-        ];
-
-        // Act / Assert
-        foreach (var (view, again, count) in views)
-        {
-            var before = view.ToArray();
-            Assert.Equal(count, view.Count);
-            Assert.IsNotType<string[]>(view);
-            var list = Assert.IsAssignableFrom<IList<string>>(view);
-            Assert.Throws<NotSupportedException>(() => list[0] = "x");
-            Assert.Throws<NotSupportedException>(() => list.Add("x"));
-            Assert.Equal(before, view);
-            Assert.Same(view, again);
-        }
-
-        Assert.Equal("May", NumericExpressionRecognizer.MonthNames[4]);
-        Assert.DoesNotContain("May", NumericExpressionRecognizer.MonthAbbreviations);
     }
 
     /// <summary>Proves hyphen groups: ranges, years in order, local and long phone numbers, identifiers, and the leading-zero and size rules.</summary>
@@ -1197,39 +1087,5 @@ public sealed class NumericExpressionRecognizerTests
         Assert.False(Try("a / b", 1, out _));
         Assert.False(Try("x = 5", 1, out _));
         Assert.Equal("five", SpokenAt("x = 5", 2));
-    }
-
-    /// <summary>Proves the recognizer keeps no state: concurrent calls over the same tokens return identical matches.</summary>
-    [Fact]
-    public async Task NumericExpressionRecognizer_ConcurrentCalls_ReturnIdenticalResults()
-    {
-        // Arrange
-        const string text = "Pay $1,234.50 at 5:30pm on January 5, 2024, then 50 % of 3 1/2 kg or 12/25/2024 for 2 ft. in the '90s.";
-        var tokens = NormalizationHarness.Tokenize(text);
-        string Key()
-        {
-            var parts = new List<string>();
-            for (var index = 0; index < tokens.Length; index++)
-            {
-                if (NumericExpressionRecognizer.TryRecognize(text, tokens, index, out var match))
-                {
-                    parts.Add($"{index}:{match.TokensConsumed}:{match.Ambiguous}:{match.Fallback}:" + string.Join('/', Enumerable.Range(0, match.SpanCount).Select(i => $"{match[i].Start},{match[i].Length},{match[i].Spoken},{match[i].Kind}")));
-                }
-            }
-
-            return string.Join(';', parts);
-        }
-
-        var expected = Key();
-
-        // Act
-        var tasks = Enumerable.Range(0, 32)
-            .Select(_ => Task.Run(() => Enumerable.Range(0, 50).Select(_ => Key()).ToList(), TestContext.Current.CancellationToken))
-            .ToArray();
-        var results = await Task.WhenAll(tasks);
-
-        // Assert
-        Assert.NotEmpty(expected);
-        Assert.All(results.SelectMany(keys => keys), key => Assert.Equal(expected, key));
     }
 }

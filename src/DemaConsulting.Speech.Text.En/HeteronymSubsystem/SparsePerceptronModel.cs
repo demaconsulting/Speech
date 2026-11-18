@@ -35,9 +35,6 @@ internal sealed class SparsePerceptronModel
     /// <summary>The non-zero weights in bucket order.</summary>
     private readonly short[] _weights;
 
-    /// <summary>The informational data-manifest hash.</summary>
-    private readonly byte[] _manifest;
-
     /// <summary>
     ///     Initializes a new instance from decoded, validated parts.
     /// </summary>
@@ -54,7 +51,6 @@ internal sealed class SparsePerceptronModel
         FeatureSetVersion = header.FeatureSetVersion;
         TrainerVersion = header.TrainerVersion;
         RowCount = header.RowCount;
-        _manifest = header.DataManifestSha256;
         _occupancy = occupancy;
         _rankBase = rankBase;
         _weights = weights;
@@ -83,12 +79,6 @@ internal sealed class SparsePerceptronModel
 
     /// <summary>Gets the bucket mask, <c>2^HashBits - 1</c>.</summary>
     internal uint Mask => (uint)((1L << HashBits) - 1);
-
-    /// <summary>
-    ///     Gets a copy of the informational SHA-256 of the training data manifest recorded in the file.
-    /// </summary>
-    /// <returns>A new 32-byte array; all zero when the trainer recorded none.</returns>
-    internal byte[] GetDataManifestSha256() => (byte[])_manifest.Clone();
 
     /// <summary>
     ///     Loads a model from a stream.

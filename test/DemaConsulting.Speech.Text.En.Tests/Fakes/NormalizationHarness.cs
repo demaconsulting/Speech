@@ -31,6 +31,15 @@ internal sealed record NormalizationCase(string Id, string Input, string Spoken,
 internal sealed record OverrideCase(string Id, string Input, string Spoken, IReadOnlyList<string> Pronunciations, IReadOnlyList<string> Spelled, int Applied, int Ignored);
 
 /// <summary>
+///     One piece of the full partition of a text into changed spans and untouched gaps.
+/// </summary>
+/// <param name="Start">The UTF-16 offset of the piece.</param>
+/// <param name="Length">The piece's length in UTF-16 code units.</param>
+/// <param name="Spoken">The spoken text of a changed span, or the source characters of an untouched gap.</param>
+/// <param name="Kind">The kind of a changed span, or <see langword="null"/> for an untouched gap.</param>
+internal readonly record struct AlignedSegment(int Start, int Length, string Spoken, NormalizationKind? Kind);
+
+/// <summary>
 ///     Test helper that feeds the normalizer with the tokens the real tokenizer produces (no
 ///     tagger is involved), applies annotations independently of the production
 ///     <c>AlignedText</c> code, and reads the golden file.
@@ -178,6 +187,116 @@ internal static class NormalizationHarness
     }
 
     /// <summary>
+    ///     Enumerates the full partition of a normalization: every changed span and every
+    ///     untouched gap between them, in order, contiguous and covering the whole text.
+    /// </summary>
+    /// <param name="aligned">The normalization result.</param>
+    /// <returns>The segments; empty for an empty text.</returns>
+    public static IEnumerable<AlignedSegment> Segments(this AlignedText aligned)
+    {
+        var position = 0;
+        foreach (var span in aligned.Spans)
+        {
+            if (span.Start > position)
+            {
+                yield return new AlignedSegment(position, span.Start - position, aligned.Source.Substring(position, span.Start - position), null);
+            }
+
+            yield return new AlignedSegment(span.Start, span.Length, span.Spoken, span.Kind);
+            position = span.End;
+        }
+
+        if (position < aligned.Source.Length)
+        {
+            yield return new AlignedSegment(position, aligned.Source.Length - position, aligned.Source[position..], null);
+        }
+    }
+
+    /// <summary>
+    ///     Applies every span of a normalization: the text a backend would speak.
+    /// </summary>
+    /// <param name="aligned">The normalization result.</param>
+    /// <returns>The source with each span replaced by its spoken text.</returns>
+    public static string ApplySpokenForms(this AlignedText aligned)
+    {
+        var builder = new StringBuilder(aligned.Source.Length + 16);
+        var position = 0;
+        foreach (var span in aligned.Spans)
+        {
+            builder.Append(aligned.Source, position, span.Start - position);
+            builder.Append(span.Spoken);
+            position = span.End;
+        }
+
+        builder.Append(aligned.Source, position, aligned.Source.Length - position);
+        return builder.ToString();
+    }
+
+    /// <summary>
+    ///     Speaks a year-style number through the production writer API.
+    /// </summary>
+    /// <param name="digits">Exactly four ASCII digits.</param>
+    /// <returns>The words.</returns>
+    public static string Year(ReadOnlySpan<char> digits)
+    {
+        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        NumberVerbalizer.AppendYear(ref writer, digits);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    ///     Speaks a decimal number through the production writer API.
+    /// </summary>
+    /// <param name="integerDigits">The digits before the point; may be empty.</param>
+    /// <param name="fractionDigits">The digits after the point.</param>
+    /// <returns>The words.</returns>
+    public static string Decimal(ReadOnlySpan<char> integerDigits, ReadOnlySpan<char> fractionDigits)
+    {
+        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        NumberVerbalizer.AppendDecimal(ref writer, integerDigits, fractionDigits);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    ///     Speaks a clock time through the production writer API.
+    /// </summary>
+    /// <param name="hour">One or two ASCII digits.</param>
+    /// <param name="minute">Exactly two ASCII digits.</param>
+    /// <param name="omitZeroMinute">Whether minute 00 is left out.</param>
+    /// <returns>The words.</returns>
+    public static string Clock(ReadOnlySpan<char> hour, ReadOnlySpan<char> minute, bool omitZeroMinute)
+    {
+        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        NumberVerbalizer.AppendClock(ref writer, hour, minute, omitZeroMinute);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    ///     Speaks a calendar date through the production writer API.
+    /// </summary>
+    /// <param name="month">The month, 1 to 12.</param>
+    /// <param name="day">The day, 1 to 31.</param>
+    /// <param name="yearDigits">Two or four ASCII digits.</param>
+    /// <returns>The words.</returns>
+    public static string Date(int month, int day, ReadOnlySpan<char> yearDigits)
+    {
+        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        NumberVerbalizer.AppendDate(ref writer, month, day, yearDigits);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    ///     Loads the sample override dictionary file (<c>TestData/overrides-dictionary.tsv</c>) next
+    ///     to the test assembly.
+    /// </summary>
+    /// <returns>The parsed dictionary.</returns>
+    public static DemaConsulting.Speech.Text.En.AnalysisSubsystem.PronunciationOverrides LoadSampleDictionary()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv");
+        return DemaConsulting.Speech.Text.En.AnalysisSubsystem.PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(path)));
+    }
+
+    /// <summary>
     ///     Reads the golden file next to the test assembly.
     /// </summary>
     /// <param name="fileName">The file name inside the <c>TestData</c> folder.</param>
@@ -288,7 +407,7 @@ internal static class NormalizationHarness
     /// <param name="cell">The cell text.</param>
     /// <returns>The decoded text.</returns>
     /// <exception cref="InvalidDataException">The cell holds an unknown or truncated escape.</exception>
-    public static string Unescape(string cell)
+    private static string Unescape(string cell)
     {
         var builder = new StringBuilder(cell.Length);
         var i = 0;

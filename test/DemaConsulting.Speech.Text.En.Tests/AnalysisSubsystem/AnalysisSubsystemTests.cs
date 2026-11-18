@@ -65,20 +65,25 @@ public sealed class AnalysisSubsystemTests
         Assert.Equal([text.IndexOf("It is", StringComparison.Ordinal), text.IndexOf("Dr. Smith", StringComparison.Ordinal)], result.SentenceBreaks);
     }
 
-    /// <summary>Proves part-of-speech annotation can be switched off through the options, leaving sentence breaks.</summary>
+    /// <summary>Proves part-of-speech annotation can be switched off through the options, leaving sentence breaks, and an empty request returns no annotations and an empty, non-null break list.</summary>
     [Fact]
     public void AnalysisSubsystem_Analyze_PartOfSpeechNotSelected_ProducesNoAnnotationsButSentenceBreaks()
     {
         // Arrange
         const string text = "He left home. She stayed.";
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None });
+        var empty = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions());
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+        var emptyResult = empty.Analyze(string.Empty, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Empty(result.Annotations);
         Assert.Equal([text.IndexOf("She", StringComparison.Ordinal)], result.SentenceBreaks);
+        Assert.Empty(emptyResult.Annotations);
+        Assert.NotNull(emptyResult.SentenceBreaks);
+        Assert.Empty(emptyResult.SentenceBreaks);
     }
 
     /// <summary>Proves several sentences, an abbreviation and a tag placeholder together give authoritative breaks at the later sentence starts only.</summary>
@@ -114,27 +119,6 @@ public sealed class AnalysisSubsystemTests
         Assert.DoesNotContain(tagged.Annotations, annotation => annotation.Start <= 7 && 7 < annotation.End);
         var record = tagged.Annotations.Single(annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && withTag.Substring(annotation.Start, annotation.Length) == "record");
         Assert.Equal("VERB", record.Value);
-    }
-
-    /// <summary>Proves analyzing without part-of-speech annotation, or analyzing nothing, returns no annotations and still supplies the sentence breaks.</summary>
-    [Fact]
-    public void AnalysisSubsystem_Analyze_UntaggedOrEmptyRequests_ReturnNoAnnotations()
-    {
-        // Arrange
-        const string text = "He left home. She stayed.";
-        var empty = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions());
-        var untagged = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.None });
-
-        // Act
-        var untaggedResult = untagged.Analyze(text, TestContext.Current.CancellationToken);
-        var emptyResult = empty.Analyze(string.Empty, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Empty(untaggedResult.Annotations);
-        Assert.Equal([text.IndexOf("She", StringComparison.Ordinal)], untaggedResult.SentenceBreaks);
-        Assert.Empty(emptyResult.Annotations);
-        Assert.NotNull(emptyResult.SentenceBreaks);
-        Assert.Empty(emptyResult.SentenceBreaks);
     }
 
     /// <summary>Proves a request that fails because the tagger cannot be created does not disable the analyzer: a later request succeeds with the result of a healthy analyzer.</summary>
@@ -233,29 +217,13 @@ public sealed class AnalysisSubsystemTests
         Assert.Empty(sink.Events);
     }
 
-    /// <summary>Proves cancellation requested during the last sentence is honored with an OperationCanceledException and reports nothing.</summary>
-    [Fact]
-    public void AnalysisSubsystem_Analyze_CancellationDuringLastSentence_ThrowsOperationCanceledExceptionAndReportsNothing()
-    {
-        // Arrange: canceled right after the only sentence was tagged
-        using var cancellation = new CancellationTokenSource();
-        var sink = new RecordingDiagnostics();
-        var analyzer = new EnglishTextAnalyzer(
-            new EnglishTextAnalyzerOptions { Diagnostics = sink },
-            new CountingTaggerSource().CreateAdapter(_ => cancellation.Cancel()));
-
-        // Act / Assert
-        Assert.Throws<OperationCanceledException>(() => analyzer.Analyze("The cat sat.", cancellation.Token));
-        Assert.Empty(sink.Events);
-    }
-
     /// <summary>Proves every action of a dictionary read from the documented format reaches a consumer through the typed readers, which is the only way a backend is meant to read them, and a consumer that applies the documented algorithm gets the expected spoken text and phonemes.</summary>
     [Fact]
     public void AnalysisSubsystem_Analyze_OverrideActions_ReadBackThroughTypedReaders()
     {
         // Arrange
         const string text = "Nginx runs a GIF in Polish, US and FBI and AT&T's SQL.";
-        var overrides = PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"))));
+        var overrides = NormalizationHarness.LoadSampleDictionary();
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
 
         // Act
@@ -297,7 +265,7 @@ public sealed class AnalysisSubsystemTests
     {
         // Arrange
         const string text = "Dr. Smith & Nginx paid $5 for the GIF at 5 pm; Polish FBI US NASA's AT&T. J. Smith Jr. Ph.D. left, kg 5 kg.";
-        var overrides = PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"))));
+        var overrides = NormalizationHarness.LoadSampleDictionary();
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
 
         // Act

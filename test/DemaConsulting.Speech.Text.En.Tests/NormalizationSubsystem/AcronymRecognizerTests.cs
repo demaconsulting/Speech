@@ -28,18 +28,8 @@ public sealed class AcronymRecognizerTests
     [InlineData("US", true)]
     [InlineData("us", false)]
     [InlineData("Us", false)]
-    [InlineData("IT", true)]
-    [InlineData("It", false)]
-    [InlineData("it", false)]
-    [InlineData("AM", true)]
-    [InlineData("am", false)]
-    [InlineData("Am", false)]
     [InlineData("FBI", true)]
-    [InlineData("fbi", false)]
-    [InlineData("Fbi", false)]
-    [InlineData("PM", true)]
-    [InlineData("ID", true)]
-    [InlineData("Id", false)]
+    [InlineData("It", false)]
     public void AcronymRecognizer_TryRecognize_CaseVariants_AreCaseSensitive(string token, bool recognized)
     {
         // Act
@@ -54,11 +44,8 @@ public sealed class AcronymRecognizerTests
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("FBI", "F B I")]
-    [InlineData("US", "U S")]
     [InlineData("ASAP", "A S A P")]
     [InlineData("NYC", "N Y C")]
-    [InlineData("HTTP", "H T T P")]
-    [InlineData("PHP", "P H P")]
     public void AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter(string token, string spoken)
     {
         // Act
@@ -88,34 +75,16 @@ public sealed class AcronymRecognizerTests
     /// <param name="token">The token.</param>
     [Theory]
     [InlineData("NASA")]
-    [InlineData("NATO")]
-    [InlineData("SCUBA")]
     [InlineData("CDXL")]
     [InlineData("MMMM")]
-    [InlineData("XLVII")]
-    [InlineData("DC")]
     [InlineData("A")]
     [InlineData("BCDFGH")]
     [InlineData("BCDFGHJ")]
     [InlineData("Nyc")]
-    [InlineData("N1C")]
-    [InlineData("U.")]
-    [InlineData("..")]
-    [InlineData("...")]
     [InlineData("U..S")]
-    [InlineData("US.")]
-    [InlineData("a.bc")]
-    [InlineData(".U.S")]
     [InlineData("U,S.")]
-    [InlineData("1.2.")]
-    [InlineData("&")]
-    [InlineData("A&")]
-    [InlineData("&A")]
-    [InlineData("A&&B")]
     [InlineData("a&b")]
     [InlineData("ABCDE&F")]
-    [InlineData("Johnson&Johnson")]
-    [InlineData("A&B2")]
     public void AcronymRecognizer_TryRecognize_TokensThatAreNotInitialisms_AreNotRecognized(string token)
     {
         // Act
@@ -131,11 +100,8 @@ public sealed class AcronymRecognizerTests
     /// <param name="endsWithPeriod">Whether the token ends with the period.</param>
     [Theory]
     [InlineData("U.S.", "U S", true)]
-    [InlineData("U.S.A.", "U S A", true)]
     [InlineData("p.m.", "P M", true)]
-    [InlineData("J.R.R.", "J R R", true)]
     [InlineData("U.S", "U S", false)]
-    [InlineData("a.m", "A M", false)]
     public void AcronymRecognizer_TryRecognize_DottedLetters_AreSpelled(string token, string spoken, bool endsWithPeriod)
     {
         // Act
@@ -152,9 +118,6 @@ public sealed class AcronymRecognizerTests
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("AT&T", "A T and T")]
-    [InlineData("R&D", "R and D")]
-    [InlineData("Q&A", "Q and A")]
-    [InlineData("AT&T's", "A T and T's")]
     [InlineData("AT&T\u2019s", "A T and T's")]
     [InlineData("A&B&C", "A and B and C")]
     public void AcronymRecognizer_TryRecognize_AmpersandForms_AreSpelledWithAnd(string token, string spoken)

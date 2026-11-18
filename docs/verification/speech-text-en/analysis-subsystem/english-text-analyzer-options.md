@@ -3,9 +3,8 @@
 #### Verification Approach
 
 `EnglishTextAnalyzerOptions` and `TextEnAnnotationSelection` are verified by automated unit tests in
-`test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs`. The only
-collaborators are a recording diagnostics sink, used as an opaque value, and a small real `PronunciationOverrides`
-dictionary, used as an opaque reference; the analyzer's use of the selection and the threshold is verified in the
+`test/DemaConsulting.Speech.Text.En.Tests/AnalysisSubsystem/EnglishTextAnalyzerOptionsTests.cs`. The unit has no
+collaborators the tests must control; the analyzer's use of the selection and the threshold is verified in the
 `EnglishTextAnalyzer` unit tests.
 
 #### Test Environment
@@ -17,57 +16,32 @@ dictionary, used as an opaque reference; the analyzer's use of the selection and
 
 #### Acceptance Criteria
 
-The defaults select part-of-speech, normalization and reading annotations with no sink and a low-confidence threshold of
-0.60; initialization sets both values and a with-expression copies without changing the original; every combination of
-the defined flags (none, each of the three families alone, and every combination of them) is accepted; an undefined flag
-throws `ArgumentOutOfRangeException` at initialization and in a with-expression (including the value 8, which is the
-first undefined bit now that 4 is the `Reading` flag, combined with a defined flag); and the selection enumeration is a
-flags enumeration with `None` equal to zero, `PartOfSpeech` equal to one, `Normalization` equal to two and `Reading`
-equal to four. The threshold accepts every finite value from 0 to 1, keeps it through a with-expression and re-validates
-it there, and rejects a negative value, a value above 1, a NaN and both infinities at initialization and in a
-with-expression. The pronunciation dictionary defaults to null, can be set at
-initialization, is kept by reference through a with-expression of another property and can be replaced without
-changing the original.
+- **Annotation selection**: the defaults select part-of-speech, normalization and reading annotations with no
+  diagnostics sink; the extreme combinations of the defined flags (none, and a pair of families) are accepted; a
+  selection with an undefined flag throws `ArgumentOutOfRangeException` at initialization and in a with-expression
+- **Settings**: the defaults carry no dictionary and a low-confidence threshold of 0.60; the threshold accepts the
+  boundary values 0 and 1 and keeps them in a copy; a negative value, a value above 1 and NaN are rejected at
+  initialization and in a with-expression
 
 #### Test Scenarios
 
-##### Defaults
+##### Annotation selection
 
-**Test**: `EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink`
+**Tests**: `EnglishTextAnalyzerOptions_Defaults_SelectAllFamiliesAndNoSink`,
+`EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted`,
+`EnglishTextAnalyzerOptions_Annotations_UndefinedFlag_ThrowsArgumentOutOfRangeException`
 
-##### Initialization and copying
+The default options select the three families, have no sink and no dictionary and a threshold of 0.60. The theory
+accepts `None` and the pair of normalization and reading. The value `0x80`, and `8` combined with a defined flag (8 is
+the
+first undefined bit now that 4 is the `Reading` flag), throw in an object initializer and in a with-expression.
 
-**Test**: `EnglishTextAnalyzerOptions_Initialization_SetsValuesAndWithExpressionCopies`
+##### Settings
 
-##### Defined flag combinations
+**Tests**: `EnglishTextAnalyzerOptions_LowConfidenceThreshold_ValuesFromZeroToOne_AreAcceptedAndCopied`,
+`EnglishTextAnalyzerOptions_LowConfidenceThreshold_OutOfRange_ThrowsArgumentOutOfRangeException`
 
-**Test**: `EnglishTextAnalyzerOptions_Annotations_DefinedFlagCombinations_AreAccepted` (a theory over `None`, each of
-the three families alone, the three pairs and all three)
-
-##### Undefined flag
-
-**Test**: `EnglishTextAnalyzerOptions_Annotations_UndefinedFlag_ThrowsArgumentOutOfRangeException`
-
-##### Enumeration shape
-
-**Test**: `TextEnAnnotationSelection_Members_AreFlagsWithNoneZero`
-
-##### Low-confidence threshold
-
-**Tests**: `EnglishTextAnalyzerOptions_LowConfidenceThreshold_ValuesFromZeroToOne_AreAcceptedAndCopied` (a theory over
-0, 0.6, 0.999 and 1),
-`EnglishTextAnalyzerOptions_LowConfidenceThreshold_OutOfRange_ThrowsArgumentOutOfRangeException` (a theory over -0.001,
-1.001, NaN and both infinities)
-
-An accepted value is returned unchanged and is kept by a with-expression that changes another property; a rejected value
-throws in an object initializer and in a with-expression.
-
-##### Pronunciation dictionary
-
-**Test**: `EnglishTextAnalyzerOptions_Overrides_DefaultsToNullAndCopiesWithWith`
-
-The default options hold no dictionary. Options built with a dictionary return the same instance, a with-expression
-that changes the annotation selection returns the same dictionary instance, and a with-expression that sets the
-dictionary to null gives null while the original keeps its dictionary. The dictionary is validated when it is
-built, not here, and the combination with the selection is validated by the analyzer constructor (see the
-`EnglishTextAnalyzer` verification).
+The values 0 and 1 are returned unchanged and kept by a with-expression that changes another property; -0.001, 1.001 and
+NaN throw in an object initializer and in a with-expression. The dictionary is validated when it is built, not here, and
+its combination with the selection is validated by the analyzer constructor (see the `EnglishTextAnalyzer`
+verification).

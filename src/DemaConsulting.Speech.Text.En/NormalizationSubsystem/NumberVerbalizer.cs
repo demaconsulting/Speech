@@ -217,20 +217,6 @@ internal static class NumberVerbalizer
     }
 
     /// <summary>
-    ///     Returns the year-style words of a four-digit number: <c>nineteen ninety nine</c>,
-    ///     <c>twenty twenty four</c>; the plain cardinal for a value outside 1000 to 2099.
-    /// </summary>
-    /// <param name="digits">Exactly four ASCII digits.</param>
-    /// <returns>The words.</returns>
-    /// <exception cref="ArgumentException"><paramref name="digits"/> is not exactly four ASCII digits.</exception>
-    internal static string Year(ReadOnlySpan<char> digits)
-    {
-        var writer = new SpokenWriter(stackalloc char[MaxSpokenLength]);
-        AppendYear(ref writer, digits);
-        return writer.ToString();
-    }
-
-    /// <summary>
     ///     Returns the words of a decade written as digits, without its <c>s</c>.
     /// </summary>
     /// <param name="digits">Two digits (<c>90</c>) or four digits (<c>1990</c>) ending in zero.</param>
@@ -257,20 +243,6 @@ internal static class NumberVerbalizer
     }
 
     /// <summary>
-    ///     Returns the words of a decimal number.
-    /// </summary>
-    /// <param name="integerDigits">The digits before the point; may be empty (<c>.5</c>).</param>
-    /// <param name="fractionDigits">The digits after the point; at most <see cref="MaxFractionDigits"/>.</param>
-    /// <returns>For example <c>three point five</c> or <c>point five</c>.</returns>
-    /// <exception cref="ArgumentException">A part holds a non-ASCII-digit, the fraction is empty or too long, or the integer part exceeds its limits.</exception>
-    internal static string Decimal(ReadOnlySpan<char> integerDigits, ReadOnlySpan<char> fractionDigits)
-    {
-        var writer = new SpokenWriter(stackalloc char[MaxSpokenLength]);
-        AppendDecimal(ref writer, integerDigits, fractionDigits);
-        return writer.ToString();
-    }
-
-    /// <summary>
     ///     Returns the words of a simple fraction.
     /// </summary>
     /// <param name="numerator">The numerator, at least 1.</param>
@@ -281,37 +253,6 @@ internal static class NumberVerbalizer
     {
         var writer = new SpokenWriter(stackalloc char[MaxSpokenLength]);
         AppendFraction(ref writer, numerator, denominator);
-        return writer.ToString();
-    }
-
-    /// <summary>
-    ///     Returns the words of a clock time.
-    /// </summary>
-    /// <param name="hour">One or two ASCII digits, 0 to 23; a leading zero is read as <c>oh</c>.</param>
-    /// <param name="minute">Exactly two ASCII digits, 00 to 59.</param>
-    /// <param name="omitZeroMinute">Whether minute 00 is left out (a meridiem follows).</param>
-    /// <returns>For example <c>five thirty</c>, <c>five oh five</c>, <c>five o'clock</c>, <c>seventeen hundred</c>.</returns>
-    /// <exception cref="ArgumentException">The hour or minute is malformed or out of range.</exception>
-    internal static string Clock(ReadOnlySpan<char> hour, ReadOnlySpan<char> minute, bool omitZeroMinute)
-    {
-        var writer = new SpokenWriter(stackalloc char[MaxSpokenLength]);
-        AppendClock(ref writer, hour, minute, omitZeroMinute);
-        return writer.ToString();
-    }
-
-    /// <summary>
-    ///     Returns the ordinal words of a day of the month.
-    /// </summary>
-    /// <param name="day">The day, 1 to 31.</param>
-    /// <returns>For example <c>twenty fifth</c>.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="day"/> is outside 1 to 31.</exception>
-    internal static string DayOrdinal(int day)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(day, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(day, 31);
-        var writer = new SpokenWriter(stackalloc char[MaxSpokenLength]);
-        AppendUnderThousand(ref writer, day);
-        writer.ReplaceLastWord(OrdinalWord(writer.LastWord()));
         return writer.ToString();
     }
 

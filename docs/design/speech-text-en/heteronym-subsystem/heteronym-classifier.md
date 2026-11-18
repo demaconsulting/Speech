@@ -96,11 +96,10 @@ depend on it.
 **Error Handling**: the constructor and `Classify` throw the argument exceptions above; the incompatibility of a model
 is an `InvalidDataException` from the constructor that the provider turns into the status `Incompatible`. The provider
 never throws for a model problem: absence (no model source) is `NotShipped`, a damaged or unreadable model is `Invalid`
-and a model that
-does not fit is `Incompatible`. The one exception is a defective embedded inventory table, which is a broken build with
-nothing to degrade to; its `InvalidDataException` propagates from the load and, because the lazy caches an exception, is
-the same for every caller. The analyzer turns `Invalid` and `Incompatible` into one fixed warning (see
-*AnalysisDiagnostics Design*) and `NotShipped` (no model source) into silence.
+and a model that does not fit is `Incompatible`. The one exception is a defective embedded inventory table, which is a
+broken build with nothing to degrade to; its `InvalidDataException` propagates from the load and, because the lazy
+caches an exception, is the same for every caller. The analyzer turns `Invalid` and `Incompatible` into one fixed
+warning (see *AnalysisDiagnostics Design*) and `NotShipped` (no model source) into silence.
 
 **Dependencies**: `ReadingInventory` (candidates, salts, version), `HeteronymFeatureExtractor` and `FeatureHashing`
 (features and mixing), `SparsePerceptronModel` (weights and the header values) and the framework.

@@ -27,9 +27,8 @@ are identical on every platform and rerun.
 - `seeds.tsv`: one row per seed of the study (the natural and the independent rows, the rows correct and the accuracy),
   then the mean (rounded half up with integers), the minimum and the maximum of the accuracies
 
-**Why tab-separated text and not Markdown.** The repository's formatters reflow and normalize Markdown tables, which
-would change the bytes of a committed record and break the byte comparison. Plain tab-separated files are left alone by
-them, so a record can be compared exactly.
+**Why tab-separated text and not Markdown.** The repository's formatters reflow Markdown tables, which would change the
+bytes of a committed record and break the byte comparison; plain tab-separated files are left alone.
 
 **Key Methods**:
 
@@ -48,4 +47,6 @@ error. A missing or different file is a result of `Compare`, not an error.
 **Dependencies**: `HeteronymEvaluator` (the result types, `RoundBasisPoints` and `DecideGate`), `EvaluationSettings`
 (from `TrainingRecord`) and the framework.
 
-**Callers**: `EvaluateCommand` and the unit tests.
+**Callers**: `EvaluateCommand`, `ExternalEvaluationRecord` (which reuses the group renderers, the row writer and the
+mean of this unit for its by-source, per-reading, confidence and seeds tables, so that the committed record and the
+external record have one layout) and the unit tests.

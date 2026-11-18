@@ -7,7 +7,7 @@
 # requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/TrainCommandTests.cs. The
-# program entry point (Program.cs) is glue that dispatches to this unit and is covered with it.
+# program entry point (Program.cs) is glue that dispatches to this unit.
 
 sections:
   - title: SpeechTextEn Requirements
@@ -16,101 +16,61 @@ sections:
         sections:
           - title: TrainCommand Requirements
             requirements:
-              - id: SpeechTextEn-Training-TrainCommand-UsageErrors
+              - id: SpeechTextEn-Training-TrainCommand-UsageAndDataErrors
                 title: >-
                   The TrainCommand class shall print its usage and give the exit code 0 for the help
                   option, and shall give the exit code 2 with a message on the error stream that names the
-                  problem for an unknown option, an option without a value, a value that is not a number
-                  or is out of range (writing no file), and a data folder that cannot be found.
+                  problem, writing no file, for an unknown option, an option without a value, a value that
+                  is not a number or is out of range, a data folder that cannot be found, an experiment
+                  option (seed, hash bits, prune threshold, natural-row weight, epoch count) given without
+                  a model folder or together with the check option, and a row whose label is not a
+                  candidate reading of its word, whether training or checking.
                 justification: |
-                  The build and the owner act on the exit code. A mistake in the command must not look
-                  like a stale model, and must not leave a half-written model behind.
+                  The build and the owner act on the exit code. A mistake in the command or a fault of the
+                  data must not look like a stale model, must not leave a half-written model behind, and
+                  must be fixed in the input instead of retrained over. Experiments must never be able to
+                  replace the committed model by accident, and a check of the committed model with other
+                  settings would not check it.
                 tests:
                   - TrainCommand_Run_Help_PrintsUsageAndExitsZero
                   - TrainCommand_Run_BadCommandLine_ExitsTwoNamingTheProblem
-                  - TrainCommand_Run_NonNumericExperimentValue_ExitsTwo
-                  - TrainCommand_Run_ExperimentValueOutOfRange_ExitsTwoAndWritesNothing
+                  - TrainCommand_Run_ExperimentOptionMisuse_ExitsTwoAndWritesNothing
                   - TrainCommand_Run_MissingDataFolder_ExitsTwo
-
-              - id: SpeechTextEn-Training-TrainCommand-ExperimentIsolation
-                title: >-
-                  The TrainCommand class shall refuse with the exit code 2 any experiment option (seed,
-                  hash bits, prune threshold, natural-row weight, epoch count) that is given without a
-                  model folder, leaving the committed model and record untouched, and shall refuse an
-                  experiment option combined with the check option.
-                justification: |
-                  Experiments are how the owner tries other settings. They must never be able to replace
-                  the committed model by accident, and a check of the committed model with other settings
-                  would not check it.
-                tests:
-                  - TrainCommand_Run_ExperimentOptionWithoutModelDir_ExitsTwoAndLeavesCommittedFilesUntouched
-                  - TrainCommand_Run_ExperimentOptionWithCheck_ExitsTwo
+                  - TrainCommand_Run_CheckWithDataError_ExitsTwo
 
               - id: SpeechTextEn-Training-TrainCommand-WritesModelAndRecord
                 title: >-
                   The TrainCommand class shall train from the data folder, write a model file that the
                   runtime can load and a record that can be read back, in the given model folder or, when
-                  none is given, at the committed locations of the repository, and report the kept epoch
-                  count and the hash of the model image.
+                  none is given, at the committed locations of the repository, report the kept epoch count
+                  and the hash of the model image, and keep the evaluation and gate settings of an existing
+                  record when it trains again.
                 justification: |
                   Training is only useful if its outputs are the files the runtime and the check consume,
-                  written where the repository keeps them.
+                  written where the repository keeps them. The thresholds of the quality gate are fixed in
+                  advance, so a retraining that rewrote them would let a model that misses the gate move the
+                  gate instead.
                 tests:
                   - TrainCommand_Run_Fixture_WritesLoadableModelAndRecord
-                  - TrainCommand_Run_DefaultLocations_WritesCommittedFilesThatCheckAccepts
-
-              - id: SpeechTextEn-Training-TrainCommand-KeepsGateSettings
-                title: >-
-                  The TrainCommand class shall keep the evaluation and gate settings of an existing record
-                  when it trains again, so that retraining cannot change the gate.
-                justification: |
-                  The thresholds of the quality gate are fixed in advance. A retraining that rewrote them
-                  would let a model that misses the gate move the gate instead.
-                tests:
                   - TrainCommand_Run_ExistingRecord_KeepsItsEvaluationSettings
 
-              - id: SpeechTextEn-Training-TrainCommand-CheckCurrent
+              - id: SpeechTextEn-Training-TrainCommand-Check
                 title: >-
                   The TrainCommand class shall, with the check option, retrain with the settings of the
                   record and give the exit code 0 when the model file and the record are what the
                   retraining produces, including a model file that holds the same weights in a different
-                  compressed form.
+                  compressed form, and shall give the exit code 1 and name what is stale when the training
+                  or development data changed, when a recorded setting or the tagger version changed so
+                  that the weights differ, when the model file holds other weights, is not a valid model or
+                  is missing, and when the record is missing or not valid.
                 justification: |
                   The check lets the build prove that the committed model is what the committed data and
-                  settings produce. The compressed bytes depend on the compression library, so only the
-                  content may be compared, or the check would fail on another platform.
+                  settings produce, and a model that no longer matches its inputs would ship weights nobody
+                  can reproduce. The compressed bytes depend on the compression library, so only the content
+                  may be compared, or the check would fail on another platform. Naming the cause tells the
+                  owner whether to retrain, to revert or to restore a file.
                 tests:
-                  - TrainCommand_Run_CheckFreshModel_ExitsZero
                   - TrainCommand_Run_CheckRecompressedButEqualModel_ExitsZero
-
-              - id: SpeechTextEn-Training-TrainCommand-CheckStale
-                title: >-
-                  The TrainCommand class shall, with the check option, give the exit code 1 and name what
-                  is stale when the training data or the development data changed, when a recorded
-                  setting changed so that the weights differ, when the tagger version of the record
-                  differs, when the model file holds other weights, is not a valid model or is missing, and
-                  when the record is missing or not valid.
-                justification: |
-                  A committed model that no longer matches its inputs would ship weights nobody can
-                  reproduce. Naming the cause tells the owner whether to retrain, to revert or to restore
-                  a file.
-                tests:
-                  - TrainCommand_Run_CheckAfterTrainingRowChanged_ExitsOneNamingTheData
-                  - TrainCommand_Run_CheckAfterDevRowChanged_ExitsOne
-                  - TrainCommand_Run_CheckAfterRecordedSettingChanged_ExitsOneNamingTheWeights
+                  - TrainCommand_Run_CheckAfterInputOrRecordChanged_ExitsOneNamingTheCause
                   - TrainCommand_Run_CheckAfterModelFileReplaced_ExitsOneNamingTheModelFile
-                  - TrainCommand_Run_CheckCorruptOrMissingModelFile_ExitsOne
                   - TrainCommand_Run_CheckMissingOrInvalidRecord_ExitsOne
-                  - TrainCommand_Run_CheckAfterTaggerVersionChanged_ExitsOneNamingTheTagger
-
-              - id: SpeechTextEn-Training-TrainCommand-DataErrors
-                title: >-
-                  The TrainCommand class shall give the exit code 2, naming the row, and write no model
-                  when a training or development row has a label that is not a candidate reading of its
-                  word, whether training or checking.
-                justification: |
-                  A data error is a fault of the input, not a stale model. It is reported as an error so
-                  that the owner fixes the row instead of retraining over it.
-                tests:
-                  - TrainCommand_Run_CheckWithDataError_ExitsTwo
-                  - TrainCommand_Run_LabelNotACandidate_ExitsTwoNamingTheRow

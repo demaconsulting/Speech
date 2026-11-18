@@ -14,30 +14,21 @@ sections:
         sections:
           - title: CheckReport Requirements
             requirements:
-              - id: SpeechTextEn-TrainingData-CheckReport-FindingsFailTheRun
+              - id: SpeechTextEn-TrainingData-CheckReport-Report
                 title: >-
                   The CheckReport class shall give the exit code 0 when no finding was recorded and the
-                  exit code 1 when at least one finding was recorded, and shall state the number of
-                  findings in its final summary line.
+                  exit code 1 otherwise, shall state the number of findings in its final summary line,
+                  and shall write the findings in the order they were recorded, each with its check
+                  name, location and message, at most a stated number (at least one) per check
+                  followed by a count of the findings left out.
                 justification: |
                   The check is a gate in the lint script and in the build pipeline, both of which act
-                  on the exit code. A single finding must fail the gate, and the summary line tells a
-                  person reading the log how much is wrong.
+                  on the exit code, so a single finding must fail it. Output that differs from run to
+                  run cannot be compared, and a defect that affects thousands of rows must not bury
+                  every other finding in the log.
                 tests:
                   - CheckReport_ExitCode_NoFindings_IsZeroAndSummaryIsOk
                   - CheckReport_ExitCode_AnyFinding_IsOneAndSummaryCountsFindings
-
-              - id: SpeechTextEn-TrainingData-CheckReport-StableOutput
-                title: >-
-                  The CheckReport class shall write its findings in the order they were recorded,
-                  each with its check name, location and message, and shall write at most a stated
-                  number of findings per check followed by a count of the findings left out, the
-                  number being at least one.
-                justification: |
-                  Output that differs from run to run cannot be compared or reviewed, and a defect
-                  that affects thousands of rows must not bury every other finding in the log.
-                tests:
                   - CheckReport_WriteTo_Findings_AreWrittenInInsertionOrderWithLocation
                   - CheckReport_WriteTo_MoreFindingsThanCap_PrintsCapAndCountsSuppressed
-                  - CheckReport_Finding_ToString_UsesTheDocumentedFormat
                   - CheckReport_Constructor_CapBelowOne_ThrowsArgumentOutOfRangeException

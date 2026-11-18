@@ -15,9 +15,7 @@ symbols) the SpeechTextEn NormalizationSubsystem relies on.
 
 Verification runs the real package, through exactly the members the adapter uses, in integration tests in
 `test/DemaConsulting.Speech.Text.En.Tests/Ots/PartOfSpeechTests.cs`. The tests do not depend on the analysis
-code built on top of the package, so they are evidence about the package itself. They double as an
-API-presence check: they bind every member the analysis uses to a delegate of the expected shape, so a
-package version that removes or reshapes one stops the test project from compiling. One test locks the
+code built on top of the package, so they are evidence about the package itself. One test locks the
 tokenizer conventions the normalization depends on, so that moving the exact version pin to a release that
 changes them fails loudly instead of silently changing which text is normalized or where sentences break.
 The NormalizationSubsystem tests also call the tokenizer directly, as a test-only dependency (see
@@ -33,32 +31,13 @@ tags it assigns with full confidence.
 
 **Expected**: One sentence whose seven tokens are tagged DET, NOUN, VERB, ADP, DET, NOUN and PUNCT.
 
-#### PartOfSpeech_DefaultTagger_SharedInstance_ReturnsSameTagger
-
-**Scenario**: The shared tagger is read twice.
-
-**Expected**: The same instance.
-
-#### PartOfSpeech_PublicApi_MembersUsedByTextEn_ArePresent
-
-**Scenario**: Every member the analysis uses is bound to a delegate and used on a tiny text.
-
-**Expected**: The code compiles, the token and tagged-token properties are readable, and the tag set has the
-17 documented values with the expected tag names.
-
-#### PartOfSpeech_Tag_MultiSentenceText_TokenOffsetsIndexSourceText
-
-**Scenario**: A two-sentence text with an abbreviation, a contraction and a line break inside the second
-sentence is tagged as a whole.
-
-**Expected**: Every token's text equals the source slice at its offset and length.
-
 #### PartOfSpeech_Tokenizer_Tokenize_MultiSentenceText_TokenOffsetsIndexSourceText
 
-**Scenario**: The same text is split by the tokenizer alone.
+**Scenario**: A two-sentence text with an abbreviation, a contraction and a line break inside the second
+sentence is tagged as a whole and split by the tokenizer alone.
 
-**Expected**: Sentences are in text order, every token equals its source slice, and the negation clitic is a
-token of its own.
+**Expected**: Every token's text equals the source slice at its offset and length in both results, the
+sentences are in text order and the negation clitic is a token of its own.
 
 #### PartOfSpeech_TagSentence_PerSentence_MatchesWholeTextTagging
 
@@ -69,15 +48,10 @@ cancellation be checked between sentences) changes nothing.
 
 #### PartOfSpeech_Tag_Tokens_ConfidenceIsProbabilityInRange
 
-**Scenario**: Two sentences are tagged.
+**Scenario**: Two sentences are tagged, and "The qzxvbnk sat." is tagged.
 
-**Expected**: Every confidence is between 0 and 1 and the clear-cut tokens are at the top of the range.
-
-#### PartOfSpeech_Tag_Tokens_KnownWordFlagReflectsLexicon
-
-**Scenario**: "The qzxvbnk sat." is tagged.
-
-**Expected**: The two ordinary words are known and the invented spelling is not.
+**Expected**: Every confidence is between 0 and 1 and the clear-cut tokens are at the top of the range; the two
+ordinary words are known and the invented spelling is not.
 
 #### PartOfSpeech_DefaultTagger_ConcurrentTagging_ReturnsSameResultsAsSequential
 

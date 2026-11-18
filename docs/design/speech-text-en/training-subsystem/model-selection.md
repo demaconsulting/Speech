@@ -29,11 +29,10 @@ there is nothing to calibrate on and the temperature is 1.
 
 *Images.* The kept weights are listed as sorted (bucket, weight) pairs of the non-zero buckets and compiled twice with
 `SparsePerceptronModelWriter.Compile`: once with a Deflate payload (the file that is committed) and once without. Both
-headers carry the inventory version, the feature-set version (the extractor's constant, which the writer records), the
-trainer version and the
-data hash. The **uncompressed image** is the representation that is hashed (`ImageSha256`) and compared, because the
-bytes of a Deflate stream depend on the runtime's compression implementation and could differ between operating
-systems for the same weights; the weights themselves never do.
+headers carry the inventory version, the feature-set version, the trainer version and the data hash. The **uncompressed
+image** is the representation that is hashed (`ImageSha256`) and compared, because the bytes of a Deflate stream depend
+on the runtime's compression implementation and could differ between operating systems for the same weights; the
+weights themselves never do.
 
 No holdout set is read here: the corpus does not contain one.
 

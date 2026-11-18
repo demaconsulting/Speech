@@ -22,9 +22,8 @@ results go to the output writer as lines that start with `train:`.
 current directory and then from the tool's own folder (the discovery of `CheckDataCommand`). The committed locations
 are derived from the data folder's repository, two levels above it: the model at
 `src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin` and the record at
-`tools/DemaConsulting.Speech.Text.En.Trainer/training.json`. These are the committed files: the model is embedded in the
-package and the record is the one that `train --check` verifies in the build. With
-`--model-dir` both files are read and written in that folder instead.
+`tools/DemaConsulting.Speech.Text.En.Trainer/training.json`. With `--model-dir` both files are read and written in that
+folder instead.
 
 **Experiment guard.** An experiment option changes the settings of the default configuration, so it is accepted only
 together with `--model-dir` and never with `--check`; otherwise the command line is a usage error. An experiment can
@@ -59,9 +58,9 @@ code 2; `train --check` reports a damaged record or model as stale (exit code 1)
 is the condition the check exists to find. Nothing else is caught, so a defect surfaces as a crash and not as a wrong
 model.
 
-**Dependencies**: `ModelSelection` (training), `TrainingCorpus` (loading), `TrainingRecord` and its settings,
-`CheckDataCommand` (the data folder discovery, from the TrainingDataSubsystem), and from the HeteronymSubsystem
-`SparsePerceptronModelWriter` (the uncompressed image of the committed file).
+**Dependencies**: `ModelSelection`, `TrainingCorpus`, `TrainingRecord` and its settings, `CheckDataCommand` (the data
+folder discovery, from the TrainingDataSubsystem) and `SparsePerceptronModelWriter` (the uncompressed image of the
+committed file).
 
 **Callers**: `Program.cs` (the dispatch of the `train` command), `EvaluateCommand` (the file-name constants) and the
 unit tests.

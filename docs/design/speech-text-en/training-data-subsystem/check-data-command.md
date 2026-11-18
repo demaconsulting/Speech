@@ -17,30 +17,27 @@ environment variable `TEXTEN_EVAL_SETS`, else none.
 **Key Methods**:
 
 - **Run(args, output, error, currentDirectory, baseDirectory, getEnvironmentVariable)**: parses the options first, so a
-  bad command line is a usage error before any file is touched (an unknown option, a missing value, a `--max-findings`
-  that is not a positive integer); prints the usage for `--help`; resolves the data folder (a folder that cannot be
-  found is a usage error); and rejects `--leakage-report` without evaluation sets or with a path inside the data folder.
-  It then creates the `CheckReport` and runs, in this order, `DataManifest.Verify`, `TextEnDataSet.Load`,
-  `SchemaChecker.Run`, `LicenseChecker.Run` and `LeakageChecker.CheckInternal`, and then the external leakage check;
-  every check runs even after findings of an earlier one. Without an evaluation folder the external check is replaced by
-  the information line `external leakage check skipped (no evaluation sets supplied)`; an evaluation folder inside the
-  data folder is a finding and is not read; otherwise `LeakageChecker.LoadEvaluationSets`, `CheckExternal` and, when
-  asked, `WriteReport` run. It then writes the report and the summary (and, for `--counts`, the per-reading table) and
-  returns the exit code of the report.
+  bad command line is a usage error before any file is touched; prints the usage for `--help`; resolves the data folder
+  (a folder that cannot be found is a usage error); and rejects `--leakage-report` without evaluation sets or with a
+  path inside the data folder. It then creates the `CheckReport` and runs, in this order, `DataManifest.Verify`,
+  `TextEnDataSet.Load`, `SchemaChecker.Run`, `LicenseChecker.Run` and `LeakageChecker.CheckInternal`, and then the
+  external leakage check; every check runs even after findings of an earlier one. Without an evaluation folder the
+  external check is replaced by the information line `external leakage check skipped (no evaluation sets supplied)`; an
+  evaluation folder inside the data folder is a finding and is not read; otherwise `LeakageChecker.LoadEvaluationSets`,
+  `CheckExternal` and, when asked, `WriteReport` run. It then writes the report and the summary (and, for `--counts`,
+  the per-reading table) and returns the exit code of the report.
 - **TryParse(args, out error)**: the option parser; **FindDataRoot(startDirectory)**: the walk upward for
   `data/text-en`.
 
 **Error Handling**: a usage error writes `check-data: error: <message>` and a hint to the error writer and returns 2; so
 does an input or output error. Only `IOException`, `UnauthorizedAccessException`, `InvalidDataException` (which
-includes the missing and empty evaluation folder errors and the evaluation-file-without-sentences error of
-`LeakageChecker`), `ArgumentException` and `NotSupportedException` (a malformed `--data`, `--eval-sets` or
-`--leakage-report` path, for example one with a null character or an invalid volume syntax; a too-long path is an
-`IOException`) are caught, with the message but no stack
-trace. The paths are resolved inside the guarded block. No catch-all handler is used, so a programming error still
-fails loudly.
+includes the evaluation folder and evaluation file errors of `LeakageChecker`), `ArgumentException` and
+`NotSupportedException` (a malformed `--data`, `--eval-sets` or `--leakage-report` path, for example one with a null
+character) are caught, with the message but no stack trace; the paths are resolved inside the guarded block. No
+catch-all handler is used, so a programming error still fails loudly.
 
 **Dependencies**: `DataManifest`, `TextEnDataSet`, `SchemaChecker`, `LicenseChecker`, `LeakageChecker` and
 `CheckReport`; the .NET base class library only.
 
-**Callers**: `Program.Run` of the trainer, `TrainCommand` and `EvaluateCommand` (through `FindDataRoot`, the data folder
-discovery they share) and the unit tests.
+**Callers**: `Program.Run` of the trainer, `TrainCommand`, `EvaluateCommand` and `EvaluateExternalCommand` (through
+`FindDataRoot`, the data folder discovery they share) and the unit tests.

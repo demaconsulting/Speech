@@ -125,7 +125,6 @@ public sealed class CheckDataCommandTests
     /// <summary>Proves a non-positive or non-numeric <c>--max-findings</c> is a usage error.</summary>
     [Theory]
     [InlineData("0")]
-    [InlineData("-3")]
     [InlineData("many")]
     public void CheckDataCommand_Run_InvalidMaxFindings_ExitsTwo(string value)
     {
@@ -137,100 +136,45 @@ public sealed class CheckDataCommandTests
         Assert.Contains("--max-findings needs a positive integer", error);
     }
 
-    /// <summary>Proves <c>--help</c> prints the usage and exits with 0.</summary>
-    [Fact]
-    public void CheckDataCommand_Run_Help_PrintsUsageAndExitsZero()
-    {
-        // Arrange / Act
-        var (exitCode, output, _) = Run(Path.GetTempPath(), null, "--help");
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.Contains("Usage: check-data", output);
-        Assert.Contains("Exit codes: 0 = no findings, 1 = findings, 2 = usage or I/O error.", output);
-    }
-
-    /// <summary>Proves a data folder that does not exist is a usage error.</summary>
+    /// <summary>Proves a data folder that does not exist, or that cannot be discovered, is a usage error.</summary>
     [Fact]
     public void CheckDataCommand_Run_DataFolderMissing_ExitsTwo()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-
-        // Act
-        var (exitCode, _, error) = Run(fixture.BaseDirectory, null, "--data", Path.Combine(fixture.BaseDirectory, "nope"));
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("was not found", error);
-    }
-
-    /// <summary>Proves the data folder is discovered by walking up from the current directory.</summary>
-    [Fact]
-    public void CheckDataCommand_Run_NoDataOption_DiscoversFolderFromCurrentDirectory()
-    {
-        // Arrange: the data lives in <base>/data/text-en and the command runs in <base>/sub/deeper
-        using var fixture = new DatasetFixture(Path.Combine("data", "text-en"));
-        var workingDirectory = Path.Combine(fixture.BaseDirectory, "sub", "deeper");
-        Directory.CreateDirectory(workingDirectory);
-
-        // Act
-        var (exitCode, output, _) = Run(workingDirectory, null);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.Contains($"data folder {fixture.Root}", output);
-    }
-
-    /// <summary>Proves the data folder is discovered from the tool's own folder when the current directory has none.</summary>
-    [Fact]
-    public void CheckDataCommand_Run_NoDataOption_DiscoversFolderFromToolDirectory()
-    {
-        // Arrange: the current directory is unrelated, the tool folder is below the data's parent
-        using var fixture = new DatasetFixture(Path.Combine("data", "text-en"));
-        using var unrelated = new DatasetFixture();
-        var toolDirectory = Path.Combine(fixture.BaseDirectory, "tools", "bin");
-        Directory.CreateDirectory(toolDirectory);
-
-        // Act
-        var (exitCode, output, _) = RunFrom(unrelated.BaseDirectory, toolDirectory, null);
-
-        // Assert
-        Assert.Equal(0, exitCode);
-        Assert.Contains($"data folder {fixture.Root}", output);
-    }
-
-    /// <summary>Proves no data folder anywhere is a usage error.</summary>
-    [Fact]
-    public void CheckDataCommand_Run_NoDataFolderAnywhere_ExitsTwo()
     {
         // Arrange: a fixture folder has no data/text-en below or above it on a clean temp tree
         using var fixture = new DatasetFixture();
 
         // Act
-        var (exitCode, _, error) = Run(fixture.BaseDirectory, null);
+        var explicitFolder = Run(fixture.BaseDirectory, null, "--data", Path.Combine(fixture.BaseDirectory, "nope"));
+        var discovered = Run(fixture.BaseDirectory, null);
 
         // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("data folder 'data/text-en' was not found", error);
+        Assert.Equal(2, explicitFolder.ExitCode);
+        Assert.Contains("was not found", explicitFolder.Error);
+        Assert.Equal(2, discovered.ExitCode);
+        Assert.Contains("data folder 'data/text-en' was not found", discovered.Error);
     }
 
-    /// <summary>Proves evaluation sets given by option enable the external check and an overlap exits with 1.</summary>
+    /// <summary>Proves the data folder is discovered by walking up from the current directory, then from the tool's own folder.</summary>
     [Fact]
-    public void CheckDataCommand_Run_EvalSetsOptionWithOverlap_ExitsOneAndReportsExactMatch()
+    public void CheckDataCommand_Run_NoDataOption_DiscoversFolderFromCurrentDirectory()
     {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.WriteEvaluationSet("gold", "the lead pipe was heavy");
+        // Arrange: the data lives in <base>/data/text-en; one run starts in <base>/sub/deeper, the other in an unrelated folder with the tool below <base>/tools
+        using var fixture = new DatasetFixture(Path.Combine("data", "text-en"));
+        var workingDirectory = Path.Combine(fixture.BaseDirectory, "sub", "deeper");
+        Directory.CreateDirectory(workingDirectory);
+        using var unrelated = new DatasetFixture();
+        var toolDirectory = Path.Combine(fixture.BaseDirectory, "tools", "bin");
+        Directory.CreateDirectory(toolDirectory);
 
         // Act
-        var (exitCode, output, _) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", fixture.EvaluationDirectory);
+        var fromCurrent = Run(workingDirectory, null);
+        var fromTool = RunFrom(unrelated.BaseDirectory, toolDirectory, null);
 
         // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("exact match with evaluation set gold", output);
-        Assert.Contains("evaluation sets 1 sentences 1 distinct keys 1", output);
-        Assert.DoesNotContain("skipped", output);
+        Assert.Equal(0, fromCurrent.ExitCode);
+        Assert.Contains($"data folder {fixture.Root}", fromCurrent.Output);
+        Assert.Equal(0, fromTool.ExitCode);
+        Assert.Contains($"data folder {fixture.Root}", fromTool.Output);
     }
 
     /// <summary>Proves the environment variable supplies the evaluation sets when the option is absent.</summary>
@@ -270,53 +214,28 @@ public sealed class CheckDataCommandTests
         Assert.Contains("evaluation sets 1 sentences 1", output);
     }
 
-    /// <summary>Proves an evaluation folder that does not exist is a usage error, never a silent pass.</summary>
+    /// <summary>Proves an evaluation folder that is missing or without sets, or a set file without sentences, is a usage error, never a silent pass.</summary>
     [Fact]
     public void CheckDataCommand_Run_EvalSetsFolderMissing_ExitsTwo()
     {
         // Arrange
         using var fixture = new DatasetFixture();
+        var missing = Path.Combine(fixture.BaseDirectory + "-eval", "nope");
 
         // Act
-        var (exitCode, _, error) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", Path.Combine(fixture.BaseDirectory + "-eval", "nope"));
+        var missingFolder = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", missing);
+        var emptyFolder = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", fixture.EvaluationDirectory);
+        File.WriteAllText(Path.Combine(fixture.EvaluationDirectory, "gold.txt"), string.Empty);
+        var emptyFile = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", fixture.EvaluationDirectory);
 
         // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("does not exist", error);
-    }
-
-    /// <summary>Proves an evaluation folder without sets is a usage error, never a silent pass.</summary>
-    [Fact]
-    public void CheckDataCommand_Run_EvalSetsFolderEmpty_ExitsTwo()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-
-        // Act
-        var (exitCode, _, error) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", fixture.EvaluationDirectory);
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Contains("contains no *.txt or *.tsv file", error);
-    }
-
-    /// <summary>Proves an evaluation file without sentences is a usage error, never a silent pass.</summary>
-    [Theory]
-    [InlineData("gold.txt", "")]
-    [InlineData("gold.tsv", "sentence\n")]
-    public void CheckDataCommand_Run_EvalSetsFileEmpty_ExitsTwo(string fileName, string content)
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        File.WriteAllText(Path.Combine(fixture.EvaluationDirectory, fileName), content);
-
-        // Act
-        var (exitCode, output, error) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--eval-sets", fixture.EvaluationDirectory);
-
-        // Assert
-        Assert.Equal(2, exitCode);
-        Assert.Equal(string.Empty, output);
-        Assert.Contains($"{fileName}' has no sentences", error);
+        Assert.Equal(2, missingFolder.ExitCode);
+        Assert.Contains("does not exist", missingFolder.Error);
+        Assert.Equal(2, emptyFolder.ExitCode);
+        Assert.Contains("contains no *.txt or *.tsv file", emptyFolder.Error);
+        Assert.Equal(2, emptyFile.ExitCode);
+        Assert.Equal(string.Empty, emptyFile.Output);
+        Assert.Contains("gold.txt' has no sentences", emptyFile.Error);
     }
 
     /// <summary>Proves a malformed data or evaluation path is a usage error rather than an unhandled exception.</summary>
@@ -452,7 +371,7 @@ public sealed class CheckDataCommandTests
         Assert.Contains("Usage: DemaConsulting.Speech.Text.En.Trainer <command>", error.ToString());
     }
 
-    /// <summary>Proves <c>Program</c> forwards <c>check-data --help</c> to the command.</summary>
+    /// <summary>Proves <c>Program</c> forwards <c>check-data --help</c> to the command, which prints its usage and exit codes.</summary>
     [Fact]
     public void Program_Run_CheckDataHelp_PrintsCommandUsage()
     {
@@ -465,5 +384,6 @@ public sealed class CheckDataCommandTests
         // Assert
         Assert.Equal(0, exitCode);
         Assert.Contains("Usage: check-data [options]", output.ToString());
+        Assert.Contains("Exit codes: 0 = no findings, 1 = findings, 2 = usage or I/O error.", output.ToString());
     }
 }

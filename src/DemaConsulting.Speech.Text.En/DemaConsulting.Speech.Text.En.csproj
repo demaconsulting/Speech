@@ -71,7 +71,7 @@
        (as the workflows do) and Version otherwise; SemVer build metadata after '+' is ignored, so
        only a hyphen in the version proper counts. The local default Version of 0.0.0 is stable, so
        a plain local pack skips this project unless a prerelease version is passed.
-       REMOVE this guard (and its requirement SpeechTextEn-Packaging-PrereleaseOnly) once
+       REMOVE this guard (and the packing note of requirement SpeechTextEn-Packaging-PinnedDependency) once
        DemaConsulting.PartOfSpeech ships a stable release and the pin below is moved to it. -->
   <PropertyGroup>
     <TextEnEffectiveVersion>$(Version)</TextEnEffectiveVersion>

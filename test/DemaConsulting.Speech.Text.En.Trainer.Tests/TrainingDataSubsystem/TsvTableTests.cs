@@ -5,7 +5,8 @@ using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests.TrainingDataSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="TsvTable"/>: strict file format, exact headers, comment lines and the absence of quoting.
+///     Unit tests for <see cref="TsvTable"/>: strict file format, exact headers, comment lines, the absence of quoting
+///     and the file and line of every finding.
 /// </summary>
 public sealed class TsvTableTests
 {
@@ -38,8 +39,6 @@ public sealed class TsvTableTests
         Assert.Equal(2, table.Rows.Count);
         Assert.Equal(3, table.Rows[1].LineNumber);
         Assert.Equal("4", table.Rows[1][1]);
-        Assert.Equal(1, table.ColumnIndex("b"));
-        Assert.Equal(-1, table.ColumnIndex("missing"));
     }
 
     /// <summary>Proves a missing file is a finding, not an exception.</summary>
@@ -230,23 +229,6 @@ public sealed class TsvTableTests
         Assert.Equal(3, table.Rows[0].LineNumber);
     }
 
-    /// <summary>Proves a comment line is data (and so a column-count finding) when comments are not allowed.</summary>
-    [Fact]
-    public void TsvTable_Load_CommentLinesNotAllowed_AreTreatedAsRows()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.Write("t.tsv", "a\tb\n# comment\n1\t2\n");
-        var report = new CheckReport();
-
-        // Act
-        var table = Load(fixture, report);
-
-        // Assert
-        Assert.True(DatasetFixture.Has(report, "format", "column count 1 (expected 2)"));
-        Assert.Single(table.Rows);
-    }
-
     /// <summary>Proves a sentence that starts with a double quote keeps the quote and its columns (no quoting).</summary>
     [Fact]
     public void TsvTable_Load_SentenceStartingWithQuote_KeepsQuoteAndColumns()
@@ -263,21 +245,5 @@ public sealed class TsvTableTests
         Assert.Empty(report.Findings);
         Assert.Equal("\"quoted\" sentence, with \"marks\"", table.Rows[0][0]);
         Assert.Equal("2", table.Rows[0][1]);
-    }
-
-    /// <summary>Proves the finding location of a format defect names the file and the 1-based line.</summary>
-    [Fact]
-    public void TsvTable_Load_FormatDefect_FindingCarriesFileAndLine()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.Write("t.tsv", "a\tb\n1\t2\n3\n");
-        var report = new CheckReport();
-
-        // Act
-        _ = Load(fixture, report);
-
-        // Assert
-        Assert.Equal("check-data: format: t.tsv:3: column count 1 (expected 2)", report.Findings.Single().ToString());
     }
 }

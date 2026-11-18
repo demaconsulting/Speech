@@ -218,4 +218,8 @@ package SpeechTextEn {
     view TextEnTrainingSubsystemView {
         expose TrainingSubsystem;
     }
+
+    view TextEnExternalEvaluationSubsystemView {
+        expose ExternalEvaluationSubsystem;
+    }
 }

@@ -201,3 +201,42 @@ as a regression check of the committed model (the trainer test
 `TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`, and the check of the committed evaluation record, read
 the holdouts on every test run). Those runs repeat the same decision for the same model; they are not gate runs in the
 sense of this log and nothing is chosen from them.
+
+## External evaluation (P2-8)
+
+**Protocol.** The embedded model is evaluated on two external, evaluation-only datasets: Google's WikipediaHomographData
+(WHD) and the English read set of heteronym-bench. They are fetched on demand into the git-ignored cache
+`data/text-en/external/` from commit-pinned archives and verified per file against SHA-256 pins; nothing of them is
+committed, embedded or read by the training (the training loader opens exactly its four files). **No setting, row,
+threshold or model is ever chosen from these numbers.** The run was done once, after the model was frozen and after the
+gate. If a later result prompts a retrain, WHD and the benchmark are contaminated for that model and the record must
+say so.
+
+**The run (2026-11-17).** Command: `evaluate-external --fetch --write`, then `evaluate-external --check` (exit 0).
+Model: the embedded model, image SHA-256 `73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0` (seed 1 of
+the five-seed study; the retrained seed 1 model has the same image). Pins: WHD commit
+`8f008f021e88f8b71118a27ae655f1f3121162bc` (325 files, 2,097,865 bytes), heteronym-bench commit
+`064163ef097ece80d9b8319abf5612b2b8a3968b` (3 files, 169,232 bytes). Mapping: `whd-mapping.tsv` (326 ids) and
+`bench-mapping.tsv` (60 keys, each confirmed against the benchmark's own description of the key, including the subtle
+pairs for `axes`, `does`, `dove`, `wound` and `bass`).
+
+| set | rows read | used | skipped | accuracy (95% interval) | own tag | majority | always default |
+| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| whd-eval (headline) | 1,615 | 1,615 | 0 | 93.00% (91.70 to 94.18) | 90.59% | 69.23% | 66.75% |
+| whd-train | 14,487 | 14,487 | 0 | 91.60% (91.14 to 92.05) | 89.74% | 69.55% | 68.04% |
+| bench | 566 | 299 | 267 `duplicate-of-whd` | 92.98% (89.97 to 95.65) | 80.27% | 40.13% | 43.81% |
+
+- The improvement over the own-part-of-speech baseline is +2.41 points on `whd-eval` (interval +1.05 to +3.78), +1.86
+  on `whd-train` (+1.37 to +2.35) and +12.71 on `bench` (+8.36 to +17.06). The parity check has 0 mismatches and 0
+  suppressed rows on every set; 25 `whd-eval` rows (314 on `whd-train`) are not exactly one analyzer token and count as
+  wrong.
+- Seeds 1 to 5: `whd-eval` mean 92.72% (92.38 to 93.00), `whd-train` mean 91.70% (91.48 to 91.94), `bench` mean 94.65%
+  (91.97 to 96.66). The per-seed intervals are in `docs/evaluation/text-en/external/seeds.tsv`.
+- Skipped rows: none for an unmapped label, an unknown form, a non-candidate reading or bad offsets; 267 bench items are
+  copies of WHD sentences (241 of WHD train, 26 of WHD eval) and are evaluated as part of WHD. No evaluated sentence
+  equals a training or development sentence.
+- The numbers are informational, not a gate. They are lower than the in-domain holdouts (96.23% natural, 95.44%
+  independent), which is expected for Wikipedia prose and WHD's label conventions; the caveats (domain, our mapping,
+  coverage of 162 plus 30 of 207 words, the unverified bench labels, sentence-level clusters) are in the record README.
+  The low-confidence threshold of 0.60 is not changed by this run; `confidence.tsv` is the evidence for a later
+  decision.

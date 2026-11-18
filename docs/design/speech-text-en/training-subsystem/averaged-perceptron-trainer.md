@@ -41,13 +41,12 @@ when its magnitude is at most the prune threshold. All of it is 64-bit integer a
 is involved and the result is identical on every platform. Buckets that were never touched stay 0.
 
 **Overflow bound.** The arithmetic never wraps silently. With `T` the most steps training can take (the weighted rows
-visited per epoch times the epochs) and `F` the most feature occurrences of one candidate, a step changes a bucket at
-most `2F` times by one, so a live weight is at most `2FT`; `(T + 1) W - U` is the sum of `delta * (T + 1 - s)` over the
-updates, so its magnitude is at most `F T (T + 1)`. The constructor requires `2 * scale * F * T * (T + 1) + T` to fit in
-64 bits (this covers every intermediate value, the doubled numerator and the rounding term) and `2FT` to fit in 32 bits,
-evaluating the bound in 128-bit integers, and otherwise throws `InvalidDataException` naming the scale, natural weight
-and epochs to reduce. The training arithmetic is also `checked`, so a flaw in the derivation would throw rather than
-wrap. The committed corpus and settings are far inside the bound, so the committed model is unchanged.
+visited per epoch times the epochs) and `F` the most feature occurrences of one candidate, a live weight is at most
+`2FT` and `(T + 1) W - U` is at most `F T (T + 1)` in magnitude. The constructor requires
+`2 * scale * F * T * (T + 1) + T` to fit in 64 bits and `2FT` to fit in 32 bits, evaluating the bound in 128-bit
+integers, and otherwise throws `InvalidDataException` naming the scale, natural weight and epochs to reduce. The
+training arithmetic is also `checked`, so a flaw in the derivation would throw rather than wrap. The committed corpus
+and settings are far inside the bound.
 
 **Key Methods**:
 
@@ -61,8 +60,8 @@ wrap. The committed corpus and settings are far inside the bound, so the committ
 - **Train(onEpoch)**: trains `MaxEpochs` epochs and calls `onEpoch` with the deployable weights after each one
 
 **Error Handling**: settings out of range and null arguments throw as above; a labeled reading that is not a candidate
-of its row cannot happen for a loaded corpus (the corpus rejects it) and would throw `InvalidOperationException`, a
-defect. The unit does no I/O.
+of its row cannot happen for a loaded corpus and would throw `InvalidOperationException`, a defect. The unit does no
+I/O.
 
 **Dependencies**: `TrainingCorpus` (rows and inventory), `TrainingSettings` (from `TrainingRecord`),
 `DeterministicRandom`, and from the HeteronymSubsystem `HeteronymClassifier` (`ScoreCandidate` and `IWeightSource`),

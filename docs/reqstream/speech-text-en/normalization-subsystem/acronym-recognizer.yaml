@@ -17,65 +17,34 @@ sections:
         sections:
           - title: AcronymRecognizer Requirements
             requirements:
-              - id: SpeechTextEn-Normalization-AcronymRecognizer-CaseSensitivity
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-Recognition
                 title: >-
                   The AcronymRecognizer class shall recognize a listed initialism only in its exact
-                  capitalization.
+                  capitalization and speak it as its capital letters separated by spaces, shall
+                  spell an unlisted token of two to five capital letters that contains no vowel and
+                  is not Roman-numeral-shaped while leaving other unlisted capitals unchanged, shall
+                  speak dotted letter forms upper-cased and spaced (reporting whether the token
+                  itself ends with the period) and an ampersand initialism group by group joined
+                  with the word and (keeping a possessive tail), and in a sentence written entirely
+                  in capitals shall leave the ambiguous listed forms and the vowel-less rule alone
+                  while still speaking the unambiguous listed and dotted forms.
                 justification: |
-                  "US" is the country and "us" is a pronoun; only the case tells them apart.
-                tests:
-                  - AcronymRecognizer_TryRecognize_CaseVariants_AreCaseSensitive
-
-              - id: SpeechTextEn-Normalization-AcronymRecognizer-SpelledForms
-                title: >-
-                  The AcronymRecognizer class shall speak a recognized initialism as its capital
-                  letters separated by spaces.
-                justification: |
-                  A model reads "FBI" as three letters only if it is given the letters.
-                tests:
-                  - AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter
-
-              - id: SpeechTextEn-Normalization-AcronymRecognizer-ShoutingGuard
-                title: >-
-                  The AcronymRecognizer class shall leave an ambiguous listed form alone in a
-                  sentence written entirely in capitals, while still speaking an unambiguous listed
-                  form and a dotted form in it.
-                justification: |
-                  In an all-capital sentence "IT" and "US" are ordinary words in capitals, while
-                  "FBI" remains an initialism.
-                tests:
-                  - AcronymRecognizer_TryRecognize_ShoutingSentence_LeavesAmbiguousAndRuleSpelledForms
-
-              - id: SpeechTextEn-Normalization-AcronymRecognizer-NoVowelRule
-                title: >-
-                  The AcronymRecognizer class shall spell an unlisted token of two to five capital
-                  letters that contains no vowel and is not Roman-numeral-shaped, shall leave
-                  unlisted capitals that contain a vowel, Roman-numeral-shaped capitals, over-long or
-                  one-letter tokens unchanged, and shall suspend the rule in an all-capital
-                  sentence.
-                justification: |
-                  A token such as "HTTP" has no vowel to pronounce and is spelled, while "NASA"
-                  reads as a word and "XIV" as a numeral; leaving everything else unchanged keeps
-                  the rule from rewording ordinary capitalized words.
-                tests:
-                  - AcronymRecognizer_TryRecognize_TokensThatAreNotInitialisms_AreNotRecognized
-                  - AcronymRecognizer_TryRecognize_ShoutingSentence_LeavesAmbiguousAndRuleSpelledForms
-
-              - id: SpeechTextEn-Normalization-AcronymRecognizer-DottedAndAmpersand
-                title: >-
-                  The AcronymRecognizer class shall speak dotted letter forms upper-cased and
-                  spaced and report whether the token itself ends with the period, and shall speak
-                  an ampersand initialism group by group joined with the word and, keeping a
-                  possessive tail.
-                justification: |
-                  "U.S.A." and "AT&T" are initialisms written with punctuation; the period decides
+                  "US" is the country and "us" is a pronoun, so only the exact case tells them
+                  apart; a model reads "FBI" as three letters only if it is given the letters. A
+                  token such as "HTTP" has no vowel to pronounce and is spelled, while "NASA" reads
+                  as a word and "XIV" as a numeral. In an all-capital sentence "IT" is an ordinary
+                  word in capitals while "FBI" remains an initialism. The period of "U.S.A." decides
                   the sentence handling, so the recognizer must say whether it is part of the
                   token.
                 tests:
+                  - AcronymRecognizer_TryRecognize_CaseVariants_AreCaseSensitive
+                  - AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter
+                  - AcronymRecognizer_TryRecognize_ShoutingSentence_LeavesAmbiguousAndRuleSpelledForms
+                  - AcronymRecognizer_TryRecognize_TokensThatAreNotInitialisms_AreNotRecognized
                   - AcronymRecognizer_TryRecognize_DottedLetters_AreSpelled
                   - AcronymRecognizer_TryRecognize_AmpersandForms_AreSpelledWithAnd
 
-              - id: SpeechTextEn-Normalization-AcronymRecognizer-LoaderValidation
+              - id: SpeechTextEn-Normalization-AcronymRecognizer-Lexicon
                 title: >-
                   The AcronymRecognizer class shall build a recognizer from a lexicon in the
                   documented tab-separated format and use exactly that lexicon, shall throw
@@ -85,9 +54,7 @@ sections:
                 justification: |
                   A defective lexicon is a build defect and must fail at once and point at the row;
                   several requests may be the first to use the embedded lexicon at the same time,
-                  and each must get the documented answer. That the embedded lexicon is loaded
-                  lazily, once, as one shared instance is a design choice recorded in the acronym
-                  recognizer design.
+                  and each must get the documented answer.
                 tests:
                   - AcronymRecognizer_FromTsv_CustomLexicon_IsUsed
                   - AcronymRecognizer_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine

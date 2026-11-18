@@ -206,7 +206,7 @@ internal static class EvaluationRecord
     /// <param name="column">The name of the group column.</param>
     /// <param name="select">Selects the groups of a set.</param>
     /// <returns>The file text.</returns>
-    private static string RenderGroups(EvaluationReport report, string column, Func<SetEvaluation, IReadOnlyList<GroupTally>> select)
+    internal static string RenderGroups(EvaluationReport report, string column, Func<SetEvaluation, IReadOnlyList<GroupTally>> select)
     {
         var text = new StringBuilder();
         text.Append($"set\t{column}\trows\tcorrect\taccuracy_bp\tupos_baseline_correct\n");
@@ -260,7 +260,7 @@ internal static class EvaluationRecord
     /// </summary>
     /// <param name="values">The values; not empty.</param>
     /// <returns>The mean.</returns>
-    private static int Mean(IReadOnlyList<int> values)
+    internal static int Mean(IReadOnlyList<int> values)
     {
         long sum = 0;
         foreach (var value in values)
@@ -276,7 +276,7 @@ internal static class EvaluationRecord
     /// </summary>
     /// <param name="text">The text being built.</param>
     /// <param name="cells">The cells.</param>
-    private static void Row(StringBuilder text, params object[] cells)
+    internal static void Row(StringBuilder text, params object[] cells)
     {
         text.Append(string.Join('\t', cells.Select(static cell => Convert.ToString(cell, CultureInfo.InvariantCulture))));
         text.Append('\n');

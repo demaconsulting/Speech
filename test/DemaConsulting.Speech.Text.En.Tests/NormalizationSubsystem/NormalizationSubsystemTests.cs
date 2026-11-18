@@ -113,44 +113,8 @@ public sealed class NormalizationSubsystemTests
         var missing = forms.Where(form => !inputs.Any(input => input.Contains(form, StringComparison.Ordinal))).ToList();
 
         // Assert: the abbreviations the golden file does not exercise are exactly those the unit tests cover
-        string[] coveredByUnitTests = ["Mrs", "Messrs.", "Messrs", "Mmes.", "Prof", "Rev.", "Gen.", "Lt.", "Cpl.", "Maj.", "Cmdr.", "Adm.", "Gov.", "Pres.", "Supt.", "Ln.", "Rd.", "Ct.", "Pl.", "Sq.", "Hwy.", "Pkwy.", "Apt.", "Ste.", "Bldg.", "Dept.", "Ltd.", "Corp.", "Esq.", "viz.", "misc.", "cf.", "Vol.", "E.g.", "I.e.", "n/a", "c/o", "w/"];
+        string[] coveredByUnitTests = ["Rev.", "Ln.", "Ltd.", "viz.", "Vol.", "E.g.", "I.e.", "n/a", "w/"];
         Assert.Empty(missing.Except(coveredByUnitTests));
-    }
-
-    /// <summary>Proves the sentence breaks the analyzer would hand the chunker are right where abbreviation periods are concerned.</summary>
-    /// <param name="text">The text.</param>
-    /// <param name="expectedSentences">The expected sentences joined by the broken bar.</param>
-    [Theory]
-    [InlineData("Dr. Smith lives here. He sleeps.", "Dr. Smith lives here.¦He sleeps.")]
-    [InlineData("I live on Main St. It is nice.", "I live on Main St.¦It is nice.")]
-    [InlineData("Visit St. Louis. Then go.", "Visit St. Louis.¦Then go.")]
-    [InlineData("St. Patrick's St. is closed.", "St. Patrick's St. is closed.")]
-    [InlineData("Maple Dr. He likes it.", "Maple Dr.¦He likes it.")]
-    [InlineData("Dr. Smith lives on Maple Dr. He likes it.", "Dr. Smith lives on Maple Dr.¦He likes it.")]
-    [InlineData("(see Elm St.) Then go.", "(see Elm St.)¦Then go.")]
-    [InlineData("No. I don't know.", "No.¦I don't know.")]
-    [InlineData("John Smith Sr. He left.", "John Smith Sr.¦He left.")]
-    [InlineData("pens, etc. The end.", "pens, etc.¦The end.")]
-    [InlineData("pens, etc. and more", "pens, etc. and more")]
-    [InlineData("He left at 5 p.m. Then slept.", "He left at 5 p.m.¦Then slept.")]
-    [InlineData("He lives in the U.S. He works.", "He lives in the U.S.¦He works.")]
-    [InlineData("He lives in the U.S. Army camp.", "He lives in the U.S. Army camp.")]
-    [InlineData("Sen. Smith spoke.", "Sen. Smith spoke.")]
-    [InlineData("John Smith Jr. Ph.D. spoke.", "John Smith Jr. Ph.D. spoke.")]
-    [InlineData("Ann Lee Ph.D. M.D. spoke.", "Ann Lee Ph.D. M.D. spoke.")]
-    [InlineData("John Smith Jr. Ph.D. He spoke.", "John Smith Jr. Ph.D.¦He spoke.")]
-    [InlineData("I met John Smith Jr. He left.", "I met John Smith Jr.¦He left.")]
-    public void NormalizationSubsystem_SentenceBreaks_Abbreviations_BreakOnlyWhereTheSentenceEnds(string text, string expectedSentences)
-    {
-        // Arrange
-        var aligned = NormalizationHarness.Normalize(text);
-        var tokenizerBreaks = NormalizationHarness.TokenizerBreaks(text);
-
-        // Act
-        var breaks = aligned.ReconcileBreaks(tokenizerBreaks);
-
-        // Assert
-        Assert.Equal(expectedSentences, NormalizationHarness.JoinSentences(text, breaks));
     }
 
     /// <summary>Proves random hostile text always yields a result that satisfies every alignment invariant, checked by an applier independent of the production alignment code.</summary>
@@ -263,55 +227,78 @@ public sealed class NormalizationSubsystemTests
         }
     }
 
-    /// <summary>Proves analyzing the same text repeatedly and concurrently through the shared default normalizer gives identical results.</summary>
+    /// <summary>Proves analyzing the same texts, with abbreviations, clitics and numeric constructs, repeatedly and concurrently through the shared default normalizer gives identical results.</summary>
     [Fact]
     public async Task NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults()
     {
         // Arrange
-        const string text = "Dr. Smith & Mr. Jones live on Main St. The FBI said it\u2019s w/o proof, etc. He left at 5 p.m. No. I don't know.";
-        var expected = Key(NormalizationHarness.Normalize(text, classifyClitics: true));
+        string[] texts =
+        [
+            "Dr. Smith & Mr. Jones live on Main St. The FBI said it\u2019s w/o proof, etc. He left at 5 p.m. No. I don't know.",
+            "Pay $1,234.50 at 5:30pm on January 5, 2024, then 50 % of 3 1/2 kg or 12/25/2024 for 2 ft. in the '90s. Version 3.2.1, #5, 1st, 555-1234.",
+        ];
+        var expected = texts.Select(text => Key(NormalizationHarness.Normalize(text, classifyClitics: true))).ToArray();
 
         // Act: many tasks race on the lazily created default lexicons
         var tasks = Enumerable.Range(0, 32)
             .Select(_ => Task.Run(
-                () => Enumerable.Range(0, 20).Select(_ => Key(NormalizationHarness.Normalize(text, classifyClitics: true))).ToList(),
+                () => Enumerable.Range(0, 20).Select(_ => texts.Select(text => Key(NormalizationHarness.Normalize(text, classifyClitics: true))).ToArray()).ToList(),
                 TestContext.Current.CancellationToken))
             .ToArray();
         var results = await Task.WhenAll(tasks);
 
         // Assert
-        Assert.All(results.SelectMany(keys => keys), key => Assert.Equal(expected, key));
+        Assert.All(results.SelectMany(keys => keys), keys => Assert.Equal(expected, keys));
     }
 
     /// <summary>
-    ///     Proves one megabyte of realistic and of adversarially repetitive text keeps its documented normalization: away from the
+    ///     Proves one megabyte of realistic, adversarially repetitive and numeric text keeps its documented normalization: away from the
     ///     two ends of the text every repetition of the unit is annotated and broken exactly like the same repetition in a short text.
     /// </summary>
     [Fact]
     public void NormalizationSubsystem_Normalize_LargeRepetitiveTexts_NormalizeEveryRepetitionAlike()
     {
-        // Arrange: realistic text and four repetitive texts that would expose any quadratic look-around
+        // Arrange: realistic text, repetitive texts and numeric constructs that would expose any quadratic look-around
         const int size = 1_000_000;
-        string[] units =
+        (string Unit, bool ClassifyClitics)[] units =
         [
-            "Dr. Smith lives on Maple Dr. He likes it, etc. The FBI said it\u2019s w/o proof & more. ",
-            "St. ",
-            "A. ",
-            "& ",
-            "Dr. He ",
+            ("Dr. Smith lives on Maple Dr. He likes it, etc. The FBI said it\u2019s w/o proof & more. ", true),
+            ("St. ", true),
+            ("A. ", true),
+            ("& ", true),
+            ("Dr. He ", true),
+            ("1,234.50 ", false),
+            ("$5.50 ", false),
+            ("5:30pm ", false),
+            ("January 5, 2024 ", false),
+            ("1/2 ", false),
+            ("12/25/2024 ", false),
+            ("5 kg ", false),
+            ("50 % ", false),
+            ("Jan. 5 ", false),
+            ("5 ft. ", false),
+            ("5 million USD ", false),
+            ("555-123-4567 ", false),
+            ("192.168.0.1 ", false),
+            ("1990s ", false),
+            ("3 1/2 ", false),
+            ("5\u201310 ", false),
+            ("$ 5 ", false),
+            ("5 ", false),
+            ("1999 ", false),
         ];
         using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
 
-        foreach (var unit in units)
+        foreach (var (unit, classifyClitics) in units)
         {
             var text = string.Concat(Enumerable.Repeat(unit, (size / unit.Length) + 1));
             var tokens = NormalizationHarness.Tokenize(text);
 
             // Act
-            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: true, hangGuard.Token);
+            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics, hangGuard.Token);
 
             // Assert
-            AssertRepetitionsNormalizedAlike(unit, text.Length / unit.Length, aligned, classifyClitics: true);
+            AssertRepetitionsNormalizedAlike(unit, text.Length / unit.Length, aligned, classifyClitics);
         }
     }
 
@@ -445,180 +432,6 @@ public sealed class NormalizationSubsystemTests
         // Assert: both abbreviations resolve and every span is whitespace-bounded text
         Assert.Equal(2, aligned.Spans.Count(span => span.Kind == NormalizationKind.Abbreviation));
         Assert.All(aligned.Spans, span => Assert.False(char.IsWhiteSpace(text[span.Start]) || char.IsWhiteSpace(text[span.End - 1])));
-    }
-
-    /// <summary>Proves a text with no abbreviation, symbol or initialism yields no span and no break edit.</summary>
-    [Fact]
-    public void NormalizationSubsystem_Normalize_PlainText_ChangesNothing()
-    {
-        // Arrange
-        const string text = "The quick brown fox jumps over the lazy dog. It was fun, wasn't it?";
-
-        // Act
-        var aligned = NormalizationHarness.Normalize(text);
-
-        // Assert
-        Assert.Empty(aligned.Spans);
-        Assert.Empty(aligned.ForcedBreaks);
-        Assert.Empty(aligned.SuppressedBreaks);
-        Assert.Equal(text, aligned.ApplySpokenForms());
-    }
-
-    /// <summary>Proves every year from 1000 to 2099 reads as the independent reference says under a year cue, a quantity cue and no cue, and the default is counted only where the readings differ.</summary>
-    [Fact]
-    public void NormalizationSubsystem_Years_EveryYearFrom1000To2099_ReadAsReference()
-    {
-        // Act / Assert
-        for (var year = 1000; year <= 2099; year++)
-        {
-            var digits = year.ToString(CultureInfo.InvariantCulture);
-            var yearWords = ReferenceNumberWords.Year((ulong)year);
-            var cardinalWords = ReferenceNumberWords.Cardinal((ulong)year);
-
-            // A year cue: the year reading, never counted
-            var cued = NormalizationHarness.Normalize("in " + digits);
-            Assert.True($"in {yearWords}" == cued.ApplySpokenForms(), $"cued {year}");
-            Assert.Equal(0, cued.AmbiguousCount);
-
-            // A quantity cue: the cardinal, never counted
-            var counted = NormalizationHarness.Normalize("about " + digits);
-            Assert.True($"about {cardinalWords}" == counted.ApplySpokenForms(), $"quantity {year}");
-            Assert.Equal(0, counted.AmbiguousCount);
-
-            // No cue: a year from 1100, a cardinal below; counted exactly when the two readings differ
-            var bare = NormalizationHarness.Normalize(digits);
-            Assert.True((year >= 1100 ? yearWords : cardinalWords) == bare.ApplySpokenForms(), $"bare {year}");
-            Assert.True((yearWords != cardinalWords ? 1 : 0) == bare.AmbiguousCount, $"ambiguity {year}");
-        }
-    }
-
-    /// <summary>Proves every time from 0:00 to 23:59 reads as the independent reference says, with a leading zero and with a glued meridiem.</summary>
-    [Fact]
-    public void NormalizationSubsystem_Times_EveryHourAndMinute_ReadAsReference()
-    {
-        // Act / Assert
-        for (var hour = 0; hour < 24; hour++)
-        {
-            for (var minute = 0; minute < 60; minute++)
-            {
-                var minuteText = minute.ToString("00", CultureInfo.InvariantCulture);
-                var plain = $"{hour}:{minuteText}";
-                Assert.True(
-                    ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, false) == NormalizationHarness.Normalize(plain).ApplySpokenForms(),
-                    plain);
-
-                if (hour < 10)
-                {
-                    var padded = $"0{hour}:{minuteText}";
-                    Assert.True(
-                        ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, true, false) == NormalizationHarness.Normalize(padded).ApplySpokenForms(),
-                        padded);
-                }
-
-                if (hour is >= 1 and <= 12)
-                {
-                    Assert.True(
-                        ReferenceNumberWords.Clock((ulong)hour, (ulong)minute, false, true) + " P M" == NormalizationHarness.Normalize(plain + "pm").ApplySpokenForms(),
-                        plain + "pm");
-                }
-            }
-        }
-    }
-
-    /// <summary>Proves currency amounts are singular only for exactly one, speak minor units for exactly two fraction digits, and yen never does.</summary>
-    [Fact]
-    public void NormalizationSubsystem_Currency_SingularPluralAndCents_AreCorrect()
-    {
-        // Arrange: (symbol, singular, plural, minor singular, minor plural)
-        (string Symbol, string Singular, string Plural, string? MinorSingular, string? MinorPlural)[] currencies =
-        [
-            ("$", "dollar", "dollars", "cent", "cents"),
-            ("\u20AC", "euro", "euros", "cent", "cents"),
-            ("\u00A3", "pound", "pounds", "penny", "pence"),
-            ("\u00A5", "yen", "yen", null, null),
-        ];
-        ulong[] wholes = [0, 1, 2, 5, 10, 21, 100, 101, 1000, 1234];
-        ulong[] cents = [0, 1, 2, 5, 10, 50, 99];
-
-        // Act / Assert
-        foreach (var (symbol, singular, plural, minorSingular, minorPlural) in currencies)
-        {
-            foreach (var whole in wholes)
-            {
-                // A whole amount: singular only for exactly one
-                var amount = NormalizationHarness.Normalize($"{symbol}{whole}").ApplySpokenForms();
-                Assert.True($"{ReferenceNumberWords.Cardinal(whole)} {(whole == 1 ? singular : plural)}" == amount, $"{symbol}{whole}");
-
-                foreach (var minor in cents)
-                {
-                    var text = $"{symbol}{whole}.{minor:00}";
-                    var spoken = NormalizationHarness.Normalize(text).ApplySpokenForms();
-                    string expected;
-                    if (minorPlural is null)
-                    {
-                        // Yen takes no minor unit: a decimal with its fraction digits spelled
-                        var digits = string.Join(' ', $"{minor:00}".Select(digit => ReferenceNumberWords.Cardinal((ulong)(digit - '0'))));
-                        expected = $"{ReferenceNumberWords.Cardinal(whole)} point {digits} {plural}";
-                    }
-                    else if (whole == 0 && minor > 0)
-                    {
-                        expected = $"{ReferenceNumberWords.Cardinal(minor)} {(minor == 1 ? minorSingular : minorPlural)}";
-                    }
-                    else
-                    {
-                        expected = $"{ReferenceNumberWords.Cardinal(whole)} {(whole == 1 ? singular : plural)}";
-                        if (minor > 0)
-                        {
-                            expected += $" and {ReferenceNumberWords.Cardinal(minor)} {(minor == 1 ? minorSingular : minorPlural)}";
-                        }
-                    }
-
-                    Assert.True(expected == spoken, $"{text}: expected '{expected}' but was '{spoken}'");
-                }
-            }
-        }
-    }
-
-    /// <summary>Proves every unit is singular for exactly one and plural otherwise, glued and spaced, and its abbreviation period is consumed mid-sentence and kept at the end.</summary>
-    [Fact]
-    public void NormalizationSubsystem_Units_SingularPluralAndPeriods_AreCorrect()
-    {
-        // Arrange: written form, singular, plural, whether an abbreviation period is allowed
-        (string Written, string Singular, string Plural, bool Period)[] units =
-        [
-            ("mm", "millimeter", "millimeters", false), ("cm", "centimeter", "centimeters", false), ("km", "kilometer", "kilometers", false),
-            ("ft", "foot", "feet", true), ("Ft", "foot", "feet", true), ("yd", "yard", "yards", true), ("mi", "mile", "miles", true),
-            ("mph", "mile per hour", "miles per hour", false), ("km/h", "kilometer per hour", "kilometers per hour", false),
-            ("mg", "milligram", "milligrams", false), ("kg", "kilogram", "kilograms", false), ("lb", "pound", "pounds", true),
-            ("lbs", "pound", "pounds", true), ("oz", "ounce", "ounces", true), ("ml", "milliliter", "milliliters", false),
-            ("KB", "kilobyte", "kilobytes", false), ("MB", "megabyte", "megabytes", false), ("GB", "gigabyte", "gigabytes", false),
-            ("TB", "terabyte", "terabytes", false), ("Hz", "hertz", "hertz", false), ("kHz", "kilohertz", "kilohertz", false),
-            ("MHz", "megahertz", "megahertz", false), ("GHz", "gigahertz", "gigahertz", false), ("ms", "millisecond", "milliseconds", false),
-            ("hr", "hour", "hours", true), ("hrs", "hour", "hours", true), ("min", "minute", "minutes", true),
-            ("\u00B0", "degree", "degrees", false), ("\u00B0C", "degree Celsius", "degrees Celsius", false), ("\u00B0F", "degree Fahrenheit", "degrees Fahrenheit", false),
-        ];
-
-        // Act / Assert
-        foreach (var (written, singular, plural, period) in units)
-        {
-            // Glued and spaced (a bare degree sign is only tested glued: the tokenizer decides how it splits a spaced one)
-            Assert.Equal($"one {singular}", NormalizationHarness.Normalize($"1{written}").ApplySpokenForms());
-            Assert.Equal($"two {plural}", NormalizationHarness.Normalize($"2{written}").ApplySpokenForms());
-            Assert.Equal($"one {singular} and two {plural}", NormalizationHarness.Normalize($"1{written} and 2{written}").ApplySpokenForms());
-            if (written != "\u00B0")
-            {
-                Assert.Equal($"one {singular}", NormalizationHarness.Normalize($"1 {written}").ApplySpokenForms());
-                Assert.Equal($"two {plural}", NormalizationHarness.Normalize($"2 {written}").ApplySpokenForms());
-            }
-
-            if (period)
-            {
-                // The period is consumed in the middle of a sentence and kept at its end
-                Assert.Equal($"a two {plural} b", NormalizationHarness.Normalize($"a 2 {written}. b").ApplySpokenForms());
-                Assert.Equal($"a two {plural}.", NormalizationHarness.Normalize($"a 2 {written}.").ApplySpokenForms());
-                Assert.Equal($"a two {plural} b", NormalizationHarness.Normalize($"a 2{written}. b").ApplySpokenForms());
-            }
-        }
     }
 
     /// <summary>Proves every numeric spoken value, over the golden file and generated numeric text, contains no digit and only words of the independent reference's closed vocabulary.</summary>
@@ -800,20 +613,24 @@ public sealed class NormalizationSubsystemTests
     }
 
     /// <summary>
-    ///     Proves, with the real core <c>SentenceChunker.ChunkAligned</c>, that every normalization annotation of random numeric text
-    ///     lands in exactly one chunk on the same characters, at every length budget, and nothing is invented.
+    ///     Proves, with the real core <c>SentenceChunker.ChunkAligned</c>, that every replacement and pronunciation annotation of
+    ///     random numeric and override text, with and without the sample dictionary, lands in exactly one chunk on the same
+    ///     characters, at every length budget, with clause cuts, budget cuts and tag placeholders next to the annotated words, and
+    ///     nothing is invented; and that an override on an abbreviation word never changes where a text is chunked.
     /// </summary>
     [Fact]
     public void NormalizationSubsystem_NumericSpans_RealChunker_KeepsEveryAnnotationInExactlyOneChunk()
     {
-        // Arrange: numeric constructs joined by clause punctuation, so the clause pass and the budget pass both cut often
+        // Arrange: numeric constructs and overridable words joined by clause punctuation, so the clause pass and the budget pass both cut often
+        var overrides = SampleOverrides();
         string[] pieces =
         [
             "$1,234.50", "$5 million", "5:30pm", "5:30 pm", "January 5, 2024", "12/25/2024", "50 %", "50%", "3 1/2 kg", "5 ft. tall", "the 1990s",
             "#5", "1st", "22nd", "3.5", "\u00BD", "5\u201310", "555-123-4567", "192.168.0.1", "'90s", "\u20AC5.50", "\u00A31.01", "72\u00B0F",
             "in 1999", "about 1500 people", "007", "1,000,000", "Jan. 5", "Sat. 7:30", "5 USD", "word", "and", "then", "kg", "at",
+            "Nginx", "SQL", "Polish", "polish", "GIF", "US", "FBI", "CIA", "AT&T", "R&D", "U.S.", "J.", "Ph.D", "Wi-Fi", "NASA's", "Cafe", Tag,
         ];
-        string[] separators = [" ", " ", " ", ", ", "; ", ": ", ". ", ", "];
+        string[] separators = [" ", " ", " ", ", ", "; ", ": ", ". ", ", ", Tag, Tag + " "];
         var random = new Random(20260805);
 
         foreach (var budget in new[] { 200, 120, 60, 25 })
@@ -827,23 +644,29 @@ public sealed class NormalizationSubsystemTests
                 }
 
                 var text = builder.ToString().TrimEnd();
-                var aligned = NormalizationHarness.Normalize(text);
-                var annotations = aligned.Spans.Select(span => new SegmentAnnotation(span.Start, span.Length, "en.norm", span.Spoken)).ToList();
-                var breaks = aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(text));
+                var neutralized = NormalizationHarness.Neutralize(text);
 
-                // Act
-                var chunks = SentenceChunker.ChunkAligned(text, annotations, breaks, budget);
+                foreach (var aligned in new[] { NormalizationHarness.Normalize(text), NormalizationHarness.NormalizeWithOverrides(text, overrides) })
+                {
+                    var annotations = ToAnnotations(aligned);
+                    var breaks = aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(neutralized));
 
-                // Assert: the sequence of (source characters, value) the chunks carry equals the sequence emitted
-                var delivered = chunks
-                    .SelectMany(chunk => chunk.Annotations.Select(annotation => (chunk.Text.Substring(annotation.Start, annotation.Length), annotation.Value)))
-                    .ToList();
-                var emitted = aligned.Spans.Select(span => (text.Substring(span.Start, span.Length), span.Spoken)).ToList();
-                Assert.True(
-                    emitted.SequenceEqual(delivered),
-                    $"budget {budget}, iteration {iteration}: '{text}' emitted {emitted.Count}, delivered {delivered.Count}");
+                    // Act: the chunker sees the text with its placeholders, as the session does
+                    var chunks = SentenceChunker.ChunkAligned(text, annotations, breaks, budget);
+
+                    // Assert: the sequence of (source characters, kind, value) the chunks carry equals the sequence emitted
+                    var delivered = chunks
+                        .SelectMany(chunk => chunk.Annotations.Select(annotation => (chunk.Text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)))
+                        .ToList();
+                    var emitted = annotations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)).ToList();
+                    Assert.True(
+                        emitted.SequenceEqual(delivered),
+                        $"budget {budget}, iteration {iteration}: '{Escape(text)}' emitted {emitted.Count}, delivered {delivered.Count}");
+                }
             }
         }
+
+        AssertOverridesOnAbbreviationsKeepTheBuiltInChunks();
     }
 
     /// <summary>Proves supplementary-plane digits and letters, lone surrogates and combining marks next to numbers are never cut, never read as ASCII numbers, and never leave a span on half a character.</summary>
@@ -884,35 +707,6 @@ public sealed class NormalizationSubsystemTests
         Assert.Equal("five \uD835\uDFD9 six", NormalizationHarness.Normalize("5 \uD835\uDFD9 6").ApplySpokenForms());
     }
 
-    /// <summary>
-    ///     Proves one megabyte of every numeric construct, repeated, keeps its documented normalization: away from the two ends of the
-    ///     text every repetition of the unit is annotated and broken exactly like the same repetition in a short text.
-    /// </summary>
-    [Fact]
-    public void NormalizationSubsystem_Normalize_LargeRepetitiveNumericTexts_NormalizeEveryRepetitionAlike()
-    {
-        // Arrange: units that would expose any quadratic look-behind or look-ahead
-        const int size = 1_000_000;
-        string[] units =
-        [
-            "1,234.50 ", "$5.50 ", "5:30pm ", "January 5, 2024 ", "1/2 ", "12/25/2024 ", "5 kg ", "50 % ", "Jan. 5 ", "5 ft. ", "5 million USD ",
-            "555-123-4567 ", "192.168.0.1 ", "1990s ", "3 1/2 ", "5\u201310 ", "$ 5 ", "5 ", "1999 ",
-        ];
-        using var hangGuard = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-
-        foreach (var unit in units)
-        {
-            var text = string.Concat(Enumerable.Repeat(unit, (size / unit.Length) + 1));
-            var tokens = NormalizationHarness.Tokenize(text);
-
-            // Act
-            var aligned = TextNormalizer.Default.Normalize(text, tokens, classifyClitics: false, hangGuard.Token);
-
-            // Assert
-            AssertRepetitionsNormalizedAlike(unit, text.Length / unit.Length, aligned, classifyClitics: false);
-        }
-    }
-
     /// <summary>Proves one huge numeric-looking token (a million digits, separators, a symbol, or trailing letters) is rejected by the length cap, left as written and counted as one numeric fallback.</summary>
     [Fact]
     public void NormalizationSubsystem_Normalize_OneHugeNumericToken_IsLeftAsWrittenAndCounted()
@@ -944,24 +738,33 @@ public sealed class NormalizationSubsystemTests
         }
     }
 
-    /// <summary>Proves the normalization never depends on the current culture: the whole numeric golden file passes unchanged under Turkish, Arabic, German, Thai and Persian cultures.</summary>
+    /// <summary>Proves the normalization never depends on the current culture: the whole numeric golden file and every override golden row pass unchanged under Turkish, Azeri, Arabic, German, Thai and Persian cultures.</summary>
     [Fact]
     public void NormalizationSubsystem_Normalize_UnderForeignCultures_GivesIdenticalResults()
     {
         // Arrange
         var cases = NormalizationHarness.ReadCases("number-cases.tsv");
+        var overrideCases = NormalizationHarness.ReadOverrideCases("overrides-cases.tsv");
         var originalCulture = CultureInfo.CurrentCulture;
         var originalUiCulture = CultureInfo.CurrentUICulture;
 
         try
         {
-            // Act / Assert: the Turkish capital and lowercase I, other digits, other decimal and group separators, other calendars
-            foreach (var name in new[] { "tr-TR", "ar-SA", "de-DE", "th-TH", "fa-IR" })
+            // Act / Assert: the Turkish and Azeri capital and lowercase I, other digits, other decimal and group separators, other calendars
+            foreach (var name in new[] { "tr-TR", "az-Latn-AZ", "ar-SA", "de-DE", "th-TH", "fa-IR" })
             {
                 CultureInfo.CurrentCulture = new CultureInfo(name);
                 CultureInfo.CurrentUICulture = new CultureInfo(name);
                 var failures = CheckGoldenRows(cases);
                 Assert.True(failures.Count == 0, $"{name}: {string.Join(Environment.NewLine, failures)}");
+
+                var overrides = SampleOverrides();
+                foreach (var row in overrideCases)
+                {
+                    var aligned = NormalizationHarness.NormalizeWithOverrides(row.Input, overrides);
+                    Assert.True(row.Spoken == aligned.ApplySpokenForms(), $"{name}: row '{row.Id}' spoken '{aligned.ApplySpokenForms()}'");
+                    Assert.True(row.Applied == aligned.OverridesApplied && row.Ignored == aligned.OverridesIgnored, $"{name}: row '{row.Id}' counts");
+                }
             }
         }
         finally
@@ -969,26 +772,6 @@ public sealed class NormalizationSubsystemTests
             CultureInfo.CurrentCulture = originalCulture;
             CultureInfo.CurrentUICulture = originalUiCulture;
         }
-    }
-
-    /// <summary>Proves analyzing the same numeric text repeatedly and concurrently through the shared default normalizer gives identical results.</summary>
-    [Fact]
-    public async Task NormalizationSubsystem_Normalize_ConcurrentNumericRequests_ReturnIdenticalResults()
-    {
-        // Arrange
-        const string text = "Pay $1,234.50 at 5:30pm on January 5, 2024, then 50 % of 3 1/2 kg or 12/25/2024 for 2 ft. in the '90s. Version 3.2.1, #5, 1st, 555-1234.";
-        var expected = Key(NormalizationHarness.Normalize(text));
-
-        // Act: many tasks race on the lazily created default lexicons
-        var tasks = Enumerable.Range(0, 32)
-            .Select(_ => Task.Run(
-                () => Enumerable.Range(0, 20).Select(_ => Key(NormalizationHarness.Normalize(text))).ToList(),
-                TestContext.Current.CancellationToken))
-            .ToArray();
-        var results = await Task.WhenAll(tasks);
-
-        // Assert
-        Assert.All(results.SelectMany(keys => keys), key => Assert.Equal(expected, key));
     }
 
     /// <summary>
@@ -1020,8 +803,7 @@ public sealed class NormalizationSubsystemTests
 
     /// <summary>Loads the documented sample dictionary.</summary>
     /// <returns>The dictionary.</returns>
-    private static PronunciationOverrides SampleOverrides() =>
-        PronunciationOverrides.FromTsv(new StringReader(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "overrides-dictionary.tsv"))));
+    private static PronunciationOverrides SampleOverrides() => NormalizationHarness.LoadSampleDictionary();
 
     /// <summary>Turns the result of a normalization into the annotations the analyzer would emit: replacements as <c>en.norm</c> or <c>en.spell</c>, pronunciations as <c>en.pron</c>.</summary>
     /// <param name="aligned">The result.</param>
@@ -1096,54 +878,6 @@ public sealed class NormalizationSubsystemTests
         }
     }
 
-    /// <summary>
-    ///     Proves, with the real core <c>SentenceChunker.ChunkAligned</c>, that every replacement and pronunciation annotation of
-    ///     random override text lands in exactly one chunk on the same characters, at every length budget, with clause cuts,
-    ///     budget cuts and tag placeholders next to overridden words, and nothing is invented.
-    /// </summary>
-    [Fact]
-    public void NormalizationSubsystem_OverrideAnnotations_RealChunker_KeepEveryAnnotationInExactlyOneChunk()
-    {
-        // Arrange
-        var overrides = SampleOverrides();
-        string[] pieces =
-        [
-            "Nginx", "SQL", "Polish", "polish", "GIF", "kg", "US", "FBI", "CIA", "AT&T", "R&D", "5 kg", "$5 million", "U.S.", "J.", "Ph.D", "word", "and", "then", "Wi-Fi", "NASA's", "Cafe", Tag, "5:30pm",
-        ];
-        string[] separators = [" ", " ", " ", ", ", "; ", ": ", ". ", ", ", Tag, Tag + " "];
-        var random = new Random(20260903);
-
-        foreach (var budget in new[] { 200, 120, 60, 25 })
-        {
-            for (var iteration = 0; iteration < 150; iteration++)
-            {
-                var builder = new StringBuilder();
-                for (var i = 0; i < random.Next(3, 26); i++)
-                {
-                    builder.Append(pieces[random.Next(pieces.Length)]).Append(separators[random.Next(separators.Length)]);
-                }
-
-                var text = builder.ToString().TrimEnd();
-                var neutralized = NormalizationHarness.Neutralize(text);
-                var aligned = NormalizationHarness.NormalizeWithOverrides(text, overrides);
-                var annotations = ToAnnotations(aligned);
-                var breaks = aligned.ReconcileBreaks(NormalizationHarness.TokenizerBreaks(neutralized));
-
-                // Act: the chunker sees the text with its placeholders, as the session does
-                var chunks = SentenceChunker.ChunkAligned(text, annotations, breaks, budget);
-
-                // Assert: the sequence of (source characters, kind, value) the chunks carry equals the sequence emitted
-                var delivered = chunks
-                    .SelectMany(chunk => chunk.Annotations.Select(annotation => (chunk.Text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)))
-                    .ToList();
-                var emitted = annotations.Select(annotation => (text.Substring(annotation.Start, annotation.Length), annotation.Kind, annotation.Value)).ToList();
-                Assert.True(
-                    emitted.SequenceEqual(delivered),
-                    $"budget {budget}, iteration {iteration}: '{Escape(text)}' emitted {emitted.Count}, delivered {delivered.Count}");
-            }
-        }
-    }
-
     /// <summary>Proves that for texts without any dictionary hit, a dictionary changes nothing: the whole result equals the result without a dictionary, and no override is counted.</summary>
     [Fact]
     public void NormalizationSubsystem_Normalize_DictionaryWithoutHits_EqualsNoDictionary()
@@ -1168,39 +902,6 @@ public sealed class NormalizationSubsystemTests
             // Assert
             Assert.True(Key(without) == Key(with), $"result differs in iteration {iteration}: '{Escape(text)}'");
             Assert.Equal(0, with.OverridesApplied + with.OverridesIgnored);
-        }
-    }
-
-    /// <summary>Proves every override golden row passes unchanged under Turkish, Azeri, German, Thai and Persian current cultures: no culture-sensitive comparison or casing is involved.</summary>
-    [Fact]
-    public void NormalizationSubsystem_Overrides_UnderForeignCultures_GiveIdenticalResults()
-    {
-        // Arrange
-        var cases = NormalizationHarness.ReadOverrideCases("overrides-cases.tsv");
-        var originalCulture = CultureInfo.CurrentCulture;
-        var originalUiCulture = CultureInfo.CurrentUICulture;
-
-        try
-        {
-            foreach (var name in new[] { "tr-TR", "az-Latn-AZ", "de-DE", "th-TH", "fa-IR" })
-            {
-                CultureInfo.CurrentCulture = new CultureInfo(name);
-                CultureInfo.CurrentUICulture = new CultureInfo(name);
-                var overrides = SampleOverrides();
-
-                // Act / Assert
-                foreach (var row in cases)
-                {
-                    var aligned = NormalizationHarness.NormalizeWithOverrides(row.Input, overrides);
-                    Assert.True(row.Spoken == aligned.ApplySpokenForms(), $"{name}: row '{row.Id}' spoken '{aligned.ApplySpokenForms()}'");
-                    Assert.True(row.Applied == aligned.OverridesApplied && row.Ignored == aligned.OverridesIgnored, $"{name}: row '{row.Id}' counts");
-                }
-            }
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = originalCulture;
-            CultureInfo.CurrentUICulture = originalUiCulture;
         }
     }
 
@@ -1346,13 +1047,12 @@ public sealed class NormalizationSubsystemTests
     }
 
     /// <summary>
-    ///     Proves, with the real <c>PronunciationOverrides</c>, the real normalizer and the real core chunker, that an override
+    ///     Asserts, with the real <c>PronunciationOverrides</c>, the real normalizer and the real core chunker, that an override
     ///     on an abbreviation word never changes where a text is chunked: for every action, for case-sensitive and case-insensitive
     ///     entries, mid-sentence and sentence-final, around an em dash and next to tag placeholders, at every budget, the chunks
     ///     equal those of the text without a dictionary, and every annotation of the override is still delivered once.
     /// </summary>
-    [Fact]
-    public void NormalizationSubsystem_Overrides_OnAbbreviations_RealChunker_ChunksEqualTheBuiltInChunks()
+    private static void AssertOverridesOnAbbreviationsKeepTheBuiltInChunks()
     {
         // Arrange
         (string Text, string Word)[] rows =

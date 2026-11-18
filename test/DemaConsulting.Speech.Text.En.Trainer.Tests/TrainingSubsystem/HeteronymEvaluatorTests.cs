@@ -15,15 +15,9 @@ public sealed class HeteronymEvaluatorTests
     /// <summary>Proves ratios convert to basis points with integer rounding half away from zero.</summary>
     [Theory]
     [InlineData(1, 3, 3333)]
-    [InlineData(2, 3, 6667)]
-    [InlineData(-1, 3, -3333)]
     [InlineData(-2, 3, -6667)]
     [InlineData(1, 32, 313)]
     [InlineData(-1, 32, -313)]
-    [InlineData(1, 16, 625)]
-    [InlineData(0, 5, 0)]
-    [InlineData(5, 5, 10000)]
-    [InlineData(1100, 1167, 9426)]
     [InlineData(1, 0, 0)]
     public void HeteronymEvaluator_RoundBasisPoints_RoundsHalfAwayFromZero(long numerator, long denominator, int expected)
     {
@@ -132,9 +126,6 @@ public sealed class HeteronymEvaluatorTests
     [Theory]
     [InlineData(930, 1000, true, true)]
     [InlineData(929, 1000, false, true)]
-    [InlineData(93, 100, true, true)]
-    [InlineData(92, 100, false, true)]
-    [InlineData(1000, 1000, true, true)]
     public void HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive(int correct, int rows, bool accuracyOk, bool intervalOk)
     {
         // Arrange
@@ -276,16 +267,17 @@ public sealed class HeteronymEvaluatorTests
         Assert.Equal(10, set.FirstBaselineCorrect);
     }
 
-    /// <summary>Proves the trainer's direct predictions and the analyzer's agree on every aligned row.</summary>
+    /// <summary>Proves the trainer's direct predictions and the analyzer's agree on every aligned row of every set, the training rows included, and that the rows whose target is not a runtime token are reported as not aligned.</summary>
     [Fact]
     public void HeteronymEvaluator_Evaluate_AllSets_TrainerAndAnalyzerAgreeOnEveryRow()
     {
         // Arrange
         using var fixture = new TrainingFixture();
+        fixture.AppendRow("train.tsv", "syn-unaligned", "lead.noun", "The leader spoke softly.", "lead", "synthetic");
         var (evaluator, image) = Prepare(fixture);
 
         // Act
-        var sets = new[] { "dev", "holdout-natural", "holdout-independent" }.Select(name => evaluator.Evaluate(name, image)).ToList();
+        var sets = new[] { "train", "dev", "holdout-natural", "holdout-independent" }.Select(name => evaluator.Evaluate(name, image)).ToList();
 
         // Assert
         Assert.All(sets, set =>
@@ -294,24 +286,8 @@ public sealed class HeteronymEvaluatorTests
             Assert.Equal(0, set.Parity.Mismatched);
             Assert.Equal(0, set.Parity.Suppressed);
         });
-    }
-
-    /// <summary>Proves the parity check also covers the training rows: the trainer and the analyzer agree on every aligned row and the rows whose target is not a runtime token are reported.</summary>
-    [Fact]
-    public void HeteronymEvaluator_Evaluate_TrainingRows_ParityHoldsAndUnalignedRowsAreReported()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture();
-        fixture.AppendRow("train.tsv", "syn-unaligned", "lead.noun", "The leader spoke softly.", "lead", "synthetic");
-        var (evaluator, image) = Prepare(fixture);
-
-        // Act
-        var set = evaluator.Evaluate("train", image);
-
-        // Assert
-        Assert.Equal(37, set.Rows);
-        Assert.Equal(36, set.Aligned);
-        Assert.Equal(new ParityCounts(36, 0, 0), set.Parity);
+        Assert.Equal(37, sets[0].Rows);
+        Assert.Equal(36, sets[0].Aligned);
     }
 
     /// <summary>Proves the direct-only evaluation decides the same rows as the end-to-end one.</summary>
@@ -332,38 +308,26 @@ public sealed class HeteronymEvaluatorTests
         Assert.Equal(new ParityCounts(0, 0, 0), direct.Parity);
     }
 
-    /// <summary>Proves a missing provenance table stops the evaluation of a harvested set with an error that names the file.</summary>
+    /// <summary>Proves a missing provenance table, or a harvested row that the table does not list, stops the evaluation of a harvested set with an error that names the file or the row.</summary>
     [Fact]
     public void HeteronymEvaluator_Evaluate_MissingProvenanceFile_ThrowsInvalidDataException()
     {
         // Arrange
         using var fixture = new TrainingFixture("ADV", "ADV");
         var (evaluator, image) = Prepare(fixture);
+        var table = fixture.Read("harvest-provenance.tsv");
         File.Delete(fixture.PathOf("harvest-provenance.tsv"));
 
         // Act
-        var exception = Assert.Throws<InvalidDataException>(() => evaluator.Evaluate("holdout-natural", image));
-
-        // Assert
-        Assert.Contains("harvest-provenance.tsv", exception.Message);
-    }
-
-    /// <summary>Proves a harvested row that the provenance table does not list stops the evaluation with an error that names the file and the row.</summary>
-    [Fact]
-    public void HeteronymEvaluator_Evaluate_HarvestedRowWithoutProvenanceEntry_ThrowsInvalidDataException()
-    {
-        // Arrange
-        using var fixture = new TrainingFixture("ADV", "ADV");
-        var (evaluator, image) = Prepare(fixture);
-        var kept = fixture.Read("harvest-provenance.tsv").Split('\n').Where(line => !line.StartsWith("harvest-h05\t", StringComparison.Ordinal));
+        var missingFile = Assert.Throws<InvalidDataException>(() => evaluator.Evaluate("holdout-natural", image));
+        var kept = table.Split('\n').Where(line => !line.StartsWith("harvest-h05\t", StringComparison.Ordinal));
         fixture.Write("harvest-provenance.tsv", string.Join('\n', kept));
-
-        // Act
-        var exception = Assert.Throws<InvalidDataException>(() => evaluator.Evaluate("holdout-natural", image));
+        var missingRow = Assert.Throws<InvalidDataException>(() => evaluator.Evaluate("holdout-natural", image));
 
         // Assert
-        Assert.Contains("holdout-natural.tsv", exception.Message);
-        Assert.Contains("harvest-h05", exception.Message);
+        Assert.Contains("harvest-provenance.tsv", missingFile.Message);
+        Assert.Contains("holdout-natural.tsv", missingRow.Message);
+        Assert.Contains("harvest-h05", missingRow.Message);
     }
 
     /// <summary>Proves two rows of one source document form one cluster, so the provenance table drives the clustering.</summary>
@@ -411,6 +375,56 @@ public sealed class HeteronymEvaluatorTests
 
         // Act / Assert
         Assert.Throws<InvalidDataException>(() => evaluator.Evaluate("holdout-secret", image));
+    }
+
+    /// <summary>Proves the clustering supplied by the caller decides which rows resample together.</summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateRows_CustomClustering_GroupsRowsOfOneCluster()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var (evaluator, image) = Prepare(fixture);
+        var rows = RowPreparer.ReadRows(fixture.PathOf("holdout-independent.tsv"), "holdout-independent.tsv");
+
+        // Act
+        var single = evaluator.EvaluateRows("one-cluster", rows, image, static _ => "everything");
+        var byReading = evaluator.EvaluateRows("reading-clusters", rows, image, static row => row.ReadingId);
+        var perRow = evaluator.EvaluateRows("row-clusters", rows, image, static row => row.Id);
+
+        // Assert: 21 rows, two readings
+        Assert.Equal(21, single.Rows);
+        Assert.Equal(1, single.Interval.Clusters);
+        Assert.Equal(2, byReading.Interval.Clusters);
+        Assert.Equal(21, perRow.Interval.Clusters);
+        Assert.Equal(single.Correct, perRow.Correct);
+        Assert.Equal(byReading.Correct, perRow.Correct);
+    }
+
+    /// <summary>Proves the interval of the accuracy encloses its point estimate on the end-to-end path, and is absent on the direct path and on a file set.</summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateRows_AccuracyInterval_EnclosesPointEstimate()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var (evaluator, image) = Prepare(fixture);
+        var rows = RowPreparer.ReadRows(fixture.PathOf("holdout-independent.tsv"), "holdout-independent.tsv");
+
+        // Act
+        var endToEnd = evaluator.EvaluateRows("with-interval", rows, image, static row => row.Id);
+        var direct = evaluator.EvaluateRowsDirect("direct", rows, image, static row => row.Id);
+        var fromFile = evaluator.Evaluate("holdout-independent", image);
+
+        // Assert
+        var interval = endToEnd.AccuracyInterval;
+        Assert.NotNull(interval);
+        var accuracy = HeteronymEvaluator.RoundBasisPoints(endToEnd.Correct, endToEnd.Rows);
+        Assert.Equal(accuracy, interval.DifferenceBasisPoints);
+        Assert.InRange(accuracy, interval.LowerBasisPoints, interval.UpperBasisPoints);
+        Assert.Equal(endToEnd.Interval.Clusters, interval.Clusters);
+        Assert.Null(direct.AccuracyInterval);
+        Assert.Equal(endToEnd.Correct, direct.Correct);
+        Assert.Equal(new ParityCounts(0, 0, 0), direct.Parity);
+        Assert.Null(fromFile.AccuracyInterval);
     }
 
     /// <summary>

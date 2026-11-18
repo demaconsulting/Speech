@@ -3,44 +3,45 @@
 #### Verification Approach
 
 `DataManifest` is verified by automated unit tests in
-`test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/DataManifestTests.cs`. Each test writes a few
-small files and a manifest computed from them into a temporary folder, then changes one thing: one byte of a file, a
-recorded size or row count, a deleted file or manifest, an extra file, or one malformed manifest entry. The real
+`test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/DataManifestTests.cs`. Each test builds the
+small valid data folder of the dataset fixture, with a manifest computed from it, and changes one thing: one byte of a
+file, a recorded size or row count, a deleted file or manifest, an extra file, or malformed manifest entries. The real
 `TsvTable` and `CheckReport` are used.
 
 #### Test Environment
 
-- **Framework**: xUnit v3 running under the .NET SDK
-- **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
+- **Framework**: xUnit v3 running under the .NET SDK, invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Text.En.Trainer.Tests`
 - **Isolation**: each test builds and deletes its own temporary folder
 
 #### Acceptance Criteria
 
-A folder that matches its manifest gives no finding. A changed byte, a wrong byte count, a wrong row count, a missing
-listed file and a missing manifest each give a finding that names the file; the line counter counts terminated and
-unterminated lines. An unlisted file is a finding, while the manifest itself and the two local cache folders are
-ignored. Unsorted entries, a duplicate entry, an uppercase hash, a path that is not a relative path with forward
-slashes, a malformed line and non-integer counts are findings, and a valid manifest exposes its entries.
+**Hash verification** (`HashVerification`). A matching folder gives no finding. A changed byte, a wrong byte count, a
+wrong row count, a missing listed file and a missing manifest each give a finding that names the file; the line counter
+counts terminated and unterminated lines; an unlisted file is a finding, while the manifest itself and the two local
+cache folders are ignored.
+
+**Format** (`Format`). Unsorted and duplicate entries, an uppercase hash, a path that is not relative with forward
+slashes (a backslash, a parent folder or a rooted path), a line with the wrong number of columns and non-integer counts
+are findings.
 
 #### Test Scenarios
 
 ##### Hash verification
 
 **Tests**: `DataManifest_Verify_MatchingManifest_ReportsNothing`, `DataManifest_Verify_ChangedByte_ReportsHashMismatch`,
-`DataManifest_Verify_WrongBytes_ReportsSizeMismatch`, `DataManifest_Verify_WrongRows_ReportsRowCountMismatch`,
-`DataManifest_Verify_MissingFile_ReportsListedFileMissing`, `DataManifest_Verify_MissingManifest_ReportsFinding`,
-`DataManifest_CountLines_CountsTerminatedAndUnterminatedLines`
+`DataManifest_Verify_WrongBytes_ReportsSizeMismatch`, `DataManifest_Verify_MissingFile_ReportsListedFileMissing`,
+`DataManifest_Verify_MissingManifest_ReportsFinding`, `DataManifest_CountLines_CountsTerminatedAndUnterminatedLines`,
+`DataManifest_Verify_UnlistedFile_IsReported`, `DataManifest_Verify_LocalCaches_AreIgnored`
 
-##### Complete listing
+The size test changes a byte count and a row count in one manifest and expects both findings. A file in the folders
+`external/` and `work/` does not count as unlisted.
 
-**Tests**: `DataManifest_Verify_UnlistedFile_IsReported`, `DataManifest_Verify_LocalCaches_AreIgnored`
+##### Format
 
-A file in the folder `external/` and a file in `work/` do not count as unlisted.
+**Tests**: `DataManifest_Verify_UnsortedEntries_ReportsOrder`,
+`DataManifest_Verify_UpperCaseDigest_ReportsMalformedDigest`, `DataManifest_Verify_NonRelativePath_IsRejected`,
+`DataManifest_Verify_MalformedLine_ReportsColumns`
 
-##### Determinism
-
-**Tests**: `DataManifest_Load_ValidManifest_ExposesEntries`, `DataManifest_Verify_UnsortedEntries_ReportsOrder`,
-`DataManifest_Verify_DuplicateEntry_ReportsDuplicate`, `DataManifest_Verify_UpperCaseDigest_ReportsMalformedDigest`,
-`DataManifest_Verify_NonRelativePath_IsRejected`, `DataManifest_Verify_MalformedLine_ReportsColumns`,
-`DataManifest_Verify_NonIntegerBytes_ReportsMalformedNumbers`
+The order test swaps two entries and repeats another, and the malformed-line test adds a one-column line and a
+non-integer size; each defect must give its own finding.

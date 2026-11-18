@@ -6,80 +6,58 @@ This document provides the system-level design for the SpeechTextEn library.
 
 ## Architecture
 
-SpeechTextEn is a .NET library, published as the `DemaConsulting.Speech.Text.En` NuGet
-package (a pre-release; see *Release*), that
-supplies an English implementation of the Speech library's `ITextAnalyzer` seam. A model package returns
-an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`; the Speech library then runs the analyzer
-once per speech request over the whole request text and delivers the result to an annotation-aware
-synthesis backend as language-neutral annotations on each speech segment. The system is a preview: this
-release provides part-of-speech annotation, alignment-preserving normalization of English text
-(abbreviations including month and weekday abbreviations, symbols, apostrophes, acronyms and initialisms,
-and en-US numbers, ordinals, years, currency, percent, units, times and dates), a spell-out annotation for
-letter sequences, host-supplied pronunciation overrides (a dictionary of whole words that are spoken as
-written, replaced by plain words, spelled letter by letter, given a phoneme string or given a fixed heteronym
-reading) and authoritative sentence boundaries, and heteronym pronunciation readings: a model-driven choice of which
-reading a word such as `record` has, reported as a reading id with a confidence, which a trained model embedded in the
-package supplies (see *Heteronym Readings*).
+SpeechTextEn is a .NET library, published as the `DemaConsulting.Speech.Text.En` NuGet package (a pre-release; see
+*Release*), that supplies an English implementation of the Speech library's `ITextAnalyzer` seam. A model package
+returns an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`; the Speech library runs the analyzer once per
+speech request over the whole request text and delivers the result to an annotation-aware synthesis backend as
+language-neutral annotations on each speech segment. The system is a preview. It provides part-of-speech annotation,
+authoritative sentence boundaries, alignment-preserving normalization of English text (abbreviations, symbols,
+apostrophes, acronyms and initialisms, and en-US numbers, ordinals, years, currency, percent, units, times and dates), a
+spell-out annotation for letter sequences, host-supplied pronunciation overrides (whole words spoken as written,
+replaced by plain words, spelled, given a phoneme string or given a fixed heteronym reading), and heteronym readings: a
+choice of which reading a word such as `record` has, reported as a reading id with a confidence, supplied by a trained
+model embedded in the package.
 
-SpeechTextEn is a sibling system to Speech rather than a subsystem of it, for the same reasons the model
-packages are: it is a separately built, separately packaged software item with its own dependency, and
-the Speech library must never depend on it. It uses the Speech library only through public API (the
-`ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation` and `TextAnalysisConventions` types), and the
-package's project file has one project reference, to `DemaConsulting.Speech`, and no reference to ONNX
-Runtime or any inference package, so any model package can use it.
+SpeechTextEn is a sibling system to Speech rather than a subsystem of it, for the same reasons the model packages are:
+it is a separately built, separately packaged item with its own dependency, and the Speech library must never depend on
+it. It uses the Speech library only through public API (`ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation` and
+`TextAnalysisConventions`); the package has one project reference, to `DemaConsulting.Speech`, and none to ONNX Runtime
+or any inference package, so any model package can use it.
 
 The library consists of three runtime subsystems:
 
-- **AnalysisSubsystem**: the `EnglishTextAnalyzer` analyzer (with its `EnglishTextAnalysis`,
-  `AnalyzedToken` and `AnalyzedNormalization` result types), its `EnglishTextAnalyzerOptions`, the
-  `TextEnAnnotations` annotation vocabulary and typed readers, the `PronunciationOverrides` dictionary of
-  host-supplied pronunciation overrides (with its `PronunciationOverrideEntry` record and the
-  `OverrideAction` and `PronunciationScheme` enumerations), the internal `PartOfSpeechAdapter` that
-  isolates the part-of-speech package, and the internal `AnalysisDiagnostics` reporter - see *SpeechTextEn
-  AnalysisSubsystem Design*
-- **HeteronymSubsystem**: the public `ReadingInventory` of heteronym readings (embedded from the repository's
-  inventory tables), the internal feature extractor with its hash functions, the internal sparse model with its
-  strict file loader, and the internal classifier with its lazy model provider - see *SpeechTextEn
-  HeteronymSubsystem Design*
-- **NormalizationSubsystem**: the alignment model (`NormalizationAlignment.cs`, which also declares the
-  public `NormalizationKind` and `CliticKind` enumerations), the internal `TextNormalizer` that decides
-  which spans are spoken differently, the internal `AbbreviationResolver` with its embedded abbreviation
-  lexicon, the internal `AcronymRecognizer` with its embedded initialism lexicon, the internal
-  `NumericExpressionRecognizer` that finds numeric expressions and decides how each token of one is
-  spoken, and the internal `NumberVerbalizer` that builds the English words of a number - see *SpeechTextEn
-  NormalizationSubsystem Design*
+- **AnalysisSubsystem**: `EnglishTextAnalyzer` (with `EnglishTextAnalysis`, `AnalyzedToken` and
+  `AnalyzedNormalization`), `EnglishTextAnalyzerOptions`, the `TextEnAnnotations` vocabulary and typed readers, the
+  `PronunciationOverrides` dictionary (with `PronunciationOverrideEntry`, `OverrideAction` and `PronunciationScheme`),
+  the internal `PartOfSpeechAdapter` that isolates the part-of-speech package, and the internal `AnalysisDiagnostics`
+  reporter
+- **HeteronymSubsystem**: the public `ReadingInventory`, the internal feature extractor with its hash functions, the
+  internal sparse model with its strict file loader, and the internal classifier with its lazy model provider
+- **NormalizationSubsystem**: the alignment model (which also declares the public `NormalizationKind` and `CliticKind`),
+  the `TextNormalizer` that decides which spans are spoken differently, the `AbbreviationResolver` and
+  `AcronymRecognizer` with their embedded lexicons, the `NumericExpressionRecognizer` and the `NumberVerbalizer`
 
-The dependencies between the subsystems are one way: the AnalysisSubsystem uses the NormalizationSubsystem and the
-HeteronymSubsystem, and neither of them knows anything of the analyzer, the tagger or the diagnostics sink. The
-NormalizationSubsystem does not use the part-of-speech package in production code at all; it receives token offsets
-from the analyzer as plain values (only its tests feed it the real tokenizer's tokens). The HeteronymSubsystem does
-not use it either: the analyzer describes each token to it with plain values (offsets, a tag name and a confidence). The
-two lower subsystems do not depend on each other. All three are small enough that none needs nested subsystems of its
-own.
+The dependencies between the subsystems are one way: AnalysisSubsystem uses the other two, and neither knows anything of
+the analyzer, the tagger or the diagnostics sink. NormalizationSubsystem and HeteronymSubsystem do not use the
+part-of-speech package: the analyzer hands them token offsets and plain values (a tag name, a confidence). They do not
+depend on each other.
 
-Two further subsystems belong to the system but not to the package:
+Three further subsystems belong to the system but not to the package: the non-shipped trainer tool
+(`tools/DemaConsulting.Speech.Text.En.Trainer`), modeled as subsystems because their requirements are system
+requirements of this repository (the licensing and integrity of the training data, the reproducibility and gate of the
+model trained from it, and the pinned, evaluation-only measurement of that model):
 
-- **TrainingDataSubsystem**: the `check-data` command of the non-shipped trainer tool
-  (`tools/DemaConsulting.Speech.Text.En.Trainer`) that verifies the training and evaluation data of the
-  heteronym classifier in `data/text-en/` (the strict file reader, the typed data loader, the manifest verifier, the
-  span validator, the finding collector, and the schema, license and leakage checks) - see *SpeechTextEn
-  TrainingDataSubsystem Design* and *Training Data and Trainer* below
-- **TrainingSubsystem**: the `train` and `evaluate` commands of the same tool, which train the heteronym model from the
-  training and development data, verify that a committed model is what retraining produces, and measure a model end to
-  end on the development and holdout sets and decide the quality gate (the training corpus loader, the deterministic
-  random generator and math, the integer averaged perceptron, the model selection, the training record and command, and
-  the evaluator, the evaluation record and the evaluation command) - see *SpeechTextEn TrainingSubsystem Design* and
-  *Training and Evaluation* below
+- **TrainingDataSubsystem**: the `check-data` command that verifies the data in `data/text-en/`
+- **TrainingSubsystem**: the `train` and `evaluate` commands that train the model, verify that a committed model is what
+  retraining produces, and decide the quality gate
+- **ExternalEvaluationSubsystem**: the `evaluate-external` command that measures the embedded model on external,
+  evaluation-only datasets fetched from pinned revisions into a cache that is never committed
 
-Neither is packed into the NuGet package and neither is loaded by any host. The TrainingDataSubsystem shares no code
-with the library and references neither the Speech library nor the runtime subsystems. The TrainingSubsystem does
-reference the library, and only the library: the Text.En assembly grants its internals to the trainer assembly and to
-the trainer's test assembly with `InternalsVisibleTo`, so the trainer reuses the analyzer's own part-of-speech adapter,
-token description, feature extractor, scoring and model format instead of a copy of them (see *Feature parity between
-the analyzer and the trainer*). The dependency is one way: the runtime subsystems do not know the tool exists, and the
-package neither packs nor references it. Both are modeled as subsystems of this system because their requirements are
-system requirements of this repository (the licensing and the integrity of the data the classifier is trained on, and
-the reproducibility and the gate of the model trained from it).
+None is packed or loaded by a host. TrainingDataSubsystem shares no code with the library. TrainingSubsystem references
+the library, and only the library: the Text.En assembly grants its internals to the trainer and its tests with
+`InternalsVisibleTo`, so the trainer reuses the analyzer's own adapter, token description, feature extractor, scoring
+and model format (see *Feature parity*). ExternalEvaluationSubsystem uses the evaluator, the corpus loader and the data
+folder discovery. The runtime subsystems do not know the tool exists.
 
 ## External Interfaces
 
@@ -88,16 +66,15 @@ the reproducibility and the gate of the model trained from it).
 | `EnglishTextAnalyzer` (`ITextAnalyzer.Analyze`) | Inbound |
 | `EnglishTextAnalyzer.AnalyzeDetailed` | Inbound |
 | `EnglishTextAnalyzerOptions` | Inbound |
-| `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme` | Inbound |
+| `PronunciationOverrides` and its entry and enumeration types | Inbound |
 | `TextEnAnnotations` | Inbound |
 | `ReadingInventory` | Inbound |
 | `NormalizationKind`, `CliticKind` | Inbound |
 | `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation` | Outbound |
 | `ISpeechDiagnostics.Report` | Outbound |
 | `DemaConsulting.PartOfSpeech` tokenizer and tagger | Outbound |
-| Embedded lexicons `abbreviations.tsv`, `acronyms.tsv` | Internal |
-| Embedded inventory tables `readings.tsv`, `forms.tsv` | Internal |
-| Heteronym model file (`HETW` format) | Internal |
+| Embedded lexicons, inventory tables and heteronym model | Internal |
+| Pinned external dataset archives (trainer tool only, on request) | Outbound |
 
 **Interface details:**
 
@@ -109,358 +86,262 @@ the reproducibility and the gate of the model trained from it).
   - Constraints: Result carries words, normalizations, clitic roles and heteronym readings; local use only
 - `EnglishTextAnalyzerOptions`
   - Format: Public record
-  - Constraints: Validated on initialization; default selects part of speech, normalization and readings (the readings
-    are effective only where an analyzer has a model source, which the default analyzer has); carries the optional
-    `Overrides` dictionary, which requires
-    normalization, and the `LowConfidenceThreshold` from 0 to 1
-- `PronunciationOverrides`, `PronunciationOverrideEntry`, `OverrideAction`, `PronunciationScheme`
+  - Constraints: Validated on initialization; the default selects part of speech, normalization and readings (readings
+    are effective where the analyzer has a model source, which the default analyzer has); carries the optional
+    `Overrides` dictionary, which requires normalization, and the `LowConfidenceThreshold` from 0 to 1
+- `PronunciationOverrides` and its entry and enumeration types
   - Format: Public classes and enumerations; `Create(entries)` and `FromTsv(reader)`
   - Constraints: Immutable and thread-safe; entries validated and bounded; errors give an index or line number and never
     content; see *Pronunciation Overrides*
 - `TextEnAnnotations`
   - Format: Public constants and readers
-  - Constraints: Closed kind vocabulary; ignore unknown kinds; `en.norm` and `en.spell` follow the *Alignment Contract*;
-    `en.pron` follows *Pronunciation Overrides*; `en.reading` and `en.reading-confidence` follow *Heteronym Readings*
+  - Constraints: Closed kind vocabulary; unknown kinds are ignored; `en.norm` and `en.spell` follow the *Alignment
+    Contract*; `en.pron` follows *Pronunciation Overrides*; `en.reading` and `en.reading-confidence` follow *Heteronym
+    Readings*
 - `ReadingInventory`
-  - Format: Public sealed class; `Default`, `Version`, `ReadingIds`, `Contains` and `CandidatesFor`
-  - Constraints: Immutable and thread-safe; a reading id is checked by exact comparison and a form by ASCII case
-    folding; see *Heteronym Readings*
-- `NormalizationKind`, `CliticKind`
-  - Format: Public enumerations
-  - Constraints: Closed vocabularies reported by `AnalyzeDetailed` only
-- `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`
-  - Format: Public Speech types
-  - Constraints: Consumed; offsets are UTF-16 indices into the exact input
-- `ISpeechDiagnostics.Report`
-  - Format: Method call
-  - Constraints: Counts only; a failing sink is contained
+  - Format: Public sealed class (`Default`, `Version`, `ReadingIds`, `Contains`, `CandidatesFor`)
+  - Constraints: Immutable and thread-safe; a reading id is compared exactly and a form with ASCII case folding
+- `ITextAnalyzer`, `TextAnalysisResult`, `SegmentAnnotation`, `ISpeechDiagnostics.Report`
+  - Format: Public Speech types and a method call
+  - Constraints: Consumed; offsets are UTF-16 indices into the exact input; diagnostics are counts only and a failing
+    sink is contained
 - `DemaConsulting.PartOfSpeech` tokenizer and tagger
   - Format: Method call
-  - Constraints: Internal to `PartOfSpeechAdapter`
-- Embedded lexicons `abbreviations.tsv`, `acronyms.tsv`
-  - Format: Embedded resources, tab-separated text
-  - Constraints: Read once, lazily, by the NormalizationSubsystem; a malformed table is a defective build
-- Embedded inventory tables `readings.tsv`, `forms.tsv`
-  - Format: Embedded resources (linked from `data/text-en/`), tab-separated text
-  - Constraints: Read once, lazily, by the `ReadingInventory`; a malformed table is a defective build
-- Heteronym model file (`HETW` format)
-  - Format: Binary file in the format of *Heteronym Readings*, looked up as an embedded resource
-  - Constraints: Read once, lazily, only when needed; strictly validated; embedded in the package as
-    `Resources/heteronyms.bin`
+  - Constraints: Internal to `PartOfSpeechAdapter`; no type of the package appears in a public signature
+- Embedded lexicons, inventory tables and heteronym model
+  - Format: Embedded resources (tab-separated tables; the model in the `HETW` binary format)
+  - Constraints: Read once, lazily; a malformed table is a defective build; the model is strictly validated
+- Pinned external dataset archives
+  - Format: HTTPS download, reached only by `evaluate-external` and only when asked to fetch
+  - Constraints: Never part of the package or of a request; every pinned file is verified by size and SHA-256 before it
+    is used; only pinned paths are written, into a git-ignored or outside-the-repository cache
 
 ## Dependencies
 
-SpeechTextEn has one project dependency, the Speech library, and one NuGet dependency (plus its own embedded
-tables - two lexicons and the reading inventory - which are data written for this package, not a dependency):
+SpeechTextEn has one project dependency, the Speech library, and one NuGet dependency (plus its own embedded tables -
+two lexicons and the reading inventory - which are data written for this package, not a dependency):
 
-- **DemaConsulting.PartOfSpeech** supplies the English tokenizer, the sentence splitter and the
-  Universal Dependencies tagger with its embedded lexicon and weights. It is an OTS item of this
-  repository (see *OTS Integration Design* and *PartOfSpeech Design*). Its use is confined to the internal
-  `PartOfSpeechAdapter`, and no type of that package appears in any public signature of this library, so
-  the package can be replaced or upgraded without changing this library's API
+- **DemaConsulting.PartOfSpeech** supplies the English tokenizer, the sentence splitter and the Universal Dependencies
+  tagger with its embedded lexicon and weights. It is an OTS item of this repository (see *OTS Integration Design* and
+  *PartOfSpeech Design*). Its use is confined to the internal `PartOfSpeechAdapter`, so the package can be replaced or
+  upgraded without changing this library's API
 
-The tagging package is pre-release software and is referenced with an exact-version pin, so a restore can
-never move to a different build and silently change the analysis. NuGet does not allow a stable package
-to depend on a pre-release package (warning NU5104), so a stable release of this package is blocked until
-`DemaConsulting.PartOfSpeech` publishes a stable version; until then this package is packed and released only
-for a pre-release version (the project is not packable for a stable version; see *Release*), in the same
-release line as the rest of the repository. The pin is at least 0.1.0-beta.5, the
-first version that clears the tagger's working buffers (see *Retention Verification*).
+The tagging package is pre-release software and is referenced with an exact-version pin, so a restore can never move to
+a different build and silently change the analysis. NuGet does not allow a stable package to depend on a pre-release
+package (NU5104), so until the tagging package publishes a stable version this package is packed and released only for a
+pre-release version (see *Release*). The pin is never moved below the first version that clears the tagger's working
+buffers (see *Retention*).
 
-The non-shipped trainer tool is not a dependency of the package; the dependency runs the other way. The tool's project
-references this library (and, through it, the part-of-speech package, whose version it records), and the
-library's `InternalsVisibleTo` entries name the trainer assembly and the trainer's test assembly. The library carries no
-reference to the tool and the entries add nothing to its public surface or its package.
+The trainer tool is not a dependency of the package; the dependency runs the other way. The tool references this library
+(and, through it, the tagging package), and the library's `InternalsVisibleTo` entries name the trainer assembly and its
+test assembly without adding anything to the public surface or the package.
 
 ## Risk Control Measures
 
-N/A - SpeechTextEn provides no safety-critical functionality requiring risk control measures
-(IEC 62304 §5.3.3). It annotates text for speech synthesis and has no clinical or safety role.
+N/A - SpeechTextEn provides no safety-critical functionality requiring risk control measures (IEC 62304 §5.3.3). It
+annotates text for speech synthesis and has no clinical or safety role.
 
 ## Data Flow
 
 **Analysis path (one speech request):**
 
-1. **Input**: Speech's `SynthesisSession` has normalized the request text, parsed the audio tags and built
-   the analysis text, in which every recognized tag is exactly one `U+FFFC` placeholder; it calls
-   `EnglishTextAnalyzer.Analyze` on a thread-pool thread with the operation's cancellation token
-2. **Neutralization**: each placeholder is replaced by a space of the same length, for tokenizing and
-   tagging only, so every offset in the neutralized text is also an offset in the original
-3. **Splitting**: `PartOfSpeechAdapter` splits the neutralized text into sentences and tokens (needing no
-   tagger) with token offsets that index the text
-4. **Tagging**: when part-of-speech annotation is selected, or when the reading family is effective (selected and a
-   heteronym model source exists, see *Heteronym Readings*), the adapter tags each sentence, checking the
-   cancellation token before each one, after the tagger is obtained and after each sentence is tagged; the
-   shared tagger is obtained on the first sentence that is tagged. Tagging runs on the raw tokens, never on
-   normalized text (see *Why tagging runs on raw tokens* below)
-5. **Normalization**: when normalization is selected, the analyzer flattens the tokenizer's sentences into
-   one array of token offsets (each marked with whether it opens a tokenizer sentence). When the options
-   carry a non-empty `Overrides` dictionary, `PronunciationOverrides.Resolve` first looks every token up in
-   the dictionary (whole-word, case rules of *Pronunciation Overrides*) and returns one directive per matching
-   token. The analyzer hands the tokens, the directives and the neutralized text to `TextNormalizer`. One
-   linear pass applies the ordered rules (a directive is rule 0 and wins over every built-in rule for the spoken
-   form, while the abbreviation rules' sentence-break edits are still made) and returns
-   the changed spans (each with its spoken replacement, its kind and whether it is spelled), the
-   pronunciation marks, the sentence-break edits (breaks to force and to suppress), the ambiguity count, the
-   numeric fallback count, the counts of overrides applied and ignored and, only for `AnalyzeDetailed`, the
-   clitic roles. It needs no tagger and does not look at the tags
-6. **Result building**: the analyzer emits one `en.upos` annotation per word token (tokens tagged `PUNCT`
-   or `SYM`, and tokens without a letter or digit, are skipped) followed by the reading pair of that token when it has
-   a heteronym reading (`en.reading` and `en.reading-confidence` on the same whole-token span, see *Heteronym
-   Readings*), then by the replacement annotations of the
-   spans that start inside that token (`en.spell` for a spelled span, `en.norm` otherwise) and then by the
-   `en.pron` annotation of a pronunciation mark on that token, so annotations are in text order and, at an
-   equal start, the part of speech precedes the reading, the replacement or the pronunciation (a token carries a
-   replacement or a pronunciation, never both, and never a reading together with either).
-   Sentence breaks are the tokenizer's breaks (the first token of every sentence after the first)
-   **reconciled** with the normalization edits: every tokenizer break and forced break, minus the suppressed
-   ones. The cancellation token is checked periodically while the result is built
-7. **Reporting**: unless the request was canceled at any earlier point (including during the last
-   sentence), `AnalysisDiagnostics` reports one counts-only event to the optional sink, followed by one
-   counts-only heteronym event when at least one reading was assigned, and, once per analyzer, a warning when a model
-   exists but cannot be used
-8. **Output**: a `TextAnalysisResult` whose annotations and non-null, reconciled sentence breaks index the
-   original text; the session re-bases them onto its segments and chunks, and a backend that implements
-   `IAnnotatedSynthesisBackend` receives them with each segment and applies the replacement annotations
-   (`en.norm` and `en.spell`) and the pronunciation annotations as described in *Alignment Contract*
+1. **Input**: Speech's `SynthesisSession` has normalized the request text, parsed the audio tags and built the analysis
+   text, in which every recognized tag is exactly one `U+FFFC` placeholder; it calls `EnglishTextAnalyzer.Analyze` on a
+   thread-pool thread with the operation's cancellation token
+2. **Neutralization**: each placeholder becomes a space of the same length, for tokenizing and tagging only, so every
+   offset in the neutralized text is also an offset in the original
+3. **Splitting**: `PartOfSpeechAdapter` splits the neutralized text into sentences and tokens (needing no tagger)
+4. **Tagging**: when part-of-speech annotation is selected, or the reading family is effective (selected and a model
+   source exists), the adapter tags each sentence, checking cancellation before each one. Tagging runs on the raw
+   tokens, never on normalized text (see *Why tagging runs on raw tokens*)
+5. **Normalization**: when selected, the analyzer hands the flattened tokens, the override directives (from
+   `PronunciationOverrides.Resolve`, one per matching token) and the neutralized text to `TextNormalizer`. One linear
+   pass applies the ordered rules (an override directive is rule 0 and wins for the spoken form) and returns the changed
+   spans (replacement, kind, spelled or not), the pronunciation marks, the sentence-break edits, the ambiguity and
+   numeric-fallback counts, the override counts and, for `AnalyzeDetailed`, the clitic roles. It needs no tagger
+6. **Result building**: one `en.upos` annotation per word token (tokens tagged `PUNCT` or `SYM`, and tokens without a
+   letter or digit, are skipped), followed by the token's reading pair when it has one, then the replacement annotations
+   of the spans that start inside the token (`en.spell` or `en.norm`), then the `en.pron` of a pronunciation mark. So
+   annotations are in text order and, at an equal start, part of speech precedes reading, replacement and
+   pronunciation. Sentence breaks are the tokenizer's breaks **reconciled** with the normalization edits (every
+   tokenizer or forced break, minus the suppressed ones)
+7. **Reporting**: unless the request was canceled, `AnalysisDiagnostics` reports one counts-only event, one counts-only
+   heteronym event when a reading was assigned and, once per analyzer, a warning when a model exists but is unusable
+8. **Output**: a `TextAnalysisResult` whose annotations and non-null reconciled sentence breaks index the original text;
+   the session re-bases them onto its segments and chunks, and an `IAnnotatedSynthesisBackend` receives them with each
+   segment
 
-**Why reconciliation exists.** The tokenizer treats titles such as `Dr.` and `St.` as never ending a
-sentence, so `I live on Main St. It is nice.` is one tokenizer sentence, and the Speech library's chunker,
-given the analyzer's breaks, splits sentences only where the analyzer says. The normalizer knows how it read
-each abbreviation: a period after an abbreviation read as the last word of its sentence (a suffix such as
-`Street`) gets a forced break before the next capitalized word, and a period after one read as a prefix (a
-title such as `Doctor`) never ends a sentence, so a tokenizer break after it is suppressed. A name suffix or
-credential (`Jr.`, `Esq.`, `Ph.D.`, `M.D.`, `III`) directly followed by another one (`John Smith Jr. Ph.D.
-spoke.`) is part of the same name and behaves like a prefix, so no break is forced between them and a
-tokenizer break there is suppressed; a break before a genuine sentence starter (`I met John Smith Jr. He
-left.`) is unaffected. Month and weekday abbreviations follow the same rule: `Jan. 5` (a date follows) reads
-the period as consumed and removes the tokenizer's break after it, while `He left Mon. He came Tue.` keeps both
-sentence ends. Without the
-reconciliation the chunker would either keep two sentences in one chunk or split inside `Dr. Smith`.
+**Why reconciliation exists.** The tokenizer treats titles such as `Dr.` and `St.` as never ending a sentence, so
+`I live on Main St. It is nice.` is one tokenizer sentence. The normalizer knows how it read each abbreviation: a period
+after one read as the last word of its sentence (`Street`) gets a forced break before the next capitalized word, and a
+period after one read as a prefix (`Doctor`) never ends a sentence, so a tokenizer break there is suppressed. A name
+suffix or credential directly followed by another (`John Smith Jr. Ph.D. spoke.`) behaves like a prefix, and month and
+weekday abbreviations follow the same rule (`Jan. 5` is one date; `He left Mon. He came Tue.` keeps both sentence ends).
+Without reconciliation the chunker would keep two sentences in one chunk or split inside `Dr. Smith`.
 
-**Why tagging runs on raw tokens.** The tagger was trained on ordinary written text, and tagging the
-normalized text gives worse tags and unknown words (`FBI` becomes the three tokens `F`, `B`, `I`; `etc.`
-becomes the unknown word `cetera`). Normalization and tagging are therefore independent consumers of the
-same tokenizer output: every `en.upos` annotation stays on its source token, normalization never needs the
-tagger (so `Annotations = Normalization` never loads its 1.3 MB of data), and a later increment that wants
-the spoken form as context can read it from the detailed analysis without changing this contract. For the
-same reason the abbreviation and clitic context cues are lexical and orthographic only (capitalization,
-digits, short word lists), never part-of-speech tags, so the result does not depend on the options.
+**Why tagging runs on raw tokens.** The tagger was trained on ordinary written text; tagging normalized text gives worse
+tags and unknown words (`FBI` becomes `F`, `B`, `I`). Normalization and tagging are therefore independent consumers of
+one tokenizer output: every `en.upos` stays on its source token, normalization never loads the tagger's data, and the
+abbreviation and clitic context cues are lexical and orthographic only (never part-of-speech tags), so the result does
+not depend on the options.
 
-**Training and evaluation path (offline, not part of a request).** The trainer reads `train.tsv` and `dev.tsv`
-(and the two inventory tables) and prepares every labeled row through the same units the analyzer calls for a request:
-the placeholder neutralization, `PartOfSpeechAdapter.Analyze` with tagging, `PartOfSpeechAdapter.DescribeSentence` and
-`HeteronymFeatureExtractor.Extract`. The averaged perceptron adjusts the buckets that `FeatureHashing.Bucket` selects
-and scores candidates with `HeteronymClassifier.ScoreCandidate`; the development set picks the epoch and the
-temperature; the model is written by `SparsePerceptronModelWriter`. Evaluation reads a model back, runs the real
-analyzer over the sentences of a labeled set and reads the reading annotations, so the measured result is what a user of
-the package would get. See *Training and Evaluation*.
+**Offline paths (not part of a request).** The trainer prepares every labeled row through the same units the analyzer
+calls (neutralization, `PartOfSpeechAdapter`, `HeteronymFeatureExtractor.Extract`) and evaluates by running the real
+analyzer and reading its reading annotations, so the measured result is what a user gets; `evaluate-external` does the
+same for pinned external datasets after converting their rows and records counts only (see *Training Data, Training and
+External Evaluation*).
 
 ## Alignment Contract
 
-This section is normative. The `en.norm`, `en.spell` and `en.pron` annotations are a contract between the
-analyzer that produces them and every backend that applies them, and the invariants below are enforced by the
-NormalizationSubsystem
-(see *NormalizationAlignment Design* for the enforcement point of each) and verified by its property tests.
-The analyzed text is never rewritten: an `en.norm` or `en.spell` annotation names a span of the source text and
-the exact words or letters that replace it when the text is spoken, and an `en.pron` annotation names a word and
-the phonemes to speak for it. The two replacement kinds together are the *replacement family*.
+This section is normative. The `en.norm`, `en.spell` and `en.pron` annotations are a contract between the analyzer that
+produces them and every backend that applies them. The invariants below are enforced by the NormalizationSubsystem (see
+*NormalizationAlignment Design* for the enforcement point of each) and verified by its property tests. The analyzed text
+is never rewritten: an `en.norm` or `en.spell` annotation names a span of the source text and the exact words or letters
+that replace it when the text is spoken, and an `en.pron` annotation names a word and the phonemes to speak for it. The
+two replacement kinds together are the *replacement family*.
 
-- **A1**: The spans of one analysis are ascending and disjoint (each starts at or after the end of the previous one) and
-  lie within the text. **A1'**: the *replacement annotations* of one analysis, every `en.norm` and every `en.spell`
-  together, are one such sequence (they are ascending and pairwise disjoint as a single list)
+- **A1**: The spans of one analysis are ascending and disjoint and lie within the text. **A1'**: the replacement
+  annotations of one analysis, every `en.norm` and every `en.spell` together, are one such sequence
 - **A2**: Every span is non-empty, starts and ends on a non-whitespace character, never contains a tag placeholder and
   never cuts a surrogate pair; its replacement is never null
-- **A3**: The spans and the untouched gaps between them tile the text exactly: no gap, no overlap, lengths summing to
-  the text length; applying every span as its own source text returns the input unchanged
+- **A3**: The spans and the untouched gaps between them tile the text exactly; applying every span as its own source
+  text returns the input unchanged
 - **A4**: Nothing outside a span is changed, re-cased or re-punctuated; unchanged text is never annotated
 - **A5**: A span is chunk-safe (A5'): it contains no whitespace and never `;`, and a `,` or `:` only when an ASCII digit
   directly precedes and follows it inside the span (`1,234.50`, `5:30`), which the core chunker never cuts. It has one
   of five shapes: **S1** one tokenizer token; **S2** one token and its adjacent period token; **S3** a currency symbol
   token and its adjacent number token (`$` `5.50`); **S4** an apostrophe token and its adjacent decade token (`'`
-  `90s`); **S5** one of the two halves of a token that is split into two adjacent spans: the number or time and the
-  meridiem letters of a glued meridiem (`5pm` gives `5` and `pm`, `5:30pm` gives `5:30` and `pm`), the same way an
-  ampersand initialism is split into letter groups. A construct of several tokens (`January 5, 2024`, `$5 million`,
-  `3 1/2`) is several spans, one per token or S3/S4 pair, in source order and never reordered. So a span always lies
-  wholly inside one chunk of the Speech library
+  `90s`); **S5** one of the two halves of a token split into two adjacent spans: the number or time and the meridiem
+  letters of a glued meridiem (`5pm` gives `5` and `pm`), the same way an ampersand initialism is split into letter
+  groups. A construct of several tokens (`January 5, 2024`, `$5 million`, `3 1/2`) is several spans, one per token or
+  S3/S4 pair, in source order. So a span always lies wholly inside one chunk of the Speech library
 - **A6**: Separation: where a letter or digit of the source touches a span, or the previous span directly touches it and
   its replacement ends with a letter (`A™®B`), and the replacement starts (or ends) with a letter, the replacement
-  carries one separating space on that side (`he/she` becomes the replacement `" slash "` for the `/`; `A™®B` gives
-  `" trademark"` and `" registered "`). Dropped and apostrophe replacements are never padded, and two adjacent
-  replacements are separated by exactly one space (the later one pads its own left side, so no offset moves)
+  carries one separating space on that side (`he/she` gives the replacement `" slash "` for the `/`). Dropped and
+  apostrophe replacements are never padded, and two adjacent replacements are separated by exactly one space (the later
+  one pads its own left side, so no offset moves)
 - **A7**: No silent drop: every source character is either copied verbatim (outside spans) or replaced by a non-empty
   replacement; the only empty replacements are `Dropped` spans over invisible format characters and bullets, and the
   only source periods that vanish are those consumed inside an abbreviation, initialism or abbreviated unit span. The
-  digits, separators and symbols of a recognized numeric expression are consumed into its spoken words (all of them are
-  represented in the `Value`); numeric-looking text that is not recognized is never partially consumed
+  digits, separators and symbols of a recognized numeric expression are consumed into its spoken words;
+  numeric-looking text that is not recognized is never partially consumed
 - **A8**: Break edits sit on token starts (non-whitespace, never a placeholder) strictly inside the text, ascending and
-  unique; the reconciled sentence breaks keep the P2-1 break rules (ascending, unique, on word starts, non-null).
-  **A8b**: no reconciled break lies strictly inside a span (a tokenizer break inside a numeric expression, for example
-  after `Jan.` in `Jan. 5`, is suppressed)
+  unique; the reconciled sentence breaks are ascending, unique, on word starts and non-null. **A8b**: no reconciled
+  break lies strictly inside a span
 - **A9**: The analysis is deterministic and thread-safe: repeated and concurrent analysis of one text yields identical
   annotations and breaks; neither the analyzer nor the normalizer keeps per-request state
 - **A10**: An `en.norm` value is non-empty except for a `Dropped` span, contains no tag placeholder and has no leading
-  or trailing space except the A6 padding (a leading space is also the A6 separator after a directly adjacent
-  replacement that ends with a letter). The value of a numeric span (kinds `Number`, `Currency`, `DateTime` and `Unit`)
-  contains no ASCII digit and only letters, spaces and the apostrophe of `o'clock`, and is at most 1,024 characters long
-- **A11**: A spelled span (an `en.spell` annotation) has a value that, minus at most one A6 padding space on either
-  side, matches `[A-Z]( [A-Z])*`: single ASCII capital letters separated by single spaces. The letters are letter names,
-  never words (`A` is the letter, not the article; `I` is the letter, not the pronoun). Like every span it has no
-  whitespace, comma, semicolon or colon, so it is chunk-safe (A5')
+  or trailing space except the A6 padding. The value of a numeric span (kinds `Number`, `Currency`, `DateTime` and
+  `Unit`) contains no ASCII digit and only letters, spaces and the apostrophe of `o'clock`, and is at most 1,024
+  characters long
+- **A11**: A spelled span (`en.spell`) has a value that, minus at most one A6 padding space on either side, matches
+  `[A-Z]( [A-Z])*`: single ASCII capital letters separated by single spaces, which are letter names, never words (`A` is
+  the letter, not the article; `I` is the letter, not the pronoun). It is chunk-safe (A5')
 - **A12**: The `en.pron` annotations of one analysis are ascending, pairwise disjoint and disjoint from every
   replacement annotation (a word is either replaced or pronounced, never both); each covers exactly one token, with no
   whitespace, placeholder or cut surrogate pair; its value is `<scheme>:<phonemes>` with a scheme from the closed list
-  `ipa` and `arpabet`; the word's text is not replaced. `en.upos` stays independent of all of this and may overlap any
-  annotation
+  `ipa` and `arpabet`. `en.upos` stays independent of all of this and may overlap any annotation
 
-**Enforcement.** The `AlignedTextBuilder` is the enforcement point: it rejects a replacement span that is not
-ascending and disjoint from every earlier span *and* pronunciation mark (A1', A12), a span marked spelled whose
-value is not a letter sequence (A11), and a pronunciation mark with an edge, placeholder, surrogate, ordering or
-overlap defect, each with an `ArgumentException`. A defective rule therefore fails the whole analysis of the
-request (the Speech session contains an analyzer exception and speaks without annotations); it can never reach a
-backend as a misaligned annotation. The core library does not validate overlap between annotations, so this
-check is the only one.
+**Enforcement.** The `AlignedTextBuilder` rejects a replacement span that is not ascending and disjoint from every
+earlier span and pronunciation mark (A1', A12), a spelled span whose value is not a letter sequence (A11), and a
+pronunciation mark with an edge, placeholder, surrogate, ordering or overlap defect, each with an `ArgumentException`. A
+defective rule therefore fails the whole analysis of the request (the Speech session contains an analyzer exception and
+speaks without annotations); it can never reach a backend as a misaligned annotation. The core library does not
+validate overlap between annotations, so this check is the only one.
 
 **Consumer algorithm.** To obtain the spoken text of a segment, a backend that reads the replacement family:
 
-1. collects the segment's annotations that `TextEnAnnotations.TryReadReplacement` accepts (it accepts `en.norm`
-   and a well-formed `en.spell` and reports whether the value is spelled) and sorts them by `Start` (they never
-   overlap);
-2. walks the sorted list, copying the segment text between the end of the previous span and the start of the
-   next one unchanged (a gap);
-3. at each span, appends the annotation's `Value` instead of the covered characters; a `Value` carries its
-   own padding (A6), so nothing is inserted between the pieces, and an empty `Value` means speak nothing for
-   that span. When the reader reports `isSpelled`, the backend speaks each capital letter of the value by its
-   **letter name**, never as a word;
+1. collects the annotations that `TextEnAnnotations.TryReadReplacement` accepts (`en.norm` and a well-formed `en.spell`,
+   reporting whether the value is spelled) and sorts them by `Start` (they never overlap);
+2. walks the sorted list, copying the text between the end of the previous span and the start of the next one unchanged;
+3. at each span, appends the annotation's `Value` instead of the covered characters (a `Value` carries its own A6
+   padding, so nothing is inserted between pieces, and an empty `Value` means speak nothing). When the reader reports
+   `isSpelled`, the backend speaks each capital letter by its **letter name**, never as a word;
 4. copies the text after the last span.
 
-Independently of that, a backend applies an `en.pron` annotation (read with
-`TextEnAnnotations.TryReadPronunciation`) to the word it covers: when it supports the scheme it uses the
-phonemes for that word instead of its own letter-to-sound result, and when it does not support the scheme or
-the phonemes it speaks the word as it would without the annotation. Annotations of other kinds, notably
-`en.upos`, are independent of this and may overlap a replacement span (the part of speech of `Dr.` is attached
-to the token, the normalization to the same characters). A backend ignores every kind it does not recognize.
-The library adds no public helper that applies the annotations, so a Phase 3 backend can implement this
-ten-line algorithm itself.
+Independently, a backend applies an `en.pron` annotation (`TextEnAnnotations.TryReadPronunciation`) to the word it
+covers: when it supports the scheme it uses the phonemes instead of its own letter-to-sound result, otherwise it speaks
+the word as it would without the annotation. Annotations of other kinds, notably `en.upos`, are independent and may
+overlap a replacement span; a backend ignores every kind it does not recognize.
 
-**Spell-out is typed, never inferred.** Only an `en.spell` annotation (a reader result with `isSpelled` true)
-means spell out. An `en.norm` value is always spoken as words, whatever letters it contains: a host's `Say`
-override whose payload is a single capital letter (`Say("foo", "I")`) is the word `I`, and
-`TextEnAnnotations.TryReadReplacement` reports `isSpelled == false` for it. A backend therefore never inspects
-the shape or content of an `en.norm` value to decide whether to spell it. The meridiem of a glued time or hour
-is split into two adjacent, non-overlapping spans inside its token so that the letters have their own kind: `5pm`
-is `5` (`en.norm`, `five`) and `pm` (`en.spell`, `P M`), and `5:30pm` is `5:30` (`en.norm`, `five thirty`) and
-`pm` (`en.spell`, `P M`); the later span carries the single A6 separating space. A separate-token meridiem
-(`5 pm`, `p.m.`) is its own `en.spell` span as well.
+**Spell-out is typed, never inferred.** Only an `en.spell` annotation (a reader result with `isSpelled` true) means
+spell out. An `en.norm` value is always spoken as words, whatever letters it contains: a host's `Say` override whose
+payload is a single capital letter (`Say("foo", "I")`) is the word `I`, and the reader reports `isSpelled == false` for
+it. A backend never inspects the shape of an `en.norm` value to decide whether to spell it. The meridiem of a glued time
+or hour is split into two adjacent spans so that the letters have their own kind: `5:30pm` is `5:30` (`en.norm`,
+`five thirty`) and `pm` (`en.spell`, `P M`); a separate-token meridiem (`5 pm`, `p.m.`) is its own `en.spell` span.
 
-**Double normalization.** A model that supplies an `EnglishTextAnalyzer` with normalization selected should
-keep `ISpeechModel.NormalizeText` as the identity (the default): the Speech library applies that hook to the
-request text before analysis, so a model that rewrote `Dr.` itself would hand the analyzer text in which
-that abbreviation no longer exists, and the two normalizations would disagree about what is spoken. A model
-that deliberately selects part of speech only may keep its own normalization hook.
+**Double normalization.** A model that supplies an `EnglishTextAnalyzer` with normalization selected should keep
+`ISpeechModel.NormalizeText` as the identity (the default): the Speech library applies that hook before analysis, so a
+model that rewrote `Dr.` itself would hand the analyzer text in which the abbreviation no longer exists, and the two
+normalizations would disagree. A model that selects part of speech only may keep its own hook.
 
 ## Spoken-Text Conventions
 
-This section is normative for consumers. Every `en.norm` value produced for a numeric span (the kinds
-`Number`, `Currency`, `DateTime` and `Unit`) follows these conventions, so a phoneme backend sees only plain
-words and needs no number parser of its own:
+This section is normative for consumers. Every `en.norm` value produced for a numeric span (kinds `Number`, `Currency`,
+`DateTime` and `Unit`) follows these conventions, so a phoneme backend sees only plain words and needs no number parser:
 
-- **Plain words**: lowercase ASCII letters separated by single spaces, with **no hyphens, no commas, no
-  digits and no other punctuation**: `twenty four`, never `twenty-four` or `24`. No clause punctuation can
-  enter a value, so a value never changes how a backend splits clauses
-- **Closed exceptions**: the apostrophe appears only in `o'clock`; capital letters appear only in the month
-  names (`January`) and in `Fahrenheit` and `Celsius`; the meridiem letters `P M` and `A M` appear only as the
-  value of their own `en.spell` span (kind `DateTime`), never inside the words of the number or time
+- **Plain words**: ASCII letters separated by single spaces, with **no hyphens, no commas, no digits and no other
+  punctuation**: `twenty four`, never `twenty-four` or `24`. No clause punctuation can enter a value, so a value never
+  changes how a backend splits clauses
+- **Closed exceptions**: the apostrophe appears only in `o'clock`; capital letters appear only in the month names
+  (`January`) and in `Fahrenheit` and `Celsius`; the meridiem letters `P M` and `A M` appear only as the value of their
+  own `en.spell` span, never inside the words of the number or time
 - **Bounded**: a numeric value is never longer than 1,024 characters
-- **Padding**: a value may carry one leading or trailing space for the separation rule A6 (`50%` gives the
-  value `fifty` for the digits and `percent` for the sign); a backend applies the values as they are
-- **The word `and`**: it appears only in a currency amount with cents (`five dollars and fifty cents`) and in
-  a mixed number (`three and one half`); there is no `and` inside a cardinal (`one hundred one`)
-- **Unrecognized numeric text stays as written**: a number the library does not read (a Roman numeral, a
-  hyphenated compound such as `5-year-old`, a number beyond the documented limits) is left unannotated, and a
-  backend must be prepared to receive digits for it. Where the library found a numeric-looking text that it
-  cannot read, it counts a numeric fallback (see *Diagnostics are counts only* under *Design Constraints*)
+- **Padding**: a value may carry one leading or trailing space for the separation rule A6 (`50%` gives `fifty` for the
+  digits and `percent` for the sign); a backend applies the values as they are
+- **The word `and`** appears only in a currency amount with cents (`five dollars and fifty cents`) and in a mixed number
+  (`three and one half`); there is no `and` inside a cardinal
+- **Unrecognized numeric text stays as written**: a number the library does not read (a Roman numeral, a hyphenated
+  compound such as `5-year-old`, a number beyond the limits) is left unannotated, and a backend must be prepared to
+  receive digits for it. Numeric-looking text that cannot be read is counted as a numeric fallback
 
-A numeric span covers the digits, separators and symbols of one token (or a currency symbol or apostrophe
-with its adjacent number token); the words that belong to the same construct but are separate tokens get
-spans of their own. For example `$5 million` has the span `$5` (`five`) and the span `million` (`million
-dollars`); `January 5, 2024` has the spans `5` (`fifth`) and `2024` (`twenty twenty four`) and leaves the
-word `January` and the comma untouched. A consumer applies each span independently, in text order, as
-described in the *Consumer algorithm*.
-
-The same conventions give the shape of the other replacement values. A spelled value (`en.spell`) is
-capital letters separated by single spaces (`F B I`), spoken by letter name (A11). A `Say` override value
-(kind `Override`) is the host's plain words: letters, combining marks, apostrophes, hyphens and single spaces,
-never a digit or clause punctuation, so it too can never change how a backend splits clauses (a number in an
-override is written in words); it is not a numeric kind, so the numeric closed vocabulary above does not
-apply to it, and its capital letters, if any, are the host's own words (a `Say` value is never treated as
-spelled; use `SpellOut` for letters).
+A numeric span covers the digits, separators and symbols of one token (or a currency symbol or apostrophe with its
+adjacent number token); words of the same construct that are separate tokens get spans of their own: `$5 million` has
+the span `$5` (`five`) and the span `million` (`million dollars`); `January 5, 2024` has the spans `5` (`fifth`) and
+`2024` (`twenty twenty four`) and leaves `January` and the comma untouched. A consumer applies each span independently,
+in text order. A spelled value is capital letters separated by single spaces; a `Say` override value (kind `Override`)
+is the host's plain words (letters, combining marks, apostrophes, hyphens and single spaces, never a digit or clause
+punctuation) and is never treated as spelled.
 
 ### Numeric Normalization
 
-The library reads the numeric expressions of en-US text. The policy is fixed and lexical (digits, separators,
-symbols, units, month names and a few cue words around the number; never the part of speech), and every
-choice between readings that the words around a number do not decide uses a documented default that is
-counted in the diagnostics (each family with examples, written, then spoken):
+The library reads the numeric expressions of en-US text with a fixed, lexical policy (digits, separators, symbols,
+units, month names and a few cue words; never the part of speech); every choice the words around a number do not decide
+uses a documented default that is counted in the diagnostics. The families are integers (`1,234`, `-5`), decimals,
+ordinals, years and decades (`in 1066` `in ten sixty six`), currency, percent and units, times, dates, digit groups and
+month and weekday abbreviations (`Jan. 5`); the complete policy, every row and its limits are in
+*NumericExpressionRecognizer Design* and *NumberVerbalizer Design*. What a consumer most needs to know:
 
-- **Integers, negatives, thousands separators**: `42` `forty two`; `1,234` `one thousand two hundred thirty four`; `-5`
-  `minus five`; `+3` `plus three`; `007` `zero zero seven`
-- **Decimals**: `3.5` `three point five`; `.5` `point five`; `1.234` `one point two three four` (never thousands)
-- **Ordinals**: `1st` `first`; `22nd` `twenty second`; `1,000th` `one thousandth`; a suffix that does not match (`1th`)
-  is left alone
-- **Years and decades**: `in 1066` `in ten sixty six`; `2024` `twenty twenty four`; `1990s` `nineteen nineties`; `'90s`
-  `nineties`
-- **Currency**: `$5.50` `five dollars and fifty cents`; `£3` `three pounds`; `$5 million` `five` + `million dollars`;
-  `5 USD` `five` + `dollars`
-- **Percent and units**: `50%` `fifty percent`; `5 kg` `five kilograms`; `72°F` `seventy two degrees Fahrenheit`;
-  `6 ft.` `six feet`
-- **Times**: `5:30` `five thirty`; `5:00` `five o'clock`; `17:45` `seventeen forty five`; `5:30pm` `five thirty` then
-  the spelled `P M`
-- **Dates**: `12/25/2024` `December twenty fifth twenty twenty four`; `January 5, 2024`
-  `January fifth, twenty twenty four`
-- **Digit groups**: `5-10` `five to ten`; `555-1234` digit by digit; `3.2.1` `three point two point one`; `1/2`
-  `one half`; `3 1/2` `three and one half`
-- **Month and weekday abbreviations**: `Jan. 5` `January fifth`; `Sat. 5 Jan. 2024`; `He left Mon. He came Tue.` keeps
-  both sentence breaks
+- **Only the ASCII digits `0-9` are numbers**, and a number with letters mixed in (`3D`, `1e5`, `0x1F`, `Q3`) is left
+  alone
+- **en-US conventions only**: `,` separates thousands and `.` is the decimal point; a month comes before the day in a
+  numeric date unless the first part can only be a day. A number written with other conventions (`1,23`, `1.234,5`) is
+  left as written and counted as a numeric fallback
+- **Years versus quantities**: a four-digit number from 1000 to 2099 is a year after a year cue and a quantity after a
+  quantity cue or before a counted noun; with no cue it is a year (from 1100) or a cardinal (1000 to 1099), and the
+  choice is counted as an ambiguous reading
+- **Limits**: a cardinal has at most 15 digits; 16 to 64 digits are read digit by digit and counted as a fallback; more
+  than 64 digits, a token over 128 characters or a decimal with more than 32 fraction digits is left as written and
+  counted
+- **Nothing is guessed silently**: readings chosen by default are counted as ambiguous readings, text left as written as
+  numeric fallbacks, both counts only, never text
 
-The complete reading policy (every row, its notes and the limits) is in *NumericExpressionRecognizer Design*
-and *NumberVerbalizer Design*. The points a consumer most needs to know:
-
-- **Only the ASCII digits `0-9` are numbers.** Full-width, Arabic-Indic, mathematical and superscript digits
-  are never read, and a number with letters mixed in (`3D`, `101A`, `1e5`, `0x1F`, `1_000`, `Q3`) is left alone
-- **en-US conventions only**: `,` separates thousands and `.` the decimal point; a month comes before the
-  day in a numeric date unless the first part can only be a day (above 12). A number written with other
-  conventions (`1,23`, `1.234,5`, `12,34,567`) is left as written and counted as a numeric fallback
-- **Years versus quantities**: a four-digit number from 1000 to 2099 is a year after a year cue (`in`, `since`,
-  a month name, an era such as `AD`) and a quantity (cardinal) after a quantity cue (`about`, `over`) or
-  before a unit or a counted noun (`1500 people`); with no cue it is read as a year (from 1100) or a
-  cardinal (1000 to 1099) and the choice is counted as an ambiguous reading
-- **Limits**: a cardinal has at most 15 digits (999 trillion); 16 to 64 digits are read digit by digit and
-  counted as a numeric fallback; more than 64 digits, a token longer than 128 characters or a decimal with
-  more than 32 fraction digits is left as written and counted as a numeric fallback
-- **Nothing is guessed silently**: the readings that were chosen by default (bare years, `3/4/2024`, a
-  fraction that could also be a date) are counted in the *ambiguous readings* count, and the numeric-looking
-  text that was left as written is counted in the *numeric fallbacks* count, both counts only, never text
-
-A span of the numeric kinds always replaces whole tokens of the source, and the sentence structure follows the
-text: a period that ends a sentence after a number (`Item 5.`) is never part of a span, and the period of a
-unit abbreviation (`5 ft.`) is consumed in the middle of a sentence and kept, with a sentence break forced,
-where a capitalized word follows (`5 ft. Then ...`).
+A span of the numeric kinds replaces whole tokens of the source: a period that ends a sentence after a number
+(`Item 5.`) is never part of a span, and the period of a unit abbreviation (`5 ft.`) is consumed in the middle of a
+sentence and kept, with a sentence break forced where a capitalized word follows.
 
 ## Pronunciation Overrides
 
 This section is normative for hosts and for the units that implement it (*PronunciationOverrides Design*,
-*TextNormalizer Design*). It describes how a host overrides what the built-in rules do for a word, how the
-override is matched, how the rules rank against each other, and how names and acronyms are handled. The
-user guide has worked examples and a backend snippet.
+*TextNormalizer Design*): how a host overrides what the built-in rules do for a word, how an override is matched and how
+the rules rank. The entry grammar, the limits, the tab-separated file format and the lookup are specified in
+*PronunciationOverrides Design* and shown with examples in the user guide.
 
-### Concepts and actions
-
-A host builds one immutable `PronunciationOverrides` dictionary (from entries in code with
-`PronunciationOverrides.Create`, or from a tab-separated file with `PronunciationOverrides.FromTsv`) and sets
-it as `EnglishTextAnalyzerOptions.Overrides`. Each entry has a **word** (the key), a **case flag**, an
-**action** and, for three actions, a **payload**. The analyzed text is never rewritten; the action decides which
-annotation, if any, the matching word gets:
+A host builds one immutable `PronunciationOverrides` dictionary (`Create` from entries, or `FromTsv` from a
+tab-separated file) and sets it as `EnglishTextAnalyzerOptions.Overrides`. Each entry has a word (the key), a case flag,
+an action and, for three actions, a payload. The text is never rewritten; the action decides which annotation, if any,
+the matching word gets:
 
 | Action | TSV word | Payload |
 | --- | --- | --- |
@@ -470,753 +351,297 @@ annotation, if any, the matching word gets:
 | `Pronunciation` | `pron` | `ipa:...` or `arpabet:...` |
 | `Reading` | `reading` | a reading id such as `record.noun` |
 
-**Action details:**
+- `Skip`: the word is spoken as written: every built-in abbreviation, acronym, symbol and number rule is bypassed and no
+  replacement is produced (the abbreviation rules' sentence-break decision is still made)
+- `Say`: one `en.norm` annotation (kind `Override`) whose value is the payload
+- `SpellOut`: one `en.spell` annotation with the word's ASCII letters in capitals separated by single spaces
+- `Pronunciation`: one `en.pron` annotation on the word; the word is not replaced
+- `Reading`: one `en.reading` annotation with the payload and one `en.reading-confidence` of `1.000`; the word is spoken
+  as written and no model is needed. It beats the classifier and is validated strictly when the dictionary is built (a
+  well-formed id, active in the inventory, with the entry's word, ASCII-folded, among its forms). Its annotations are
+  emitted only when the reading family is selected; the override is counted as applied in every case
 
-- `Skip`
-  - Result for the word: Spoken as written: every built-in abbreviation, acronym, symbol and number rule is bypassed for
-    the word, and no replacement annotation is produced (the abbreviation rules' sentence-break decision is still made)
-  - Example (key, then text and result): `US` skip: `US troops asked us` stays as written, where the acronym table would
-    have spelled `US`
-- `Say`
-  - Result for the word: One `en.norm` annotation (kind `Override`) whose value is the payload
-  - Example (key, then text and result): `Nginx` say `engine ex`: `Use Nginx today.` is spoken `Use engine ex today.`
-- `SpellOut`
-  - Result for the word: One `en.spell` annotation: the word's ASCII letters, in capitals, separated by single spaces
-  - Example (key, then text and result): `GIF` spell: `A GIF file` is spoken `A G I F file`
-- `Pronunciation`
-  - Result for the word: One `en.pron` annotation on the word; the word is not replaced
-  - Example (key, then text and result): `Polish` pron `ipa:ˈpoʊlɪʃ`: `Polish food` keeps its text and the backend
-    receives the phonemes
-- `Reading`
-  - Result for the word: One `en.reading` annotation whose value is the payload and one `en.reading-confidence`
-    annotation `1.000` on the word; the spoken text is unchanged (the word is spoken as written), and no model is needed
-  - Example (key, then text and result): `record` reading `record.noun`: `Please record the record.` gives both words
-    the reading `record.noun`
+**Precedence.** Each rank beats every rank below it: (1) an override entry, case-sensitive (exact UTF-16 code units);
+(2) an override entry, case-insensitive (`OrdinalIgnoreCase`), consulted only when rank 1 has none; (3) the built-in
+normalization rules in their existing order (dropped characters, clitics, numeric expressions, lexicon abbreviations, the
+acronym table, symbols and marks, elision apostrophes); (4) part of speech, which is independent (`en.upos` is still
+emitted for an overridden word); (5) heteronym classification, which skips every token that rank 1 to 3 replaced, spelled
+or pronounced. One exception to rank 1 and 2 beating rank 3: a word that an **earlier** multi-token match has already
+consumed. A number with its unit (`5 kg`), an amount with its magnitude word (`$5 million`) and a time with its meridiem
+(`5 pm`) are one construct read as a whole, so an override for `kg`, `million` or `pm` in that position is **ignored and
+counted** (`overrides ignored`); the same word on its own is overridden normally. An override on the first token of a
+built-in construct always wins (an entry for `US` beats the acronym table), which is why a `Skip` entry is the way to stop
+a rule from touching a word.
 
-The `Reading` action fixes the heteronym reading of a word (the noun or the verb of `record`) and beats the
-classifier (rank 5 of the precedence table). It is validated strictly when the dictionary is built: the payload must be
-a well-formed reading id (see *Heteronym Readings*), the id must exist in the inventory and be active, and the entry's
-word, folded to ASCII case, must be a form that the id is a candidate of. The reading annotations of an override are
-emitted only when the reading family is selected; the override is counted in `overrides applied` in every case. The
-`OverrideAction` value 5 is the reading action and the values outside 1 to 5 are undefined.
+**Matching.** An entry is compared with one whole token of the analyzed text, in full: never a substring and never
+several tokens (multi-word entries are not supported, because an annotation across whitespace could be cut by the core
+chunker). The character before and after the token must not be a letter, a combining mark or a decimal digit, so the
+stem of a split word (the `Do` of `Do` + `n't`) never matches. The text is tokenized exactly as for tagging, so a key
+must survive tokenization as one token: `NASA's` matches the key `NASA`, while `Nginx-based` and `Wi-Fi` are whole
+tokens that match only as a whole. A word with a trailing abbreviation period (`Dr.`, `U.S.`) cannot be a key; a word
+followed by a split-off period (`Ph.D` and `.`) matches its key. A case-sensitive entry beats a case-insensitive one for
+the same token. `OrdinalIgnoreCase` is culture-invariant (the Turkish dotted `İ` matches neither `I` nor `i`). A key
+with an apostrophe also matches the typographic apostrophe spelling. Tag placeholders are separators.
 
-### Precedence
+**Sentence breaks.** Overrides never change sentence breaks: the reconciled breaks are identical with and without the
+dictionary, including for an abbreviation whose period the tokenizer splits off (`Fig` and `.` in `See Fig. 5 for
+details.`). An override replaces only the spoken form; the force or suppress decision of the abbreviation rule is still
+applied, so the chunker never splits `See Fig.` from `5 for details.`.
 
-Several sources can decide how a word is spoken. Each rank beats every rank below it:
+**Phoneme scheme policy.** The value of an `en.pron` annotation is always `<scheme>:<phonemes>` with a scheme from the
+closed list `ipa` and `arpabet`: a new notation is a new release of this library, never a host decision, so a backend
+knows every scheme it may be offered. The library checks only the syntax of the phonemes; a backend that cannot use the
+scheme or the phonemes speaks the word as it would without the annotation, and `TextEnAnnotations.TryReadPronunciation`
+returns `false`, never an exception, for what it cannot use.
 
-1. Override entry, case-sensitive (exact UTF-16 code units). Mechanism: a directive for the token; the
-   normalizer's rule 0
-2. Override entry, case-insensitive (`OrdinalIgnoreCase`), consulted only when rank 1 has no entry for the
-   token. Mechanism: the same
-3. The built-in normalization rules in their existing order: dropped characters, clitics, numeric expressions,
-   lexicon abbreviations, the acronym table and rules (which now produce `en.spell`), symbols and marks, elision
-   apostrophes. Mechanism: unchanged rule order of the *TextNormalizer Design*
-4. Part of speech. Mechanism: independent: `en.upos` is still emitted for an overridden word and may overlap
-   `en.pron`
-5. Heteronym classification. Mechanism: the analyzer's reading pass, which skips every token that a decision of rank 1
-   to 3 replaced, spelled or pronounced (see *Heteronym Readings*); a `Reading` override, itself rank 1 or 2, fixes the
-   reading and the classifier is not consulted
+**Names and acronyms.** The built-in policy is the case-sensitive initialism table, the dotted and ampersand forms, the
+shouting guard (an all-capital sentence suspends the ambiguous forms) and the vowel-less rule (*AcronymRecognizer
+Design*). A word that policy gets wrong is corrected with an override, not a public policy type, which keeps the API
+small: a product name said as words is `Say`, an initialism to spell is `SpellOut`, an acronym said as a word (`NASA`)
+or the country `US` versus the pronoun `us` is a case-sensitive `Skip`. Case-sensitive entries are the safer default.
 
-One exception to rank 1 and 2 beating rank 3: a word that an **earlier** multi-token match has already
-consumed. A number with its unit (`5 kg`), a currency amount with its magnitude word (`$5 million`) and a time
-with its meridiem (`5 pm`) are one construct read as a whole; the match is atomic and keeps the tokens it
-consumed, so an override for `kg`, `million` or `pm` in that position is **ignored and counted** in the
-`overrides ignored` diagnostic. The same word on its own (`The kg is a unit`) is overridden normally, because it
-is the first token of its own construct. An override on the first token of a built-in construct always wins
-(an entry for `US` beats the acronym table), which is also why a skip entry is the way to stop a rule from
-touching a word.
-
-### Matching and case rules
-
-1. **One whole token.** An entry is compared with one token of the analyzed text, in full: never a substring
-   and never several tokens. Multi-word entries are not supported in this release, so a key cannot contain
-   whitespace.
-2. **Whole word.** The character before and the character after the token must not be a letter, a combining
-   mark or a decimal digit, decoded per Unicode scalar. A piece of a split word, such as the `Do` of
-   `Do` + `n't`, never matches.
-3. **Tokenization.** The text is tokenized exactly as for part-of-speech tagging, so a key must be a word that
-   survives tokenization as one token. The tokenizer splits `NASA's` into `NASA` and `'s` (the key `NASA`
-   matches, the possessive keeps its normal handling), but keeps `Wi-Fi`, `Nginx-based`, `AT&T's`, `e-mail` and
-   `state-of-the-art` whole: a hyphen compound matches only as a whole and never by a part of it (an entry for
-   `Nginx` does not match inside `Nginx-based`; add the compound as its own key), and a possessive that stays
-   inside the token (`Wi-Fi's`) does not match the key `Wi-Fi`. A contraction that the tokenizer splits
-   (`don't` into `Do` and `n't`) is never matched by its written form.
-4. **Trailing periods.** A word that ends with an abbreviation period (`Dr.`, `U.S.`, `Mr.`) cannot be a key:
-   the tokenizer keeps that period inside the token and the abbreviation lexicon owns it. A word followed by a
-   period that the tokenizer splits off (`Ph.D` and `.`) matches its key (`Ph.D`) and the split-off period stays
-   as written.
-5. **Case.** A case-sensitive entry compares the exact UTF-16 code units. A case-insensitive entry uses
-   `OrdinalIgnoreCase` (invariant simple case mapping): `nginx`, `Nginx` and `NGINX` match the key `Nginx`; the
-   Turkish dotted `İ` and dotless `ı` match neither the ASCII `I` nor `i` and the current culture is never
-   consulted; the Kelvin sign and `ß` do not fold. No Unicode normalization form is applied, so `é` written as
-   one code point and as `e` plus a combining accent are different keys; write keys in normalization form C.
-   A key must end with a letter or a decimal digit, so a key that ends in a combining mark (typical of form D)
-   is rejected.
-6. **Sensitive wins.** For one token a case-sensitive entry beats a case-insensitive one (`Polish` the
-   nationality or city sensitive, `polish` the verb insensitive).
-7. **Apostrophes.** A key containing an apostrophe also matches the same word spelled with typographic
-   apostrophes (`O'Brien` and `O’Brien`). A key may not mix the plain and the typographic apostrophe.
-8. **Tag placeholders** are separators; the words on both sides of an audio tag match as usual.
-
-### What an override sees
-
-- The word is the head of a built-in construct (`US`, `FBI`, `Mr`, `SQL`, a word with a symbol): The override wins; no
-  built-in replacement or annotation is produced for the token, but the abbreviation rules' sentence-break edits still
-  apply
-- The word is consumed by an earlier match (`kg` after `5`, `million` after `$5`, `pm` after `5`): The built-in reading
-  wins; the override is ignored and counted
-- The word has a trailing abbreviation period (`Dr.`, `U.S.`): Not matchable; the built-in rules apply
-- The word is followed by a split-off period token (`Ph.D` and `.`): The key `Ph.D` matches; the period token is
-  processed normally
-- A clitic stem (`NASA` before `'s`): The key `NASA` matches the stem; the clitic keeps its normal handling
-- A contraction the tokenizer splits (`Do` and `n't`): The stem never matches; the written form of the contraction never
-  matches
-- **A hyphen compound**: Matches only as a whole compound
-- The overridden word also gets `en.upos`: Yes, the part of speech is independent
-- **Sentence breaks**: Overrides never change sentence breaks: the reconciled breaks are identical with and without the
-  dictionary. This includes an abbreviation whose period the tokenizer splits off (`Fig` and `.` in
-  `See Fig. 5 for details.`, `Dr` and `.` after an em dash in `Hello—Dr. Smith`): the override replaces only the spoken
-  form of the word, and the force or suppress decision that the abbreviation rule would have made is still applied, so
-  the chunker never splits `See Fig.` from `5 for details.`
-
-A spell-out directive for a token that is not made of ASCII letters cannot be produced by the dictionary (the
-key rule forbids it); if the normalizer ever receives such a directive it speaks the token as written and
-counts the directive as ignored rather than corrupting the alignment.
-
-### Dictionary entry rules and limits
-
-The key, the payloads and the limits are specified in *PronunciationOverrides Design* and summarized in the user guide.
-The ones a host most needs: a key is 1 to 64 UTF-16 code units, starts with a letter, ends with a letter or a decimal
-digit and contains only letters, combining marks, decimal digits and `'`, `’`, `-`, `.`, `&`, `/` and `_`; a `Say`
-payload is plain words (no digit, no punctuation: write a number in words); a `Pronunciation` payload is `ipa:` or
-`arpabet:` followed by phonemes in that notation's syntax; a `Reading` payload is a reading id that exists and is active
-in the reading inventory and that has the entry's word, folded to ASCII case, among its forms (the inventory is loaded
-only when a `Reading` entry is validated, and only for a well-formed id); a dictionary holds at most 10,000 entries; a
-duplicate (same word, same case flag) is an error, never "last one wins". An invalid entry throws `ArgumentException`
-from `Create` with the message `Entry {zero-based index}: {reason}.` and an invalid file throws `InvalidDataException`
-from `FromTsv` with `Line {one-based number}: {reason}.`; the reasons are fixed text and never echo the word, the
-payload or the line.
-
-### Tab-separated format
-
-```text
-# comment (the first character of the line is '#')
-<word> TAB <case> TAB <action> [TAB <payload>]
-```
-
-- **Encoding and line ends**: the caller's `TextReader` (UTF-8 recommended); LF or CRLF; a lone carriage
-  return is an error; a byte-order mark at the start of the first line is skipped
-- **Blank and comment lines**: an empty line and a line whose first character is `#` are ignored; a line of
-  only whitespace is an error; there is no header row (it would collide with a key named `word`)
-- **Control characters**: any control character other than the tab separator is an error on every line,
-  comment lines included
-- **Columns**: three or four, separated by a tab; the `case` column is exactly `sensitive` or `insensitive`;
-  the `action` column is exactly `skip`, `say`, `spell`, `pron` or `reading`; `skip` and `spell` take no payload (an
-  empty fourth column is tolerated); `say`, `pron` and `reading` require one; no column may begin or end with
-  whitespace; there is no quoting or escaping
-- **Limits**: at most 1,024 characters per line, at most 50,000 lines (blank and comment lines count) and at
-  most 10,000 entries; the reader is consumed through a bounded buffer so an endless input is rejected
-- **Errors**: `InvalidDataException`, message `Line {n}: {reason}.`; the reader is not disposed or retained
-  and its own exceptions propagate
-
-The user-guide sample, which is also the first seven entries of the test fixture, is shown with `→` standing
-for the one tab character that separates the columns (the file itself uses real tabs):
-
-```text
-# domain terms
-Nginx→insensitive→say→engine ex
-Kubernetes→sensitive→say→koo ber net eez
-GIF→sensitive→spell
-Polish→sensitive→pron→ipa:ˈpoʊlɪʃ
-polish→insensitive→pron→ipa:ˈpɑːlɪʃ
-SQL→insensitive→say→sequel
-NASA→sensitive→skip
-```
-
-### Phoneme scheme policy for `en.pron`
-
-The value of an `en.pron` annotation is always `<scheme>:<phonemes>`, always tagged, with a lower-case scheme
-from the closed list `ipa` and `arpabet`. The closed list is deliberate: a new notation is a new release of
-this library, never a host decision, so a backend knows every scheme it may be offered. This library checks
-only the **syntax** of the phonemes (`ipa`: 1 to 128 UTF-16 code units without whitespace, control, format,
-private-use or unassigned characters; `arpabet`: 1 to 32 phones of one to three capital ASCII letters with an
-optional stress digit 0 to 2, separated by single spaces); whether a symbol belongs to a particular phoneme
-inventory is opaque to this library and is the backend's concern. A backend that cannot use the scheme, or the
-phonemes, speaks the word as it would without the annotation. `TextEnAnnotations.TryReadPronunciation` returns
-the typed scheme and the phonemes (split at the first colon) and reports anything it cannot use as `false`,
-never as an exception.
-
-### Name and acronym policy
-
-The built-in policy is the case-sensitive initialism table, the dotted and ampersand forms, the shouting guard
-(an all-capital sentence suspends the ambiguous forms) and the vowel-less rule, as described in
-*AcronymRecognizer Design*; its results are now annotated `en.spell`. A word that the built-in policy gets
-wrong is corrected with an override rather than by a public policy type, which keeps the API small. The recipes:
-
-| Goal | Entry (word, case, action, payload) |
-| --- | --- |
-| A product name said as words | `Nginx`, insensitive, `say`, `engine ex` |
-| A name the tokenizer would read as an unknown word | `Kubernetes`, sensitive, `say`, `koo ber net eez` |
-| An unlisted initialism that must be spelled | `GIF`, sensitive, `spell` |
-| An acronym the table would spell but that is said as a word | `NASA`, sensitive, `skip` |
-| An initialism the table would spell but that must stay as written | `FBI`, sensitive, `skip` |
-| The country `US` versus the pronoun `us` | `US`, sensitive, `skip` |
-| A name that differs from a common word only by case | `Polish` sensitive and `polish` insensitive, both `pron` |
-| A word with a brand-specific compound | `Nginx-based`, insensitive, `say`, `engine ex based` |
-
-**Goal details** (Result):
-
-- **A product name said as words**: `Use Nginx today.` is spoken `Use engine ex today.`
-- **A name the tokenizer would read as an unknown word**: `Kubernetes runs` is spoken `koo ber net eez runs`
-- **An unlisted initialism that must be spelled**: `A GIF file` is spoken `A G I F file` (`en.spell` `G I F`)
-- **An acronym the table would spell but that is said as a word**: stays as written
-- **An initialism the table would spell but that must stay as written**: `The FBI and CIA` is spoken `The FBI and C I A`
-- The country `US` versus the pronoun `us`: `US troops asked us` stays as written
-- **A name that differs from a common word only by case**: each gets its own phonemes; the sensitive entry wins for
-  `Polish`
-- **A word with a brand-specific compound**: the whole compound is replaced
-
-Case-sensitive entries are the safer default for names and acronyms, because `US` and `us` or `IT` and `it`
-differ only in case. Case-insensitive entries suit product names that are written in several cases.
-
-### Diagnostics
-
-The diagnostics event gains two counts, `overrides applied` and `overrides ignored`, both zero without a
-dictionary: *applied* is the number of overrides that took effect on a word, *ignored* the number that matched
-a word but lost to an earlier multi-token match (a count above zero tells a host that an entry is shadowed by a
-number or unit rule). Only the counts are reported; no word, key, payload, scheme or entry count of the
-dictionary ever reaches the sink, and the dictionary builders report only a position and a fixed reason.
-`Normalizations` keeps counting replacement spans, now `en.norm` and `en.spell` together; a pronunciation
-counts in `Annotations` and in `overrides applied` only.
-
-### Overrides and heteronym readings
-
-The heteronym reading pass (see *Heteronym Readings*) **skips every token that carries an `en.pron` annotation or is
-covered by an `en.norm` or `en.spell` annotation, and every token with an override other than a `Reading` override**:
-the host's override outranks any heteronym classification (rank 5 of the precedence table). The reading annotations of
-a `Reading` override are the reading by decree, with confidence `1.000`. This is verified by requirements and tests of
-the analyzer, and the coexistence rules of *Heteronym Readings* state it normatively.
+**Diagnostics.** The analysis event carries `overrides applied` and `overrides ignored`, both zero without a dictionary;
+an ignored count above zero tells a host that an entry is shadowed by a number or unit rule. Only counts are reported;
+the dictionary builders report only a position and a fixed reason.
 
 ## Heteronym Readings
 
-This section is normative for hosts, for backends and for the units that implement it (*HeteronymSubsystem Design*,
-*EnglishTextAnalyzer Design*, *PronunciationOverrides Design*). It describes which annotations name the reading of a
-heteronym, when they are emitted, how a model chooses the reading, and what the library reports about it. A *reading*
-is one pronunciation of a written word (`record` as a noun or as a verb); the **reading id** names it
-(`record.noun`, `record.verb`, `read.past`, `read.present`).
+This section is normative for hosts, backends and the implementing units (*HeteronymSubsystem Design*,
+*EnglishTextAnalyzer Design*). A *reading* is one pronunciation of a written word (`record` as a noun or as a verb); the
+**reading id** names it (`record.noun`, `record.verb`, `read.past`).
 
-### Annotations and selection
+**Annotations and selection.** The analyzer marks a heteronym with two annotations on the **same span**: `en.reading`
+whose value is the reading id, and `en.reading-confidence` whose value is the confidence written as `0.000` to `1.000`
+(three decimals, invariant culture). A backend reads them with `TextEnAnnotations.TryReadReading` and
+`TextEnAnnotations.TryReadReadingConfidence` (never an exception; the id reader does not look the id up in the
+inventory) and may ignore the confidence. A reading id has two or three segments of `a` to `z`, `0` to `9` and `-`
+separated by single dots, at most 64 characters; the text after the first dot is its role. The family is selected by
+`TextEnAnnotationSelection.Reading`, part of the default selection, and is **effective only where the analyzer has a
+model source**: the package embeds the trained model, so the default analyzer classifies every heteronym word with no
+configuration. An analyzer with no source (`HeteronymModelProvider.None`) emits no classified reading, and a model that
+cannot be used emits none and one warning. A `Reading` override is emitted with confidence `1.000` without any model.
+`LowConfidenceThreshold` (default 0.60) only counts and flags a classified reading below it
+(`AnalyzedToken.IsLowConfidenceReading`); the reading is **still emitted**, and a backend that wants to ignore uncertain
+readings compares the confidence itself.
 
-The analyzer marks a heteronym with two annotations on the **same span**: `en.reading` whose value is the reading id,
-and `en.reading-confidence` whose value is the confidence written as `0.000` to `1.000` (three decimals, a period,
-invariant culture). A backend reads them with `TextEnAnnotations.TryReadReading` (a well-formed id; the reader does not
-look the id up in the inventory) and `TextEnAnnotations.TryReadReadingConfidence` (a strict grammar: `0` or `1`, then
-optionally a period and one to six ASCII digits, not above 1; never an exception), and may ignore the confidence. A
-reading id has two or three segments of `a` to `z`, `0` to `9` and `-` separated by single dots, no segment starts or
-ends with `-`, and the whole id is at most 64 characters; the text after the first dot is its **role** (`noun`,
-`verb`, `adj-noun`). `ReadingInventory` lists the ids and the written forms they can carry.
+**Which words get a reading.** A token is a candidate when the whole tokenizer token is a form of the inventory,
+compared with ASCII case folding only (`record-label` is one token and not a form). A candidate that is not overlapped
+by a replacement or a pronunciation and carries no override other than a `Reading` override gets a reading: a form with
+several candidate readings is **classified**; a form with exactly one candidate gets it with confidence `1.000`, but
+only when the family is effective; a token with a `Reading` override gets the override's id with confidence `1.000`.
 
-The family is selected by `TextEnAnnotationSelection.Reading` (the value 4), which is part of the default selection and
-covers both annotations; there is no separate confidence flag. The family is **effective only where the analyzer has a
-model source**: the reading classifier needs trained weights, and **the package embeds the trained model**
-(`Resources/heteronyms.bin`), so the default analyzer emits a classified reading, with no configuration, for every
-heteronym word of its text. An analyzer built with a provider that has no source (`HeteronymModelProvider.None`) emits
-no classified reading, and a model that cannot be used emits none and one warning. A `Reading` override is still
-emitted with the confidence `1.000`, without any model. The options carry `LowConfidenceThreshold` (default 0.60, a
-finite number from 0 to 1): a classified reading whose confidence is below it is counted and flagged
-(`AnalyzedToken.IsLowConfidenceReading`) but **still emitted**; the threshold never suppresses a reading. A backend
-that wants to ignore uncertain readings compares the confidence itself.
+**Coexistence rules** (normative, verified by the analyzer tests):
 
-### Which words get a reading
+1. `en.reading` and `en.reading-confidence` annotate exactly one whole tokenizer token, the same span for both; the span
+   starts and ends on a letter, never contains whitespace, a comma, a colon or a semicolon, and lies in one chunk
+2. They coexist with `en.upos` on the same span (the part of speech comes first)
+3. They are never emitted for a token that overlaps an `en.norm`, `en.spell` or `en.pron` annotation, nor for a token
+   with an override other than a `Reading` override
+4. There is at most one of each per token, in text order; at an equal start the order is `en.upos`, `en.reading`,
+   `en.reading-confidence`, then a replacement or pronunciation (which cannot coexist with a reading)
+5. A backend ignores kinds it does not recognize and may ignore the confidence; a backend that cannot use a reading id
+   speaks the word as it would without the annotation
 
-A token is a candidate when the **whole tokenizer token** is a form of the inventory, compared with ASCII case folding
-only (`Record`, `RECORD` and a sentence-initial `Record` are forms; `record-label`, `record.` and a word with a
-non-ASCII letter are not, because a hyphenated compound is one token and `-` is not a letter). A candidate that is
-neither overlapped by a replacement or a pronunciation nor carries an override other than a `Reading` override gets
-a reading:
+**How the reading is chosen.** For a form with several candidates, the classifier extracts the hashed features of the
+word in its own sentence (the word and its neighbors, the part of speech and closed classes around it, the position; see
+*HeteronymFeatureExtractor Design*), binds them to each candidate through two salts (the full reading id and its role)
+and adds the model weights its features select. The highest integer score wins and an exact tie goes to the first
+candidate in the order of `forms.tsv`. The confidence is the softmax probability of the winner at the model's
+calibration temperature (*HeteronymClassifier Design*). Reading needs the tagger, so the analyzer tags when part of
+speech or an effective reading family is selected; `en.upos` stays conditioned on the part-of-speech selection alone.
 
-- a form with several candidate readings is **classified**: the model chooses one candidate and gives the confidence;
-- a form with exactly one candidate (not ambiguous) gets that reading with confidence `1.000`, but **only when the
-  family is effective** (the analyzer has a model source), so an analyzer with no model source emits nothing;
-- a token with a `Reading` override gets the override's id with confidence `1.000`.
+**Feature parity (decision).** A trained model is valid only while the runtime extracts exactly the features the trainer
+extracted. The feature extractor, the token description, the hash functions, the bucket of a feature and the integer
+score of a candidate are therefore **one implementation**, `internal` in this assembly and called by the trainer through
+`InternalsVisibleTo`; the step that turns tagged tokens into context tokens (`PartOfSpeechAdapter.DescribeSentence`) is
+shared the same way. Rejected: a source-linked copy in the trainer (drift and a double review) and a public extractor
+(it would freeze the feature set under semantic versioning). Three guards keep the parity checkable: golden feature
+vectors under several cultures, a tokenization-parity test, and the evaluation's comparison of the real analyzer's
+readings with the trainer's direct classification of every row (the parity counts).
 
-### Coexistence rules
+**Inventory and model compatibility.** The inventory has an integer revision that a test pins with the counts of the
+embedded tables. A model records the revision it was trained for and binds weights to reading ids through salts, never
+to table positions; it is accepted when its revision is the same or lower than the inventory's, and a well-formed model
+with another feature-set version is rejected as incompatible, not as invalid.
 
-These rules are normative and verified by the analyzer tests:
+**Model format and delivery.** The model is a `HETW` file: a fixed little-endian header (format and feature-set
+versions, a compression flag, inventory version, hash bits, calibration temperature, weight scale, counts and a checksum
+of the stored bytes) and a payload of sparse buckets with one signed 16-bit weight each. The loader never trusts a file:
+it checks every field and length against fixed caps before allocating, verifies the checksum before inflating, inflates
+through a strict reader (a cut-off stream, trailing bytes, a size mismatch and an inflation bomb are detected) and
+decodes the payload strictly; every defect is an `InvalidDataException` with a fixed message that never carries the data
+(see *SparsePerceptronModel Design*). The model is an embedded resource, loaded **lazily and once** per process, only
+when an analyzer that selects readings meets a candidate word. An absent model is silent; one that is invalid or
+incompatible disables the family and is reported once.
 
-1. `en.reading` and `en.reading-confidence` annotate **exactly one whole tokenizer token**: the same `[start, start +
-   length)` for both. The token is an ASCII-letter form of the inventory, so the span starts and ends on a letter,
-   never splits a surrogate pair, never contains whitespace, a comma, a colon or a semicolon, and always lies in one
-   chunk of the Speech library
-2. They **coexist with `en.upos`** on the same span (the part of speech is independent of them and comes first)
-3. They are **never** emitted for a token that overlaps an `en.norm`, `en.spell` or `en.pron` annotation, so a reading
-   annotation never overlaps one of those, and never for a token that carries an override directive other than a
-   `Reading` override. The reading of a `Reading` override is the reading by decree: the token has no other replacement
-   or pronunciation by construction, because one word has one directive
-4. There is at most one `en.reading` and one `en.reading-confidence` per token, in text order; at an equal start the
-   order is `en.upos`, `en.reading`, `en.reading-confidence`, then a replacement or a pronunciation (which cannot
-   coexist with a reading). The core's permission for overlapping annotations is relied on only for the same-span
-   triple of part of speech, reading and confidence
-5. A backend ignores kinds it does not recognize and may ignore `en.reading-confidence`; a backend that cannot use a
-   reading id speaks the word as it would without the annotation
+**Diagnostics.** Besides the unchanged `TextEn.Analysis` event, `TextEn.Heteronym` (Info, at most one per request, when
+a reading was assigned) reports
+`Assigned {n} heteronym readings: {c} classified, {s} single-candidate, {o} by override, {l} below confidence {t}.`, and
+`TextEn.Model` (Warning, once per analyzer, only when a model exists but cannot be used) reports
+`Heteronym model unusable (invalid or incompatible file); readings disabled.` Both use only fixed words and numbers, and
+a canceled request reports nothing. The reading state of one request lives in a private pass object on the caller's
+thread; the model and the inventory are immutable and serve any number of concurrent requests.
 
-### How the reading is chosen
+## Training Data, Training and External Evaluation
 
-For a form with several candidates, the classifier extracts the hashed features of the word in its sentence (the
-templates of *HeteronymFeatureExtractor Design*: the word and its neighbors, the part of speech and the closed classes
-around it, the position in the sentence), binds them to each candidate through two salts (one from the full reading id,
-one from its role, so evidence is shared across words with the same role) and adds the model weights its features
-select. The highest integer score wins and an exact tie goes to the first candidate in the order of the rows of
-`forms.tsv` (the inventory has no default reading). The confidence is the softmax probability of the winner at the
-model's temperature (see *HeteronymClassifier Design*).
+The data, the trainer and the evaluations change nothing in the library's runtime except that the two small inventory
+tables (`readings.tsv`, `forms.tsv`) and the trained model (`Resources/heteronyms.bin`) are embedded in the package;
+nothing else of `data/text-en/` is embedded, referenced or shipped. The subsystem designs (*TrainingDataSubsystem*,
+*TrainingSubsystem*, *ExternalEvaluationSubsystem*) specify the rules; the decisions are:
 
-The context of a classification is the word's **own sentence** (positions beyond it are sentence markers), described
-with the part of speech and its confidence from the tagger. Reading needs the tagger, so the analyzer tags when the
-part of speech or an effective reading family is selected; `en.upos` and the unknown-word count stay conditioned on the
-part-of-speech selection alone, so a reading-only selection tags for context and emits no `en.upos`.
-
-### Feature parity between the analyzer and the trainer (decision)
-
-A trained model is valid only while the runtime extracts exactly the features the trainer extracted. The feature
-extractor, the token description, the hash functions, the bucket a feature selects for a reading
-(`FeatureHashing.Bucket`) and the integer score of a candidate (`HeteronymClassifier.ScoreCandidate`) are therefore
-**one implementation**, `internal` in this assembly, that the trainer calls through `InternalsVisibleTo`: the library's
-project file grants the internals to the trainer assembly and to the trainer's test assembly. The same holds for the
-step that turns the tagged tokens of a sentence into context tokens: `PartOfSpeechAdapter.DescribeSentence` is the one
-place, called by the analyzer's reading pass at run time and by the trainer's row preparation offline. Rejected
-alternatives: a source-linked copy in the trainer (drift and a double review) and a public extractor (it would freeze
-the feature set under semantic versioning, although the feature set changes with its own version). Two guards keep the
-parity checkable: golden feature vectors that lock the exact hashes under several cultures, and a tokenization-parity
-test that shows equivalent spellings which the tokenizer splits differently (`can't` and `ca n't`, `John's` and
-`John 's`, quotes, brackets, abbreviations) give the same token texts and the same features for the target. Every model
-records the feature-set version and a build reports any other as incompatible. A third guard runs over the trainer's own
-data: the evaluation runs the real analyzer over the labeled sentences and compares its readings with the trainer's
-direct classification of the same rows, and reports the **parity counts** (compared, mismatched, suppressed); any
-mismatch means the features the model was trained on differ from what the analyzer sees (see *Training and Evaluation*).
-
-### Inventory version and model compatibility (policy)
-
-The inventory has an integer revision that is a constant of the library; a test pins it with the counts of the embedded
-tables, so a change of the data needs a deliberate decision about the revision. A model records the revision it was
-trained for and binds its weights to reading ids through salts, never to table positions. A model is accepted when its
-revision is the same as or lower than the inventory's and rejected as incompatible when it is higher. A well-formed
-model with another feature-set version loads and is rejected as incompatible by the classifier, not as invalid.
-
-### Model format and delivery
-
-The model is a `HETW` file (format version 1): a fixed 80-byte little-endian header that records the format version,
-flags (only one: the payload is raw Deflate), the feature-set and inventory versions, the number of hash bits (16 to
-24), the calibration temperature and the fixed-point scale of the integer weights, the row and length counts, a
-checksum of the stored bytes and informational fields for the trainer version and the training-data manifest hash;
-then a payload of sparse buckets as gaps (varints) followed by one signed 16-bit weight per bucket, never 0 and never
--32768. The loader never trusts a file: it checks every field and every length against fixed caps before allocating,
-verifies the checksum before inflating, inflates through a strict reader that detects a cut-off stream, trailing bytes
-and a size that differs from the declared one (an inflation bomb included), and decodes the payload strictly. Every
-defect is an `InvalidDataException` with a fixed message that never carries the data. The complete rules are in
-*SparsePerceptronModel Design*.
-
-The model is looked up as one embedded resource and loaded **lazily and once** for the process, only when an analyzer
-that selects readings meets a candidate word: never at construction, never for a text without a candidate word and
-never for a selection without the family. The embedded model is found, so the family is effective for the default
-analyzer; an analyzer given a provider with no source finds none, and then the family is not effective. A model that
-is absent is not an error and is silent; a model that exists but is invalid or incompatible
-disables the family and is reported once (see *Heteronym Diagnostics* below).
-
-### Heteronym Diagnostics
-
-The existing `TextEn.Analysis` event is unchanged. Two further events exist, both built only from fixed words and
-numbers, never a word, a reading id or a model name:
-
-- **`TextEn.Heteronym`**, Info level, at most one per request, when at least one reading was assigned:
-  `Assigned {n} heteronym readings: {c} classified, {s} single-candidate, {o} by override, {l} below confidence {t}.`,
-  with `n` the total, `l` the classified readings below the threshold `t` (written with two decimals, invariant
-  culture)
-- **`TextEn.Model`**, Warning level, **once per analyzer instance**, and only when a model exists but cannot be used (an
-  invalid or an incompatible file): `Heteronym model unusable (invalid or incompatible file); readings disabled.` An
-  absent model (a provider with no source) is silent, because it is a configuration choice of the host and a warning
-  would not be actionable
-
-A canceled request reports nothing, as before. The detailed analysis carries the same data per token
-(`AnalyzedToken.Reading`, `ReadingConfidence` and `IsLowConfidenceReading`).
-
-### Cost and concurrency
-
-A token that is not a form costs a length test, a letter test and a hash probe, with no allocation. A candidate word
-costs one cancellation check; the feature buffers of a classification are on the stack, the context of a sentence is one
-array per request that grows to the longest sentence with a candidate, and no object is created per token on the
-language-neutral path. The analyzer keeps no per-request state in its fields; the reading state of one request lives in
-a private pass object on the caller's thread, the model and the inventory are immutable, and one analyzer, and one
-shared model, serve any number of concurrent requests.
-
-## Training Data and Trainer
-
-This section describes the data that the heteronym classifier is trained on, and the command that guards it. The data
-and the command change nothing in the runtime of the library except one thing: the two small inventory tables of the
-data (`readings.tsv` and `forms.tsv`) are embedded in the package, by link, and are the reading inventory of the
-HeteronymSubsystem (see *Heteronym Readings*), and the trained model that the trainer writes is embedded in the package
-as `Resources/heteronyms.bin`. Nothing else of `data/text-en/` is embedded in, referenced by or shipped
-with the package: not the training and evaluation sentences and not the provenance records (the
-package's license file describes the embedded tables and the model).
-
-**What the data is.** `data/text-en/` holds, for the English heteronym classifier, an inventory of readings with
-identifiers owned by this repository (a *reading* is one pronunciation of a written word, such as `record` as a noun or
-as a verb), the forms each reading can take, labeled example sentences split into training, development and two
-holdout files, the provenance records of every row, a mapping of external evaluation identifiers to readings
-(identifiers only), and the documents, audit records and prompts that describe how it was made. Its structure,
-file formats and rules are described in *SpeechTextEn TrainingDataSubsystem Design*.
-
-**Licensing and provenance (owner decisions).**
-
-- Every row carries its license: `CC0-1.0`, `Public-Domain` or `CC-BY-3.0-US`, with the attribution that the last
-  requires in `ATTRIBUTION.md`. No share-alike, non-commercial or no-derivatives material is used.
-- The content that DEMA Consulting generated, labeled or wrote for the repository - the generated sentences, the
-  sentences written for the independent holdout, the readings chosen by language models for natural sentences, the
-  rule-derived labels, the audit records, the inventory and the selection and arrangement of the files - is dedicated
-  to the public domain under CC0 1.0. Language models wrote or labeled part of the data; the data records which
-  rows, with which model and on which date, and that a second model of another family judged them blind. No human
-  reviewed the model-written rows.
-- The evaluation-only corpora (WikipediaHomographData and heteronym-bench) are used for evaluation only and are
-  **never committed**; the only trace of them in the repository is the mapping of their word identifiers to our
-  reading identifiers. The reading identifiers, descriptions and forms are written in our own words, with no
-  pronunciation transcription and no text of those corpora.
-- Misaki data is not used anywhere in the data or in the trainer.
-
-**What the `check-data` gate does and does not prove.** The command (see *SpeechTextEn TrainingDataSubsystem Design*)
-proves that the committed files are exactly the reviewed files (a manifest of hashes pins them), that every file is in
-the canonical format, that every row is well formed and consistent with the inventory including a strict whole-word
-span, that no license outside the allow-list and no license a source may not carry is present, that the splits share
-no sentence, document or template, and that provenance, attribution and license statements exist. It runs in the
-lint script, in the build job on every operating system and as a test over the real data. It does not prove that
-a label is linguistically correct, that a harvested sentence really has the license of its source corpus, or that the
-data is free of overlap with an evaluation set that nobody supplied: the comparison with the evaluation corpora can be
-run only by an operator who has local copies (the pipeline never has them), and the data README records the result of
-the last such run.
-
-**Review.** The data documents and the small inventory tables are review files; the large tables are pinned by the
-manifest and guarded by the command instead, as the subsystem design explains.
-
-**Trainer scope.** The trainer targets `net10.0`, is not packable and is not part of the public surface. It has three
-commands: `check-data` (this section), and `train` and `evaluate`, which the next section describes. The runtime half of
-the classifier (the inventory, the features, the model format and its strict loader, and the classifier) is in the
-library and is described in *Heteronym Readings*. The trained model, the training record and the evaluation record are
-committed and the model is embedded in the package (see the next section); the package's license file and its
-notices describe the embedded model and the data it was trained on (see *Package License Files*).
-
-## Training and Evaluation
-
-This section describes how the heteronym model is trained and measured by the `train` and `evaluate` commands of the
-trainer (*SpeechTextEn TrainingSubsystem Design*), and the properties they guarantee. Nothing in it changes the runtime
-of the library.
-
-**What the trainer reuses.** The trainer references the library and reaches its internals through
-`InternalsVisibleTo`. Row preparation, scoring and the model file are the library's own units, not copies: the
-part-of-speech adapter and the token description (`PartOfSpeechAdapter.Analyze` and `DescribeSentence`), the feature
-extractor, the bucket of a feature (`FeatureHashing.Bucket`), the integer score of a candidate
-(`HeteronymClassifier.ScoreCandidate`, with the same tie rule: the earlier candidate in the order of `forms.tsv`) and
-the model writer and loader. This is the *Feature parity* decision made concrete, and the evaluation proves it on the
-real data (the parity counts).
-
-**The algorithm (design).** The trainer is a candidate-restricted averaged perceptron over the hashed features, in
-integer arithmetic. For each training row it scores the candidate readings of the row's form and, when the best is not
-the labeled one, adds one to the labeled candidate's buckets and subtracts one from the predicted candidate's, once per
-feature occurrence. Rows are visited in a seeded Fisher-Yates shuffle over SplitMix64, once per epoch, and natural
-(harvested) rows are repeated a configured number of times per epoch; the step counter advances once per visited row.
-The average is exact, `((T + 1) W - U) / T` over 64-bit integers, scaled by 64, rounded half away from zero, clamped to
-plus or minus 32,767 and pruned below a threshold. The default configuration (seed 1, 22 hash bits, scale 64, prune
-threshold 2, natural weight 3, at most 12 epochs) was fixed on the development set only, by a grid written down before
-it was run; the record of that exploration and of the gate run is
-`tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md`.
-
-**Model selection.** The epoch kept is the one that decides the most natural development rows correctly (the earliest on
-a tie; all development rows when there is no natural row). The calibration temperature is the grid value `k / 20` (`k`
-from 1 to 1,000) that minimizes the negative log-likelihood of the same rows, a tie going to the smaller `k`, computed
-with the trainer's own exponential and logarithm (never `Math.Exp` or `Math.Log`) so the choice cannot depend on a
-platform's math library. The model image is built with `SparsePerceptronModelWriter.Compile`, as a compressed file (the
-one that is committed) and as an uncompressed image (the one that is hashed and compared, because Deflate bytes depend
-on the runtime); the header carries the inventory version, the feature-set version, the trainer version (1) and the
-data hash.
-
-**Determinism and reproducibility.** The same data, settings and seed give the same model on every platform, so a
-committed model is verified by retraining (`train --check`) rather than trusted. Training is single threaded and uses
-integer arithmetic, its own random generator, its own exponential and logarithm, ordinal sorts and the invariant
-culture, and every record is LF text with no time stamp. The training record `training.json` holds the settings, the
-data hash, the hash of the feature stream (`featuresSha256`, to tell a drift of the tagger or extractor from a change of
-the data), the versions, the row counts, the choices and the hash of the uncompressed image. `train --check` retrains
-with the recorded settings and names every difference between the recorded and the retrained inputs, choices and image,
-and between the committed model and the retrained image.
-
-**Isolation of the holdout sets.** `TrainingCorpus.Load` opens exactly `train.tsv`, `dev.tsv`, `readings.tsv` and
-`forms.tsv`; it never lists the folder and never names a holdout file, so the holdout sets cannot influence a model by
-construction. Every choice is made on the development set. A holdout file is opened only by the evaluator, for the gate,
-for an explicit holdout set or for the record, and the command prints a line saying so; a set that has guided a choice
-no longer measures anything.
-
-**End-to-end evaluation.** A row is decided by the real `EnglishTextAnalyzer` with a model provider over the model under
-test, reading the reading annotation on exactly the row's span; a row with no emitted reading counts as wrong. Three
-baselines are reported: the own-part-of-speech baseline (the one candidate whose `pos_hint` holds the tagger's tag, else
-the first candidate), the majority reading of the form in `train.tsv` (ties and unseen forms to the first candidate) and
-the first candidate. The strata are the source, the reading and the confidence bucket (below 0.600, 0.600 to 0.899, at
-least 0.900, none). The improvement over the own-part-of-speech baseline has a paired bootstrap interval in which the
-resampling unit is the cluster (the source document of a harvested row, each other row alone), computed in integers and
-ordered by exact cross multiplication.
-
-**The quality gate.** On the natural holdout the gate requires both a pooled end-to-end accuracy of at least 930 per
-mille (tested exactly) and an interval lower bound, at 95% confidence over 10,000 resamples with bootstrap seed 7, that
-is exactly above zero. The independent holdout and the multi-seed variance study (seeds 1 to 5) are reported but are not
-part of the gate. The gate settings are written before the first holdout evaluation, held in the training record, and
-are not changed by a result.
-
-**The evaluation record.** `evaluate --write` writes six tab-separated files (summary, gate, by source, per reading,
-confidence and seeds) of integers and basis points, with LF line ends and no time stamps, and `evaluate --check`
-compares them byte for byte. They are plain tables and not Markdown because the repository's text formatters reflow
-Markdown and would break the byte comparison.
-
-**Where the files go.** The committed locations are derived from the data folder's repository: the model
-`src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin`, the training record
-`tools/DemaConsulting.Speech.Text.En.Trainer/training.json` and the evaluation record `docs/evaluation/text-en/`. All
-three are committed, and the model is embedded in the package as the resource
-`DemaConsulting.Speech.Text.En.Resources.heteronyms.bin`, which `HeteronymModelProvider.Embedded` loads (see *Heteronym
-Readings*). Continuous integration runs `train --check` and `evaluate --check` on every operating system of the build
-matrix (and the lint script also runs `train --check`), so a change of the data, the tagger, the feature extractor
-or the trainer that makes the committed files stale fails the build; replacing the model is a deliberate act that
-retrains, rewrites the record and regenerates the evaluation record together, and updates the headline numbers in
-`docs/evaluation/text-en/README.md`. Experiments with other settings are run
-with `--model-dir`, which a command line guard requires, so they can never overwrite the committed files.
-
-**The shipped model and what its evidence does not claim.** The committed model is seed 1 with 22 hash bits, prune
-threshold 2 and natural weight 3, one epoch kept and temperature 19.6, trained with the part-of-speech tagger package
-version 0.1.0-beta.5, feature-set version 1 and inventory version 2. On the natural holdout it chooses the reading of
-96.23% of the words (1,123 of 1,167) against 90.66% for the tagger's own part of speech, an improvement of 5.57 points
-with a 95% interval of 3.16 to 8.15 points, so the gate passed; the independent holdout gives 95.44%. The labels are not
-human verified, the tagger saw part of the natural holdout, the improvement comes from the rows that need meaning, and
-the counts per reading are small; the evaluation record states these limits with the figures
-(`docs/evaluation/text-en/README.md`) and they travel with every figure quoted from it.
+- **Data and licensing (owner decisions).** `data/text-en/` holds the reading inventory (identifiers owned by this
+  repository), labeled sentences split into training, development and two holdout files, provenance for every row and a
+  mapping of external evaluation identifiers to readings (identifiers only). Every row carries a license (`CC0-1.0`,
+  `Public-Domain` or `CC-BY-3.0-US`, with the attribution the last requires); no share-alike, non-commercial,
+  no-derivatives or Misaki material is used. Content that DEMA Consulting generated or labeled (including readings
+  chosen by language models, judged blind by a second model of another family; no human reviewed them) is dedicated to
+  the public domain under CC0 1.0. The evaluation-only corpora are never committed
+- **What `check-data` proves.** The committed files are exactly the reviewed files (a manifest of hashes pins them),
+  every file and row is well formed and consistent with the inventory including a strict whole-word span, no license
+  outside the allow-list is present, the splits share no sentence, document or template, and provenance, attribution and
+  license statements exist. It runs in the lint script, in the build on every operating system and as a test over the
+  real data. It does not prove a label is linguistically correct, that a harvested sentence really has its source's
+  license, or freedom from overlap with an evaluation set nobody supplied
+- **Training.** The trainer is a candidate-restricted averaged perceptron over the hashed features in integer arithmetic
+  with its own seeded shuffle, exponential and logarithm (never `Math.Exp` or `Math.Log`), ordinal sorts and the
+  invariant culture, so the same data, settings and seed give the same model on every platform and a committed model is
+  verified by retraining (`train --check`) rather than trusted. Settings were fixed on the development set only, by a
+  grid written down before it was run, and `TrainingCorpus.Load` opens exactly `train.tsv`, `dev.tsv`, `readings.tsv`
+  and `forms.tsv`, so the holdout sets cannot influence a model by construction
+- **Evaluation and the quality gate.** A row is decided by the real `EnglishTextAnalyzer` over the model under test,
+  reading the reading annotation on exactly the row's span (no reading counts as wrong). Baselines are the own
+  part-of-speech baseline, the majority reading in `train.tsv` and the first candidate; the improvement over the
+  part-of-speech baseline has a paired document-clustered bootstrap interval computed in integers. On the natural
+  holdout the gate requires a pooled end-to-end accuracy of at least 930 per mille and an interval lower bound exactly
+  above zero; the gate settings are fixed before the first holdout evaluation and never changed by a result. The
+  independent holdout and the seed study are reported, not gated
+- **Committed files.** The model, the training record and the evaluation record (`docs/evaluation/text-en/`) are
+  committed, and CI runs `train --check` and `evaluate --check` on every operating system, so a change of the data, the
+  tagger, the extractor or the trainer that makes them stale fails the build. Replacing the model is a deliberate act;
+  experiments use `--model-dir`, which a guard requires, so they never overwrite the committed files. The evaluation
+  record states the figures and their limits (labels not human verified, tagger exposure to part of the natural holdout,
+  small counts per reading), and the limits travel with every figure
+- **External evaluation (owner decisions).** The model is also measured on two external, evaluation-only datasets
+  (WikipediaHomographData and heteronym-bench), so the figures are not only those of data written for this repository;
+  they are informational and never gate a build or release. The datasets are fetched at evaluation time with `--fetch`
+  into a git-ignored or outside-the-repository cache; the repository commits, embeds and ships none of their content;
+  the input is exactly one pinned revision (the commit, and every file by size and SHA-256) and a cache that is missing
+  or differs is refused with exit code 2 and no figure; the only committed traces are the pins and the mappings of their
+  labels to this repository's reading ids; neither the output nor the record contains a sentence, a target word, an item
+  identifier or a dataset label; the external rows are never trained on or used to choose a setting. A row that cannot
+  be used is skipped, counted by reason and reported. The caveats travel with the figures (a domain shift, a coarser
+  mapping, far fewer words than the inventory, labels not all verified by a person, clustering by sentence). The command
+  needs the network once and third-party data, so no build, lint or workflow runs it
 
 ## Design Constraints
 
-- **Speech must never depend on SpeechTextEn**: the dependency direction is one way. Speech carries no
-  reference to this package or to the part-of-speech package
-- **Offsets are the contract**: all offsets are UTF-16 code unit indices into the exact analyzed text. The
-  analyzer never rewrites, normalizes or re-indexes the text, so the placeholder neutralization is a
-  same-length replacement, and normalization is expressed only as `en.norm` replacement annotations (see
-  *Alignment Contract*). An annotation never covers a placeholder, never starts or ends on whitespace,
-  and never cuts a surrogate pair, whatever the input
-- **Placeholders are separators, not text**: the words on both sides of a tag are analyzed as one running
-  text, so context such as the words around "[whispers]" is preserved (an abbreviation before a tag is
-  still resolved from the name after it); a sentence break is placed at the next word, never at the
+- **Speech must never depend on SpeechTextEn**: the dependency direction is one way
+- **Offsets are the contract**: all offsets are UTF-16 code unit indices into the exact analyzed text, and the analyzer
+  never rewrites or re-indexes it (see *Alignment Contract*), whatever the input
+- **Placeholders are separators, not text**: the words on both sides of a tag are analyzed as one running text, so
+  context such as the words around "[whispers]" is preserved; a sentence break is placed at the next word, never at the
   placeholder
-- **Diagnostics are counts only**: the library's diagnostics contract forbids synthesized text in any
-  report. The analyzer reports sentence, token, annotation, unknown-word, normalization, ambiguous-reading
-  (abbreviations and numeric defaults), numeric-fallback, overrides-applied and overrides-ignored counts, the
-  counts of the assigned heteronym readings (classified, single-candidate, by override and below the confidence
-  threshold) and one fixed warning about an unusable heteronym model, all built from fixed words and numbers, never a
-  word, a spoken replacement, a reading id or any content of a pronunciation dictionary, and
-  detailed per-word data is available only through `AnalyzeDetailed`, which returns it to the caller
-  instead of a sink
-- **Linear time**: every normalization rule looks at a constant number of neighboring tokens (the numeric
-  scanners read each token's characters a constant number of times, behind a 128-character token limit and a
-  limit on the number of digit groups, and use no regular expression), the override lookup visits each token
-  once with a logarithmic search over at most 10,000 entries of at most 64 characters (no regular expression,
-  no hashing, no per-token allocation for a token that cannot match) and the normalizer consumes the
-  directives with one cursor, and
-  the normalizer and the lookup check the cancellation token every 256 visited tokens, so the pass is linear in
-  the text length, including for adversarial repetitions, digit-heavy texts and for one huge token, and a
-  canceled request stops
-- **Overrides need normalization**: a non-empty `Overrides` dictionary with `Normalization` not selected makes
-  the `EnglishTextAnalyzer` constructor throw `ArgumentException` (parameter name `options`), because
-  overrides are applied by the normalization pass and silently ignoring them would hide a configuration
-  mistake; an empty dictionary is harmless
-- **US English only**: the lexicons, the spelling of the spoken forms (`Miz`, `Mount`, `Avenue`) and the
-  context cues are those of written US English; other English varieties and other languages are not
-  handled and their text is passed through unchanged
-- **First-use latency of the tagger**: the shared tagger inflates and validates about 1.3 MB of embedded
-  data on first use, which takes noticeable time once per process. It is deliberately not loaded when an
-  analyzer is constructed, when a text has no tokens, or when neither part-of-speech annotation nor an effective
-  reading family is selected, and no warm-up API is provided in this release; a host that wants the cost paid early
-  can analyze one short text at start-up. The embedded lexicons and the reading inventory are small and are parsed
-  once, on the first normalization or the first heteronym lookup, never at construction, and a heteronym model, where
-  one exists, is loaded once on the first candidate word (see *Heteronym Readings*)
-- **Immutable and thread-safe**: an analyzer keeps no per-request state, copies its options at
-  construction (the pronunciation dictionary is immutable, so sharing its reference is the copy), keeps no
-  reference to an analyzed text or to a result after the call returns, and may
-  serve any number of concurrent requests; the normalizer, both lexicon units, the reading inventory and a loaded
-  heteronym model are immutable after loading. The tagging package's own working buffers are cleared by the pinned
-  version; see *Retention Verification*
-- **No inference dependency**: the library references no ONNX Runtime package and has no native assets
-- **No command-line or demo integration** in this release
+- **Diagnostics are counts only**: the library's diagnostics contract forbids synthesized text in any report, so the
+  analyzer reports counts and one fixed warning about an unusable model, never a word, a spoken replacement, a reading
+  id or dictionary content; detailed per-word data is available only through `AnalyzeDetailed`, which returns it to the
+  caller
+- **Linear time**: every normalization rule looks at a constant number of neighboring tokens (numeric scanners behind a
+  128-character token limit, no regular expression), the override lookup visits each token once with a logarithmic
+  search, and both check the cancellation token every 256 visited tokens, so the pass is linear in the text length,
+  including for adversarial repetitions, digit-heavy texts and one huge token, and a canceled request stops
+- **Overrides need normalization**: a non-empty `Overrides` dictionary with `Normalization` not selected makes the
+  `EnglishTextAnalyzer` constructor throw `ArgumentException` (parameter name `options`), because silently ignoring it
+  would hide a configuration mistake; an empty dictionary is harmless
+- **US English only**: the lexicons, spoken forms and context cues are those of written US English; other varieties and
+  languages are passed through unchanged
+- **First-use latency**: the shared tagger inflates and validates about 1.3 MB of embedded data on first use. It is not
+  loaded at construction, for a text without tokens, or when neither part-of-speech annotation nor an effective reading
+  family is selected, and no warm-up API is provided (a host can analyze one short text at start-up). The lexicons and
+  the inventory are parsed once, on first use, and a model is loaded once on the first candidate word
+- **Immutable and thread-safe**: an analyzer keeps no per-request state, copies its options at construction, keeps no
+  reference to an analyzed text or a result after the call returns, and serves any number of concurrent requests; the
+  normalizer, the lexicon units, the inventory and a loaded model are immutable after loading
+- **Platform**: the library targets the same frameworks as the Speech library (`net8.0`, `net9.0`, `net10.0`, `net11.0`)
+- **No command-line or demo integration** in this release, and no inference dependency (see *Architecture*)
 - **Compliance**: all functionality must be traceable to requirements
 
-### Deferred Capabilities
+### Not Provided
 
-The normalization in this release reads the numeric expressions listed under *Numeric Normalization* and
-the non-numeric text described elsewhere in this document. Everything below is either passed through unchanged
-(identity, never annotated) or not provided, and is documented here so a host does not assume it; the
-pass-through items are asserted by a golden row, so a later increment changes them knowingly:
+Everything below is passed through unchanged (never annotated) or not provided, so a host does not assume it; the
+pass-through items are asserted by golden rows, so a later increment changes them knowingly:
 
-- **URLs, e-mail addresses, markup and Markdown, and the hyphen and dash policy**: deferred to a later small
-  increment and recorded as a follow-up that needs a decision of the repository owner (a URL contains `:`,
-  which the core chunker treats as a clause boundary, so it needs evidence about annotation loss first)
-- **Roman numerals** (`Henry VIII`, `World War II`, `Chapter IV`) and **hyphenated compounds that contain
-  digits** (`5-year-old`, `3-D`, `F-16`, `COVID-19`, `mid-1990s`, `20-something`): there is no safe lexical
-  rule without a name and part-of-speech lexicon. Only purely numeric hyphen groups (ranges, phone numbers,
-  identifiers, dates) are read
-- **Prefix currency codes** (`USD 5`, `US$5`): they need a span that reorders words across a space, which the
-  core chunker can lose at a size cut; suffix codes (`5 USD`, `5 million EUR`) are read
-- **Other numeric forms**: `h:mm:ss` times and ratios (`3:2`), non-ASCII digits, `1e5`, `0x1F`, `1_000`, bare
-  magnitude letters without a currency symbol (`10k`, `1.5M`), feet and inches (`5'10"`), the numero sign,
-  `Q3 2024`-style quarter names, decimal-comma locales and other en-GB or non-English conventions, and the
-  single-letter and word-like units (`m`, `g`, `l`, `s`, `in`), which are too ambiguous to read after a number
-- **Limits of the heteronym model**: the shipped model (see *Training and Evaluation*) decides 395 readings of 207
-  words of US English, one sentence at a time; a heteronym that is not in the inventory gets no reading and the model
-  does not read beyond the sentence. It depends on the part-of-speech tagger: its features use the tag and the tag
-  confidence, so a tagger of another version needs a retrained model (the build reports a mismatch of the feature-set
-  version as incompatible, and `train --check` reports a drift of the feature stream). The labels it was trained and
-  measured on are not human verified, and its accuracy is the figures of the committed evaluation record
-  (`docs/evaluation/text-en/`) with the limits stated there, not a promise for every text. A host that must have a
-  specific reading fixes it with a `Reading` override (see *Heteronym Readings*)
-- **Multi-word override entries**: an entry is one token; a phrase cannot be overridden as a unit, because
-  an annotation across whitespace could be cut by the core chunker and silently lost. A phrase can be
-  covered word by word. A later increment may add multi-word entries by per-token decomposition
-- **Override keys with a trailing period** (`Dr.`, `U.S.`): the abbreviation lexicon owns such words and a
-  key must end with a letter or a decimal digit
-- **Overrides of tail tokens**: an override for the unit, magnitude or meridiem word of a number construct
-  (`kg` in `5 kg`, `million` in `$5 million`, `pm` in `5 pm`) is ignored and counted; a finer rule that
-  replaces one span inside such a match is not provided
-- **Sub-word matching**: a key never matches part of a token (inside a hyphen compound, an identifier or a
-  longer word)
-- **Plural initialisms** (`DVDs`) and acronyms spoken as words (`NASA`) have no built-in rule; a
-  host overrides them with `Say`, `SpellOut` or `Skip` entries
+- URLs, e-mail addresses, markup and the hyphen and dash policy (a URL contains `:`, which the core chunker treats as a
+  clause boundary, so annotation loss needs evidence first)
+- Roman numerals and hyphenated compounds that contain digits (`5-year-old`, `F-16`): no safe lexical rule exists
+  without a name and part-of-speech lexicon
+- Prefix currency codes (`USD 5`); `h:mm:ss` times, ratios, non-ASCII digits, `1e5`, `0x1F`, bare magnitude letters
+  (`10k`), feet and inches, decimal-comma locales, and single-letter or word-like units (`m`, `g`, `in`), which are too
+  ambiguous after a number
+- Heteronyms outside the inventory, and context beyond the word's own sentence. The model depends on the tagger (its
+  features use the tag and its confidence), so another tagger version needs a retrained model (the build reports a
+  feature-set mismatch as incompatible and `train --check` reports a drift of the feature stream). The model's accuracy
+  is the figures of the committed evaluation record with the limits stated there; a host that needs a specific reading
+  fixes it with a `Reading` override
+- Multi-word override entries, keys with a trailing period, overrides of the unit, magnitude or meridiem token of a
+  number construct (ignored and counted), sub-word matching, and built-in rules for plural initialisms (`DVDs`) or
+  acronyms spoken as words (`NASA`), which a host overrides
 
-The initialisms, dotted initialisms, single-letter initials, credentials and meridiem tokens that the built-in
-rules spell are annotated `en.spell`, so a phoneme backend never reads a lone `A` or `I` of a spelled
-sequence as a word (see *Alignment Contract* and its residual consumer note for the one case that stays inside
-an `en.norm` value).
+### Retention
 
-### Retention Verification
+The core `ITextAnalyzer` contract requires an analyzer to not retain the text. Three parts carry that property:
 
-The core `ITextAnalyzer` contract (see *Speech SynthesisSubsystem TextAnalysis Design*) requires an
-analyzer to "not retain `text`". Three parts carry that property, and each is verified differently:
+- **What a host can observe** (requirement `SpeechTextEn-Isolation-RequestNoninterference`): the result and diagnostics
+  of a request depend only on that request, equal what a fresh analyzer gives and never carry text of another request,
+  also under concurrent use. Tests assert exactly that; none uses garbage-collector timing, weak references or
+  reflection, because those measure object lifetime and not an output contract
+- **This library's own state**: no field holds an analyzed text or a result after a call returns (per-request objects
+  only, a shared reporter that formats counts, no caches keyed by text). This is a design obligation checked by review
+  of the unit designs, not by an automated test
+- **The tagging package's working buffers**: early versions of the tagging package kept the characters of the tokens
+  they tagged in thread-static buffers that were never cleared (upstream issue 29); a later version clears them in a
+  `finally` block on every public entry point (upstream pull request 30), and the project pins a version that does. The
+  buffers are private to the dependency with no public inspection hook, so this repository has no test over them: the
+  upstream fix's regression tests, cited in *PartOfSpeech Verification*, are the evidence, and the remaining gap
+  (managed strings the dependency itself creates are outside what it can clear) is stated there for the repository
+  owner's approval
 
-- **What a host can observe** (requirement `SpeechTextEn-Isolation-RequestNoninterference`): the result and
-  the diagnostics of a request depend only on that request, equal what a fresh analyzer gives, and never
-  carry text of another request, also under concurrent use. Tests assert exactly that (see *SpeechTextEn
-  Verification*); no test uses garbage-collector timing, weak references or reflection, because those
-  measure object lifetime and not an output contract.
-- **This library's own state**: by design no field holds an analyzed text or a result after a call returns
-  (per-request objects only, a shared diagnostics reporter that formats counts, no caches keyed by text).
-  This is a design obligation checked by review of the unit designs, not by an automated test.
-- **The tagging package's working buffers**: `DemaConsulting.PartOfSpeech` versions up to 0.1.0-beta.4
-  kept the characters of the tokens they tagged in thread-static working buffers that were never cleared
-  (upstream issue <https://github.com/demaconsulting/PartOfSpeech/issues/29>). Version 0.1.0-beta.5
-  clears the decoder and glossary workspaces in a `finally` block on every public entry point, on the
-  normal and on the exceptional path (upstream pull request
-  <https://github.com/demaconsulting/PartOfSpeech/pull/30>). `DemaConsulting.Speech.Text.En.csproj` pins
-  that version exactly.
-
-**Dependency policy**: the pin of `DemaConsulting.PartOfSpeech` is never moved below 0.1.0-beta.5, the first
-version that clears its working buffers; a later prerelease (for example 0.1.0-rc.1) or a stable release is
-acceptable under Semantic Versioning 2.0.0 precedence. The requirement `SpeechTextEn-Packaging-PinnedDependency`
-verifies only that the evaluated package references pin one exact version; the minimum version is a
-dependency policy kept by review of the cited upstream evidence, not by a test that compares version numbers.
-
-The workspaces are private to the dependency: version 0.1.0-beta.5 offers no public API or documented
-test hook that inspects them (its test hook, `TagDecoder.CurrentThreadWorkspace`, is internal). A test
-here that tagged a sentinel and then a short string on one thread could therefore not observe the buffer
-without reflection or a memory scan of private state, which this repository does not use. The verification
-approach is the one this design requires when the dependency offers no public way to inspect its workspace:
-the upstream fix's own regression tests, cited by version in *PartOfSpeech Verification*, prove the clearing
-(they fail when the clearing is disabled and assert that the whole of each buffer is zero after a long
-request followed by a shorter one, after an exception half way through a request and for every public
-`Tagger` entry point), and the remaining gap is stated there for the repository owner's approval: this
-repository has no test of its own over the dependency's private state, and managed strings that the
-dependency itself creates (for example the normalized copy of a non-ASCII token) are outside what it can
-clear. This library holds no reference to the text or the results, and the result objects of the tagger
-are not retained by the adapter.
+The pin is never moved below the first version that clears its buffers. The requirement
+`SpeechTextEn-Packaging-PinnedDependency` verifies only that the built package pins one exact version; the minimum is a
+dependency policy kept by review of the upstream evidence.
 
 ### Release
 
-The package is packable only for a prerelease version. `DemaConsulting.Speech.Text.En.csproj` sets
-`IsPackable` to `false` and turns it back to `true` only when the effective package version (the
-`PackageVersion` property when given, as the build and release workflows do when they pack, otherwise
-`Version`) has a prerelease label, that is a hyphen before any build metadata; the local default version
-`0.0.0` is stable. `dotnet pack` for the solution with a prerelease version (for example `1.0.0-beta.1`, the
-`0.0.1-test` version of the build's pack verification, or the `0.0.0-run.N` version of a push build) produces
-`DemaConsulting.Speech.Text.En` like every other package, and the build's pack verification requires it;
-with a stable version (for example `1.0.0`) the project is skipped and every other package still packs. The
-shared release workflow packs every packable project with one version, which may be stable, and NuGet does not
-allow a stable package to depend on a prerelease package (NU5104), so without this guard a stable release would
-fail or publish an invalid package. The guard is temporary: it, and the requirement
-`SpeechTextEn-Packaging-PrereleaseOnly`, are removed once `DemaConsulting.PartOfSpeech` publishes a stable
-version and the pin moves to it (a test fails if the guard remains with a stable pin). Two tests verify the
-release behavior through the dotnet command line tool, by evaluating the project (`dotnet msbuild <project>
--getProperty:IsPackable --property:PackageVersion=<version>` and `-getItem:PackageReference
--getItem:ProjectReference`, with no build), not by reading the project file text: how the guard is spelled in the
-project (conditions on properties, a split of the build metadata) is an implementation detail that a refactoring
-may change, and only the evaluated packing outcome and the evaluated dependency graph are required. The build
-script's pack verification (it evaluates `IsPackable` with the same command and checks that a `.nupkg` is produced
-with `PackageVersion=0.0.1-test`) complements them with the artifact check. The license-file
-requirement is verified on the built package by the `TextEn_PackageLicenseFiles_Content` FileAssert test (the
-license file and the notices at the package root and the `.nuspec` license reference; for a stable version no
-package is built and the test accepts the absence of one), together with the project-file and content tests that
-run against the repository files.
+The package is packable only for a pre-release version. The project sets `IsPackable` to `false` and turns it back to
+`true` only when the effective package version (`PackageVersion` when given, as the workflows do, otherwise `Version`)
+has a pre-release label (a hyphen before any build metadata); the local default `0.0.0` is stable. With a stable version
+the project is skipped and every other package still packs. The shared release workflow packs every packable project
+with one version, which may be stable, and NuGet refuses a stable package that depends on a pre-release one (NU5104), so
+without the guard a stable release would fail or publish an invalid package. The guard is temporary: it goes once the
+tagging package publishes a stable version and the pin moves to it. The build's pack verification evaluates `IsPackable`
+with MSBuild and checks that a `.nupkg` is produced, and two FileAssert tests inspect the built package:
+`TextEn_PackageLicenseFiles_Content` (the license file and notices at the package root and the `.nuspec` license
+reference) and `TextEn_PackageDependencies_Nuspec` (the exact-version pin and no inference runtime); for a stable
+version no package is built and both accept its absence.
 
 ### Package License Files
 
-The package contains code under the MIT License and embeds two small lexicon tables of its own (a list of
-written-English abbreviations with their spoken forms and a list of initialisms), which DEMA Consulting wrote
-from scratch for this package under the same MIT License, and the two small tables of the reading inventory
-(heteronym readings and the written forms that carry them), which DEMA Consulting wrote and dedicated to the public
-domain under CC0 1.0; no third-party list was copied. The package also embeds the trained heteronym model, whose
-weights are numbers computed from labeled sentences (the model contains no sentence text). Of the 19,865 training
-rows (18,935 distinct sentences), 2,328 are adapted from the Manually Annotated Sub-Corpus (MASC), which is licensed
-under CC BY 3.0 US, 3,860 are in the public domain and 13,677 are under CC0 1.0; the content that DEMA Consulting
-generated or labeled is dedicated to the public domain under CC0 1.0.
+The package contains code under the MIT License and embeds two small lexicon tables written for it under the same
+license, the reading inventory tables (written by DEMA Consulting and dedicated to the public domain under CC0 1.0) and
+the trained heteronym model, whose weights are numbers computed from labeled sentences (it contains no sentence text).
+The training sentences are partly adapted from the Manually Annotated Sub-Corpus (CC BY 3.0 US), partly public domain
+and mostly CC0 1.0 (generated or labeled by DEMA Consulting).
 
-The package therefore declares `MIT AND CC-BY-3.0-US`. It names a license file, `PACKAGE-LICENSE.md`, that starts with
-the SPDX line `SPDX-License-Identifier: MIT AND CC-BY-3.0-US`, contains the MIT license text for the code and the
-lexicon tables, states that the reading inventory is CC0-1.0, states that the embedded model is provided under the terms
-of CC BY 3.0 US, describes the embedded data, and states that the required package `DemaConsulting.PartOfSpeech` is a
-separate NuGet dependency, not bundled in this package, that carries its own license files. The package also ships
-`THIRD-PARTY-NOTICES.md`: it carries the MASC attribution with the changes made for this model, the CC0 1.0 dedication
-of the generated and labeled content, and the dependency notice (the data embedded in `DemaConsulting.PartOfSpeech`:
-Open English WordNet, derived from Princeton WordNet, under CC BY 4.0, and MASC under CC BY 3.0 US), reproducing its
-attribution, license links, statement of changes and the Princeton WordNet notice verbatim, for the reader's
-convenience. Both files are packed at the package root and are packaging files, not software items.
+The package therefore declares `MIT AND CC-BY-3.0-US` through a license file, `PACKAGE-LICENSE.md`, that starts with the
+SPDX line, contains the MIT license text, states that the inventory is CC0-1.0 and that the embedded model is provided
+under the terms of CC BY 3.0 US, and states that the required tagging package is a separate dependency with its own
+license files. `THIRD-PARTY-NOTICES.md` carries the corpus attribution and the changes made, the CC0 1.0 dedication of
+the generated and labeled content, and the notice of the data embedded in the tagging package (Open English WordNet
+under CC BY 4.0, derived from Princeton WordNet, and the same corpus). Both files are packed at the package root and are
+packaging files, not software items.
 
 **Why the model carries CC BY 3.0 US (decision, treated conservatively).** Whether trained weights are a derivative of
-the data they were trained on is not settled. This package treats them conservatively as derived from the MASC-adapted
-sentences, so the model is provided under the terms of that license (attribution, an indication of the changes, no
-suggestion of endorsement), and the composite declaration mirrors the one of `DemaConsulting.PartOfSpeech`
-(`MIT AND CC-BY-4.0 AND CC-BY-3.0-US`) for the same reason. This package has no CC BY 4.0 content of its own: that
-license belongs to the Open English WordNet data embedded in the dependency, which stays with the dependency, so the
-declaration here omits it. This is a design choice and not legal advice; the license position is the decision of the
-repository owner and is revisited if the training data changes.
-
-### Platform Support
-
-The library targets the same frameworks as the Speech library:
-
-| Target Framework | Runtime / Environment |
-| --- | --- |
-| `net8.0` | .NET 8 LTS |
-| `net9.0` | .NET 9 |
-| `net10.0` | .NET 10 |
-| `net11.0` | .NET 11 |
-
-### Integration Patterns
-
-- **NuGet Packaging**: intended to be published as a separate package that depends on the Speech package
-  and the part-of-speech package; published as a pre-release (see *Retention Verification*)
-- **Model-supplied analyzer**: a model package returns `new EnglishTextAnalyzer()` (or one built with
-  options) from `ISynthesisModel.TextAnalyzer`; one instance can be shared by every engine of the model. A
-  model that does so keeps `ISpeechModel.NormalizeText` as the identity (see *Alignment Contract*)
-- **Annotation-aware backend**: a backend implements `IAnnotatedSynthesisBackend` and reads the
-  annotations with `TextEnAnnotations.TryReadPartOfSpeech`, `TextEnAnnotations.TryReadReplacement` (the
-  `en.norm` and `en.spell` replacements, applied as described in *Alignment Contract*, speaking spelled
-  values by letter name) and `TextEnAnnotations.TryReadPronunciation` (the phonemes for a word, when it
-  supports the scheme), ignoring kinds it does not recognize. To use a heteronym reading it also reads
-  `TextEnAnnotations.TryReadReading` (the reading id) and, optionally, `TextEnAnnotations.TryReadReadingConfidence`
-  from the annotations that share one whole-token span (see *Heteronym Readings*)
-- **Host dictionary**: a host or model package builds one `PronunciationOverrides` with `Create` or
-  `FromTsv` (for example from a file next to its model) and passes it in the `Overrides` option of the
-  analyzer it returns; one dictionary is shared by every analyzer
+their training data is not settled, so the package treats them as derived from the corpus-adapted sentences and provides
+the model under that license's terms, mirroring the tagging package's own composite declaration. This package has no CC
+BY 4.0 content of its own (that belongs to the data embedded in the dependency), so the declaration omits it. This is a
+design choice and not legal advice; the license position is the repository owner's decision and is revisited if the
+training data changes.

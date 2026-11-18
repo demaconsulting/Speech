@@ -19,90 +19,53 @@ sections:
         sections:
           - title: HeteronymFeatureExtractor Requirements
             requirements:
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-Deterministic
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-DeterministicFeatures
                 title: >-
                   The HeteronymFeatureExtractor unit shall compute, for the same sentence and
                   target, the same conjoined and shared feature buckets in every process, on every
-                  operating system and under every current culture, and shall reproduce the
-                  golden vectors of the repository, which cover each
-                  documented feature case.
+                  operating system and under every current culture, reproducing the golden vectors
+                  of the repository, from the tokens of the target's own sentence only (with
+                  sentence-start and sentence-end marker words beyond the sentence and no
+                  dependence on where the sentence lies in the text), shall identify its feature
+                  set by a non-zero version that fits the model header, and shall never write more
+                  conjoined or shared features than the output bounds it advertises.
                 justification: |
                   The model weights are indexed by these buckets. The hash of a string in the
                   runtime differs per process, and a culture-sensitive lowercase changes the letter
                   I in Turkish, so either would make a runtime decide differently from the trainer
-                  without any visible error. A specified encoding (the hash functions are recorded
-                  in the heteronym feature extractor design: FNV-1a with ASCII-only folding and a
-                  fixed mixing function), published known-answer values and a golden file
-                  of vectors turn any such drift into a failing test.
+                  without any visible error; a window that crossed into the neighboring sentence
+                  would present context the model never saw. A specified encoding (recorded in the
+                  heteronym feature extractor design), known-answer values and a golden file of
+                  vectors turn any drift into a failing test, the version makes a change of the
+                  features deliberate, and callers size their buffers from the advertised bounds.
                 tests:
                   - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
                   - HeteronymFeatureExtractor_Extract_GoldenVectors_CoverTheDocumentedCases
-                  - HeteronymFeatureExtractor_Extract_SameInputTwice_GivesIdenticalHashes
-                  - FeatureHashing_Fnv1a_KnownAnswers
-                  - FeatureHashing_Fnv1aFolded_FoldsAsciiOnly
                   - FeatureHashing_MixAndFeature_ReferenceValues
-
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-FeatureSetVersion
-                title: >-
-                  The HeteronymFeatureExtractor unit shall identify its feature set by a version
-                  that a model records, which is non-zero and fits the version field of the model
-                  header, and shall never write more conjoined or shared features than the output
-                  bounds it advertises for callers to size their buffers.
-                justification: |
-                  A model records the feature set it was trained with and the runtime refuses any
-                  other (see the classifier and the model provider requirements), so a change of
-                  the features has to change the version deliberately, and the output buffers of
-                  the callers are sized from the advertised bounds, which a maximal context must
-                  not exceed.
-                tests:
-                  - HeteronymFeatureExtractor_FeatureSetVersion_IsRecordableInAModelHeader
-                  - HeteronymFeatureExtractor_Extract_MaximalContext_StaysWithinBuffers
-
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-SentenceLocalContext
-                title: >-
-                  The HeteronymFeatureExtractor unit shall build the features of a word from the
-                  tokens of its own sentence only, shall use sentence-start and sentence-end marker
-                  words for every position beyond the sentence, and shall not depend on where the
-                  sentence lies in the text.
-                justification: |
-                  The training examples are single sentences; a window that crossed into the
-                  neighboring sentence at runtime would present the model with context it never
-                  saw. The text offsets of the tokens identify them but carry no information.
-                tests:
                   - HeteronymFeatureExtractor_Extract_SentenceOffsetsInText_DoNotChangeFeatures
                   - HeteronymFeatureExtractor_Extract_SentenceEdges_UseMarkerWords
-
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BoundedFeatures
-                title: >-
-                  The HeteronymFeatureExtractor unit shall write at most the documented number of
-                  conjoined and of shared features for any sentence, however long, shall throw
-                  InvalidOperationException for an output buffer that is too small, and shall throw
-                  ArgumentOutOfRangeException for a target outside the sentence.
-                justification: |
-                  The analyzer gives the extractor buffers on the stack, so the number of features
-                  must have a proven bound; exceeding it is a defect that must fail loudly and not
-                  corrupt memory.
-                tests:
                   - HeteronymFeatureExtractor_Extract_MaximalContext_StaysWithinBuffers
-                  - HeteronymFeatureExtractor_Extract_BufferTooSmall_ThrowsInvalidOperationException
-                  - HeteronymFeatureExtractor_Extract_TargetOutsideSentence_ThrowsArgumentOutOfRangeException
 
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenNormalization
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenDescription
                 title: >-
                   The HeteronymContext unit shall describe a token for the features independently
                   of the culture and of how the text is spelled, so that the typographic apostrophes
                   read as the plain one, a digit-only token reads as one number form and a Turkish
-                  dotted I is not folded to an ASCII letter, and shall describe a token by its
-                  closed word class taken from the documented word lists, by the code of its
-                  Universal Dependencies tag, and by the bucket of its tag confidence.
+                  dotted I is not folded to an ASCII letter, shall describe it by its closed word
+                  class, the code of its Universal Dependencies tag and the bucket of its tag
+                  confidence, shall decide whether it is a word and which shape it has per Unicode
+                  scalar rather than per UTF-16 code unit (a lone surrogate is not a letter), and
+                  shall give a word the same features whichever of the equivalent token splittings
+                  of the tagging package's tokenizer it arrives in.
                 justification: |
                   These are the facts the model learns from. Each has to be defined by a rule that
                   holds on every machine: the folding is ASCII only, the typographic and plain
                   apostrophes must not split one word into two forms, every number is one form so
                   that no number needs to be seen in training, and the confidence is grouped into
-                  the buckets the trainer uses. How the token text is encoded (the hash of the
-                  ASCII-folded text and the form of the number token) is specified in the heteronym
-                  feature extractor design.
+                  the buckets the trainer uses. Text from users contains emoji and supplementary
+                  plane letters, so the shape must not depend on how a character is encoded. The
+                  trainer and the runtime tokenize differently at the edges, and a model must not
+                  behave differently for a contraction because of where the tokenizer cut it.
                 tests:
                   - HeteronymContext_Create_TurkishDottedI_IsNotFoldedToAscii
                   - HeteronymContext_Create_CurlyApostrophes_NormalizeToPlain
@@ -110,57 +73,24 @@ sections:
                   - HeteronymContext_Create_Class_UsesTheClosedWordLists
                   - HeteronymContext_Create_TagNames_MapToAlphabeticalCodes
                   - HeteronymContext_Create_Confidence_FallsInDocumentedBucket
-
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-RuneAwareShapes
-                title: >-
-                  The HeteronymContext unit shall decide whether a token is a word and which
-                  shape it has (punctuation, digits, lowercase, a single capital, uppercase,
-                  capitalized, mixed) per
-                  Unicode scalar rather than per UTF-16 code unit, treating a lone surrogate as a
-                  character that is not a letter.
-                justification: |
-                  Text from users contains emoji and supplementary-plane letters; deciding per code
-                  unit would split a character and make the shape depend on how it is encoded, and
-                  an invalid string must not throw on the speech path.
-                tests:
                   - HeteronymContext_Create_Shape_IsDecidedPerScalar
-
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-OverflowSafeRanges
-                title: >-
-                  The HeteronymContext unit shall check the range of a token against its text
-                  without arithmetic that can overflow, shall throw ArgumentOutOfRangeException for
-                  a start or length outside the text (including a start of the largest integer and
-                  negative values), shall accept a token that ends exactly at the end of the
-                  text, and shall throw ArgumentNullException for a null text.
-                justification: |
-                  The ranges come from the tokenizer of another package; a sum that wraps around
-                  must not turn an invalid token into a valid one that reads outside the text.
-                tests:
-                  - HeteronymContext_Create_InvalidRange_ThrowsArgumentOutOfRangeException
-                  - HeteronymContext_Create_NullTextAndExactEnd_AreHandled
-
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenizationParity
-                title: >-
-                  The HeteronymFeatureExtractor unit shall give a word the same features whichever
-                  of the equivalent token splittings of the tagging package's tokenizer it arrives
-                  in (for example "ca n't" and "can't", "John 's" and "John's", quotes,
-                  parentheses, abbreviation periods and hyphenated compounds).
-                justification: |
-                  The trainer and the runtime tokenize differently at the edges, and a model must
-                  not behave differently for a contraction because of where the tokenizer cut it;
-                  the parity table pins the splittings that occur in English text.
-                tests:
                   - HeteronymContext_Create_TokenizationParity_EquivalentSpellingsGiveTheSameFeatures
 
-              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BucketDefinition
+              - id: SpeechTextEn-Heteronym-HeteronymFeatureExtractor-RangeSafety
                 title: >-
-                  The FeatureHashing members of the HeteronymFeatureExtractor unit shall provide the one
-                  definition of the weight-table bucket that a feature hash selects under a salt and a
-                  table mask: the mixed hash of the feature and the salt reduced to the table, so that
-                  it is always inside the table and the same for every caller.
+                  The HeteronymFeatureExtractor unit shall throw InvalidOperationException for an
+                  output buffer that is too small, shall throw ArgumentOutOfRangeException for a
+                  target outside the sentence and for a token start or length outside its text
+                  (including a start of the largest integer and negative values) without arithmetic
+                  that can overflow, shall accept a token that ends exactly at the end of the text,
+                  and shall throw ArgumentNullException for a null text.
                 justification: |
-                  A model's weights are addressed by these buckets, and the classifier that reads them
-                  and the trainer that writes them must agree on every address. One shared definition
-                  makes that agreement a property of the code and not of two copies being kept alike.
+                  The ranges come from the tokenizer of another package, and the analyzer gives the
+                  extractor buffers on the stack; a sum that wraps around must not turn an invalid
+                  token into a valid one that reads outside the text, and a defect must fail loudly
+                  and not corrupt memory.
                 tests:
-                  - FeatureHashing_Bucket_IsMixedHashReducedToTheTable
+                  - HeteronymFeatureExtractor_Extract_BufferTooSmall_ThrowsInvalidOperationException
+                  - HeteronymFeatureExtractor_Extract_TargetOutsideSentence_ThrowsArgumentOutOfRangeException
+                  - HeteronymContext_Create_InvalidRange_ThrowsArgumentOutOfRangeException
+                  - HeteronymContext_Create_NullTextAndExactEnd_AreHandled

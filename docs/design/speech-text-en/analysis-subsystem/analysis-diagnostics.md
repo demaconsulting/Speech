@@ -29,9 +29,8 @@ category is the constant `TextEn.Heteronym` and the model category is the consta
   invariant-culture numbers. The message is built only from fixed words and the nine numbers, so no word,
   token, spoken replacement, annotation value or dictionary content (key, payload, scheme or entry count) can
   be in it - a leak is impossible by construction rather
-  than merely avoided. (The count that earlier read "ambiguous abbreviations" is generalized to "ambiguous
-  readings"; the message is informational and a host should not parse it.) The message is not changed by the heteronym
-  readings: they have their own event
+  than merely avoided. The message is informational and a host should not parse it, and it is not changed by the
+  heteronym readings: they have their own event
 - **ReportRequest(counts)**: does nothing without a sink; otherwise sends one Info-level event in the
   `TextEn.Analysis` category. One report is made per completed request; a canceled or failed request
   reports nothing

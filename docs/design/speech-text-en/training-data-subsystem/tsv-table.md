@@ -16,22 +16,18 @@ Unicode normalization form C.
 **Key Methods**:
 
 - **Load(path, name, report, layout)**: a missing file is one finding (`required file is missing`) and an empty table;
-  otherwise it reads all bytes, reports and skips a leading byte order mark, and decodes the rest strictly (an invalid
-  sequence is one finding and no rows, because the text after it cannot be trusted). It then reports a carriage return
-  (with its line), an empty file and a missing final line feed, splits the text on the line feed, and walks the lines:
-  a line not in normalization form C (`string.IsNormalized`) and an empty line are findings; a line that begins with a
-  number sign is skipped when comments are allowed and is otherwise an ordinary line; every other line is split on the
-  tab character only, with `string.Split('\t')`, so no quoting rule applies and a sentence that starts with a quotation
-  mark keeps it and keeps its offsets. The first line fixes the column count; a line with another count is a finding and
-  is left out of the rows, so the checks that follow can index cells safely. When a header is expected and the first
-  line differs, the finding shows both and no row is returned.
-- **ColumnIndex(column)**: the zero-based index of a header cell, or -1.
-
-Every finding names the file and, where it has one, the one-based line.
+  otherwise it reports and skips a leading byte order mark and decodes the rest strictly (an invalid sequence is one
+  finding and no rows, because the text after it cannot be trusted). It reports a carriage return (with its line), an
+  empty file and a missing final line feed, then walks the lines: a line not in normalization form C and an empty line
+  are findings; a line that begins with a number sign is skipped when comments are allowed; every other line is split
+  on the tab character only, so no quoting rule applies and a sentence that starts with a quotation mark keeps it and
+  its offsets. The first line fixes the column count; a line with another count is a finding and is left out of the
+  rows, so the checks that follow can index cells safely. When a header is expected and the first line differs, the
+  finding shows both and no row is returned. Every finding names the file and, where it has one, the one-based line.
 
 **Error Handling**: a defect in the content is a finding in the `CheckReport` and the reader continues so one run
-shows every defect; it never throws for content. Input and output exceptions other than a missing file (for example an
-access error) propagate to `CheckDataCommand`, which reports them as an input error (exit code 2).
+shows every defect; it never throws for content. Input and output exceptions other than a missing file propagate to
+`CheckDataCommand`, which reports them as an input error (exit code 2).
 
 **Dependencies**: `CheckReport` (to record findings); the .NET base class library only.
 

@@ -36,12 +36,9 @@ sections:
               inventory is built (once, from tables embedded in the assembly under fixed resource
               names) is a design choice recorded in the reading inventory design.
             children:
-              - SpeechTextEn-Heteronym-ReadingInventory-EmbeddedTables
               - SpeechTextEn-Heteronym-ReadingInventory-IdGrammar
-              - SpeechTextEn-Heteronym-ReadingInventory-StrictParsing
-              - SpeechTextEn-Heteronym-ReadingInventory-BoundedTables
-              - SpeechTextEn-Heteronym-ReadingInventory-CandidateLookup
-              - SpeechTextEn-Heteronym-ReadingInventory-Immutability
+              - SpeechTextEn-Heteronym-ReadingInventory-StrictTables
+              - SpeechTextEn-Heteronym-ReadingInventory-Lookup
             tests:
               - ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts
               - HeteronymSubsystem_EveryInventoryForm_ClassifiesWithinItsCandidates
@@ -49,75 +46,33 @@ sections:
           - id: SpeechTextEn-Heteronym-Classification
             title: >-
               The HeteronymSubsystem shall choose, for a word of the inventory in the context of
-              its sentence, one of the candidate readings of that word and never any other,
-              applying the decision semantics of the supported model deterministically so that the
-              decision is the same on every platform, shall prefer the first candidate of the
-              inventory on a tie, shall give a word with a single candidate that reading, and
-              shall serve any number of concurrent callers with the same results.
+              its sentence, one of the candidate readings of that word and never any other, from
+              features of the sentence alone that are the same on every culture, platform and
+              runtime, shall prefer the first candidate of the inventory on a tie, shall give a
+              word with a single candidate that reading, shall report a confidence from 0 to 1
+              that is the temperature-calibrated probability of the chosen reading (1 when there
+              is no alternative), and shall serve any number of concurrent callers with the same
+              results.
             justification: |
               The model is trained on context and cannot be trusted to know the inventory, so the
-              decision is restricted to what the word can be; a deterministic decision makes the
-              choice reproducible between the machine that trained the model and every machine
-              that runs it, a deterministic tie rule makes an untrained or empty model well
-              defined, and the classifier runs on thread-pool threads for one shared model. How the
-              decision is computed (integer accumulation of the weights of conjoined and shared
-              buckets, and no scoring for a single candidate) is a design choice recorded in the
-              heteronym classifier design.
+              decision is restricted to what the word can be. The model is trained on the features
+              computed here and applied to the same features at runtime, so any difference (a
+              culture-sensitive case change, a hash that varies per process, a window that crosses
+              a sentence boundary) would silently degrade the decisions; golden vectors make such a
+              change a visible test failure. A deterministic decision and tie rule make the choice
+              reproducible between the machine that trained the model and every machine that runs
+              it, and the confidence lets a host decide what to do with a doubtful reading. How the
+              decision is computed and how the features are encoded is recorded in the heteronym
+              classifier and heteronym feature extractor designs.
             children:
-              - SpeechTextEn-Heteronym-HeteronymClassifier-CandidateRestricted
-              - SpeechTextEn-Heteronym-HeteronymClassifier-CandidateScore
-              - SpeechTextEn-Heteronym-HeteronymClassifier-TieBreak
-              - SpeechTextEn-Heteronym-HeteronymClassifier-SingleCandidate
-              - SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafety
-              - SpeechTextEn-Heteronym-HeteronymClassifier-ArgumentValidation
+              - SpeechTextEn-Heteronym-HeteronymClassifier-Decision
+              - SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafetyAndCancellation
+              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-DeterministicFeatures
+              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenDescription
+              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-RangeSafety
             tests:
               - HeteronymSubsystem_ProviderToClassifier_FixtureModel_ChoosesReadingByContext
               - HeteronymSubsystem_EveryInventoryForm_ClassifiesWithinItsCandidates
-
-          - id: SpeechTextEn-Heteronym-Confidence
-            title: >-
-              The HeteronymSubsystem shall report with every decision a confidence from 0 to 1
-              that is the temperature-calibrated probability of the chosen reading among the
-              candidates, and shall make it the probability of the single candidate, 1, when
-              there is no alternative.
-            justification: |
-              A host or a backend decides what to do with a doubtful reading (speak it, log it,
-              ask for an override), so the number has to mean the same thing for every word: the
-              share of the probability that the chosen candidate holds. The temperature is stored
-              in the model file because it is fitted when the model is trained.
-            children:
-              - SpeechTextEn-Heteronym-HeteronymClassifier-CalibratedConfidence
-              - SpeechTextEn-Heteronym-HeteronymClassifier-SingleCandidate
-            tests:
-              - HeteronymSubsystem_ProviderToClassifier_FixtureModel_ChoosesReadingByContext
-              - HeteronymSubsystem_EveryInventoryForm_ClassifiesWithinItsCandidates
-
-          - id: SpeechTextEn-Heteronym-FeatureDeterminism
-            title: >-
-              The HeteronymSubsystem shall turn the context of a word into model-compatible
-              features for a supported, versioned feature set, from the tokens of one sentence,
-              within an advertised bound on their number, identically on every culture, platform
-              and runtime and for any offset and Unicode input.
-            justification: |
-              The model is trained on the features computed here and applied to the features
-              computed here at runtime; any difference between the two (a culture-sensitive case
-              change, a hash that varies per process, a window that crosses a sentence boundary)
-              silently degrades the decisions. Golden vectors make such
-              a change a visible test failure, and the version makes it a deliberate one. The
-              feature encoding itself (the hash functions and how features are derived and
-              combined, per feature-set version) is specified in the heteronym feature extractor
-              design, which is the compatibility specification shared with the trainer.
-            children:
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-Deterministic
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-FeatureSetVersion
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-SentenceLocalContext
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BoundedFeatures
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenNormalization
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-RuneAwareShapes
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-OverflowSafeRanges
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenizationParity
-              - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-BucketDefinition
-            tests:
               - HeteronymFeatureExtractor_Extract_GoldenVectors_MatchFileUnderEveryCulture
 
           - id: SpeechTextEn-Heteronym-SparseFormat
@@ -126,47 +81,27 @@ sections:
               exchange format between the trainer and the runtime so that a model round-trips
               without any change to its prediction data, shall reject every damaged, unsupported or
               oversized file with an InvalidDataException that names the defect but never holds the
-              file's data, and shall reject a file whose claimed lengths exceed fixed caps.
+              file's data, shall bind a model to reading ids rather than to table positions, shall
+              accept a model trained for the same or an older inventory version, and shall reject
+              one trained for a newer version or for another feature set.
             justification: |
               The file is the interface between the trainer and the runtime and an input from
               outside the process. A format with a version, flags, an integrity check and exact
               length rules lets the loader refuse anything it does not fully understand, and a
-              loader that refuses a hostile length claim cannot be turned
-              into an out-of-memory failure. A fuzz test with a seeded generator shows that no
-              mutation produces anything but a model or the one documented exception. The byte
-              layout of the format (the fixed 80-byte header, the compressed list of bucket gaps
-              and 16-bit weights, the checksum of the stored bytes) is specified in the sparse
+              loader that refuses a hostile length claim cannot be turned into an out-of-memory
+              failure. The inventory grows between releases: a model that only knows ids keeps
+              working when readings are added or reordered, an older model keeps working because
+              new readings simply have no weights, and a model for a newer inventory would name
+              readings the runtime does not know. The byte layout is specified in the sparse
               perceptron model design, which is the exchange-format specification.
             children:
               - SpeechTextEn-Heteronym-SparsePerceptronModel-RoundTrip
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictHeader
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-DamageDetection
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictPayload
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictDeflate
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-PayloadLengthLimits
+              - SpeechTextEn-Heteronym-SparsePerceptronModel-StrictFormat
               - SpeechTextEn-Heteronym-SparsePerceptronModel-OnlyInvalidDataException
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-Immutability
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-WriterValidation
+              - SpeechTextEn-Heteronym-HeteronymClassifier-ModelCompatibility
             tests:
               - SparsePerceptronModel_Load_RoundTrip_PreservesHeaderAndWeights
               - SparsePerceptronModel_Load_SeededFuzz_OnlyLoadsOrThrowsInvalidDataException
-
-          - id: SpeechTextEn-Heteronym-InventoryModelCompatibility
-            title: >-
-              The HeteronymSubsystem shall bind a model to reading ids rather than to table
-              positions, shall accept a model that was trained for the same or an older version of
-              the reading inventory than the runtime has, shall reject one trained for a newer
-              version or for another feature set, and shall carry the compatibility fields in the
-              model header.
-            justification: |
-              The inventory grows between releases. A model that only knows ids keeps working when
-              readings are added or reordered, an older model keeps working with a newer inventory
-              because the new readings simply have no weights, and a model for a newer inventory
-              would name readings the runtime does not know, so it must be refused.
-            children:
-              - SpeechTextEn-Heteronym-HeteronymClassifier-ModelCompatibility
-              - SpeechTextEn-Heteronym-SparsePerceptronModel-CompatibilityFields
-            tests:
               - HeteronymSubsystem_ModelBindsToReadingIds_NotTablePositions
               - HeteronymClassifier_Constructor_InventoryVersionCompatibility_IsChecked
 
@@ -181,15 +116,14 @@ sections:
               Most requests and many analyzers never need a model, concurrent first requests must
               all be served correctly, and a failing load must not reach the speech path as an
               exception: the status lets the analyzer tell a host. The embedded provider is how the
-              default analyzer reaches the trained model of the package. When the model is opened, that
-              it is loaded once and shared, and that a failed load is remembered rather than
+              default analyzer reaches the trained model of the package. When the model is opened,
+              that it is loaded once and shared, and that a failed load is remembered rather than
               retried are design choices recorded in the heteronym classifier design; they are not
               part of the observable contract.
             children:
-              - SpeechTextEn-Heteronym-HeteronymClassifier-ProviderSupply
-              - SpeechTextEn-Heteronym-HeteronymClassifier-LoadFailureContained
-              - SpeechTextEn-Heteronym-HeteronymClassifier-CancellationObserver
+              - SpeechTextEn-Heteronym-HeteronymClassifier-ModelSupply
+              - SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafetyAndCancellation
             tests:
-              - HeteronymSubsystem_Provider_Configured_ExposesInventoryWithoutClassifier
+              - HeteronymSubsystem_ProviderToClassifier_FixtureModel_ChoosesReadingByContext
               - HeteronymModelProvider_GetClassifier_ConcurrentFirstCalls_GetClassifiersWithSequentialPredictions
               - HeteronymSubsystem_EmbeddedProvider_ShippedModel_ChoosesReadingByContext

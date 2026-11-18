@@ -18,127 +18,66 @@ sections:
         sections:
           - title: AbbreviationResolver Requirements
             requirements:
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-Table
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-Lexicon
                 title: >-
-                  The AbbreviationResolver class shall load the embedded lexicon with its rows,
-                  shall return the spoken form of every listed abbreviation matched
-                  case-sensitively and exactly, shall report whether the match includes a separate
-                  period token, and shall not treat an ordinary word as an abbreviation.
+                  The AbbreviationResolver class shall return the spoken form of every listed
+                  abbreviation matched case-sensitively and exactly, shall report whether the match
+                  includes a separate period token, shall resolve each month and weekday
+                  abbreviation to its full name (before a date as a prefix reading, elsewhere as a
+                  suffix reading, and a month abbreviation written without a period before a
+                  digit) while leaving May and a weekday written without a period as written, shall
+                  not treat an ordinary word as an abbreviation, shall build its lexicon from a
+                  table in the documented tab-separated format (accepting comments, blank lines and
+                  CRLF) and throw InvalidDataException naming the line for a malformed row and
+                  ArgumentNullException for a null reader, and shall give the documented
+                  resolutions to concurrent first lookups.
                 justification: |
-                  The lexicon is the single place that says how an abbreviation is spoken; an exact,
-                  case-sensitive match keeps ordinary words such as "no" or "dr" untouched.
+                  The lexicon is the single place that says how an abbreviation is spoken; an
+                  exact, case-sensitive match keeps ordinary words such as "no" or "dr" untouched.
+                  The tokenizer breaks sentences after "Jan." and "Sat." even in the middle of a
+                  date, so the reading of a month or weekday has to remove that break, while a bare
+                  "Mar." or "Sun." (the verb, the star) stays as written. A defective table is a
+                  build defect and must fail at once and point at the row, and several requests
+                  may be the first to need the embedded lexicon at the same time, so every one of
+                  them must get the same answer.
                 tests:
-                  - AbbreviationResolver_Default_Lexicon_LoadsWithRows
                   - AbbreviationResolver_TryResolve_ListedForm_ReturnsSpokenForm
                   - AbbreviationResolver_TryResolve_PeriodShapes_AreReported
                   - AbbreviationResolver_TryResolve_OrdinaryWords_AreNotAbbreviations
+                  - AbbreviationResolver_TryResolve_MonthAndWeekdayAbbreviations_ResolveToFullNamesInDateAndNonDateContexts
+                  - AbbreviationResolver_FromTsv_CommentsBlankLinesAndCrLf_AreAccepted
+                  - AbbreviationResolver_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine
+                  - AbbreviationResolver_FromTsv_NullReader_ThrowsArgumentNullException
+                  - AbbreviationResolver_TryResolve_ConcurrentFirstLookups_ReturnDocumentedResolutions
 
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-ContextCues
+              - id: SpeechTextEn-Normalization-AbbreviationResolver-ReadingChoice
                 title: >-
                   The AbbreviationResolver class shall choose between the prefix and the suffix
                   reading of an ambiguous abbreviation from the neighboring tokens only (a
-                  following name, a preceding name, number or determiner), shall skip a possessive
-                  before the abbreviation, shall not take a name suffix or credential (Ph.D.,
-                  Esq., III) that follows Sr. for the name of a Sister, and shall resolve a
-                  single-letter initial only before a name or another initial.
+                  following name, a preceding name, number or determiner, skipping a possessive
+                  before the abbreviation, and resolving a single-letter initial only before a name
+                  or another initial), shall not take a name suffix or credential (Ph.D., Esq., III)
+                  that follows Sr. for the name of a Sister, shall apply a reading only where its
+                  guard holds (the number reading of No. only before a digit, the date guards on
+                  the ASCII digits and the month names) and let a reading whose guard holds replace
+                  the unguarded alternatives, and shall use the reading marked as the default and
+                  report it as ambiguous where the neighbors do not decide, never counting a clear
+                  reading or alternatives that are not a prefix and suffix pair.
                 justification: |
                   "Dr. Smith" is a doctor and "Maple Dr. He" is a drive; the words around the
                   abbreviation usually decide, and using only tokens keeps the rule independent of
-                  the tagger and its cost. "John Smith Sr. Ph.D." is a senior, not a Sister whose
-                  name is Ph.D.
+                  the tagger and its cost. "No. 5" is a number and "No. I don't know" is the word,
+                  and "Jan. 5" is a date in which the period does not end a sentence, so a guard
+                  keeps a reading to the context it was written for. A documented default makes the
+                  unclear cases predictable, and the ambiguity flag is what the diagnostics count so
+                  a host can see how often the choice was a guess.
                 tests:
                   - AbbreviationResolver_TryResolve_AmbiguousForm_FollowsTheNeighborCues
                   - AbbreviationResolver_IsNameContinuation_ListedFormsOnly
                   - AbbreviationResolver_TryResolve_PossessiveBeforeAbbreviation_IsSkippedForContext
                   - AbbreviationResolver_TryResolve_Initials_ResolveOnlyBeforeNames
-
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-Guards
-                title: >-
-                  The AbbreviationResolver class shall apply a reading only where its guard holds
-                  (for example the number reading of No. only before a digit), shall let a reading
-                  whose guard holds replace the unguarded alternatives of the same form, and shall
-                  leave the form unresolved when no reading remains.
-                justification: |
-                  "No. 5" is a number and "No. I don't know" is the word; a guard keeps a reading
-                  to the context it was written for, and a form without a valid reading must stay
-                  as written.
-                tests:
                   - AbbreviationResolver_TryResolve_No_IsNumberBeforeDigitAndWordOtherwise
                   - AbbreviationResolver_TryResolve_Guards_RestrictReadingsToTheirContext
-
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-DateGuards
-                title: >-
-                  The AbbreviationResolver class shall accept the guards next-date (the next token
-                  starts with an ASCII digit or is a month name or abbreviation) and prev-number (the
-                  previous token starts with an ASCII digit), shall test the ASCII digits only for
-                  these two guards, and shall recognize the documented English month names and
-                  abbreviations as a month.
-                justification: |
-                  "Jan. 5" and "Sat. 5 Jan. 2024" are dates in which the period does not end a
-                  sentence, whereas "Mar." with no number before it is the verb. The guards select
-                  the reading from the date context, and a date is written with the ASCII digits.
-                  That the month vocabulary is the one the numeric recognizer uses is a design
-                  choice (one shared definition keeps the lexicon and the numeric rule in
-                  agreement) recorded in the abbreviation resolver design.
-                tests:
                   - AbbreviationResolver_TryResolve_DateGuards_RestrictMonthAndWeekdayReadings
-
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-MonthAndWeekdayRows
-                title: >-
-                  The AbbreviationResolver class shall resolve each month and weekday abbreviation
-                  with a period to its full name, as a prefix reading before a date and as a suffix
-                  reading elsewhere (the suffix reading of Mar. and Sun. only after a number), shall
-                  resolve each month abbreviation written without a period before a digit to its
-                  full name, and shall leave May and a weekday written without a period as written.
-                justification: |
-                  The tokenizer breaks sentences after "Jan." and "Sat." even in the middle of a
-                  date, so the abbreviation's reading has to remove that break, and a bare "Mar." or
-                  "Sun." (the verb, the star) must stay as written. The word May and the weekday
-                  names are ordinary words that need no reading. The test checks an independently
-                  written table of abbreviations and full names, in date and non-date contexts.
-                tests:
-                  - AbbreviationResolver_TryResolve_MonthAndWeekdayAbbreviations_ResolveToFullNamesInDateAndNonDateContexts
-                  - AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms
-
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-DefaultAndCount
-                title: >-
-                  The AbbreviationResolver class shall use the reading marked as the default and
-                  report the resolution as ambiguous where the neighboring tokens do not decide
-                  between two readings or give competing cues, shall report a clear reading as not
-                  ambiguous, and shall use the default without counting it for alternatives that
-                  are not a prefix and suffix pair.
-                justification: |
-                  A documented default makes the unclear cases predictable, and the ambiguity flag
-                  is what the diagnostics count so a host can see how often the choice was a guess.
-                tests:
                   - AbbreviationResolver_TryResolve_InconclusiveContext_UsesDefaultAndIsCounted
                   - AbbreviationResolver_FromTsv_NonPairAlternatives_UseDefaultWithoutCounting
-
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-LoaderValidation
-                title: >-
-                  The AbbreviationResolver class shall parse a lexicon in the documented tab-separated
-                  format, accepting comments, blank lines and CRLF line ends, shall throw
-                  InvalidDataException that names the line number for a malformed row or an unknown
-                  guard name (the five documented guards being accepted), and shall
-                  throw ArgumentNullException for a null reader.
-                justification: |
-                  A defective lexicon is a build defect and must fail at once and point at the row,
-                  rather than silently resolve abbreviations wrongly.
-                tests:
-                  - AbbreviationResolver_FromTsv_CommentsBlankLinesAndCrLf_AreAccepted
-                  - AbbreviationResolver_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine
-                  - AbbreviationResolver_FromTsv_NullReader_ThrowsArgumentNullException
-
-              - id: SpeechTextEn-Normalization-AbbreviationResolver-ConcurrentLookup
-                title: >-
-                  The AbbreviationResolver class shall return the documented resolution of an
-                  abbreviation to every concurrent lookup, including the first lookups that race
-                  to use the embedded lexicon, without failure.
-                justification: |
-                  Constructing an analyzer must not depend on the lexicon being loaded yet, and
-                  several requests may be the first to need it at the same time, so every one of
-                  them must get the same, documented answer. That the embedded lexicon is loaded
-                  lazily and at most once is a design choice recorded in the abbreviation resolver
-                  design.
-                tests:
-                  - AbbreviationResolver_TryResolve_ConcurrentFirstLookups_ReturnDocumentedResolutions

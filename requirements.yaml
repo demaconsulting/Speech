@@ -246,6 +246,13 @@ includes:
   - docs/reqstream/speech-text-en/training-subsystem/heteronym-evaluator.yaml
   - docs/reqstream/speech-text-en/training-subsystem/evaluation-record.yaml
   - docs/reqstream/speech-text-en/training-subsystem/evaluate-command.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem/external-source-cache.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem/external-row-conversion.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem/wikipedia-homograph-adapter.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem/external-evaluation-record.yaml
+  - docs/reqstream/speech-text-en/external-evaluation-subsystem/evaluate-external-command.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

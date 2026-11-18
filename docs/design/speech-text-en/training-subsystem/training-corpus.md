@@ -58,8 +58,8 @@ when the data files are unchanged; the training record keeps it for diagnosing e
   read once
 
 **Error Handling**: every defect of the input is an `InvalidDataException` with a message that names the file, the
-line or the row id; null arguments throw `ArgumentNullException`. The commands turn the
-exception into the usage error exit code. No exception is swallowed.
+line or the row id; null arguments throw `ArgumentNullException`. The commands turn the exception into the usage error
+exit code. No exception is swallowed.
 
 **Dependencies**: from the TrainingDataSubsystem, `TsvTable`, `CheckReport` (only as the collector of the table's
 findings) and the row header of `TextEnDataSet`; from the HeteronymSubsystem, `ReadingInventory`,

@@ -20,61 +20,45 @@ that the weights decide rows the way the runtime will. Nothing is mocked.
 
 #### Acceptance Criteria
 
-After one row that the initial weights get wrong, the non-zero weights are multiples of 64, include both +64 and -64 and
-sum to zero, and the weights then decide that row for its label with the labeled candidate scoring higher; after eight
-epochs on the separable fixture every aligned ambiguous training row is decided for its label; four epochs are reported
-once each, numbered 1 to 4 in order; the same seed and settings give identical weights after every epoch; a prune
-threshold of 1,000 leaves every weight zero while a threshold of 0 leaves some non-zero; a natural-row weight of 3 gives
-other weights than 1 when the training data has natural rows; appending a row that is not aligned and a row with a
-single-candidate word leaves the weights unchanged; a hash size of 40 bits and a natural-row weight of 0 throw
-`InvalidDataException` and a null corpus throws `ArgumentNullException`.
+- **Learning**: after one row that the initial weights get wrong, the non-zero weights are exactly +64 and -64 and sum
+  to zero; after eight epochs on the separable fixture every aligned ambiguous training row is decided for its label by
+  the runtime's scoring; a natural-row weight of 3 gives other weights than 1; adding an unaligned row and a
+  single-candidate row leaves the weights unchanged.
+- **Repeatable**: the same seed and settings give identical weights after every epoch; a prune threshold of 1,000
+  leaves every weight zero while a threshold of 0 leaves some non-zero.
+- **Settings validation**: a hash size of 40 bits, a natural-row weight of 0 and a null corpus are rejected before any
+  training, as are settings whose worst case could overflow 64 bits (naming the settings), while the largest validated
+  settings train without a wrapped weight.
 
 #### Test Scenarios
 
-##### Learning the labels
+##### Learning
 
-**Tests**: `AveragedPerceptronTrainer_Train_SingleMistakenRow_WeightsThenDecideTheLabel`,
-`AveragedPerceptronTrainer_Train_SeparableFixture_DecidesEveryTrainingRow`
+**Tests**: `AveragedPerceptronTrainer_Train_SeparableFixture_DecidesEveryTrainingRow`,
+`AveragedPerceptronTrainer_Train_SingleMistakenRow_GivesExactAveragedWeights`,
+`AveragedPerceptronTrainer_Train_NaturalWeight_ChangesTheWeights`,
+`AveragedPerceptronTrainer_Train_UnalignedAndSingleCandidateRows_AreIgnored`
 
-The corpus is one row labeled with the second candidate, which loses the initial tie, and then the whole fixture. The
-weights are applied with the runtime's scoring; the decided candidate is the labeled one.
+The whole fixture is learned and judged with the runtime's scoring. One row labeled with the second candidate gives the
+exact averaged weights. Two natural rows, one contradicting the synthetic patterns, give different weights under a
+natural-row weight of 1 and of 3. The weights trained on the fixture equal those trained with an unaligned row and a
+single-candidate row added.
 
-##### Exact weights
+##### Repeatability and pruning
 
-**Test**: `AveragedPerceptronTrainer_Train_SingleMistakenRow_GivesExactAveragedWeights`
+**Tests**: `AveragedPerceptronTrainer_Train_SameSeedTwice_GivesIdenticalWeights`,
+`AveragedPerceptronTrainer_Train_PruneThreshold_DropsSmallWeights`
 
-The only non-zero weights are plus and minus 64, the weights sum to zero, and both signs occur.
-
-##### Epoch reports and repeatability
-
-**Tests**: `AveragedPerceptronTrainer_Train_ReportsEachEpochInOrder`,
-`AveragedPerceptronTrainer_Train_SameSeedTwice_GivesIdenticalWeights`
-
-The report callback receives epochs 1, 2, 3 and 4, once each. Two trainings with seed 11 give equal weights after each
-of three epochs.
-
-##### Pruning
-
-**Test**: `AveragedPerceptronTrainer_Train_PruneThreshold_DropsSmallWeights`
-
-With no pruning some weight is non-zero; with a threshold above every weight all are zero.
-
-##### Natural-row weight
-
-**Test**: `AveragedPerceptronTrainer_Train_NaturalWeight_ChangesTheWeights`
-
-Two natural rows are appended, one contradicting the synthetic patterns. Weights learned with a natural-row weight of 1
-and of 3 differ.
-
-##### Ignored rows
-
-**Test**: `AveragedPerceptronTrainer_Train_UnalignedAndSingleCandidateRows_AreIgnored`
-
-The weights trained on the fixture equal those trained on the fixture with an unaligned row and a single-candidate row
-added.
+Two trainings with seed 11 give equal weights after each of three epochs. With no pruning some weight is non-zero; with
+a threshold above every weight all are zero.
 
 ##### Settings validation
 
-**Test**: `AveragedPerceptronTrainer_Constructor_InvalidSettings_ThrowsInvalidDataException`
+**Tests**: `AveragedPerceptronTrainer_Constructor_InvalidSettings_ThrowsInvalidDataException`,
+`AveragedPerceptronTrainer_Constructor_SettingsBeyondTheOverflowBound_ThrowsNamingTheSettings`,
+`AveragedPerceptronTrainer_Train_ValidatedMaximumSettings_TrainsWithoutOverflow`
 
-Out-of-range settings and a null corpus are rejected by the constructor, before any training.
+Out-of-range settings and a null corpus are rejected by the constructor. With 200 natural rows, scale 1,000,000,
+natural weight 100 and 100 epochs the constructor throws a message naming the overflow and the three settings, and safe
+settings on the same corpus are accepted. The largest validated settings train 100 epochs, and wherever a scale-1 run
+has a non-zero weight the scaled weight has the same sign.

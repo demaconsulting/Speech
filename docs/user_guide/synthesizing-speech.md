@@ -107,7 +107,7 @@ tags, the mood tags, `[emphasis]`, and `[breathy]`) has no built-in convention a
 even under `ParameterMapped`; pause tags are never affected by this stripping and always render
 as timed silence, per the pause-handling rule above. A model author whose engine needs
 sentence-level context can also supply an optional text analyzer and receive annotations in its
-backend; see "Text analysis for model authors" in the usage guide.
+backend; see "Text analysis for model authors" in the usage guide, and "English Text Analysis" for the English analyzer.
 
 | Tag | Mapped parameter convention | Shift |
 | --- | --- | --- |

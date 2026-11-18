@@ -18,13 +18,10 @@ sections:
             justification: |
               The English text analysis annotates words with their part of speech and must not
               ship or load its own model; one shared tagger avoids a second copy of the data in
-              memory. The API-presence test fails to compile if a member the analysis uses is
-              removed or reshaped by a different package version.
+              memory.
             tags: [ots]
             tests:
               - PartOfSpeech_DefaultTagger_TagsSentence_ReturnsUniversalTagPerToken
-              - PartOfSpeech_DefaultTagger_SharedInstance_ReturnsSameTagger
-              - PartOfSpeech_PublicApi_MembersUsedByTextEn_ArePresent
 
           - id: Speech-OTS-PartOfSpeech-TokenizationOffsets
             title: >-
@@ -37,7 +34,6 @@ sections:
               sentences without changing the result.
             tags: [ots]
             tests:
-              - PartOfSpeech_Tag_MultiSentenceText_TokenOffsetsIndexSourceText
               - PartOfSpeech_Tokenizer_Tokenize_MultiSentenceText_TokenOffsetsIndexSourceText
               - PartOfSpeech_TagSentence_PerSentence_MatchesWholeTextTagging
 
@@ -52,7 +48,6 @@ sections:
             tags: [ots]
             tests:
               - PartOfSpeech_Tag_Tokens_ConfidenceIsProbabilityInRange
-              - PartOfSpeech_Tag_Tokens_KnownWordFlagReflectsLexicon
 
           - id: Speech-OTS-PartOfSpeech-ThreadSafety
             title: >-

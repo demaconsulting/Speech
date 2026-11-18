@@ -107,13 +107,6 @@ internal sealed class TsvTable
     }
 
     /// <summary>
-    ///     Returns the index of a column in the header, or -1 when it is absent.
-    /// </summary>
-    /// <param name="column">The column name.</param>
-    /// <returns>The zero-based index, or -1.</returns>
-    public int ColumnIndex(string column) => ListIndexOf(Header, column);
-
-    /// <summary>
     ///     Reads the file bytes and decodes them as strict UTF-8, reporting a byte order mark or invalid bytes.
     /// </summary>
     /// <param name="path">The full path of the file.</param>
@@ -264,24 +257,5 @@ internal sealed class TsvTable
         }
 
         return new TsvTable(name, true, header, rows);
-    }
-
-    /// <summary>
-    ///     Finds the index of a value in a list using ordinal comparison.
-    /// </summary>
-    /// <param name="list">The list.</param>
-    /// <param name="value">The value.</param>
-    /// <returns>The index, or -1.</returns>
-    private static int ListIndexOf(IReadOnlyList<string> list, string value)
-    {
-        for (var index = 0; index < list.Count; index++)
-        {
-            if (string.Equals(list[index], value, StringComparison.Ordinal))
-            {
-                return index;
-            }
-        }
-
-        return -1;
     }
 }

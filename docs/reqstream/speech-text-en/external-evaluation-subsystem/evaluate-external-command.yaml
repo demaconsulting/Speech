@@ -1,0 +1,84 @@
+---
+# Software Unit Requirements for EvaluateExternalCommand
+#
+# These requirements describe the design-level behavior of the EvaluateExternalCommand unit, the command line entry
+# of the trainer's evaluate-external command: it checks the options, guards the cache location, fetches on request,
+# converts and evaluates the external sets, runs the seed study and writes or verifies the external evaluation
+# record, decomposing the parent SpeechTextEn ExternalEvaluationSubsystem requirements. Each requirement states one
+# observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/EvaluateExternalCommandTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        sections:
+          - title: EvaluateExternalCommand Requirements
+            requirements:
+              - id: SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-UsageErrors
+                title: >-
+                  The EvaluateExternalCommand unit shall print its usage and exit with 0 when asked for
+                  help, shall exit with 2 and a message that names the problem, before it evaluates
+                  anything, for an unknown option, an option without its value, an unknown set, the
+                  combination of writing and checking the record, a missing pins file or a missing model,
+                  and shall accept as the cache folder only the git-ignored external folder of the data
+                  folder, which is the default, or a folder outside the repository.
+                justification: |
+                  A command that does something other than what was asked, or that fails without saying
+                  why, cannot be used safely. The datasets must never be committed, so a cache folder that
+                  version control would track is refused before anything is written.
+                tests:
+                  - EvaluateExternalCommand_Run_Help_PrintsUsageAndExitsZero
+                  - EvaluateExternalCommand_Run_BadCommandLine_ExitsTwoNamingTheProblem
+                  - EvaluateExternalCommand_Run_UnknownSetOrWriteWithCheck_ExitsTwo
+                  - EvaluateExternalCommand_Run_MissingPinsOrModel_ExitsTwo
+                  - EvaluateExternalCommand_Run_CacheInRepositoryOutsideIgnoredFolder_ExitsTwo
+                  - EvaluateExternalCommand_Run_DefaultAndOutsideCache_AreAccepted
+
+              - id: SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-FetchOption
+                title: >-
+                  The EvaluateExternalCommand unit shall use the network only when asked to fetch, shall
+                  fetch and evaluate only the sources that the selected sets need, and shall exit with 2
+                  and print no figure for a download that fails verification or for a data file or
+                  mapping that is malformed.
+                justification: |
+                  Evaluating must not reach the network by surprise, a run that needs only one dataset
+                  must not download the other, and a figure computed from data that is not the pinned data
+                  would look like a result.
+                tests:
+                  - EvaluateExternalCommand_Run_SetSelection_FetchesAndEvaluatesOnlyNeededSources
+                  - EvaluateExternalCommand_Run_MalformedData_ExitsTwoWithNoFigures
+
+              - id: SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-Report
+                title: >-
+                  The EvaluateExternalCommand unit shall print for each evaluated set the rows read, used
+                  and skipped by reason, the accuracy of the model with its interval, the three
+                  baselines, the improvement over the own-part-of-speech baseline with its interval and
+                  the parity of the trainer and the analyzer, and no sentence, target word or label of an
+                  external dataset, and shall, on request, retrain the model with each evaluation seed
+                  from the training data alone and print the accuracy of every seed with the mean,
+                  minimum and maximum.
+                justification: |
+                  The owner reads this output as the result. It has to show what the model adds and how
+                  much of the dataset it covers, it must not carry any text of the licensed datasets, and
+                  the seed study shows how much of a figure is the model and how much is the seed while
+                  the retrained models, which do not depend on the external content, show that the
+                  external sets are measured and never trained on.
+                tests:
+                  - EvaluateExternalCommand_Run_Report_PrintsCountsBaselinesAndIntervalsWithoutDatasetText
+                  - EvaluateExternalCommand_Run_Seeds_PrintsEachSeedAndSpread
+                  - EvaluateExternalCommand_Run_Seeds_AreIndependentOfExternalContent
+
+              - id: SpeechTextEn-ExternalEvaluation-EvaluateExternalCommand-WriteAndCheck
+                title: >-
+                  The EvaluateExternalCommand unit shall, when asked to write, write the record of all
+                  sets and the seed study into the record folder, with the same files on every run, and
+                  shall, when asked to check, exit with 0 when the record is current and with 1 when it is
+                  stale or missing, naming the file.
+                justification: |
+                  The record is the evidence of the external figures. It has to be reproducible, and a
+                  change to it that is not the product of an evaluation has to be found.
+                tests:
+                  - EvaluateExternalCommand_Run_WriteTwice_ProducesIdenticalFiles
+                  - EvaluateExternalCommand_Run_CheckStaleOrMissingRecord_ExitsOneNamingFile

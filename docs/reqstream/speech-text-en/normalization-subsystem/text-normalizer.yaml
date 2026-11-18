@@ -25,103 +25,71 @@ sections:
               - id: SpeechTextEn-Normalization-TextNormalizer-Spans
                 title: >-
                   The TextNormalizer class shall describe each replacement as a span on the exact
-                  characters of one token,
-                  of one token with its adjacent period token, or of a numeric span the
-                  recognizer produced (a token, a currency symbol with its number, an apostrophe
-                  with its decade), shall keep the period of an
-                  abbreviation outside the span at the end of a sentence and inside the span in the
-                  middle of one, and shall produce nothing for an empty text or an empty token
-                  list.
+                  characters of one token, of one token with its adjacent period token, or of a
+                  numeric span the recognizer produced (a token, a currency symbol with its number,
+                  an apostrophe with its decade), shall apply the numeric recognizer after the
+                  invisible-character and clitic rules and before the abbreviation rule, speaking
+                  the tokens a multi-token match consumed only once and forwarding its ambiguity and
+                  fallback counts, shall drop each maximal run of invisible formatting characters as
+                  one empty replacement (keeping the joiners that glue emoji sequences and applying
+                  no other rule to a token that contains one), shall mark a replacement as spelled
+                  exactly when its spoken text without the separating padding is single capital
+                  letters separated by single spaces (never for a replace directive), shall emit an
+                  ampersand initialism as one spelled span per group of capital letters and one
+                  "and" symbol span per ampersand with a possessive tail outside the spans and the
+                  same spoken text as for the whole token, shall separate a spoken word from a
+                  touching letter or digit and two adjacent word-producing replacements with exactly
+                  one space without moving any offset, and shall produce nothing for an empty text
+                  or an empty token list.
                 justification: |
                   Spans limited to token extents are the rule that keeps each one free of
-                  whitespace and clause separators and so safe from chunking. That the pass visits
-                  each token once, in order, is a design choice recorded in the text normalizer
-                  design.
+                  whitespace and clause separators and so safe from chunking. The numeric rule must
+                  run before the abbreviation lexicon so that "5 ft." is a unit and "Jan. 5" leaves
+                  the number to it, and a consumed follow-up token (the word "million", a percent
+                  sign) belongs to its number and must not be spoken a second time. Dropping is the
+                  only edit that removes text, so it is explicit and limited to characters that carry
+                  no sound. Deciding the spelled flag once, by the shape of the spoken text, makes it
+                  impossible for a rule to produce letters that are not marked or a marking that is
+                  not letters, and the ampersand of "AT&T" is the word "and", so splitting the token
+                  keeps the promise of the spelled kind and the words a consumer speaks. Without the
+                  separating space "50%" would speak its two words as one run.
                 tests:
                   - TextNormalizer_Normalize_SuffixPeriod_IsKeptAtSentenceEndAndConsumedMidSentence
                   - TextNormalizer_Normalize_EmptyTextAndTokens_ProducesNothing
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-NumericRule
-                title: >-
-                  The TextNormalizer class shall apply the numeric recognizer to each token after
-                  the invisible-character and clitic rules and before the abbreviation rule, shall
-                  emit the spans of a match in order and speak the tokens the match consumed only
-                  once, as part of that match, shall forward the match's ambiguity and fallback
-                  counts, shall suppress a tokenizer sentence break that would lie strictly inside
-                  a span, and shall not read a token that contains an invisible character as a
-                  number.
-                justification: |
-                  The numeric rule must run before the abbreviation lexicon so that "5 ft." is a
-                  unit and "Jan. 5" leaves the number to it, and the invisible-character rule must
-                  run first so that a number with a hidden character in it is never half read. A
-                  consumed follow-up token (the word "million", a percent sign) belongs to its
-                  number and must not be spoken a second time. A break inside a date would cut
-                  a span.
-                tests:
                   - TextNormalizer_Normalize_NumericTokens_AreRecognizedBeforeAbbreviations
-                  - TextNormalizer_Normalize_MultiTokenMatchesAroundAWord_AreSpokenOnce
-                  - TextNormalizer_Normalize_NumericToken_WithInvisibleCharacter_StaysIdentity
+                  - TextNormalizer_Normalize_InvisibleCharacters_AreDroppedExplicitly
+                  - TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape
+                  - TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText
+                  - TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace
 
-              - id: SpeechTextEn-Normalization-TextNormalizer-NumericSeparation
-                title: >-
-                  The TextNormalizer class shall separate a spoken numeric word from a touching
-                  letter or digit and two adjacent numeric replacements from each other with
-                  exactly one space, without moving any offset.
-                justification: |
-                  "50%" becomes "fifty" and "percent", and "5–10" becomes "five", "to" and "ten";
-                  without the separating space the words would run together, and a padded value
-                  keeps every offset of the source text valid.
-                tests:
-                  - TextNormalizer_Normalize_AdjacentNumericSpans_PadExactlyOneSpace
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-NumericPeriodRules
-                title: >-
-                  The TextNormalizer class shall apply the abbreviation period and sentence rules
-                  of a suffix to a unit that may carry an abbreviation period (inside its token or
-                  as an adjacent period token): consuming the period in the middle of a sentence,
-                  keeping it at the end of one, and forcing a sentence break before a capitalized
-                  next word.
-                justification: |
-                  "He is 6 ft. tall." continues after the period while "He is 6 ft." and "He is 6
-                  ft. Then he left." end the sentence, and the period of a unit must neither be
-                  lost at a sentence end nor be taken for the end of a sentence in its middle; the
-                  same rules already serve the street abbreviations.
-                tests:
-                  - TextNormalizer_Normalize_UnitWithPeriod_ConsumesMidSentenceAndKeepsAtSentenceEnd
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-NumericCancellation
-                title: >-
-                  The TextNormalizer class shall observe a cancellation requested during a pass
-                  over numeric text, including text whose matches span several tokens, by throwing
-                  OperationCanceledException instead of returning a result.
-                justification: |
-                  A long numeric text must stop promptly when the request is canceled, even though
-                  a match consumes several tokens at once. How the polling counts the consumed
-                  tokens is a design choice recorded in the text normalizer design.
-                tests:
-                  - TextNormalizer_Normalize_CanceledDuringNumericPass_ThrowsOperationCanceledException
-                  - TextNormalizer_Normalize_CanceledDuringRepeatedMultiTokenMatches_ThrowsOperationCanceledException
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-PeriodAndBreaks
+              - id: SpeechTextEn-Normalization-TextNormalizer-PeriodsAndBreaks
                 title: >-
                   The TextNormalizer class shall consume the period of an abbreviation read as a
                   prefix (a title, Saint, Doctor, Number or an initial) and remove the tokenizer's
-                  sentence break after it; for an abbreviation read as a suffix or as the word No
-                  it shall add a sentence break before a capitalized next word, keep the period
-                  where the abbreviation ends its sentence and add no break before a lower-case or
-                  digit word; and it shall handle a dotted initialism whose period is a separate
-                  token like any other abbreviation while leaving a dotted form with no period
-                  token alone; it shall also treat a name suffix or credential (Jr., Sr., Esq.,
-                  Ph.D., M.D., III and similar) that is directly followed by another one as part
-                  of the same name, consuming its period and removing the tokenizer's break after
-                  it, while still ending the sentence before a word that begins a sentence.
+                  sentence break after it; for an abbreviation read as a suffix or as the word No,
+                  or a unit that may carry an abbreviation period, it shall add a sentence break
+                  before a capitalized next word, keep the period where the abbreviation ends its
+                  sentence, consume it in the middle of a sentence and add no break before a
+                  lower-case or digit word; it shall handle a dotted initialism whose period is a
+                  separate token like any other abbreviation; it shall treat a name suffix or
+                  credential (Jr., Sr., Esq., Ph.D., M.D., III and similar) that is directly
+                  followed by another one as part of the same name, still ending the sentence before
+                  a word that begins a sentence; it shall count an abbreviation resolution as
+                  ambiguous once when the default reading was used or the cues competed, a numeric
+                  match once when it asks for it and each numeric fallback, never a clear reading;
+                  and it shall not speak an ambiguous initialism in a sentence written entirely in
+                  capitals while still speaking a capitalized initialism in an ordinary sentence.
                 justification: |
                   Whether an abbreviation period ends the sentence depends on how the abbreviation
-                  is read: after a title it never does, and after a street suffix it does when a
-                  capitalized sentence follows. A credential after a name suffix ("John Smith Jr.
-                  Ph.D. spoke.") continues the name, so splitting there would separate the name
-                  from its credentials. The rule set is closed and local, using only the next
-                  token, so its effect on the breaks is predictable.
+                  is read: after a title it never does, and after a street suffix or a unit it does
+                  when a capitalized sentence follows ("He is 6 ft. tall." continues, "He is 6 ft.
+                  Then he left." does not). A credential after a name suffix ("John Smith Jr. Ph.D.
+                  spoke.") continues the name. The rule set is closed and local, using only the next
+                  token, so its effect on the breaks is predictable. The counts are the evidence of
+                  how often the normalization had to guess or give up, so they count each guess once
+                  and nothing else, and in an all-capital sentence every word looks like an
+                  initialism, so "IT" and "US" would be spelled where they are the words "it" and
+                  "us".
                 children:
                   - Speech-OTS-PartOfSpeech-TokenizationConventions
                 tests:
@@ -130,250 +98,96 @@ sections:
                   - TextNormalizer_Normalize_SuffixBeforeNextWord_ForcesBreakOnlyBeforeCapitalizedWord
                   - TextNormalizer_Normalize_WordReading_ForcesBreakWithoutSpan
                   - TextNormalizer_Normalize_DottedInitialismWithSeparatePeriod_IsHandled
-                  - TextNormalizer_Normalize_DottedFormWithoutPeriodToken_IsIdentity
                   - TextNormalizer_Normalize_NameSuffixBeforeCredential_ConsumesPeriodAndKeepsNameTogether
-                  - TextNormalizer_Normalize_NameSuffixBeforeSentenceStarter_StillForcesBreak
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-AmbiguityCount
-                title: >-
-                  The TextNormalizer class shall count an abbreviation resolution as ambiguous once
-                  when the default reading was used or the cues for the two readings competed, shall
-                  count a numeric match once when it asks for it, shall count each numeric
-                  fallback, and shall not count a clear reading.
-                justification: |
-                  The counts are the evidence of how often the normalization had to guess or give
-                  up, so they must count each guess once and nothing else.
-                tests:
                   - TextNormalizer_Normalize_AmbiguousResolutions_AreCountedOnce
 
-              - id: SpeechTextEn-Normalization-TextNormalizer-SymbolsAndMarks
+              - id: SpeechTextEn-Normalization-TextNormalizer-SymbolsAndApostrophes
                 title: >-
                   The TextNormalizer class shall speak an operator symbol only when whitespace or
                   the text edge sets it apart on both sides, shall speak the copyright, registered,
-                  trademark, section and paragraph marks alone or touching a word with a separating
-                  space where a letter or digit touches, separating two adjacent marks that both
-                  produce words by exactly one space, and shall speak a slash only between two
-                  plain words, leaving every other use of these characters unchanged.
+                  trademark, section and paragraph marks alone or touching a word (separating two
+                  adjacent marks that both produce words by exactly one space) and a slash only
+                  between two plain words, leaving every other use of these characters unchanged,
+                  shall canonicalize a typographic apostrophe inside a clitic or a word while
+                  keeping quotation marks unchanged, and shall classify each clitic from the
+                  neighboring words only when classification is requested.
                 justification: |
                   The same characters mean something else in markup, paths, fractions and units,
                   where rewording them would damage the text, so only the clear word-like uses are
-                  spoken. Adjacent marks (a trademark sign directly followed by a registered sign)
-                  would otherwise run together into one unreadable word.
+                  spoken, and adjacent marks would otherwise run together into one unreadable word.
+                  The role of a clitic is a result for the detailed analysis only, so the lean path
+                  skips it, but the canonical apostrophe is needed in both.
                 tests:
                   - TextNormalizer_Normalize_Operators_AreSpokenOnlyWhenSetApart
                   - TextNormalizer_Normalize_Marks_AreSpoken
                   - TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets
                   - TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-ApostrophesAndClitics
-                title: >-
-                  The TextNormalizer class shall canonicalize a typographic apostrophe inside a
-                  clitic or a word and keep quotation marks unchanged, shall classify each clitic
-                  from the neighboring words only when classification is requested, and shall still
-                  canonicalize apostrophes when it is not.
-                justification: |
-                  The role of a clitic is a result for the detailed analysis only; the lean path
-                  skips it, but the canonical apostrophe is needed in both.
-                tests:
                   - TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords
                   - TextNormalizer_Normalize_Clitics_AreClassifiedFromContext
                   - TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes
 
-              - id: SpeechTextEn-Normalization-TextNormalizer-DroppedCharacters
-                title: >-
-                  The TextNormalizer class shall drop each maximal run of invisible formatting
-                  characters as one empty replacement, shall keep the joiners that glue emoji
-                  sequences, and shall apply no other rule to a token that contains an invisible
-                  character.
-                justification: |
-                  Dropping is the only edit that removes text, so it is explicit, limited to a
-                  fixed set of characters that carry no sound, and leaves a token that contains
-                  one otherwise unchanged rather than guessing at its reading.
-                tests:
-                  - TextNormalizer_Normalize_InvisibleCharacters_AreDroppedExplicitly
-                  - TextNormalizer_Normalize_TokenWithInvisibleCharacter_GetsNoOtherRule
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-ShoutingSentences
-                title: >-
-                  The TextNormalizer class shall determine for each sentence whether it is written
-                  entirely in capitals and shall then not speak an ambiguous initialism in it,
-                  while still speaking a capitalized initialism in an ordinary sentence.
-                justification: |
-                  In an all-capital sentence every word looks like an initialism; without the guard
-                  "IT" and "US" would be spelled where they are the words "it" and "us".
-                tests:
-                  - TextNormalizer_Normalize_AllCapitalSentence_SuspendsAmbiguousInitialisms
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-Cancellation
-                title: >-
-                  The TextNormalizer class shall throw OperationCanceledException before any work
-                  for a token that is already canceled, and shall throw it instead of returning a
-                  result when cancellation is requested while a long text is being normalized.
-                justification: |
-                  A long text must stop promptly when the request is canceled. The periodic check
-                  (every 256 visited tokens) that keeps the cost of checking small is a design
-                  choice recorded in the text normalizer design, not part of the contract.
-                tests:
-                  - TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException
-                  - TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException
-                  - TextNormalizer_Normalize_DirectivesWithCancellation_ThrowsOperationCanceledException
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-Concurrency
-                title: >-
-                  The TextNormalizer class shall give the same result for repeated and concurrent
-                  normalization of a text with the same configured lexicons as for a single
-                  request, without one request affecting another, and shall use only the lexicons
-                  it was constructed with.
-                justification: |
-                  One shared normalizer serves every request on thread-pool threads, so results
-                  must not depend on timing or on other requests. That the normalizer keeps no
-                  per-request state is how this is achieved and is recorded in the text normalizer
-                  design.
-                tests:
-                  - TextNormalizer_Normalize_RepeatedAndCustomLexicons_AreDeterministic
-                  - NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-ArgumentValidation
-                title: >-
-                  The TextNormalizer class shall throw ArgumentNullException for a null text or a
-                  null lexicon, and ArgumentException for a token list that does not describe the
-                  text.
-                justification: |
-                  A programming error should surface immediately with a clear exception rather
-                  than as a wrong span.
-                tests:
-                  - TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw
-
               - id: SpeechTextEn-Normalization-TextNormalizer-Directives
                 title: >-
-                  The TextNormalizer class shall apply a directive to its token as the first rule: a
-                  skip directive emits nothing, a replace directive emits one override span whose
-                  spoken text is the directive's words with the single separating space of the
-                  alignment contract, a spell directive emits one spelled override span of the
-                  token's ASCII letters in capitals separated by single spaces (and none for a token
-                  that is not only ASCII letters, which is spoken as written and counted as
-                  ignored), and a pronounce directive records one pronunciation mark on the token
-                  and no span; and shall apply every directive of a large text, with thousands of
-                  directives, exactly as it does for a short one.
+                  The TextNormalizer class shall apply a directive to its token as the first rule so
+                  that it wins over every built-in rule (the clitic rule, a symbol, a lexicon
+                  abbreviation, a listed or ruled acronym and an ampersand initialism): a skip
+                  directive emits nothing, a replace directive emits one override span of the
+                  directive's words with the single separating space of the alignment contract, a
+                  spell directive emits one spelled override span of the token's ASCII letters (none
+                  for a token that is not only ASCII letters, which is spoken as written and counted
+                  as ignored), a pronounce directive records one pronunciation mark and no span, and
+                  a reading directive speaks the token as written with no span and no mark and is
+                  counted as applied; shall make for a token that a directive handles (applied or
+                  ignored) the sentence-break edits the built-in abbreviation rules would have made,
+                  so that the reconciled sentence breaks are identical with and without directives;
+                  shall leave a token that an earlier multi-token match has consumed to that match,
+                  counting the directive as ignored, and count applied and ignored directives
+                  separately; and shall throw ArgumentException for a directive list that is not in
+                  strictly ascending token order or names a token outside the tokens.
                 justification: |
-                  Each action of an override has exactly one effect on the result, so a backend
-                  sees a normalization, a spelling, a pronunciation or nothing; a defective
-                  directive (a spell-out of a token the dictionary builder would have refused)
-                  must degrade to the written word rather than corrupt the alignment, and ten
-                  thousand directives in a large text must all be applied. That the directives
-                  are consumed in one forward pass is a design choice recorded in the text
-                  normalizer design.
+                  A host asks for a word to be spoken a particular way precisely because the
+                  built-in rules get it wrong, so the override has to come before them. Each action
+                  has exactly one effect on the result, and a defective directive must degrade to
+                  the written word rather than corrupt the alignment. A directive changes how a word
+                  is spoken, not where a sentence ends: a changed break splits a sentence ("See
+                  Fig." and "5 for details.") or joins two, and the abbreviation rules are the only
+                  producers of those edits. The number rules read a number with its unit as one
+                  construct, so a replacement of the unit word alone would corrupt the reading and
+                  the ignored count tells a host its entry had no effect. The pass consumes the
+                  directives with one forward cursor, so an unordered or out-of-range list is a
+                  defect of the caller that must fail where it is made.
                 tests:
                   - TextNormalizer_Normalize_SkipDirective_EmitsNothingAndCountsApplied
+                  - TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied
                   - TextNormalizer_Normalize_ReplaceDirective_EmitsOverrideSpanWithSinglePadding
                   - TextNormalizer_Normalize_SpellDirective_SpellsAsciiLettersOnly
                   - TextNormalizer_Normalize_PronounceDirective_AddsMarkWithoutSpan
-                  - TextNormalizer_Normalize_ManyDirectivesOverLargeText_AppliesEveryDirective
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-DirectivePrecedence
-                title: >-
-                  The TextNormalizer class shall let a directive on a token win over every
-                  built-in rule that would otherwise handle that token (the clitic rule, a symbol,
-                  a lexicon abbreviation, a listed or ruled acronym and an ampersand initialism),
-                  so that no built-in span or annotation is produced for it; only the
-                  sentence-break decisions of those rules are kept (see DirectiveSentenceBreaks).
-                justification: |
-                  A host asks for a word to be spoken a particular way precisely because the
-                  built-in rules get it wrong, so the override has to come before them, not after;
-                  one that a built-in rule could overrule would only work for words no rule
-                  recognizes.
-                tests:
                   - TextNormalizer_Normalize_DirectiveOnBuiltInToken_BeatsEveryBuiltInRule
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-DirectiveSentenceBreaks
-                title: >-
-                  The TextNormalizer class shall make, for a token that a directive handles (applied
-                  or ignored), the sentence-break edits (force and suppress) that the built-in
-                  abbreviation and acronym period rules would have made for that token, without
-                  emitting or counting their replacement, so that the reconciled sentence breaks are
-                  identical with and without the directive, also when several directives apply in
-                  one text.
-                justification: |
-                  A directive changes how a word is spoken, not where a sentence ends. A chunker
-                  reads the breaks, so a changed break splits a sentence ("See Fig." and "5 for
-                  details.") or joins two; the abbreviation rules are the only producers of those
-                  break edits for a word that a host can override, including a word whose period the
-                  tokenizer splits off ("Fig" and ".", "Dr" and "." after an em dash).
-                tests:
                   - TextNormalizer_Normalize_DirectiveOnAbbreviation_KeepsBuiltInSentenceBreaks
                   - TextNormalizer_Normalize_DirectiveOnFig_ReviewExampleHasNoSentenceBreak
                   - TextNormalizer_Normalize_DefectiveDirective_StillKeepsBuiltInSentenceBreaks
-                  - TextNormalizer_Normalize_DirectivesOnSeveralAbbreviations_AreAppliedAndKeepBuiltInSentenceBreaks
-                  - NormalizationSubsystem_Normalize_DirectiveAnywhere_NeverChangesSentenceBreaks
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-DirectiveConflicts
-                title: >-
-                  The TextNormalizer class shall leave a token that an earlier multi-token match
-                  (a number with its unit, a currency amount with its magnitude word, a time with
-                  its meridiem) has consumed to that match, shall count a directive for such a
-                  token as ignored and a directive it applied as applied, separately, and shall
-                  count as ignored every directive that remains after the last token.
-                justification: |
-                  The number rules read a number with its unit as one construct, so a replacement
-                  of the unit word alone would corrupt the reading; the earlier match wins and the
-                  ignored count tells a host that its entry had no effect.
-                tests:
                   - TextNormalizer_Normalize_DirectiveOnConsumedToken_IsIgnoredAndCounted
                   - TextNormalizer_Normalize_MixedDirectives_CountAppliedAndIgnoredSeparately
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-DirectiveValidation
-                title: >-
-                  The TextNormalizer class shall throw ArgumentException for a directive list that
-                  is not in strictly ascending token order or names a token index below zero or at
-                  or beyond the number of tokens, before any rule runs.
-                justification: |
-                  The pass consumes the directives with one forward cursor, so an unordered or
-                  out-of-range list is a defect of the caller that must fail where it is made rather
-                  than apply an override to the wrong word.
-                tests:
                   - TextNormalizer_Normalize_InvalidDirectiveIndices_ThrowArgumentException
 
-              - id: SpeechTextEn-Normalization-TextNormalizer-ReadingDirective
+              - id: SpeechTextEn-Normalization-TextNormalizer-Contract
                 title: >-
-                  The TextNormalizer class shall treat a reading directive as a request to speak its
-                  token as written: it emits no span and no pronunciation mark for the token,
-                  bypasses every built-in rule that would otherwise handle it (an initialism that
-                  would be spelled, for example) and counts the directive as applied.
+                  The TextNormalizer class shall throw OperationCanceledException before any work for
+                  a token that is already canceled and instead of returning a result when
+                  cancellation is requested during a pass, shall give the same result for repeated
+                  and concurrent normalization of a text with the same configured lexicons, using
+                  only the lexicons it was constructed with, and shall throw ArgumentNullException
+                  for a null text or a null lexicon and ArgumentException for a token list that does
+                  not describe the text.
                 justification: |
-                  A reading override fixes which reading of a word the backend uses, not how the
-                  word is spelled out, so the normalization must leave the word alone and must not
-                  let a built-in rule rewrite it; the reading itself is carried by the analysis
-                  annotations, which the normalization knows nothing about.
+                  A long text must stop promptly when the request is canceled, and one shared
+                  normalizer serves every request on thread-pool threads, so results must not depend
+                  on timing or on other requests. A programming error should surface immediately
+                  with a clear exception rather than as a wrong span.
                 tests:
-                  - TextNormalizer_Normalize_ReadingDirective_SpokenAsWrittenAndCountsApplied
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-SpelledReplacements
-                title: >-
-                  The TextNormalizer class shall mark a replacement as spelled when its spoken text,
-                  without the separating padding, is a sequence of single capital letters separated
-                  by single spaces, and as not spelled otherwise, whichever rule produced it
-                  (initialism, dotted initialism, initial, credential, meridiem), except that a
-                  replacement produced by a replace directive is never spelled.
-                justification: |
-                  Deciding once, by the shape of the spoken text, keeps the decision in one place
-                  and makes it impossible for a rule to produce letters that are not marked or a
-                  marking that is not letters; a host's replacement words that happen to be capital
-                  letters are still the host's words, and the host has the spell action for letters.
-                tests:
-                  - TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape
-
-              - id: SpeechTextEn-Normalization-TextNormalizer-AmpersandInitialisms
-                title: >-
-                  The TextNormalizer class shall emit an ampersand initialism as one spelled span
-                  per group of capital letters and one "and" symbol span per ampersand, with a
-                  possessive tail left outside the spans (and a typographic apostrophe of the tail
-                  given the usual apostrophe span), so that the spoken text is the same as for the
-                  whole token, and shall separate such a span from a touching replacement with
-                  exactly one space.
-                justification: |
-                  A spelled span must hold letters only, but the ampersand of "AT&T" is the word
-                  "and"; splitting the token keeps the promise of the spelled kind and keeps the
-                  words that a consumer speaks exactly as they were when the token was one span.
-                tests:
-                  - TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText
-                  - TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace
+                  - TextNormalizer_Normalize_PreCanceledToken_ThrowsOperationCanceledException
+                  - TextNormalizer_Normalize_CanceledMidPass_ThrowsOperationCanceledException
+                  - TextNormalizer_Normalize_RepeatedAndCustomLexicons_AreDeterministic
+                  - TextNormalizer_NormalizeAndConstructor_InvalidArguments_Throw
+                  - TextNormalizer_Normalize_TokenRangeOverflowingOrOutsideText_ThrowsArgumentException
+                  - TextNormalizer_Normalize_SecondTokenOverflowing_ThrowsArgumentException

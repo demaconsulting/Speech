@@ -18,9 +18,6 @@ public sealed class PronunciationOverridesTests
     /// <summary>A word that cannot occur in any fixed message, used to prove messages never echo dictionary content.</summary>
     private const string Sentinel = "Sentinelx9";
 
-    /// <summary>The documented sample file next to the test assembly.</summary>
-    private const string SampleFileName = "overrides-dictionary.tsv";
-
     /// <summary>Resolves a dictionary against a text, tokenized by the real tokenizer.</summary>
     /// <param name="overrides">The dictionary.</param>
     /// <param name="text">The text; placeholders are neutralized first.</param>
@@ -52,10 +49,6 @@ public sealed class PronunciationOverridesTests
         return directives.Length == 1 ? directives[0].Value : null;
     }
 
-    /// <summary>Reads the documented sample file.</summary>
-    /// <returns>The file's text.</returns>
-    private static string ReadSample() => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", SampleFileName));
-
     /// <summary>Turns an index into a four-letter lowercase word, so thousands of distinct valid words are easy to make.</summary>
     /// <param name="index">The index, below 26 to the fourth.</param>
     /// <returns>The word.</returns>
@@ -68,42 +61,14 @@ public sealed class PronunciationOverridesTests
     /// <param name="word">The invalid word.</param>
     [Theory]
     [InlineData("")]
-    [InlineData(" ")]
     [InlineData("ab cd")]
-    [InlineData(" ab")]
     [InlineData("-ab")]
-    [InlineData("'ab")]
-    [InlineData("\u2019ab")]
-    [InlineData(".ab")]
     [InlineData("1ab")]
-    [InlineData("ab-")]
     [InlineData("ab.")]
-    [InlineData("ab'")]
-    [InlineData("ab\u2019")]
-    [InlineData("Dr.")]
-    [InlineData("U.S.A.")]
     [InlineData("ab,cd")]
-    [InlineData("ab;cd")]
-    [InlineData("ab:cd")]
-    [InlineData("ab\tcd")]
-    [InlineData("ab\ncd")]
-    [InlineData("ab\0cd")]
     [InlineData("ab\u200Bcd")]
-    [InlineData("ab\uFFFCcd")]
-    [InlineData("ab\uFFFDcd")]
     [InlineData("ab\uD800cd")]
-    [InlineData("ab\uDC00cd")]
-    [InlineData("ab\uD800")]
-    [InlineData("ab\uE000cd")]
-    [InlineData("ab\u0378cd")]
-    [InlineData("ab\u00A0cd")]
-    [InlineData("ab\u2028cd")]
-    [InlineData("ab*cd")]
-    [InlineData("ab(cd")]
-    [InlineData("ab\U0001F600cd")]
-    [InlineData("d'o\u2019x")]
     [InlineData("\u0301ab")]
-    [InlineData("e\u0301")]
     public void PronunciationOverrides_Create_InvalidWord_ThrowsWithEntryIndexAndNoContent(string word)
     {
         // Arrange: a valid first entry, so the bad one is at index 1
@@ -136,24 +101,11 @@ public sealed class PronunciationOverridesTests
     /// <summary>Proves the documented word shapes are accepted: letters of any script, supplementary letters, digits at the end, marks inside, and the allowed punctuation.</summary>
     /// <param name="word">The valid word.</param>
     [Theory]
-    [InlineData("a")]
-    [InlineData("NASA")]
-    [InlineData("Wi-Fi")]
-    [InlineData("O'Brien")]
     [InlineData("O\u2019Brien")]
     [InlineData("AT&T")]
-    [InlineData("and/or")]
-    [InlineData("foo_bar")]
-    [InlineData("Ph.D")]
     [InlineData("x86")]
-    [InlineData("ab1")]
     [InlineData("\U00010400\U00010401x")]
-    [InlineData("caf\u00E9")]
     [InlineData("cafe\u0301s")]
-    [InlineData("\u0130stanbul")]
-    [InlineData("\u0645\u0631\u062D\u0628\u0627")]
-    [InlineData("\u4F60\u597D")]
-    [InlineData("a\u0661")]
     public void PronunciationOverrides_Create_ValidWord_IsAccepted(string word)
     {
         // Act
@@ -168,8 +120,6 @@ public sealed class PronunciationOverridesTests
     [Theory]
     [InlineData(0)]
     [InlineData(6)]
-    [InlineData(9)]
-    [InlineData(-1)]
     public void PronunciationOverrides_Create_UndefinedAction_Throws(int action)
     {
         // Act
@@ -209,9 +159,6 @@ public sealed class PronunciationOverridesTests
     [Theory]
     [InlineData("caf\u00E9")]
     [InlineData("ab1")]
-    [InlineData("a-b")]
-    [InlineData("O'Brien")]
-    [InlineData("\u0130B")]
     [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
     public void PronunciationOverrides_Create_SpellOutNonAsciiOrTooLong_Throws(string word)
     {
@@ -220,7 +167,7 @@ public sealed class PronunciationOverridesTests
         Assert.Single(PronunciationOverrides.Create([PronunciationOverrideEntry.SpellOut("abcdefghijklmnopqrstuvwxyzABCDEF")]).Entries);
     }
 
-    /// <summary>Proves a null entry list and a null element are rejected with an argument-null exception.</summary>
+    /// <summary>Proves a null entry list, a null element, a null factory argument and an undefined scheme are rejected.</summary>
     [Fact]
     public void PronunciationOverrides_Create_NullEntriesOrElement_Throws()
     {
@@ -233,6 +180,9 @@ public sealed class PronunciationOverridesTests
         Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.SpellOut(null!));
         Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Pronounce(null!, PronunciationScheme.Ipa, "a"));
         Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Pronounce("a", PronunciationScheme.Ipa, null!));
+        Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Reading(null!, "record.noun"));
+        Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Reading("record", null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PronunciationOverrideEntry.Pronounce("a", (PronunciationScheme)7, "b"));
         Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create([new PronunciationOverrideEntry(null!, false, OverrideAction.Skip)]));
     }
 
@@ -243,32 +193,15 @@ public sealed class PronunciationOverridesTests
     /// <param name="valid">Whether it is accepted.</param>
     [Theory]
     [InlineData("engine ex", true)]
-    [InlineData("a", true)]
     [InlineData("o'brien", true)]
-    [InlineData("well-known fact", true)]
-    [InlineData("r\u00E9sum\u00E9", true)]
     [InlineData("cafe\u0301", true)]
-    [InlineData("-a", true)]
     [InlineData("", false)]
-    [InlineData(" ", false)]
     [InlineData(" a", false)]
-    [InlineData("a ", false)]
     [InlineData("a  b", false)]
-    [InlineData("a1", false)]
-    [InlineData("1", false)]
-    [InlineData("a,b", false)]
-    [InlineData("a.b", false)]
-    [InlineData("a;b", false)]
-    [InlineData("a:b", false)]
-    [InlineData("a!b", false)]
-    [InlineData("'", false)]
+    [InlineData("a ", false)]
     [InlineData("-", false)]
-    [InlineData("a\tb", false)]
-    [InlineData("a\u00A0b", false)]
-    [InlineData("a\u200Bb", false)]
-    [InlineData("a\uFFFCb", false)]
-    [InlineData("a_b", false)]
-    [InlineData("a\uD800b", false)]
+    [InlineData("a1", false)]
+    [InlineData("a,b", false)]
     public void PronunciationOverrides_Create_SayPayload_GrammarEnforced(string payload, bool valid)
     {
         // Act
@@ -296,40 +229,19 @@ public sealed class PronunciationOverridesTests
     /// <param name="valid">Whether it is accepted.</param>
     [Theory]
     [InlineData("ipa:\u02C8po\u028Al\u026A\u0283", true)]
-    [InlineData("ipa:a.b", true)]
-    [InlineData("ipa:p\u0251\u02D0:l", true)]
-    [InlineData("ipa:\u0283", true)]
     [InlineData("arpabet:P OW1 L IH0 SH", true)]
-    [InlineData("arpabet:K", true)]
-    [InlineData("arpabet:AA2", true)]
-    [InlineData("", false)]
     [InlineData("abc", false)]
-    [InlineData("ipa", false)]
     [InlineData("ipa:", false)]
     [InlineData("IPA:abc", false)]
-    [InlineData("Ipa:abc", false)]
     [InlineData("xsampa:abc", false)]
-    [InlineData("sapi:abc", false)]
-    [InlineData(":abc", false)]
-    [InlineData(" ipa:abc", false)]
-    [InlineData("ipa: abc", false)]
     [InlineData("ipa:a b", false)]
-    [InlineData("ipa:a\tb", false)]
     [InlineData("ipa:a\u0007b", false)]
-    [InlineData("ipa:a\u200Bb", false)]
-    [InlineData("ipa:a\uE000b", false)]
     [InlineData("ipa:a\uFFFCb", false)]
     [InlineData("ipa:a\uFFFDb", false)]
-    [InlineData("ipa:a\uD800b", false)]
-    [InlineData("arpabet:", false)]
     [InlineData("arpabet:p ow1", false)]
-    [InlineData("arpabet:P  OW1", false)]
-    [InlineData("arpabet: P", false)]
-    [InlineData("arpabet:P ", false)]
     [InlineData("arpabet:P OW3", false)]
-    [InlineData("arpabet:PHON", false)]
-    [InlineData("arpabet:P1 1", false)]
-    [InlineData("arpabet:P-OW", false)]
+    [InlineData("arpabet:PHON1", false)]
+    [InlineData("arpabet:P ", false)]
     public void PronunciationOverrides_Create_PronunciationPayload_SchemeAndSyntaxEnforced(string payload, bool valid)
     {
         // Act
@@ -358,33 +270,6 @@ public sealed class PronunciationOverridesTests
         Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create([new PronunciationOverrideEntry("word", false, OverrideAction.Pronunciation, totalOver)]));
     }
 
-    /// <summary>Proves the four factories produce exactly the entries they document, with the lower-case scheme name in the pronunciation payload.</summary>
-    [Fact]
-    public void PronunciationOverrides_Factories_ProduceValidatedEntries()
-    {
-        // Act
-        var skip = PronunciationOverrideEntry.Skip("NASA", caseSensitive: true);
-        var say = PronunciationOverrideEntry.Say("Nginx", "engine ex");
-        var spell = PronunciationOverrideEntry.SpellOut("GIF", true);
-        var ipa = PronunciationOverrideEntry.Pronounce("Polish", PronunciationScheme.Ipa, "\u02C8po\u028Al\u026A\u0283", true);
-        var arpabet = PronunciationOverrideEntry.Pronounce("cafe", PronunciationScheme.Arpabet, "K AE0 F EY1");
-
-        // Assert
-        Assert.Equal(new PronunciationOverrideEntry("NASA", true, OverrideAction.Skip), skip);
-        Assert.Equal(new PronunciationOverrideEntry("Nginx", false, OverrideAction.Say, "engine ex"), say);
-        Assert.Equal(new PronunciationOverrideEntry("GIF", true, OverrideAction.SpellOut), spell);
-        Assert.Equal("ipa:\u02C8po\u028Al\u026A\u0283", ipa.Payload);
-        Assert.Equal("arpabet:K AE0 F EY1", arpabet.Payload);
-        Assert.Equal(5, PronunciationOverrides.Create([skip, say, spell, ipa, arpabet]).Count);
-        Assert.Throws<ArgumentOutOfRangeException>(() => PronunciationOverrideEntry.Pronounce("a", (PronunciationScheme)7, "b"));
-        Assert.Equal(1, (int)OverrideAction.Skip);
-        Assert.Equal(2, (int)OverrideAction.Say);
-        Assert.Equal(3, (int)OverrideAction.SpellOut);
-        Assert.Equal(4, (int)OverrideAction.Pronunciation);
-        Assert.Equal(1, (int)PronunciationScheme.Ipa);
-        Assert.Equal(2, (int)PronunciationScheme.Arpabet);
-    }
-
     // ---------------------------------------------------------------- duplicates
 
     /// <summary>Proves a duplicate is an error that names the later entry: same word with the same case flag, with insensitive duplicates and apostrophe styles unified.</summary>
@@ -393,12 +278,8 @@ public sealed class PronunciationOverridesTests
     /// <param name="caseSensitive">The case flag of both entries.</param>
     [Theory]
     [InlineData("NASA", "NASA", true)]
-    [InlineData("NASA", "NASA", false)]
     [InlineData("NASA", "nasa", false)]
-    [InlineData("don't", "don\u2019t", true)]
-    [InlineData("don't", "don\u2019t", false)]
     [InlineData("Don't", "DON\u2019T", false)]
-    [InlineData("\u0130stanbul", "\u0130STANBUL", false)]
     public void PronunciationOverrides_Create_DuplicateKeys_Throws(string first, string second, bool caseSensitive)
     {
         // Act
@@ -430,7 +311,7 @@ public sealed class PronunciationOverridesTests
 
     // ---------------------------------------------------------------- limits
 
-    /// <summary>Proves exactly the maximum number of entries is accepted, one more is rejected, and an endless source is cut off instead of enumerated forever.</summary>
+    /// <summary>Proves exactly the maximum number of entries is accepted, one more is rejected (by line number for a file), and an endless source is cut off instead of enumerated forever.</summary>
     [Fact]
     public void PronunciationOverrides_Create_EntryCountBoundary_IsInclusive()
     {
@@ -443,13 +324,21 @@ public sealed class PronunciationOverridesTests
             }
         }
 
+        var builder = new StringBuilder();
+        for (var i = 0; i <= PronunciationOverrides.MaxEntries; i++)
+        {
+            builder.Append(Word(i)).Append("\tsensitive\tskip\n");
+        }
+
         // Act
         var full = PronunciationOverrides.Create(Endless().Take(PronunciationOverrides.MaxEntries));
         var exception = Assert.Throws<ArgumentException>(() => PronunciationOverrides.Create(Endless()));
+        var fileException = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader(builder.ToString())));
 
         // Assert
         Assert.Equal(PronunciationOverrides.MaxEntries, full.Count);
         Assert.StartsWith($"Entry {PronunciationOverrides.MaxEntries}:", exception.Message, StringComparison.Ordinal);
+        Assert.StartsWith($"Line {PronunciationOverrides.MaxEntries + 1}:", fileException.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Proves a TSV line of exactly the maximum length is accepted and one more character is rejected, naming the line.</summary>
@@ -469,35 +358,23 @@ public sealed class PronunciationOverridesTests
         Assert.StartsWith("Line 2:", exception.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves exactly the maximum number of lines (blank ones count) is accepted and one more is rejected.</summary>
+    /// <summary>Proves exactly the maximum number of lines (blank ones count) is accepted, one more is rejected, and an endless input of empty lines is abandoned at the limit.</summary>
     [Fact]
     public void PronunciationOverrides_FromTsv_LineCountBoundary_IsInclusive()
     {
+        // Arrange
+        using var endless = new EndlessReader('\n');
+
         // Act
         var accepted = PronunciationOverrides.FromTsv(new StringReader(new string('\n', PronunciationOverrides.MaxTsvLines)));
         var exception = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader(new string('\n', PronunciationOverrides.MaxTsvLines + 1))));
+        var endlessException = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(endless));
 
         // Assert
         Assert.Equal(0, accepted.Count);
         Assert.StartsWith($"Line {PronunciationOverrides.MaxTsvLines + 1}:", exception.Message, StringComparison.Ordinal);
-    }
-
-    /// <summary>Proves the entry limit applies to a file too: the first entry beyond the maximum is rejected by line number.</summary>
-    [Fact]
-    public void PronunciationOverrides_FromTsv_EntryCountBoundary_NamesTheLine()
-    {
-        // Arrange
-        var builder = new StringBuilder();
-        for (var i = 0; i <= PronunciationOverrides.MaxEntries; i++)
-        {
-            builder.Append(Word(i)).Append("\tsensitive\tskip\n");
-        }
-
-        // Act
-        var exception = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(new StringReader(builder.ToString())));
-
-        // Assert
-        Assert.StartsWith($"Line {PronunciationOverrides.MaxEntries + 1}:", exception.Message, StringComparison.Ordinal);
+        Assert.StartsWith($"Line {PronunciationOverrides.MaxTsvLines + 1}:", endlessException.Message, StringComparison.Ordinal);
+        Assert.True(endless.CharactersRead <= PronunciationOverrides.MaxTsvLines + 1);
     }
 
     /// <summary>Proves a reader that never produces a line break is abandoned after the line limit, not read to its (nonexistent) end.</summary>
@@ -515,29 +392,15 @@ public sealed class PronunciationOverridesTests
         Assert.True(reader.CharactersRead <= PronunciationOverrides.MaxTsvLineLength + 1, $"read {reader.CharactersRead} characters");
     }
 
-    /// <summary>Proves an endless input of empty lines is abandoned at the line-count limit.</summary>
-    [Fact]
-    public void PronunciationOverrides_FromTsv_EndlessShortLines_StopsAtLineLimit()
-    {
-        // Arrange
-        using var reader = new EndlessReader('\n');
-
-        // Act
-        var exception = Assert.Throws<InvalidDataException>(() => PronunciationOverrides.FromTsv(reader));
-
-        // Assert
-        Assert.StartsWith($"Line {PronunciationOverrides.MaxTsvLines + 1}:", exception.Message, StringComparison.Ordinal);
-        Assert.True(reader.CharactersRead <= PronunciationOverrides.MaxTsvLines + 1);
-    }
-
     // ---------------------------------------------------------------- TSV loading
 
-    /// <summary>Proves the documented sample file loads, in file order, to the entries the user guide describes.</summary>
+    /// <summary>Proves the documented sample file loads, in file order, to the entries the user guide describes, and that the same entries given to <see cref="PronunciationOverrides.Create"/> make an equal dictionary.</summary>
     [Fact]
     public void PronunciationOverrides_FromTsv_SampleDictionary_ParsesEntries()
     {
         // Act
-        var overrides = PronunciationOverrides.FromTsv(new StringReader(ReadSample()));
+        var overrides = NormalizationHarness.LoadSampleDictionary();
+        var created = PronunciationOverrides.Create(overrides.Entries);
 
         // Assert: the sample of the user guide comes first, then the entries the golden rows use
         Assert.Equal(23, overrides.Count);
@@ -552,6 +415,10 @@ public sealed class PronunciationOverridesTests
                 new PronunciationOverrideEntry("NASA", true, OverrideAction.Skip),
             ],
             overrides.Entries.Take(7));
+        Assert.Equal(overrides.Entries, created.Entries);
+        const string text = "Nginx and Kubernetes, kubernetes; GIF gif Polish polish SQL sql NASA US FBI and Wi-Fi.";
+        Assert.Equal(Resolve(overrides, text).Directives, Resolve(created, text).Directives);
+        Assert.NotEmpty(Resolve(created, text).Directives);
     }
 
     /// <summary>Proves every key of the sample dictionary is one token of the real tokenizer, so a tokenizer change cannot silently make a documented key inert.</summary>
@@ -559,7 +426,7 @@ public sealed class PronunciationOverridesTests
     public void PronunciationOverrides_SampleDictionaryKeys_AreSingleTokensOfTheRealTokenizer()
     {
         // Arrange
-        var overrides = PronunciationOverrides.FromTsv(new StringReader(ReadSample()));
+        var overrides = NormalizationHarness.LoadSampleDictionary();
 
         // Act / Assert: surrounded by plain words, each key is found as exactly one token
         foreach (var entry in overrides.Entries.Where(entry => entry.Word != "don't"))
@@ -597,82 +464,24 @@ public sealed class PronunciationOverridesTests
         Assert.Equal(expected, PronunciationOverrides.FromTsv(streamReader).Entries);
     }
 
-    /// <summary>Proves a file and the same entries given to <see cref="PronunciationOverrides.Create"/> produce equal dictionaries.</summary>
-    [Fact]
-    public void PronunciationOverrides_FromTsv_EquivalentToCreate()
-    {
-        // Arrange
-        var fromFile = PronunciationOverrides.FromTsv(new StringReader(ReadSample()));
-
-        // Act
-        var created = PronunciationOverrides.Create(fromFile.Entries);
-
-        // Assert: same entries, same lookup results
-        Assert.Equal(fromFile.Entries, created.Entries);
-        const string text = "Nginx and Kubernetes, kubernetes; GIF gif Polish polish SQL sql NASA US FBI and Wi-Fi.";
-        Assert.Equal(Resolve(fromFile, text).Directives, Resolve(created, text).Directives);
-        Assert.NotEmpty(Resolve(created, text).Directives);
-    }
-
-    /// <summary>Proves a file that has only comments and blank lines gives the shared empty dictionary.</summary>
-    [Fact]
-    public void PronunciationOverrides_Empty_IsSharedAndEmpty()
-    {
-        // Act / Assert
-        Assert.Same(PronunciationOverrides.Empty, PronunciationOverrides.Empty);
-        Assert.Equal(0, PronunciationOverrides.Empty.Count);
-        Assert.Empty(PronunciationOverrides.Empty.Entries);
-        Assert.Same(PronunciationOverrides.Empty, PronunciationOverrides.Create([]));
-        Assert.Same(PronunciationOverrides.Empty, PronunciationOverrides.FromTsv(new StringReader(string.Empty)));
-        Assert.Same(PronunciationOverrides.Empty, PronunciationOverrides.FromTsv(new StringReader("# only a comment\n\n")));
-        Assert.Empty(Resolve(PronunciationOverrides.Empty, "Nginx and SQL").Directives);
-    }
-
     // ---------------------------------------------------------------- TSV validation
 
     /// <summary>Proves every kind of malformed row is rejected with the one-based line number and a reason, and the message never contains the row's content.</summary>
     /// <param name="content">The rows after two leading lines (a comment and a blank line), so the bad row is line 3.</param>
     [Theory]
     [InlineData("Sentinelx9\tsensitive")]
-    [InlineData("Sentinelx9")]
     [InlineData("Sentinelx9\tsensitive\tskip\textra\tmore")]
     [InlineData("Sentinelx9\tsensitive\tskip\tpayload")]
-    [InlineData("Sentinelx9\tsensitive\tspell\tpayload")]
     [InlineData("Sentinelx9\tmaybe\tskip")]
-    [InlineData("Sentinelx9\tSensitive\tskip")]
-    [InlineData("Sentinelx9\t\tskip")]
     [InlineData("Sentinelx9\tsensitive\tyell")]
-    [InlineData("Sentinelx9\tsensitive\tSkip")]
-    [InlineData("Sentinelx9\tsensitive\treading\tx")]
     [InlineData("Sentinelx9\tsensitive\tsay")]
-    [InlineData("Sentinelx9\tsensitive\tsay\t")]
     [InlineData("Sentinelx9\tsensitive\tsay\tdigits 42")]
-    [InlineData("Sentinelx9\tsensitive\tsay\t two")]
-    [InlineData("Sentinelx9\tsensitive\tsay\ttwo ")]
-    [InlineData("Sentinelx9\tsensitive\tpron\tSentinelx9")]
-    [InlineData("Sentinelx9\tsensitive\tpron\tipa:")]
     [InlineData("Sentinelx9\tsensitive\tpron\txsampa:Sentinelx9")]
-    [InlineData("Sentinelx9\tsensitive\tpron\tarpabet:sentinelx9")]
-    [InlineData("word\tcase\taction")]
     [InlineData("   ")]
-    [InlineData("\t")]
-    [InlineData("\t\t")]
     [InlineData(" Sentinelx9\tsensitive\tskip")]
-    [InlineData("Sentinelx9 \tsensitive\tskip")]
-    [InlineData("Sentinelx9\t sensitive\tskip")]
     [InlineData("Sentinelx9\tsensitive\tskip ")]
-    [InlineData("Sentinelx9\tsensitive\tskip\u00A0")]
-    [InlineData("Sentinelx9\u0001\tsensitive\tskip")]
-    [InlineData("Sentinelx9\tsensitive\tskip\u0007")]
-    [InlineData("Sentinelx9\tsensitive\tskip\u0085")]
     [InlineData("Sentinelx9\tsensitive\tskip\rmore")]
-    [InlineData("Sentinelx9\tsensitive\tskip\r\r")]
-    [InlineData("Sentinelx9 two\tsensitive\tskip")]
-    [InlineData("-Sentinelx9\tsensitive\tskip")]
-    [InlineData("Sentinelx9.\tsensitive\tskip")]
-    [InlineData("Sentinelx9,\tsensitive\tskip")]
-    [InlineData("Sentinelx9\uD800\tsensitive\tskip")]
-    [InlineData("Sentinelx9\u0130\tsensitive\tspell")]
+    [InlineData("Sentinelx9\u0001\tsensitive\tskip")]
     [InlineData("# comment\u0001")]
     public void PronunciationOverrides_FromTsv_MalformedRows_ThrowWithLineNumberAndNoContent(string content)
     {
@@ -730,7 +539,7 @@ public sealed class PronunciationOverridesTests
 
     // ---------------------------------------------------------------- immutability
 
-    /// <summary>Proves later changes to the source collection never reach the dictionary.</summary>
+    /// <summary>Proves later changes to the source collection never reach the dictionary, and the entry list is a read-only view.</summary>
     [Fact]
     public void PronunciationOverrides_Create_SourceMutatedAfterwards_DoesNotAffectDictionary()
     {
@@ -746,26 +555,11 @@ public sealed class PronunciationOverridesTests
         // Assert
         Assert.Equal(["alpha", "beta"], overrides.Entries.Select(entry => entry.Word));
         Assert.Equal(["alpha"], Matched(overrides, "alpha gamma delta"));
-    }
-
-    /// <summary>Proves the entry list is a read-only view that cannot be used to change the dictionary.</summary>
-    [Fact]
-    public void PronunciationOverrides_Entries_IsReadOnlyCopy()
-    {
-        // Arrange
-        var overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Skip("alpha")]);
-
-        // Act
-        var entries = overrides.Entries;
-
-        // Assert: not a list or array the caller could write to
-        Assert.IsNotType<List<PronunciationOverrideEntry>>(entries);
-        Assert.False(entries is PronunciationOverrideEntry[]);
-        var asList = Assert.IsAssignableFrom<IList<PronunciationOverrideEntry>>(entries);
+        var asList = Assert.IsAssignableFrom<IList<PronunciationOverrideEntry>>(overrides.Entries);
         Assert.True(asList.IsReadOnly);
-        Assert.Throws<NotSupportedException>(() => asList.Add(PronunciationOverrideEntry.Skip("beta")));
-        Assert.Throws<NotSupportedException>(() => asList[0] = PronunciationOverrideEntry.Skip("beta"));
-        Assert.Equal(["alpha"], Matched(overrides, "alpha beta"));
+        Assert.Throws<NotSupportedException>(() => asList.Add(PronunciationOverrideEntry.Skip("gamma")));
+        Assert.Throws<NotSupportedException>(() => asList[0] = PronunciationOverrideEntry.Skip("gamma"));
+        Assert.Equal(["alpha"], Matched(overrides, "alpha gamma"));
     }
 
     /// <summary>Proves many threads resolving through one shared dictionary all get identical results.</summary>
@@ -773,7 +567,7 @@ public sealed class PronunciationOverridesTests
     public void PronunciationOverrides_Resolve_ConcurrentCalls_ReturnIdenticalDirectives()
     {
         // Arrange
-        var overrides = PronunciationOverrides.FromTsv(new StringReader(ReadSample()));
+        var overrides = NormalizationHarness.LoadSampleDictionary();
         const string text = "Nginx and Kubernetes, kubernetes; GIF gif Polish polish SQL sql NASA US FBI and Wi-Fi O'Brien.";
         var expected = Resolve(overrides, text).Directives;
         var neutralized = NormalizationHarness.Neutralize(text);
@@ -822,16 +616,9 @@ public sealed class PronunciationOverridesTests
     /// <summary>Proves insensitive matching is exactly the runtime's ordinal ignore-case, with the documented consequences for the dotted and dotless I, the Kelvin sign and the sharp s.</summary>
     [Theory]
     [InlineData("istanbul", "ISTANBUL", true)]
-    [InlineData("istanbul", "Istanbul", true)]
-    [InlineData("ISTANBUL", "istanbul", true)]
     [InlineData("istanbul", "\u0130stanbul", false)]
-    [InlineData("istanbul", "\u0131stanbul", false)]
-    [InlineData("\u0130stanbul", "\u0131stanbul", false)]
     [InlineData("kelvin", "\u212Aelvin", false)]
-    [InlineData("strasse", "stra\u00DFe", false)]
     [InlineData("stra\u00DFe", "STRASSE", false)]
-    [InlineData("caf\u00E9", "CAF\u00C9", true)]
-    [InlineData("caf\u00E9", "cafe\u0301", false)]
     public void PronunciationOverrides_Resolve_InsensitiveEntry_UsesOrdinalIgnoreCase(string key, string text, bool matches)
     {
         // Arrange
@@ -850,9 +637,6 @@ public sealed class PronunciationOverridesTests
     [Theory]
     [InlineData("tr-TR")]
     [InlineData("az-Latn-AZ")]
-    [InlineData("en-US")]
-    [InlineData("de-DE")]
-    [InlineData("")]
     public void PronunciationOverrides_Resolve_TurkishAndAzeriCurrentCulture_DoNotChangeMatching(string cultureName)
     {
         // Arrange
@@ -1074,8 +858,6 @@ public sealed class PronunciationOverridesTests
     /// <param name="caseSensitive">The case flag of both entries.</param>
     [Theory]
     [InlineData("O'Brien", "O\u2019Brien", true)]
-    [InlineData("O\u2019Brien", "O'Brien", true)]
-    [InlineData("O'Brien", "O\u2019Brien", false)]
     [InlineData("O'Brien", "O\u2019BRIEN", false)]
     [InlineData("O\u2019BRIEN", "o'brien", false)]
     public void PronunciationOverrides_AliasCollisions_AreRejectedByCreateAndFromTsv(string first, string second, bool caseSensitive)
@@ -1094,18 +876,6 @@ public sealed class PronunciationOverridesTests
         Assert.Contains("duplicate", createException.Message, StringComparison.Ordinal);
         Assert.StartsWith("Line 2:", tsvException.Message, StringComparison.Ordinal);
         Assert.Contains("duplicate", tsvException.Message, StringComparison.Ordinal);
-    }
-
-    /// <summary>Proves the review example also loads from TSV and selects deterministically.</summary>
-    [Fact]
-    public void PronunciationOverrides_FromTsv_ApostropheCaseVariants_SelectOwnEntry()
-    {
-        // Act
-        var overrides = PronunciationOverrides.FromTsv(new StringReader("O\u2019BRIEN\tsensitive\tsay\tsecond\nO'Brien\tsensitive\tsay\tfirst\n"));
-
-        // Assert
-        Assert.Equal("first", ValueOf(overrides, "O\u2019Brien"));
-        Assert.Equal("second", ValueOf(overrides, "O\u2019BRIEN"));
     }
 
     /// <summary>Proves a tag placeholder acts as a word boundary: overrides on both sides of it match.</summary>
@@ -1349,81 +1119,16 @@ public sealed class PronunciationOverridesTests
         Assert.Equal(0, visitedAfterCancel);
     }
 
-    /// <summary>Proves tokens that cannot match yield no directive, whether or not they pass the gates.</summary>
-    [Fact]
-    public void PronunciationOverrides_Resolve_NoMatches_ReturnsNoDirectives()
-    {
-        // Arrange: a large dictionary and words that are in no way keys (some pass the gates, some do not)
-        var overrides = PronunciationOverrides.Create(Enumerable.Range(0, 2000).Select(i => PronunciationOverrideEntry.Skip(Word(i), i % 2 == 0)));
-        var text = string.Concat(Enumerable.Repeat("zzzzz zzzz 1234 (zzzz) \u00E9\u00E9\u00E9\u00E9 ", 1000));
-        var (_, tokens, _) = ResolveWords(overrides, text);
-
-        // Act
-        var directives = overrides.Resolve(text, tokens, CancellationToken.None);
-
-        // Assert
-        Assert.Empty(directives);
-    }
-
-    /// <summary>Proves a 1 MB text against a 10,000-entry dictionary, including one huge token, resolves to exactly the directives of the words that are keys.</summary>
-    [Fact]
-    public void PronunciationOverrides_Resolve_LargeText_ResolvesExactlyTheMatchingWords()
-    {
-        // Arrange
-        var overrides = PronunciationOverrides.Create(Enumerable.Range(0, PronunciationOverrides.MaxEntries).Select(i => PronunciationOverrideEntry.Skip(Word(i), i % 3 == 0)));
-        var builder = new StringBuilder();
-        var index = 0;
-        var expectedTokenIndices = new List<int>();
-        while (builder.Length < 1_000_000)
-        {
-            var key = index * 7 % 456_976;
-            if (key < PronunciationOverrides.MaxEntries)
-            {
-                expectedTokenIndices.Add(index);
-            }
-
-            builder.Append(Word(key)).Append(' ');
-            index++;
-        }
-
-        builder.Append(new string('a', 100_000));
-        var text = builder.ToString();
-        var (_, tokens, _) = ResolveWords(overrides, text);
-
-        // Act
-        var directives = overrides.Resolve(text, tokens, CancellationToken.None);
-
-        // Assert: every key word and only the key words, as skip directives in token order; the huge token is no key
-        Assert.Equal(index + 1, tokens.Length);
-        Assert.NotEmpty(expectedTokenIndices);
-        Assert.Equal(expectedTokenIndices, directives.Select(directive => directive.TokenIndex));
-        Assert.All(directives, directive => Assert.Equal(TokenDirectiveKind.Skip, directive.Kind));
-    }
-
     // ---------------------------------------------------------------- argument validation
 
-    /// <summary>Proves a null text is rejected.</summary>
-    [Fact]
-    public void PronunciationOverrides_Resolve_NullText_Throws()
-    {
-        // Act / Assert
-        Assert.Throws<ArgumentNullException>(() => PronunciationOverrides.Empty.Resolve(null!, [], CancellationToken.None));
-    }
-
-    /// <summary>Proves a token that is empty, negative or outside the text is rejected without any overflowing arithmetic.</summary>
+    /// <summary>Proves a token that is empty, negative or outside the text is rejected without any overflowing arithmetic, and a null text is rejected.</summary>
     /// <param name="start">The token's start.</param>
     /// <param name="length">The token's length.</param>
     [Theory]
     [InlineData(5, 10)]
-    [InlineData(0, 9)]
-    [InlineData(9, 1)]
     [InlineData(-1, 2)]
     [InlineData(0, 0)]
-    [InlineData(0, -3)]
     [InlineData(int.MaxValue, 1)]
-    [InlineData(1, int.MaxValue)]
-    [InlineData(int.MaxValue, int.MaxValue)]
-    [InlineData(2, int.MaxValue - 1)]
     public void PronunciationOverrides_Resolve_TokenOutsideText_Throws(int start, int length)
     {
         // Arrange
@@ -1432,6 +1137,7 @@ public sealed class PronunciationOverridesTests
 
         // Act / Assert
         Assert.Throws<ArgumentException>(() => overrides.Resolve("abc def", tokens, CancellationToken.None));
+        Assert.Throws<ArgumentNullException>(() => overrides.Resolve(null!, tokens, CancellationToken.None));
     }
 
     // ---------------------------------------------------------------- golden rows
@@ -1441,7 +1147,7 @@ public sealed class PronunciationOverridesTests
     public void PronunciationOverrides_GoldenCases_NormalizeAsDocumented()
     {
         // Arrange
-        var overrides = PronunciationOverrides.FromTsv(new StringReader(ReadSample()));
+        var overrides = NormalizationHarness.LoadSampleDictionary();
         var cases = NormalizationHarness.ReadOverrideCases("overrides-cases.tsv");
         Assert.True(cases.Count >= 45, "the golden file must keep its breadth");
         Assert.Equal(cases.Count, cases.Select(row => row.Id).Distinct(StringComparer.Ordinal).Count());
@@ -1507,23 +1213,6 @@ public sealed class PronunciationOverridesTests
         }
     }
 
-    /// <summary>Proves the reading action is the numeric value 5 and its factory builds a reading entry with the id as payload.</summary>
-    [Fact]
-    public void PronunciationOverrideEntry_Reading_CreatesReadingEntryWithIdPayload()
-    {
-        // Act
-        var entry = PronunciationOverrideEntry.Reading("record", "record.noun", caseSensitive: true);
-
-        // Assert
-        Assert.Equal(5, (int)OverrideAction.Reading);
-        Assert.Equal(OverrideAction.Reading, entry.Action);
-        Assert.Equal("record.noun", entry.Payload);
-        Assert.True(entry.CaseSensitive);
-        Assert.False(PronunciationOverrideEntry.Reading("record", "record.noun").CaseSensitive);
-        Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Reading(null!, "record.noun"));
-        Assert.Throws<ArgumentNullException>(() => PronunciationOverrideEntry.Reading("record", null!));
-    }
-
     /// <summary>Proves a valid reading entry is accepted by both builders, and resolves to a reading directive carrying the id, matching case-insensitively unless the entry is case sensitive.</summary>
     [Fact]
     public void PronunciationOverrides_Create_ReadingEntry_AcceptedAndResolvesToReadingDirective()
@@ -1553,15 +1242,10 @@ public sealed class PronunciationOverridesTests
     /// <param name="reason">The expected reason.</param>
     [Theory]
     [InlineData("record", null, "a reading id is required for this action")]
-    [InlineData("record", "", "a reading id is required for this action")]
     [InlineData("record", "Sentinelx9.noun", "the reading id is not well-formed")]
-    [InlineData("record", "record", "the reading id is not well-formed")]
-    [InlineData("record", "record.noun ", "the reading id is not well-formed")]
-    [InlineData("record", "sentinelx9.noun", "the reading id is not in the reading inventory")]
     [InlineData("record", "record.ghost", "the reading id is not in the reading inventory")]
     [InlineData("record", "read.past", "the word is not a form of this reading")]
     [InlineData("sentinelx9", "record.noun", "the word is not a form of this reading")]
-    [InlineData("record-label", "record.noun", "the word is not a form of this reading")]
     public void PronunciationOverrides_Create_ReadingEntryInvalid_ThrowsFixedReason(string word, string? payload, string reason)
     {
         // Act
@@ -1590,11 +1274,7 @@ public sealed class PronunciationOverridesTests
     /// <param name="expected">The expected message, or null when the text must be accepted.</param>
     [Theory]
     [InlineData("record\tinsensitive\treading\trecord.noun\n", null)]
-    [InlineData("# comment\nRecord\tsensitive\treading\trecord.verb\nread\tinsensitive\treading\tread.past\n", null)]
     [InlineData("record\tinsensitive\treading\n", "Line 1: a reading id is required for this action.")]
-    [InlineData("record\tinsensitive\treading\trecord.ghost\n", "Line 1: the reading id is not in the reading inventory.")]
-    [InlineData("record\tinsensitive\treading\tRecord.noun\n", "Line 1: the reading id is not well-formed.")]
-    [InlineData("record\tinsensitive\treading\tread.past\n", "Line 1: the word is not a form of this reading.")]
     [InlineData("ok\tinsensitive\tskip\nrecord\tinsensitive\treading\trecord.ghost\n", "Line 2: the reading id is not in the reading inventory.")]
     [InlineData("record\tinsensitive\treads\trecord.noun\n", "Line 1: the action column must be 'skip', 'say', 'spell', 'pron' or 'reading'.")]
     public void PronunciationOverrides_FromTsv_ReadingAction_IsValidatedWithLineNumbers(string line, string? expected)

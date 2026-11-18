@@ -37,19 +37,18 @@ The subsystem exposes two command line interfaces and no public API: every type 
 and writes the model file and the training record; `train --check` verifies them; `evaluate [options]` evaluates,
 decides the gate and writes or verifies the evaluation record. The options and the exit codes (0 success, 1 a stale
 model or record or a failed gate, 2 a usage, input or I/O error) are described with *TrainCommand Design* and
-*EvaluateCommand Design*; progress and results are written as lines that start with `train:` or `evaluate:` to the
-standard output, and usage and input errors to the standard error.
+*EvaluateCommand Design*; progress and results go to the standard output as lines that start with `train:` or
+`evaluate:`, and usage and input errors to the standard error.
 
-The subsystem consumes the .NET base class library, the TrainingDataSubsystem (the strict table reader, the data folder
-discovery and the row header: `TsvTable`, `CheckReport`, `TextEnDataSet` and `CheckDataCommand`), the internals of the
-Text.En library through `InternalsVisibleTo`, and the version of the `DemaConsulting.PartOfSpeech` assembly, whose
+The subsystem consumes the .NET base class library, the TrainingDataSubsystem (`TsvTable`, `CheckReport`,
+`TextEnDataSet` and `CheckDataCommand`: the strict table reader, the data folder discovery and the row header), the
+internals of the Text.En library through `InternalsVisibleTo`, and the `DemaConsulting.PartOfSpeech` assembly, whose
 tagger the library's adapter wraps. The classes live in the `DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem`
 namespace. The committed locations that the commands derive from the data folder are
 `src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin` (the model),
 `tools/DemaConsulting.Speech.Text.En.Trainer/training.json` (the training record) and `docs/evaluation/text-en/` (the
-evaluation record). All three are committed and the model is embedded in the package, so `train --check` and
-`evaluate --check` verify the shipped files; continuous integration runs both on every operating system of the build
-matrix.
+evaluation record). The model is embedded in the package, so `train --check` and `evaluate --check` verify the shipped
+files; continuous integration runs both on every operating system of the build matrix.
 
 ### Design
 
@@ -59,10 +58,10 @@ on the development rows, keeps the best, chooses the temperature and builds the 
 image and the `TrainingResult`. `TrainCommand` writes the compressed model and the `TrainingRecord`. `train --check`
 runs the same flow with the recorded settings and compares the outcome with the record and the committed model.
 
-**Evaluation flow.** `EvaluateCommand` loads the model and the settings, loads the corpus, and has the
-`HeteronymEvaluator` score each requested set through the real analyzer, compare it with the direct classifier path, and
-compute the baselines, strata and bootstrap interval. It decides the gate with `HeteronymEvaluator.DecideGate`, runs the
-multi-seed study with `ModelSelection`, and has `EvaluationRecord` write or verify the record.
+**Evaluation flow.** `EvaluateCommand` loads the model, the settings and the corpus, and has the `HeteronymEvaluator`
+score each requested set through the real analyzer, compare it with the direct classifier path, and compute the
+baselines, strata and bootstrap interval. It decides the gate with `HeteronymEvaluator.DecideGate`, runs the multi-seed
+study with `ModelSelection`, and has `EvaluationRecord` write or verify the record.
 
 **Unit collaboration.** `TrainingCorpus` is the only unit that opens a training file, `ModelSelection` the only one that
 makes a development-set choice and builds a model, `HeteronymEvaluator` the only one that opens a holdout file, and
@@ -113,12 +112,11 @@ platform, and a committed model can therefore be verified by retraining. The con
 The records hold no time stamp, host name or duration; durations are printed to the console only.
 
 **The quality gate.** The gate is decided on the natural holdout with two conditions, both required: the pooled
-end-to-end accuracy is at least a threshold (930 per mille by default, with a row for which no reading is emitted
-counted as
-wrong), and the lower bound of a two-sided percentile interval (95% by default) of the paired, document-clustered
-bootstrap of the accuracy of the model minus the accuracy of the own-part-of-speech baseline is above zero, with the
-bounds compared exactly. The independent holdout is reported but is not part of the gate. The settings are committed in
-the training record before the first holdout evaluation, and are not changed by a result.
+end-to-end accuracy is at least a threshold (930 per mille by default, a row with no emitted reading counted as wrong),
+and the lower bound of a two-sided percentile interval (95% by default) of the paired, document-clustered bootstrap of
+the accuracy of the model minus the accuracy of the own-part-of-speech baseline is above zero, with the bounds compared
+exactly. The independent holdout is reported but is not part of the gate. The settings are committed in the training
+record before the first holdout evaluation, and are not changed by a result.
 
 **Concurrency and cancellation.** None: both commands are single threaded, run to completion, and keep no state between
 runs; the evaluator caches the sets it has prepared for the duration of one run only.

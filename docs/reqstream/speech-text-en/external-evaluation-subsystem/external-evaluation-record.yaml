@@ -1,0 +1,47 @@
+---
+# Software Unit Requirements for ExternalEvaluationRecord
+#
+# These requirements describe the design-level behavior of the ExternalEvaluationRecord unit (with the report
+# records that are documented with it), the deterministic tab-separated record files of the external evaluation of
+# the Text.En model, decomposing the parent SpeechTextEn ExternalEvaluationSubsystem requirements. Each requirement
+# states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/ExternalEvaluationRecordTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        sections:
+          - title: ExternalEvaluationRecord Requirements
+            requirements:
+              - id: SpeechTextEn-ExternalEvaluation-ExternalEvaluationRecord-Record
+                title: >-
+                  The ExternalEvaluationRecord unit shall produce the same files for the same evaluation
+                  every time, in ordinal file-name order, with integers and basis points only, a fixed
+                  column order, line feeds only and a final line feed, shall write the hash of the
+                  evaluated model, the settings, the pins of each source, the counts of each set and, for
+                  each set and seed, the figures followed by their mean, minimum and maximum, and shall
+                  compare a folder with an evaluation, naming every file that is edited, missing or
+                  different.
+                justification: |
+                  The record is committed and compared, so any variation that does not come from the
+                  evaluation would make a current record look stale. A figure is only meaningful together
+                  with the data it was measured on, and the spread over seeds shows how much of it is the
+                  data and how much is the seed.
+                tests:
+                  - ExternalEvaluationRecord_Render_IsDeterministicWithFixedFilesAndLineFeeds
+                  - ExternalEvaluationRecord_Render_SourcesAndConversion_ListPinsAndCounts
+                  - ExternalEvaluationRecord_Render_Seeds_HasPerSeedRowsAndSpread
+                  - ExternalEvaluationRecord_WriteThenCompare_DetectsEditedAndMissingFiles
+
+              - id: SpeechTextEn-ExternalEvaluation-ExternalEvaluationRecord-NoDatasetText
+                title: >-
+                  The ExternalEvaluationRecord unit shall write no sentence, target word or label of an
+                  external dataset in any file.
+                justification: |
+                  The datasets carry share-alike licenses and nothing of them is committed. A record with
+                  only counts, set names, the repository's own reading identifiers and the pins cannot
+                  carry any of their text.
+                tests:
+                  - ExternalEvaluationRecord_Render_HoldsNoDatasetText

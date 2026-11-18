@@ -133,25 +133,6 @@ internal static class SparsePerceptronModelWriter
     }
 
     /// <summary>
-    ///     Compiles weights and writes the model file to a stream.
-    /// </summary>
-    /// <param name="output">The stream to write to. Must not be null; not disposed.</param>
-    /// <param name="hashBits">See <see cref="Compile"/>.</param>
-    /// <param name="inventoryVersion">See <see cref="Compile"/>.</param>
-    /// <param name="temperature">See <see cref="Compile"/>.</param>
-    /// <param name="scale">See <see cref="Compile"/>.</param>
-    /// <param name="weights">See <see cref="Compile"/>.</param>
-    /// <param name="compress">See <see cref="Compile"/>.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="output"/> or <paramref name="weights"/> is null.</exception>
-    /// <exception cref="ArgumentException">See <see cref="Compile"/>.</exception>
-    internal static void Write(Stream output, int hashBits, int inventoryVersion, float temperature, float scale, IEnumerable<(uint Bucket, short Weight)> weights, bool compress = true)
-    {
-        ArgumentNullException.ThrowIfNull(output);
-        var image = Compile(hashBits, inventoryVersion, temperature, scale, weights, compress);
-        output.Write(image, 0, image.Length);
-    }
-
-    /// <summary>
     ///     Rewrites a valid model file with an uncompressed payload and every other field unchanged.
     /// </summary>
     /// <param name="image">The bytes of a valid model file, compressed or not. Must not be null.</param>

@@ -17,8 +17,10 @@ package SpeechTextEn {
      * the training and evaluation data in data/text-en/, and the TrainingSubsystem is the non-shipped
      * train and evaluate commands of the same tool that train and measure the heteronym model with
      * the library's own internal feature extractor, scoring and model format (through
-     * InternalsVisibleTo); neither is part of the package and the runtime subsystems do not know
-     * them.
+     * InternalsVisibleTo), and the ExternalEvaluationSubsystem is the non-shipped evaluate-external
+     * command of the same tool that measures the embedded model on pinned, evaluation-only external
+     * datasets fetched into a cache that is never committed; none is part of the package and the
+     * runtime subsystems do not know them.
      */
 
     part def SpeechTextEnSystem {
@@ -34,6 +36,7 @@ package SpeechTextEn {
         part heteronymSubsystem : HeteronymSubsystem;
         part trainingDataSubsystem : TrainingDataSubsystem;
         part trainingSubsystem : TrainingSubsystem;
+        part externalEvaluationSubsystem : ExternalEvaluationSubsystem;
         part partOfSpeech : PartOfSpeech;
     }
 }

@@ -24,60 +24,19 @@ public sealed class AbbreviationResolverTests
         return (found, match);
     }
 
-    /// <summary>Proves the shipped lexicon loads and has rows for every documented group.</summary>
-    [Fact]
-    public void AbbreviationResolver_Default_Lexicon_LoadsWithRows()
-    {
-        // Act
-        var resolver = AbbreviationResolver.Default;
-
-        // Assert
-        Assert.True(resolver.Count >= 70);
-    }
-
-    /// <summary>Proves each unambiguous lexicon form resolves to its spoken form in a neutral context.</summary>
+    /// <summary>Proves a representative lexicon form of each kind resolves to its spoken form in a neutral context; the other forms are rows of the golden file.</summary>
     /// <param name="text">A sentence containing the form.</param>
     /// <param name="word">The start of the form's token.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
-    [InlineData("Mrs. Smith left.", "Mrs.", "Missus")]
-    [InlineData("Messrs. Smith and Jones left.", "Messrs.", "Messieurs")]
-    [InlineData("Mmes. Smith and Jones left.", "Mmes", "Mesdames")]
     [InlineData("Rev. Smith left.", "Rev.", "Reverend")]
-    [InlineData("Gen. Smith left.", "Gen.", "General")]
-    [InlineData("Lt. Smith left.", "Lt.", "Lieutenant")]
-    [InlineData("Cpl. Smith left.", "Cpl.", "Corporal")]
-    [InlineData("Maj. Smith left.", "Maj.", "Major")]
-    [InlineData("Cmdr. Smith left.", "Cmdr.", "Commander")]
-    [InlineData("Adm. Smith left.", "Adm.", "Admiral")]
-    [InlineData("Gov. Smith left.", "Gov.", "Governor")]
-    [InlineData("Pres. Smith left.", "Pres.", "President")]
-    [InlineData("Supt. Smith left.", "Supt.", "Superintendent")]
-    [InlineData("Prof Smith left.", "Prof", "Professor")]
     [InlineData("Mrs Smith left.", "Mrs", "Missus")]
-    [InlineData("Messrs Smith and Jones left.", "Messrs", "Messieurs")]
     [InlineData("Walk down Elm Ln. today.", "Ln", "Lane")]
-    [InlineData("Walk down Elm Rd. today.", "Rd", "Road")]
-    [InlineData("Walk down Elm Ct. today.", "Ct", "Court")]
-    [InlineData("Walk down Elm Pl. today.", "Pl", "Place")]
-    [InlineData("Walk down Elm Sq. today.", "Sq", "Square")]
-    [InlineData("Walk down Elm Hwy. today.", "Hwy", "Highway")]
-    [InlineData("Walk down Elm Pkwy. today.", "Pkwy", "Parkway")]
-    [InlineData("Call Apt. today.", "Apt", "Apartment")]
-    [InlineData("Call Ste. today.", "Ste", "Suite")]
-    [InlineData("Call Bldg. today.", "Bldg", "Building")]
-    [InlineData("Call Dept. today.", "Dept", "Department")]
     [InlineData("Acme Ltd. today.", "Ltd", "Limited")]
-    [InlineData("Acme Corp. today.", "Corp", "Corporation")]
-    [InlineData("Mark Twain Esq. today.", "Esq", "Esquire")]
     [InlineData("Say it viz. now.", "viz", "namely")]
-    [InlineData("Some misc. items.", "misc", "miscellaneous")]
-    [InlineData("See cf. the text.", "cf", "compare")]
     [InlineData("Read Vol. 2 now.", "Vol", "Volume")]
     [InlineData("E.g. apples are good.", "E.g.", "For example")]
-    [InlineData("I.e. apples are good.", "I.e.", "That is")]
     [InlineData("Price n/a today.", "n/a", "not applicable")]
-    [InlineData("Send c/o Smith now.", "c/o", "care of")]
     public void AbbreviationResolver_TryResolve_ListedForm_ReturnsSpokenForm(string text, string word, string spoken)
     {
         // Act
@@ -93,16 +52,9 @@ public sealed class AbbreviationResolverTests
     /// <param name="word">The token's text.</param>
     /// <param name="expected">Whether the token continues a name.</param>
     [Theory]
-    [InlineData("Jr", true)]
     [InlineData("Jr.", true)]
     [InlineData("Ph.D", true)]
-    [InlineData("Ph.D.", true)]
-    [InlineData("III", true)]
-    [InlineData("M.D.", true)]
     [InlineData("Ave", false)]
-    [InlineData("Smith", false)]
-    [InlineData("V", false)]
-    [InlineData("He", false)]
     [InlineData("jr", false)]
     public void AbbreviationResolver_IsNameContinuation_ListedFormsOnly(string word, bool expected)
     {
@@ -119,20 +71,12 @@ public sealed class AbbreviationResolverTests
     /// <param name="word">The start of the candidate token.</param>
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
-    [InlineData("Visit St. Louis. Then go.", "St", "Saint")]
     [InlineData("Visit Elm St. today", "St", "Street")]
+    [InlineData("Mount St. Elias erupted.", "St", "Saint")]
     [InlineData("Dr. Smith lives here.", "Dr", "Doctor")]
     [InlineData("Maple Dr. He likes it.", "Dr", "Drive")]
-    [InlineData("Take 5th St. Louis is ahead.", "St", "Street")]
-    [InlineData("Take Wall St. Louis is ahead.", "St", "Saint")]
-    [InlineData("The Dr. said hello.", "Dr", "Doctor")]
-    [InlineData("Go to 123 Elm Dr. Smith lives there.", "Dr", "Drive")]
     [InlineData("Sr. Maria prayed.", "Sr", "Sister")]
     [InlineData("John Smith Sr. He left.", "Sr", "Senior")]
-    [InlineData("John Smith Sr. Ph.D. spoke.", "Sr", "Senior")]
-    [InlineData("Joe Smith Sr. Esq. arrived.", "Sr", "Senior")]
-    [InlineData("St. Patrick's St. is closed.", "St", "Saint")]
-    [InlineData("Mount St. Elias erupted.", "St", "Saint")]
     public void AbbreviationResolver_TryResolve_AmbiguousForm_FollowsTheNeighborCues(string text, string word, string spoken)
     {
         // Act
@@ -242,48 +186,10 @@ public sealed class AbbreviationResolverTests
         Assert.Throws<InvalidDataException>(() => AbbreviationResolver.FromTsv(new StringReader(Header + "Zz.\tZed\tprefix\tyes\tnext-time\tn\n")));
     }
 
-    /// <summary>Proves the month and weekday abbreviations resolve in their prefix, suffix and no-period forms to the full name.</summary>
-    [Fact]
-    public void AbbreviationResolver_TryResolve_MonthAndWeekday_PrefixSuffixAndBareForms()
-    {
-        // Arrange: (text, token start, expected spoken, expected class, includes a period token)
-        (string Text, string Word, string Spoken, AbbreviationClass Class)[] cases =
-        [
-            ("Jan. 5 is cold.", "Jan", "January", AbbreviationClass.Prefix),
-            ("It was Jan.", "Jan", "January", AbbreviationClass.Suffix),
-            ("Jan 5 is cold.", "Jan", "January", AbbreviationClass.Prefix),
-            ("Feb 3 is cold.", "Feb", "February", AbbreviationClass.Prefix),
-            ("Sept 11 was sad.", "Sept", "September", AbbreviationClass.Prefix),
-            ("Sept. 11 was sad.", "Sept", "September", AbbreviationClass.Prefix),
-            ("Sep. 9 was sad.", "Sep", "September", AbbreviationClass.Prefix),
-            ("Oct. 5 is near.", "Oct", "October", AbbreviationClass.Prefix),
-            ("Thurs. 7 is near.", "Thurs", "Thursday", AbbreviationClass.Prefix),
-            ("Thur. 7 is near.", "Thur", "Thursday", AbbreviationClass.Prefix),
-            ("Tues. 7 is near.", "Tues", "Tuesday", AbbreviationClass.Prefix),
-            ("He left Fri.", "Fri", "Friday", AbbreviationClass.Suffix),
-            ("He left Wed.", "Wed", "Wednesday", AbbreviationClass.Suffix),
-        ];
-
-        // Act / Assert
-        foreach (var (text, word, spoken, abbreviationClass) in cases)
-        {
-            var (found, match) = Resolve(text, word);
-            Assert.True(found, text);
-            Assert.Equal(spoken, match.Spoken);
-            Assert.Equal(abbreviationClass, match.Class);
-            Assert.False(match.UsedDefault, text);
-        }
-
-        // Assert: May is a word and never an abbreviation; lowercase months and weekdays written without a period are left alone
-        Assert.False(Resolve("May 5 is near.", "May").Found);
-        Assert.False(Resolve("jan. 5 is near.", "jan").Found);
-        Assert.False(Resolve("Mon 5 is near.", "Mon").Found);
-        Assert.False(Resolve("Jan is near.", "Jan").Found);
-    }
-
     /// <summary>
     ///     Proves every month and weekday abbreviation of an independent expected table resolves to its full name: before a date as a
-    ///     prefix reading, and elsewhere as a suffix reading, with the documented guards for a bare <c>Mar.</c> and <c>Sun.</c>.
+    ///     prefix reading, after a number as a suffix reading, with the documented guards for a bare <c>Mar.</c> and <c>Sun.</c>,
+    ///     the period-less months before a digit, and the words that are never abbreviations.
     /// </summary>
     [Fact]
     public void AbbreviationResolver_TryResolve_MonthAndWeekdayAbbreviations_ResolveToFullNamesInDateAndNonDateContexts()
@@ -315,10 +221,25 @@ public sealed class AbbreviationResolverTests
             Assert.Equal(AbbreviationClass.Suffix, numbered.Class);
         }
 
-        // Assert: outside a date context a bare Mar. and Sun. stay as written, and May is a word
+        // Assert: a clause-final month or weekday takes the suffix reading, and a period-less month before a digit the prefix reading
+        var (clauseEnd, january) = Resolve("It was Jan.", "Jan");
+        Assert.True(clauseEnd);
+        Assert.Equal(("January", AbbreviationClass.Suffix), (january.Spoken, january.Class));
+        var (fridayFound, friday) = Resolve("He left Fri.", "Fri");
+        Assert.True(fridayFound);
+        Assert.Equal(("Friday", AbbreviationClass.Suffix), (friday.Spoken, friday.Class));
+        var (bareFound, bare) = Resolve("Sept 11 was sad.", "Sept");
+        Assert.True(bareFound);
+        Assert.Equal(("September", AbbreviationClass.Prefix), (bare.Spoken, bare.Class));
+
+        // Assert: outside a date context a bare Mar. and Sun. stay as written, May is a word, and lowercase or period-less
+        // weekdays and months without a date are left alone
         Assert.False(Resolve("They Mar. it.", "Mar").Found);
         Assert.False(Resolve("The Sun. It rose.", "Sun").Found);
         Assert.False(Resolve("May 5 is near.", "May").Found);
+        Assert.False(Resolve("jan. 5 is near.", "jan").Found);
+        Assert.False(Resolve("Mon 5 is near.", "Mon").Found);
+        Assert.False(Resolve("Jan is near.", "Jan").Found);
     }
 
     /// <summary>Proves a resolution that fell back to the default, or chose with both cues present, is flagged for counting; clear ones are not.</summary>
@@ -376,11 +297,8 @@ public sealed class AbbreviationResolverTests
     /// <param name="text">The text.</param>
     /// <param name="word">The start of the token.</param>
     [Theory]
-    [InlineData("The cat sat.", "cat")]
     [InlineData("A mister came.", "mister")]
     [InlineData("Doctors work.", "Doctors")]
-    [InlineData("Drive home.", "Drive")]
-    [InlineData("Stop here.", "Stop")]
     [InlineData("a very long unlisted expression here.", "expression")]
     public void AbbreviationResolver_TryResolve_OrdinaryWords_AreNotAbbreviations(string text, string word)
     {
@@ -432,10 +350,8 @@ public sealed class AbbreviationResolverTests
     [InlineData("A.\t\tprefix\tyes\t-\tn\n", 5)]
     [InlineData("A.\tAy\tsideways\tyes\t-\tn\n", 5)]
     [InlineData("A.\tAy\tprefix\tmaybe\t-\tn\n", 5)]
-    [InlineData("A.\tAy\tprefix\tyes\tnext-door\tn\n", 5)]
     [InlineData("B.\tBee\tprefix\tyes\t-\tn\nA.\tAy\tprefix\tyes\t-\tn\nA.\tAy\tprefix\tyes\t-\tn\n", 7)]
     [InlineData("A.\tAy\tprefix\tyes\t-\tn\nA.\tAyy\tsuffix\tyes\t-\tn\n", 5)]
-    [InlineData("A.\tAy\tprefix\tno\t-\tn\nA.\tAyy\tsuffix\tno\t-\tn\n", 5)]
     [InlineData("A.\tAy\tprefix\tno\t-\tn\n", 5)]
     public void AbbreviationResolver_FromTsv_MalformedRow_ThrowsInvalidDataExceptionNamingTheLine(string body, int expectedLine)
     {

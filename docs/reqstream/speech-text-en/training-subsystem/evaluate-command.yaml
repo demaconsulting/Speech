@@ -7,7 +7,7 @@
 # Each requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluateCommandTests.cs. The
-# program entry point (Program.cs) is glue that dispatches to this unit and is covered with it.
+# program entry point (Program.cs) is glue that dispatches to this unit.
 
 sections:
   - title: SpeechTextEn Requirements
@@ -20,104 +20,67 @@ sections:
                 title: >-
                   The EvaluateCommand class shall print its usage and give the exit code 0 for the help
                   option, and shall give the exit code 2 with a message on the error stream that names the
-                  problem for an unknown option, an option without a value, an unknown set name, the write
-                  and check options together, and a model file that is missing.
+                  problem, and without a gate verdict, for an unknown option, an option without a value, an
+                  unknown set name, the write and check options together, a missing model file and a
+                  harvested row without a source document.
                 justification: |
                   The build and the owner act on the exit code. A mistake in the command must not look
-                  like a failed gate or a stale record.
+                  like a failed gate or a stale record, and a measurement whose confidence interval rests
+                  on unknown documents would claim more certainty than the data holds, so the command
+                  stops rather than print a verdict.
                 tests:
                   - EvaluateCommand_Run_Help_PrintsUsageAndExitsZero
                   - EvaluateCommand_Run_BadCommandLine_ExitsTwoNamingTheProblem
                   - EvaluateCommand_Run_UnknownSetOrWriteWithCheck_ExitsTwo
                   - EvaluateCommand_Run_MissingModel_ExitsTwo
+                  - EvaluateCommand_Run_HarvestedRowWithoutProvenance_ExitsTwoNamingTheProblem
 
               - id: SpeechTextEn-Training-EvaluateCommand-HoldoutDiscipline
                 title: >-
                   The EvaluateCommand class shall, when it evaluates only the development set, read no
                   holdout file and say nothing about a holdout, and shall, when it evaluates a holdout
-                  set, announce that a holdout is being read.
+                  set, announce that a holdout is being read and print the model accuracy, the three
+                  baselines, the improvement over the own-part-of-speech baseline with its confidence
+                  interval, the parity of the trainer with the analyzer and the readings with the lowest
+                  accuracy.
                 justification: |
                   Looking at a holdout set is the one step that cannot be undone: a set that has guided a
                   choice no longer measures anything. The owner must be able to evaluate during
-                  development without touching a holdout, and must be told whenever one is touched.
+                  development without touching a holdout, must be told whenever one is touched, and
+                  decides from the printed figures whether the model is good enough.
                 tests:
                   - EvaluateCommand_Run_DevSet_DoesNotReadHoldoutFiles
-                  - EvaluateCommand_Run_HoldoutSet_AnnouncesAndPrintsTheFigures
-
-              - id: SpeechTextEn-Training-EvaluateCommand-Report
-                title: >-
-                  The EvaluateCommand class shall print, for each evaluated set, the model accuracy, the
-                  three baselines, the improvement over the own-part-of-speech baseline with its
-                  confidence interval, the parity of the trainer with the analyzer and the readings with
-                  the lowest accuracy.
-                justification: |
-                  The owner decides from these figures whether the model is good enough, so they have to
-                  be printed together and in a stable form.
-                tests:
                   - EvaluateCommand_Run_HoldoutSet_AnnouncesAndPrintsTheFigures
 
               - id: SpeechTextEn-Training-EvaluateCommand-GateExitCodes
                 title: >-
                   The EvaluateCommand class shall, with the gate option, evaluate the natural holdout and
-                  give the exit code 0 and the verdict pass when the pooled accuracy reaches the threshold
-                  of the record and the lower bound of the improvement is above zero, and the exit code 1
-                  and the verdict fail, saying which condition failed, when the accuracy is below the
-                  threshold or when the lower bound is not above zero.
+                  give the exit code 0 and the verdict pass only when the pooled accuracy reaches the
+                  threshold of the record, the lower bound of the improvement is above zero and, with the
+                  check option, the record is current, and shall otherwise give the exit code 1, saying
+                  which condition failed and printing both results.
                 justification: |
                   The quality gate decision has to be a command whose exit code a pipeline can act on, and a
-                  failure has to say why.
+                  failure has to say why. A passing record check must not hide a failing gate, and a passing
+                  gate must not hide a stale evidence record.
                 tests:
-                  - EvaluateCommand_Run_GateConditionsMet_ExitsZero
                   - EvaluateCommand_Run_GateAccuracyBelowThreshold_ExitsOne
                   - EvaluateCommand_Run_GateLowerBoundNotPositive_ExitsOne
                   - EvaluateCommand_Run_GateWithWrite_DecidesOnTheNaturalHoldout
-
-              - id: SpeechTextEn-Training-EvaluateCommand-SeedStudy
-                title: >-
-                  The EvaluateCommand class shall, with the seeds option, train once with each evaluation
-                  seed of the record and print the holdout accuracy of each.
-                justification: |
-                  The variation of the accuracy between seeds says how far one run's figure can be trusted.
-                tests:
-                  - EvaluateCommand_Run_Seeds_ReportsEachSeed
+                  - EvaluateCommand_Run_GatePassesRecordCurrent_ExitsZero
 
               - id: SpeechTextEn-Training-EvaluateCommand-RecordWriteAndCheck
                 title: >-
                   The EvaluateCommand class shall, with the write option, write the evaluation record
-                  files, identical when written twice, and shall, with the check option, give the exit code
-                  0 when the record is current and the exit code 1 naming each file that is edited or
-                  missing.
+                  files, shall, with the check option, give the exit code 0 when the record is current and
+                  the exit code 1 naming each file that is edited or missing, and shall, with the seeds
+                  option, train once with each evaluation seed of the record and print the holdout
+                  accuracy of each.
                 justification: |
-                  The evaluation record is the evidence of the quality gate decision. It has to be reproducible,
-                  and a change to it that is not the product of an evaluation has to be found.
+                  The evaluation record is the evidence of the quality gate decision. It has to be
+                  reproducible, and a change to it that is not the product of an evaluation has to be
+                  found. The variation of the accuracy between seeds says how far one run's figure can be
+                  trusted.
                 tests:
                   - EvaluateCommand_Run_WriteThenCheck_MatchesAndDetectsEditedRecord
-                  - EvaluateCommand_Run_WriteTwice_ProducesIdenticalRecords
-
-              - id: SpeechTextEn-Training-EvaluateCommand-GateAndRecordCheck
-                title: >-
-                  The EvaluateCommand class shall, with the gate option together with the check option or the
-                  write option, give the exit code 0 only when the gate passes and the record is current,
-                  and the exit code 1 when either the gate fails or the record is stale, printing both
-                  results.
-                justification: |
-                  The pipeline acts on one exit code. A passing record check must not hide a failing quality
-                  gate, and a passing gate must not hide a stale evidence record.
-                tests:
-                  - EvaluateCommand_Run_GateFailsRecordCurrent_ExitsOne
-                  - EvaluateCommand_Run_GatePassesRecordStale_ExitsOne
-                  - EvaluateCommand_Run_GatePassesRecordCurrent_ExitsZero
-                  - EvaluateCommand_Run_GateFailsRecordStale_ExitsOne
-                  - EvaluateCommand_Run_GateFailsWithWrite_ExitsOneAndWritesRecord
-
-              - id: SpeechTextEn-Training-EvaluateCommand-MissingProvenance
-                title: >-
-                  The EvaluateCommand class shall give the exit code 2, with a message on the error stream
-                  that names the provenance file or the row and without a gate verdict, when a harvested
-                  row of an evaluated set has no source document.
-                justification: |
-                  A measurement whose confidence interval rests on unknown documents would claim more
-                  certainty than the data holds. The command has to stop rather than print a verdict.
-                tests:
-                  - EvaluateCommand_Run_HarvestedRowWithoutProvenance_ExitsTwoNamingTheProblem
-                  - EvaluateCommand_Run_DevRowWithoutProvenance_ExitsTwoNamingTheRow
+                  - EvaluateCommand_Run_Seeds_ReportsEachSeed

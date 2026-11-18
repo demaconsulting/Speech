@@ -22,15 +22,27 @@ sections:
                 title: >-
                   The SparsePerceptronModel class shall load from a byte array or a stream (without
                   disposing the stream) a model that was written compressed or uncompressed, with
-                  every header field and every weight preserved, shall give the weight of a bucket
-                  without a stored weight, or beyond the table, as zero, shall accept a model with
-                  no weights, shall give the same model under every culture, and shall throw
-                  ArgumentNullException for a null argument.
+                  every header field (feature-set version, inventory version, hash bits,
+                  temperature, scale, row count and the other fields of the header) and every
+                  weight preserved whatever the feature-set version, leaving the compatibility
+                  decision to the classifier, shall give the weight of a bucket without a stored
+                  weight, or beyond the table, as zero, shall accept a model with no weights, shall
+                  give the same model under every culture, shall give any number of concurrent
+                  readers the same immutable weights, and shall throw ArgumentNullException for a
+                  null argument; the SparsePerceptronModelWriter shall write only models that the
+                  loader reads back exactly (weights ordered, zero weights dropped, the same bytes
+                  for the same input, and an uncompressed image with a recomputed checksum for a
+                  compressed model) and shall throw for input that the format cannot represent.
                 justification: |
                   The file is what the trainer produces and the runtime consumes, so what is
                   written must be exactly what is read. A bucket without a stored weight is the
                   normal case of a sparse model and means no evidence, and the loader must not
-                  depend on the machine's culture or on whether the file is compressed.
+                  depend on the machine's culture or on whether the file is compressed. The
+                  classifier decides whether a model fits the runtime from the header fields, and
+                  one loaded model is shared by every analyzer of the process. The trainer and the
+                  tests build models through the writer, so it must produce only files that the
+                  strict loader accepts; the uncompressed image gives a staleness check one form to
+                  compare for both representations.
                 tests:
                   - SparsePerceptronModel_Load_RoundTrip_PreservesHeaderAndWeights
                   - SparsePerceptronModel_GetWeight_AbsentAndOutOfTableBuckets_AreZero
@@ -38,24 +50,41 @@ sections:
                   - SparsePerceptronModel_Load_NoWeights_IsValid
                   - SparsePerceptronModel_Load_NullArgument_ThrowsArgumentNullException
                   - SparsePerceptronModel_Load_UnderArabicCulture_LoadsSameModel
+                  - SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion
+                  - SparsePerceptronModelWriter_Compile_UnsortedInputWithZeros_SortsAndDropsZeros
+                  - SparsePerceptronModelWriter_Compile_InvalidInput_Throws
+                  - SparsePerceptronModelWriter_ToUncompressedImage_CompressedAndRaw_AreIdentical
 
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-StrictHeader
+              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-StrictFormat
                 title: >-
                   The SparsePerceptronModel class shall check the magic of a file first, so that a
                   foreign or tiny file is reported as not a model, and shall then reject with an
-                  InvalidDataException that names the field a file that is shorter than the
-                  header, an unsupported format version, an unknown flag bit, a
-                  feature-set or inventory version below one, hash bits outside 16 to 24, a non-zero reserved
-                  field, a temperature or scale that is not finite, not positive or above one
-                  million (accepting the boundary values), a row count above what the table or the
-                  payload cap allows, and a stored length that does not match the bytes after the
-                  header.
+                  InvalidDataException that names the defect a file that is shorter than the header,
+                  an unsupported format version, an unknown flag bit, a feature-set or inventory
+                  version below one, hash bits outside 16 to 24, a non-zero reserved field, a
+                  temperature or scale that is not finite, not positive or above one million
+                  (accepting the boundary values), a row count above what the table or the payload
+                  cap allows, a stored length that does not match the bytes after the header, a
+                  stored byte that differs from what the checksum demands (before any weight is
+                  interpreted), a payload that violates the structure (a zero gap, a bucket outside
+                  the table, a malformed variable-length integer, a zero or the smallest 16-bit
+                  weight, a length that does not fit the row count, or not exactly the declared
+                  length), a compressed payload that is cut off (even with a forged length and
+                  checksum), that has bytes after its end or that inflates to a different size, a
+                  payload length above a fixed cap, a compression bomb and an endless stream.
                 justification: |
-                  Every field of the header either selects how the rest is read or bounds what is
-                  allocated, so each must be validated before it is used, and a message that names
-                  the defect lets whoever supplied the file correct it. The reserved fields are
-                  zero so that a later format can give them meaning without being misread by this
-                  version.
+                  The file is an input from outside the process. Every field of the header either
+                  selects how the rest is read or bounds what is allocated, so each must be
+                  validated before it is used, and a message that names the defect lets whoever
+                  supplied the file correct it. A flipped bit in a compressed stream can inflate to
+                  plausible but wrong weights, which would change pronunciations without any error,
+                  and lengths and checksum can be made to match a damaged stream, so the loader must
+                  itself see that the data ends exactly where the header says. Gaps that are not
+                  positive or a zero weight would make the stored model ambiguous, and a few bytes
+                  that claim a very large payload must be refused rather than loaded, so that a
+                  hostile file cannot disturb the speech path. The checksum algorithm and the order
+                  of checks are recorded in the sparse perceptron model design, which is the format
+                  specification.
                 tests:
                   - SparsePerceptronModel_Load_WrongMagic_IsRejectedAsForeignFile
                   - SparsePerceptronModel_Load_ShortHeader_IsRejectedAsTruncated
@@ -64,75 +93,16 @@ sections:
                   - SparsePerceptronModel_Load_BoundaryTemperatureAndScale_AreAccepted
                   - SparsePerceptronModel_Load_RowCountAboveTable_IsRejected
                   - SparsePerceptronModel_Load_StoredLengthMismatch_IsRejected
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-DamageDetection
-                title: >-
-                  The SparsePerceptronModel class shall detect damage to a model file, in both the
-                  compressed and the uncompressed form, by rejecting a file whose stored bytes or
-                  whose checksum field differ from what the checksum of the file demands, before
-                  any weight is interpreted.
-                justification: |
-                  A flipped bit in a compressed stream can inflate to plausible but wrong weights,
-                  which would change pronunciations without any error; the integrity check has to
-                  catch damage before the data is interpreted. Which algorithm is used (FNV-1a over
-                  the stored bytes) and that it is checked before inflation are recorded in the
-                  sparse perceptron model design, which is the format specification.
-                tests:
                   - SparsePerceptronModel_Load_ChangedStoredByte_FailsChecksum
-                  - SparsePerceptronModel_Load_ChangedChecksumField_FailsChecksum
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-StrictPayload
-                title: >-
-                  The SparsePerceptronModel class shall reject a payload whose bucket gap is zero,
-                  whose bucket lies outside the table, whose variable-length integer is malformed,
-                  whose weight is zero or the smallest 16-bit value, whose length does not fit the
-                  row count, or whose structure does not use exactly the declared length.
-                justification: |
-                  Gaps that are not positive would let a bucket repeat or run backward, and a zero
-                  weight is the absence of a row; both would make the stored model ambiguous. The
-                  smallest 16-bit value is reserved so that no weight is stored that the format
-                  does not allow, and the exact length rule leaves no room for bytes that are
-                  ignored.
-                tests:
                   - SparsePerceptronModel_Load_ZeroGap_IsRejected
                   - SparsePerceptronModel_Load_BucketOutsideTable_IsRejected
                   - SparsePerceptronModel_Load_BadVarints_AreRejected
                   - SparsePerceptronModel_Load_InvalidWeight_IsRejected
                   - SparsePerceptronModel_Load_PayloadLengthNotFittingRowCount_IsRejected
                   - SparsePerceptronModel_Load_PayloadNotMatchingStructure_IsRejected
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-StrictDeflate
-                title: >-
-                  The SparsePerceptronModel class shall inflate a compressed payload strictly,
-                  rejecting a stream that is cut off (even when the stored length and the checksum
-                  were forged to match), a stream that has bytes after its end inside the stored
-                  region, a stream that inflates to a different size than declared, and an
-                  uncompressed payload whose stored and declared lengths differ.
-                justification: |
-                  A Deflate stream that ends early can still yield a prefix of plausible weights,
-                  and the lengths and the checksum can be made to match a damaged stream, so the
-                  loader itself must see that the stream ends exactly where the header says it
-                  does. The earlier part-of-speech model format did not close this gap.
-                tests:
                   - SparsePerceptronModel_Load_CutOffDeflateWithForgedLengthAndChecksum_IsRejected
                   - SparsePerceptronModel_Load_TrailingBytesInsideDeflateRegion_IsRejected
-                  - SparsePerceptronModel_Load_DeflatePayloadSizeDiffersFromDeclared_IsRejected
-                  - SparsePerceptronModel_Load_RawPayloadLengthsDiffer_IsRejected
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-PayloadLengthLimits
-                title: >-
-                  The SparsePerceptronModel class shall reject with InvalidDataException a file
-                  whose payload length is above a fixed cap, a payload length larger than the
-                  stored bytes can inflate to, a stream that inflates to more than the declared
-                  length (a compression bomb) and an endless stream.
-                justification: |
-                  A model file is an input from outside the process; a few bytes that claim a very
-                  large payload, or a compression bomb, must be refused with the documented
-                  exception rather than loaded, so that a hostile file cannot disturb the speech
-                  path.
-                tests:
                   - SparsePerceptronModel_Load_PayloadLengthAboveCap_IsRejected
-                  - SparsePerceptronModel_Load_PayloadLengthBeyondDeflateRatio_IsRejected
                   - SparsePerceptronModel_Load_InflationBomb_IsRejected
                   - SparsePerceptronModel_Load_LargestAllowedPayloadOfZeros_IsRejectedAsBadData
                   - SparsePerceptronModel_Load_EndlessStream_IsRejected
@@ -150,50 +120,3 @@ sections:
                   platform and so is a repeatable proof, not a sample.
                 tests:
                   - SparsePerceptronModel_Load_SeededFuzz_OnlyLoadsOrThrowsInvalidDataException
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-CompatibilityFields
-                title: >-
-                  The SparsePerceptronModel class shall expose the feature-set version, the
-                  reading-inventory version, the hash bits, the temperature, the scale, the number
-                  of rows, the trainer version and the data manifest digest that its header
-                  carries, and shall load a well-formed model whatever its feature-set version,
-                  leaving the compatibility decision to the classifier.
-                justification: |
-                  The classifier decides whether a model fits the runtime from these fields, and
-                  the temperature and scale give the meaning of its integer weights; a model built
-                  with other features would map buckets to the wrong evidence.
-                tests:
-                  - SparsePerceptronModel_Load_RoundTrip_PreservesHeaderAndWeights
-                  - SparsePerceptronModel_Load_InvalidHeaderField_IsRejected
-                  - SparsePerceptronModel_Load_OtherFeatureSetVersion_LoadsAndPreservesVersion
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-Immutability
-                title: >-
-                  The SparsePerceptronModel class shall be immutable after loading and give the
-                  same weights to any number of concurrent readers.
-                justification: |
-                  One loaded model is shared by every analyzer and request of the process, so a
-                  reader must never need a lock and never see a change.
-                tests:
-                  - SparsePerceptronModel_GetWeight_ConcurrentReaders_SeeTheSameWeights
-
-              - id: SpeechTextEn-Heteronym-SparsePerceptronModel-WriterValidation
-                title: >-
-                  The SparsePerceptronModelWriter shall order the weights it is given, drop zero
-                  weights, write a compressed or an uncompressed model that the loader reads back
-                  exactly, write the same bytes for the same input, rewrite a compressed model as
-                  its uncompressed image with a recomputed checksum, and throw for a duplicate
-                  bucket, a bucket outside the table, a weight the format cannot hold, hash bits
-                  outside the range, an inventory version outside the range of the header, a
-                  data manifest digest that is not 32 bytes, a null argument and a temperature or
-                  scale that is not finite and positive.
-                justification: |
-                  The trainer and the tests build models through the writer, so it must produce only
-                  files that the strict loader accepts and must refuse input that it could not
-                  represent; the uncompressed image gives a staleness check one form to compare for
-                  both representations.
-                tests:
-                  - SparsePerceptronModelWriter_Compile_UnsortedInputWithZeros_SortsAndDropsZeros
-                  - SparsePerceptronModelWriter_Compile_InvalidInput_Throws
-                  - SparsePerceptronModelWriter_Write_Stream_WritesCompiledBytes
-                  - SparsePerceptronModelWriter_ToUncompressedImage_CompressedAndRaw_AreIdentical

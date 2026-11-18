@@ -37,10 +37,8 @@ uses the package's shared default tagger as its factory; creating the adapter do
   token becomes a context token**: the analyzer's per-request reading pass calls it at run time and the offline trainer
   calls it when it prepares a row, so the two cannot describe a sentence differently. It lives in the adapter, with the
   adapted token it consumes, rather than in the analyzer, so that the HeteronymSubsystem does not depend on the
-  AnalysisSubsystem (it was a private method of the analyzer's reading pass before the trainer needed it; the behavior
-  is unchanged). It is stateless and thread-safe as long as the caller does not share the buffer, uses no tagger and
+  AnalysisSubsystem. It is stateless and thread-safe as long as the caller does not share the buffer, uses no tagger and
   does not touch the cancellation token
-- **IsTaggerCreated**: whether a tagger has been created yet; used by tests
 
 **Tagger creation pattern (design decision)**: the tagger is created under a plain lock with a null check
 instead of `Lazy<T>`. A `Lazy<T>` in `ExecutionAndPublication` mode (the only mode that never runs the

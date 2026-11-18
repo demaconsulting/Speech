@@ -1,0 +1,58 @@
+---
+# Software Unit Requirements for ExternalRowConversion
+#
+# These requirements describe the design-level behavior of the ExternalRowConversion unit (with the row, count and
+# mapping types that are documented with it), the part of the Text.En trainer that is shared by the dataset
+# adapters: it converts byte offsets to character offsets, maps the labels of a dataset to reading identifiers and
+# turns the rows an adapter read into the rows the evaluator takes, with an account of every skipped row,
+# decomposing the parent SpeechTextEn ExternalEvaluationSubsystem requirements. Each requirement states one
+# observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/ExternalRowConversionTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ExternalEvaluationSubsystem Requirements
+        sections:
+          - title: ExternalRowConversion Requirements
+            requirements:
+              - id: SpeechTextEn-ExternalEvaluation-ExternalRowConversion-Conversion
+                title: >-
+                  The ExternalRowConversion unit shall convert a span given in bytes of the UTF-8 encoding
+                  of a sentence to the matching span of its characters, correctly for text with accented
+                  letters and with characters outside the basic multilingual plane, shall refuse a span
+                  that is empty, reversed, outside the sentence or that begins or ends inside a character,
+                  shall skip a row whose span is not placed on its sentence, whose label is not in the
+                  mapping, whose target is not a word of the reading inventory or whose mapped reading is
+                  not a candidate of that word, counting each skipped row under its reason so that the
+                  rows read equal the rows used plus the rows skipped, and shall count and keep the rows
+                  whose sentence equals a training or development sentence of the repository.
+                justification: |
+                  The datasets count bytes and the evaluator counts characters, so a conversion that is
+                  wrong by one place puts the model on the wrong word. A row that cannot be evaluated must
+                  neither stop the evaluation nor disappear: the reader of a figure needs to know how much
+                  of the dataset it covers and why the rest was left out, and an overlap with the training
+                  data makes a figure look better than the model is.
+                tests:
+                  - ByteOffsets_TryToCharOffsets_ValidSpans_ConvertsToUtf16
+                  - ByteOffsets_TryToCharOffsets_InvalidSpans_ReturnsFalse
+                  - ExternalRowConverter_Convert_EachSkipReason_IsCountedAndReadEqualsUsedPlusSkipped
+                  - ExternalRowConverter_Convert_SentenceEqualToTrainingSentence_IsKeptAndCounted
+
+              - id: SpeechTextEn-ExternalEvaluation-ExternalRowConversion-Mapping
+                title: >-
+                  The ExternalRowConversion unit shall load a mapping file of dataset labels to reading
+                  identifiers only when it is valid UTF-8 with the expected header, two non-empty cells
+                  in every row, each label once and only identifiers that are in the reading inventory,
+                  throwing InvalidDataException that names the file and the line otherwise, and shall give
+                  each converted row the mapped reading identifier and the stratum of its source.
+                justification: |
+                  The mapping is the one place where the datasets are related to the repository's readings.
+                  A mistake in it, such as an unknown identifier, would change what is measured without
+                  anyone noticing, so it is read strictly.
+                tests:
+                  - ReadingIdMap_Load_ValidFile_MapsLabels
+                  - ReadingIdMap_Load_InvalidFile_Throws
+                  - ReadingIdMap_Load_InvalidUtf8_Throws
+                  - ExternalRowConverter_Convert_MappedRows_CarryReadingIdAndStratum

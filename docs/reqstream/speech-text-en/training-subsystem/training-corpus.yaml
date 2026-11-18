@@ -18,17 +18,21 @@ sections:
               - id: SpeechTextEn-Training-TrainingCorpus-InputFiles
                 title: >-
                   The TrainingCorpus class shall read exactly four files of the data folder, the training
-                  rows, the development rows, the reading inventory and its forms, in file order, and
-                  shall never read a holdout file, so that the corpus is the same whether a holdout file
-                  is present, absent or altered.
+                  rows, the development rows, the reading inventory and its forms, in file order, shall
+                  never read a holdout file, so that the corpus is the same whether a holdout file is
+                  present, absent or altered, and shall provide a SHA-256 hash of the four input files that
+                  changes when any of them changes and does not change when any other file of the data
+                  folder changes.
                 justification: |
                   A holdout set only measures a model that never saw it. The loader is the one place the
                   training data enters the trainer, so keeping every holdout file out of it keeps every
                   later step free of holdout influence, and the file order makes the rows, and therefore
-                  the training, reproducible.
+                  the training, reproducible. A hash of exactly the inputs that can change the model lets
+                  the check find a stale model without flagging an unrelated edit of a documentation file.
                 tests:
                   - TrainingCorpus_Load_Fixture_PreparesRowsInFileOrder
                   - TrainingCorpus_Load_HoldoutFilesMissingOrGarbage_GivesTheSameCorpus
+                  - TrainingCorpus_DataSha256_ChangesWithTrainingInputOnly
 
               - id: SpeechTextEn-Training-TrainingCorpus-RuntimeAlignment
                 title: >-
@@ -43,18 +47,8 @@ sections:
                   word can never be classified at run time, so it must not teach the model anything, and
                   the owner must be able to see how many rows were lost.
                 tests:
-                  - TrainingCorpus_Load_AlignedRows_HaveFeaturesAndUposAndAmbiguity
+                  - TrainingCorpus_Load_Fixture_PreparesRowsInFileOrder
                   - TrainingCorpus_Load_TargetInsideLongerToken_IsNotAligned
-
-              - id: SpeechTextEn-Training-TrainingCorpus-PartOfSpeechHints
-                title: >-
-                  The TrainingCorpus class shall expose, for every reading of the inventory, the
-                  part-of-speech tags that the readings table lists for it.
-                justification: |
-                  The own-part-of-speech baseline of the evaluation chooses a reading from the tag
-                  alone, and it must use the tags the inventory documents, not a second copy of them.
-                tests:
-                  - TrainingCorpus_Load_Fixture_ReadsPartOfSpeechHints
 
               - id: SpeechTextEn-Training-TrainingCorpus-DataValidation
                 title: >-
@@ -70,19 +64,5 @@ sections:
                   - TrainingCorpus_Load_TargetNotAForm_ThrowsNamingTheRow
                   - TrainingCorpus_Load_MissingInputFile_ThrowsNamingTheFile
                   - RowPreparer_ReadRows_SpanOutsideSentence_ThrowsNamingFileAndLine
+                  - RowPreparer_ReadRows_InvalidOffsets_ThrowsInvalidDataExceptionNamingFileAndLine
                   - RowPreparer_ReadRows_WrongHeader_ThrowsInvalidDataException
-
-              - id: SpeechTextEn-Training-TrainingCorpus-InputHashes
-                title: >-
-                  The TrainingCorpus class shall provide a SHA-256 hash of the four input files that
-                  changes when any of them changes and does not change when any other file of the data
-                  folder changes, and a SHA-256 hash of the features of all prepared rows that changes
-                  when the features of a row change even though its label does not.
-                justification: |
-                  The model records which inputs it was trained from. A hash of exactly the inputs that
-                  can change the model, and one of the features those inputs produce under the current
-                  tokenizer and tagger, let the check find a stale model whichever of the data or the
-                  analysis changed, without flagging an unrelated edit of a documentation file.
-                tests:
-                  - TrainingCorpus_DataSha256_ChangesWithTrainingInputOnly
-                  - TrainingCorpus_FeaturesSha256_ChangesWithTheFeaturesOfARow

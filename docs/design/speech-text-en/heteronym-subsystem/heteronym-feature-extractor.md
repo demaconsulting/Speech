@@ -97,10 +97,9 @@ marker `<S>` before it or `</S>` after it, a class there is 255, a shape 0 and a
 features; every one of them is also a conjoined hash), so the caller buffers of `MaxConjoined` (96) and `MaxShared`
 (48) always suffice.
 
-*Differences from the measured prototype set* (documented because a reader may compare the two): the context is the
-target's own sentence (the prototype crossed sentence boundaries, while training rows are single sentences), and no
-separate homograph hash is mixed into a conjoined feature, because the label salt is derived from the full reading id,
-which starts with the lemma, so the conjunction with the word is implicit and exact.
+*Context scope.* The context is the target's own sentence, because training rows are single sentences. No separate
+homograph hash is mixed into a conjoined feature, because the label salt is derived from the full reading id, which
+starts with the lemma, so the conjunction with the word is implicit and exact.
 
 *Hashing* (`FeatureHashing`, static): no function calls `string.GetHashCode`, a culture-aware comparison or a
 case-mapping API.
@@ -113,43 +112,34 @@ case-mapping API.
 - **Bucket(featureHash, salt, mask)**: `Mix(featureHash, salt) & mask`, the table bucket a feature hash selects for one
   salt (a reading's label salt for a conjoined feature, its role salt for a shared one) in a model of `mask + 1`
   buckets. It is the **single definition** of the bucket of a feature for a reading: the classifier's scoring and the
-  trainer's updates both call it, so a model trained offline selects exactly the buckets the analyzer scores
+  trainer's updates both call it, so a model trained offline selects exactly the buckets the analyzer scores. The
+  extractor itself outputs feature hashes, not buckets, so one extraction serves every candidate and every hash width
 - **LabelSalt(readingId)**: the FNV-1a hash of the text `L:` followed by the id. **RoleSalt(role)**: the FNV-1a hash of
   `R:` followed by the role. Both are computed once per reading by the inventory
-- A feature hash is bound to a reading by the classifier as `Bucket(featureHash, salt, mask)`, that is `Mix(featureHash,
-  salt)` masked to the model's hash bits (see *HeteronymClassifier Design*); the extractor itself outputs feature
-  hashes, not buckets, so one extraction serves every candidate and every hash width
 
 **Key Methods**:
 
 - **HeteronymContext.Create(text, start, length, tag, confidence)**: validates the span without computing
   `start + length`, so extreme values cannot overflow (`start` must not exceed the text length and `length` must be
   positive and not exceed what remains after `start`; otherwise `ArgumentOutOfRangeException`), then computes every
-  field of the token description in two short passes over the token. A null text throws `ArgumentNullException`. The
-  suffix hashes are computed over the normalized characters, so a typographic apostrophe in a suffix is the plain one,
-  and a number token has the suffixes of `<num>`. The description of every token of a sentence is made by
-  `PartOfSpeechAdapter.DescribeSentence`, which calls `Create` once per token (see *PartOfSpeechAdapter Design*)
+  field of the token description. A null text throws `ArgumentNullException`. The suffix hashes are computed over the
+  normalized characters, so a typographic apostrophe in a suffix is the plain one, and a number token has the suffixes
+  of `<num>`. `PartOfSpeechAdapter.DescribeSentence` calls `Create` once per token (see *PartOfSpeechAdapter Design*)
 - **HeteronymFeatureExtractor.Extract(sentence, target, conjoined, shared, out conjoinedCount, out sharedCount)**:
   writes the feature hashes of the target token into two caller-supplied buffers in the fixed template order and
   reports how many it wrote. A target outside the sentence throws `ArgumentOutOfRangeException`. A buffer that is
-  too small throws `InvalidOperationException`, which is a defect of the caller, never a data condition; each append is
-  checked, so a small buffer is reported and never overrun. Allocation-free and thread-safe; the same input always
-  writes the same hashes in the same order
-- **FeatureHashing**: `Fnv1a`, `Fnv1aFolded`, `FoldAscii`, `Update`, `Mix`, `Feature`, `Bucket`, `LabelSalt` and
-  `RoleSalt` as above
+  too small throws `InvalidOperationException`, a defect of the caller that is reported and never overruns the buffer.
+  Allocation-free and thread-safe
 
 **Golden vectors and the parity policy.** The file `TestData/heteronym-feature-vectors.tsv` of the test project locks
-the extraction. Its header is `id`, `tokens`, `target`, `conjoined` and `shared`
-(tab-separated, LF); a `tokens` cell is the sentence as space-separated `text:TAG:confidence` items, the `target` is the
-index of the target token and the last two columns are the hashes in lower-case hexadecimal, comma-separated, in
-emission order. The rows cover a verb and a noun use, the sentence edges, a split clitic, a typographic apostrophe,
-numbers, capitalization, a non-ASCII neighbor, a supplementary-plane letter, punctuation neighbors, an untagged
-token, a long sentence and the closed classes. The test reproduces every row under the invariant, `tr-TR`, `de-DE` and
-`ar-SA` cultures, so no step depends on the current culture. A change of any hash is a change of the feature set and
-needs a new feature-set version and new golden vectors, a deliberate, reviewed act. The same two guards, the golden
-vectors and the tokenization-parity test, are the parity policy between the analyzer and the trainer; the trainer's
-evaluation adds the parity counts of the analyzer against the trainer's direct classification of the same rows (see
-*TrainingSubsystem Design*).
+the extraction. Its header is `id`, `tokens`, `target`, `conjoined` and `shared` (tab-separated, LF); a `tokens` cell
+is the sentence as space-separated `text:TAG:confidence` items, the `target` is the index of the target token and the
+last two columns are the hashes in lower-case hexadecimal, comma-separated, in emission order. The rows cover each
+documented feature case, and the test reproduces every row under the invariant, `tr-TR`, `de-DE` and `ar-SA` cultures.
+A change of any hash is a change of the feature set and needs a new feature-set version and new golden vectors, a
+deliberate, reviewed act. The golden vectors and the tokenization-parity test are the parity policy between the
+analyzer and the trainer; the trainer's evaluation adds the parity counts of the analyzer against the trainer's direct
+classification of the same rows (see *TrainingSubsystem Design*).
 
 **Error Handling**: `Create` throws `ArgumentNullException` for a null text and `ArgumentOutOfRangeException` for an
 empty or out-of-range span; `Extract` throws `ArgumentOutOfRangeException` for a target outside the sentence and

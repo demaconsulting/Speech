@@ -336,7 +336,7 @@ internal static class EvaluateCommand
     /// <param name="repository">The repository root.</param>
     /// <param name="currentDirectory">The current directory.</param>
     /// <returns>The model file path.</returns>
-    private static string ResolveModelPath(EvaluateOptions options, string? modelDirectory, string repository, string currentDirectory)
+    internal static string ResolveModelPath(EvaluateOptions options, string? modelDirectory, string repository, string currentDirectory)
     {
         if (options.Model is not null)
         {

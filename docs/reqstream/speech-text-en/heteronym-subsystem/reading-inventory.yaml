@@ -18,32 +18,13 @@ sections:
         sections:
           - title: ReadingInventory Requirements
             requirements:
-              - id: SpeechTextEn-Heteronym-ReadingInventory-EmbeddedTables
-                title: >-
-                  The ReadingInventory class shall supply its default instance from the readings
-                  and forms tables shipped inside the assembly, with no file on disk or download,
-                  giving the candidate readings of the well-known heteronyms of the tables, and
-                  shall report the pinned inventory version and the pinned numbers of readings and
-                  forms.
-                justification: |
-                  Hosts name readings in overrides and backends receive them in annotations, so the
-                  vocabulary has to be exactly what the repository's tables define, available
-                  without a file on disk, and identical for every user in the process. The pinned
-                  version and counts are a deliberate, versioned data-integrity check that makes an
-                  unreviewed change of the tables a test failure. How the tables are embedded (once,
-                  lazily, under fixed resource names) is a design choice recorded in the reading
-                  inventory design.
-                tests:
-                  - ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts
-                  - ReadingInventory_Default_ShippedWithAssembly_ProvidesCandidateReadingsOfKnownHeteronyms
-
               - id: SpeechTextEn-Heteronym-ReadingInventory-IdGrammar
                 title: >-
                   The ReadingInventory unit shall define a reading id as two or three non-empty
                   dot-separated segments of lowercase ASCII letters, digits and hyphens, none
-                  starting or ending with a hyphen, at most 64 characters in all, shall derive the
-                  role of a reading as the text after the first dot, shall hold every reading id
-                  of the inventory to that grammar, and shall list the ids in ordinal order.
+                  starting or ending with a hyphen, at most 64 characters in all, shall hold every
+                  reading id of the inventory to that grammar, and shall list the ids in ordinal
+                  order.
                 justification: |
                   Ids travel in annotation values, dictionary files and the model, so one grammar
                   has to be enforced by every user (loader, override validation, annotation
@@ -53,72 +34,66 @@ sections:
                 tests:
                   - ReadingIdSyntax_IsValid_Grammar_AcceptsOnlyWellFormedIds
                   - ReadingIdSyntax_IsValid_LengthLimit_Is64
-                  - ReadingIdSyntax_RoleOf_ReturnsTextAfterFirstDot
                   - ReadingInventory_ReadingIds_AllSatisfyGrammarAndAreOrdinalSorted
 
-              - id: SpeechTextEn-Heteronym-ReadingInventory-StrictParsing
+              - id: SpeechTextEn-Heteronym-ReadingInventory-StrictTables
                 title: >-
-                  The ReadingInventory class shall parse the two tables strictly (the exact header,
-                  the number of columns, LF line ends without a byte-order mark, an active or
+                  The ReadingInventory class shall supply its default instance from the readings
+                  and forms tables shipped inside the assembly, with no file on disk or download,
+                  giving the candidate readings of the well-known heteronyms and reporting the
+                  inventory version, shall parse the two tables strictly (the exact header, the
+                  number of columns, LF line ends without a byte-order mark, an active or
                   deprecated status, unique reading ids, every form referring to an existing
                   reading, a form and reading pair at most once, a form of lowercase ASCII letters
-                  of at most 32 characters) and shall throw InvalidDataException, with the line
-                  number and a fixed reason but never any text of the line, for any other table.
+                  of at most 32 characters), shall bound them (at most 5,000 readings, 5,000 forms,
+                  16 candidate readings of a form and 1,024 characters of a line, accepting a table
+                  exactly at the candidate bound), and shall throw InvalidDataException, with the
+                  line number and a fixed reason but never any text of the line, for any other
+                  table.
                 justification: |
-                  The tables are data files edited by hand; a silent defect (a typo in an id, a
-                  form that refers to nothing) would make a reading unreachable or a model bind to
-                  the wrong reading. A malformed embedded table is a defective build with no way to
-                  recover, so it fails loudly and says where, and the message never echoes data.
+                  Hosts name readings in overrides and backends receive them in annotations, so the
+                  vocabulary has to be exactly what the repository's tables define, available
+                  without a file on disk, and identical for every user in the process. The tables
+                  are data files edited by hand; a silent defect (a typo in an id, a form that
+                  refers to nothing) would make a reading unreachable or a model bind to the wrong
+                  reading. A malformed embedded table is a defective build with no way to recover,
+                  so it fails loudly and says where, and the message never echoes data. The loader
+                  allocates from the table sizes, so an oversized table must fail at a limit rather
+                  than exhaust memory. How the tables are embedded is a design choice recorded in
+                  the reading inventory design.
                 tests:
+                  - ReadingInventory_Default_EmbeddedTables_MatchPinnedVersionAndCounts
+                  - ReadingInventory_Default_ShippedWithAssembly_ProvidesCandidateReadingsOfKnownHeteronyms
                   - ReadingInventory_Parse_ValidTables_BuildsInventory
                   - ReadingInventory_Parse_DeprecatedStatus_IsInactive
-                  - ReadingInventory_Parse_NullReader_ThrowsArgumentNullException
                   - ReadingInventory_Parse_MalformedReadings_ThrowsInvalidDataExceptionWithLineAndReason
                   - ReadingInventory_Parse_MalformedForms_ThrowsInvalidDataExceptionWithLineAndReason
                   - ReadingInventory_Parse_Malformed_MessageNeverContainsTheData
-
-              - id: SpeechTextEn-Heteronym-ReadingInventory-BoundedTables
-                title: >-
-                  The ReadingInventory class shall bound its tables (at most 5,000 readings, 5,000
-                  forms, 16 candidate readings of a form and 1,024 characters of a line) and shall
-                  reject a table that exceeds a bound with InvalidDataException, accepting a table
-                  exactly at the candidate bound.
-                justification: |
-                  The loader allocates from the table sizes, so a corrupted or oversized table must
-                  fail at a limit rather than exhaust memory; the candidate bound is also the bound
-                  of the classifier's scoring work for one word.
-                tests:
                   - ReadingInventory_Parse_SeventeenCandidates_IsRejected
                   - ReadingInventory_Parse_SixteenCandidates_IsAccepted
                   - ReadingInventory_Parse_OverLongLine_IsRejected
                   - ReadingInventory_Parse_TooManyRows_IsRejected
 
-              - id: SpeechTextEn-Heteronym-ReadingInventory-CandidateLookup
+              - id: SpeechTextEn-Heteronym-ReadingInventory-Lookup
                 title: >-
                   The ReadingInventory class shall return the candidate readings of a form in the
                   order of the forms table, matching the whole word with ASCII-only case folding
                   under every culture, shall return an empty list for a word that is not a form (an
                   empty word, a hyphenated compound, a word with a non-ASCII letter), shall compare
-                  reading ids ordinally and shall throw ArgumentNullException for a null argument.
+                  reading ids ordinally, shall throw ArgumentNullException for a null argument, and
+                  shall expose its reading ids and candidate lists only as read-only collections
+                  that no caller can change.
                 justification: |
                   The order of the candidates is the tie-break rule of the classifier, so it is part
                   of the contract; a lookup that folded case with the current culture would match a
                   Turkish dotted I to an ASCII letter on some machines only, and a lookup that
-                  matched part of a compound would give a reading to a word the model never saw.
+                  matched part of a compound would give a reading to a word the model never saw. One
+                  inventory serves every analyzer and thread in the process; if a caller could
+                  change it, one host's mistake would change the readings of every other.
                 tests:
                   - ReadingInventory_CandidatesFor_AsciiFold_ReturnsRowOrder
                   - ReadingInventory_CandidatesFor_NotAForm_ReturnsEmpty
                   - ReadingInventory_CandidatesFor_TurkishCulture_FoldsAsciiOnly
                   - ReadingInventory_Contains_ExactId_ComparesOrdinally
                   - ReadingInventory_PublicLookups_NullArgument_ThrowsArgumentNullException
-                  - ReadingInventory_InternalAccessors_AgreeWithPublicLookup
-
-              - id: SpeechTextEn-Heteronym-ReadingInventory-Immutability
-                title: >-
-                  The ReadingInventory class shall expose its reading ids and candidate lists only
-                  as read-only collections that no caller can change.
-                justification: |
-                  One inventory serves every analyzer and thread in the process; if a caller could
-                  change it, one host's mistake would change the readings of every other.
-                tests:
                   - ReadingInventory_ReadingIdsAndCandidates_AreReadOnly

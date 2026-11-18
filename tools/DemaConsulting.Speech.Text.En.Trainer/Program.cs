@@ -1,10 +1,11 @@
+using DemaConsulting.Speech.Text.En.Trainer.ExternalEvaluationSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer;
 
 /// <summary>
-///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c> and <c>evaluate</c>.
+///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c>, <c>evaluate</c> and <c>evaluate-external</c>.
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it exists so the Text.En training
@@ -23,6 +24,8 @@ internal static class Program
           check-data   Verify the Text.En training data (run 'check-data --help' for options).
           train        Train the heteronym model, or verify the committed one with --check (run 'train --help').
           evaluate     Measure the heteronym model and decide the quality gate (run 'evaluate --help').
+          evaluate-external
+                       Measure the embedded model on external evaluation-only datasets (run 'evaluate-external --help').
         """;
 
     /// <summary>
@@ -60,6 +63,11 @@ internal static class Program
         if (string.Equals(args[0], EvaluateCommand.Name, StringComparison.Ordinal))
         {
             return EvaluateCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
+        }
+
+        if (string.Equals(args[0], EvaluateExternalCommand.Name, StringComparison.Ordinal))
+        {
+            return EvaluateExternalCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
         }
 
         if (!string.Equals(args[0], CheckDataCommand.Name, StringComparison.Ordinal))

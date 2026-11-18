@@ -20,6 +20,7 @@ This user guide covers:
 - Recognizing speech from an audio input device
 - Recognizing inline Natural Language Audio Tags in text intended for text-to-speech
 - Synthesizing speech, including the Chatterbox Turbo reference voices
+- English text analysis for synthesis models (a preview package): annotations, options, accuracy and limitations
 - Running the bundled demo application and the `speech-cli` command-line tool
 - Runtime-support limitations and fallback behavior
 - Where to find full API and design detail

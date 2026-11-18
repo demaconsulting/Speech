@@ -90,6 +90,28 @@ tests:
               text:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
+  - name: TextEn_PackageDependencies_Nuspec
+    description: "Text.En NuGet package, when it is packed (only for a pre-release version), declares the DemaConsulting.PartOfSpeech tagger as a dependency pinned to one exact version and declares no speech-engine inference runtime"
+    tags: [api-docs]
+    files:
+      # As for the license test: a stable version packs no Text.En package at all (min: 0), and a package
+      # that exists must satisfy every check below. A pre-release package is also what makes a stable
+      # package that depends on the pre-release tagger impossible (NuGet refuses it, NU5104).
+      - pattern: "src/DemaConsulting.Speech.Text.En/bin/Release/DemaConsulting.Speech.Text.En.*.nupkg"
+        min: 0
+        max: 1
+        zip:
+          files:
+            - pattern: "DemaConsulting.Speech.Text.En.nuspec"
+              min: 1
+              max: 1
+              text:
+                # The tagger is a dependency, and every declaration of it uses the exact-version range [x.y.z].
+                - matches: 'dependency id="DemaConsulting\.PartOfSpeech" version="\[[^\],]+\]"'
+                - does-not-contain-regex: 'dependency id="DemaConsulting\.PartOfSpeech" version="(?!\[[^\],]+\]")'
+                # No inference runtime (ONNX Runtime, sherpa-onnx) is pulled into the consumers of the text analysis.
+                - does-not-contain-regex: '(?i)dependency id="[^"]*(onnx|sherpa)'
+
   # --- BUILD NOTES ---
 
   - name: Pandoc_BuildNotesHtml

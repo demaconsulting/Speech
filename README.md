@@ -59,24 +59,10 @@ adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatte
 only needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose
 language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview
-`DemaConsulting.Speech.Text.En` package (pre-release, published only in pre-release versions, depends on the
-`DemaConsulting.PartOfSpeech` tagger, which clears its working buffers so no analyzed text is retained, as the core
-`ITextAnalyzer` contract requires) supplies such an analyzer for English: `new EnglishTextAnalyzer()` annotates each
-word with its part of speech, describes how abbreviations, symbols, apostrophes, initialisms, numbers, currency, dates,
-times and units are spoken as aligned replacement spans over the original text (`en.norm` annotations, and `en.spell`
-annotations for letters that are spoken by letter name; the text is never rewritten), supplies sentence boundaries, and
-lets a host override how individual words are spoken or pronounced with a dictionary of pronunciation overrides
-(`EnglishTextAnalyzerOptions.Overrides`, built in code or loaded from a tab-separated file; see the usage guide). It
-also resolves heteronyms, words such as "record", "read" and "lead" whose pronunciation depends on the sentence: an
-embedded trained model (about 250 KB) chooses one of the readings of 207 such words from the sentence context and marks
-the word with a reading id and a confidence (`en.reading` and `en.reading-confidence`), with no configuration and no
-download. Measured on text the model never saw, it picks the right reading for about 96 percent of the heteronym words
-(95.4 percent on sentences written blind by a different model family; the labels it is measured against were chosen by
-a rule or a language model and are not human-verified), against about 91 percent for a decision by the part of speech
-alone; it is least reliable for words whose reading depends on meaning rather than grammar, a reading
-below a confidence of 0.60 is wrong about half the time, and a reading override of a host always beats it. The training
-data, the trainer, the evaluation record with its limitations and the license are described in the usage guide and in
-the repository folders `data/text-en/`, `tools/DemaConsulting.Speech.Text.En.Trainer/` and `docs/evaluation/text-en/`.
+`DemaConsulting.Speech.Text.En` package (pre-release, installed with `--prerelease`) supplies such an analyzer for
+English: part of speech, sentence boundaries, normalization of abbreviations, symbols and numbers, host pronunciation
+overrides and heteronym readings. See [English text analysis (preview)](#english-text-analysis-preview) below and
+the [text analysis chapter of the user guide][link-text-analysis].
 
 ### PortAudio runtime support
 
@@ -372,6 +358,58 @@ The recognition and synthesis pipelines are likewise verified against determinis
 rather than real speech, so recognition accuracy and synthesized speech quality are manual/local
 verification steps too.
 
+## English text analysis (preview)
+
+The optional, pre-release `DemaConsulting.Speech.Text.En` package gives a synthesis model sentence-level English
+context. A model returns its `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`, and an annotation-aware
+backend reads the annotations of each chunk; the text itself is never rewritten:
+
+```csharp
+// In your ISynthesisModel implementation (one shared instance is thread-safe):
+public ITextAnalyzer? TextAnalyzer { get; } = new EnglishTextAnalyzer();
+
+// In your IAnnotatedSynthesisBackend, for each annotation of a chunk:
+if (TextEnAnnotations.TryReadReplacement(annotation, out var spoken, out var isSpelled)) { /* speak it */ }
+```
+
+| Annotation kind | Meaning |
+| --- | --- |
+| `en.upos` | Universal Dependencies part of speech of a word (`NOUN`) |
+| `en.norm` | Words to speak instead of the covered text (`Dr.` is `Doctor`, `$5` is `five dollars`) |
+| `en.spell` | Letters to speak by letter name (`FBI` is `F B I`) |
+| `en.pron` | Phonemes (`ipa:` or `arpabet:`) for a word that a host gave a pronunciation |
+| `en.reading` | Reading id of a heteronym such as "record" (`record.noun`) |
+| `en.reading-confidence` | The model's confidence in that reading, `0.000` to `1.000` |
+
+A host corrects a word the built-in rules get wrong with a pronunciation override dictionary, built in code or loaded
+from a tab-separated file:
+
+```csharp
+var overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Say("Nginx", "engine ex")]);
+var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
+```
+
+The embedded model that chooses a heteronym's reading agrees with the labeled reading for this share of the words of
+held-out sentences it never saw:
+
+| Held-out set | Words | Model | Part of speech alone |
+| --- | ---: | ---: | ---: |
+| Natural sentences | 1,167 | 96.2% | 90.7% |
+| Sentences written blind by a different model family | 1,972 | 95.4% | 91.2% |
+| External: Wikipedia homographs (WHD) | 1,615 | 93.0% | 90.6% |
+| External: heteronym-bench | 299 | 93.0% | 80.3% |
+
+These are agreement with labels, not listener-judged pronunciation. The internal labels were chosen by a rule or a
+language model and are not human-verified, the natural set shares data with the tagger, and the external sets are
+informational: they cover only 162 of the 207 heteronym words and are lower. A reading below a confidence of 0.60 is
+right only about half the time.
+
+Limitations: US English only; Roman numerals, hyphenated compounds with digits, prefix currency codes, URLs, e-mail and
+markup are passed through unchanged; the heteronym model sees one sentence at a time; and the package is a preview
+whose annotation details may still change, with no command-line or demo support yet. The annotations, options,
+diagnostics, accuracy with its caveats and the limitations are described in the [text analysis chapter of the user
+guide][link-text-analysis].
+
 ## Demo Application
 
 An Avalonia desktop demo exercises the library through its public API only - audio devices,
@@ -573,6 +611,7 @@ By contributing to this project, you agree that your contributions will be licen
 [link-continuous-compliance]: https://github.com/demaconsulting/ContinuousCompliance
 [link-contributing]: https://github.com/demaconsulting/Speech/blob/main/CONTRIBUTING.md
 [link-user-guide]: https://github.com/demaconsulting/Speech/tree/main/docs/user_guide
+[link-text-analysis]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/text-analysis.md
 [link-releases]: https://github.com/demaconsulting/Speech/releases
 [link-cli-readme]: https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md
 

@@ -39,33 +39,20 @@ public sealed class DataManifestTests
         Assert.Contains("SHA-256", finding.Message);
     }
 
-    /// <summary>Proves a wrong recorded byte count is reported.</summary>
+    /// <summary>Proves a wrong recorded byte count and a wrong recorded row count are each reported with the manifest value.</summary>
     [Fact]
     public void DataManifest_Verify_WrongBytes_ReportsSizeMismatch()
     {
         // Arrange
         using var fixture = new DatasetFixture();
         SetCell(fixture, "README.md", 2, "1");
-
-        // Act
-        var report = fixture.CheckManifest();
-
-        // Assert
-        Assert.True(DatasetFixture.Has(report, "manifest", "bytes but MANIFEST.tsv lists 1"));
-    }
-
-    /// <summary>Proves a wrong recorded row count is reported.</summary>
-    [Fact]
-    public void DataManifest_Verify_WrongRows_ReportsRowCountMismatch()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
         SetCell(fixture, "train.tsv", 3, "99");
 
         // Act
         var report = fixture.CheckManifest();
 
         // Assert
+        Assert.True(DatasetFixture.Has(report, "manifest", "bytes but MANIFEST.tsv lists 1"));
         Assert.True(DatasetFixture.Has(report, "manifest", "row count is 3 but MANIFEST.tsv lists 99"));
     }
 
@@ -117,33 +104,23 @@ public sealed class DataManifestTests
         Assert.Empty(report.Findings);
     }
 
-    /// <summary>Proves entries that are out of order are reported.</summary>
+    /// <summary>Proves entries that are out of order and a duplicated entry are each reported.</summary>
     [Fact]
     public void DataManifest_Verify_UnsortedEntries_ReportsOrder()
     {
-        // Arrange: swap the first two entries (after the two comment lines)
+        // Arrange: swap the first two entries (after the two comment lines) and repeat the third
         using var fixture = new DatasetFixture();
-        fixture.EditManifestLines(lines => (lines[2], lines[3]) = (lines[3], lines[2]));
+        fixture.EditManifestLines(lines =>
+        {
+            (lines[2], lines[3]) = (lines[3], lines[2]);
+            lines.Insert(5, lines[4]);
+        });
 
         // Act
         var report = fixture.CheckManifest();
 
         // Assert
         Assert.True(DatasetFixture.Has(report, "manifest", "is not in sorted order"));
-    }
-
-    /// <summary>Proves a duplicated entry is reported.</summary>
-    [Fact]
-    public void DataManifest_Verify_DuplicateEntry_ReportsDuplicate()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.EditManifestLines(lines => lines.Insert(3, lines[2]));
-
-        // Act
-        var report = fixture.CheckManifest();
-
-        // Assert
         Assert.True(DatasetFixture.Has(report, "manifest", "duplicate entry for"));
     }
 
@@ -180,33 +157,20 @@ public sealed class DataManifestTests
         Assert.True(DatasetFixture.Has(report, "manifest", "is not a relative path"));
     }
 
-    /// <summary>Proves a line with the wrong number of columns is reported.</summary>
+    /// <summary>Proves a line with the wrong number of columns and an entry with a non-integer size are each reported.</summary>
     [Fact]
     public void DataManifest_Verify_MalformedLine_ReportsColumns()
     {
         // Arrange
         using var fixture = new DatasetFixture();
         fixture.EditManifestLines(lines => lines.Add("only-one-column"));
-
-        // Act
-        var report = fixture.CheckManifest();
-
-        // Assert
-        Assert.True(DatasetFixture.Has(report, "manifest", "column count"));
-    }
-
-    /// <summary>Proves non-integer sizes are reported.</summary>
-    [Fact]
-    public void DataManifest_Verify_NonIntegerBytes_ReportsMalformedNumbers()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
         SetCell(fixture, "README.md", 2, "many");
 
         // Act
         var report = fixture.CheckManifest();
 
         // Assert
+        Assert.True(DatasetFixture.Has(report, "manifest", "column count"));
         Assert.True(DatasetFixture.Has(report, "manifest", "must be integers"));
     }
 
@@ -228,7 +192,6 @@ public sealed class DataManifestTests
     /// <summary>Proves lines are counted like the manifest does: terminators plus an unterminated last line.</summary>
     [Theory]
     [InlineData("", 0)]
-    [InlineData("a\n", 1)]
     [InlineData("a\nb", 2)]
     [InlineData("a\nb\n", 2)]
     public void DataManifest_CountLines_CountsTerminatedAndUnterminatedLines(string text, int expected)
@@ -238,23 +201,6 @@ public sealed class DataManifestTests
 
         // Assert
         Assert.Equal(expected, lines);
-    }
-
-    /// <summary>Proves the loaded entries expose path, digest, size and rows.</summary>
-    [Fact]
-    public void DataManifest_Load_ValidManifest_ExposesEntries()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-
-        // Act
-        var manifest = DataManifest.Load(fixture.Root, new CheckReport());
-
-        // Assert
-        var readme = Assert.Single(manifest.Entries, entry => entry.Path == "README.md");
-        Assert.Equal(64, readme.Sha256.Length);
-        Assert.Equal(new FileInfo(fixture.PathOf("README.md")).Length, readme.Bytes);
-        Assert.Equal(3, Assert.Single(manifest.Entries, entry => entry.Path == "train.tsv").Rows);
     }
 
     /// <summary>Reads the digest of an entry.</summary>

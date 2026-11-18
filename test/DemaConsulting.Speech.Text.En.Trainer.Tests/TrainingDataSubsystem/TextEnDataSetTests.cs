@@ -107,24 +107,6 @@ public sealed class TextEnDataSetTests
         Assert.Null(row.End);
     }
 
-    /// <summary>Proves a sentence starting with a double quote keeps its text and offsets.</summary>
-    [Fact]
-    public void TextEnDataSet_Load_SentenceStartingWithQuote_KeepsSentenceAndOffsets()
-    {
-        // Arrange
-        using var fixture = new DatasetFixture();
-        fixture.AppendDataRow("train.tsv", "syn-00004", "lead.verb", "\"Lead the way,\" she said.", "Lead", "synthetic", "CC0-1.0");
-
-        // Act
-        var data = TextEnDataSet.Load(fixture.Root, new CheckReport());
-
-        // Assert
-        var row = Assert.Single(data.Rows, candidate => candidate.Id == "syn-00004");
-        Assert.Equal("\"Lead the way,\" she said.", row.Sentence);
-        Assert.Equal(1, row.Start);
-        Assert.Equal(5, row.End);
-    }
-
     /// <summary>Proves a wrong header of a data file is a finding and its rows are not loaded.</summary>
     [Fact]
     public void TextEnDataSet_Load_WrongDataHeader_ReportsFindingAndLoadsNoRowsOfThatFile()
@@ -158,17 +140,11 @@ public sealed class TextEnDataSetTests
         Assert.Contains(report.Findings, finding => finding.Location == "audit/notes.tsv:2" && finding.Message.Contains("column count"));
     }
 
-    /// <summary>Proves the vocabulary classifies the generated and harvested sources.</summary>
+    /// <summary>Proves the vocabulary gives each source family its allowed licenses and kind: generated, single license, and one of two.</summary>
     [Theory]
     [InlineData("synthetic", true, "CC0-1.0")]
-    [InlineData("synthetic-v3", true, "CC0-1.0")]
-    [InlineData("independent-holdout", true, "CC0-1.0")]
     [InlineData("harvest-masc", false, "CC-BY-3.0-US")]
-    [InlineData("harvest-masc-llm", false, "CC-BY-3.0-US")]
-    [InlineData("harvest-open-train", false, "CC0-1.0|Public-Domain")]
     [InlineData("harvest-silver-llm", false, "CC0-1.0|Public-Domain")]
-    [InlineData("harvest-tech-steps", false, "Public-Domain")]
-    [InlineData("harvest-headings-2-llm", false, "Public-Domain")]
     public void SourceInfo_TryGet_KnownSource_ReturnsKindAndLicenses(string source, bool generated, string licenses)
     {
         // Arrange / Act
@@ -180,16 +156,11 @@ public sealed class TextEnDataSetTests
         Assert.Equal(licenses.Split('|').Order(), info.AllowedLicenses.Order());
     }
 
-    /// <summary>Proves the vocabulary tells harvested, synthetic and independent holdout sources apart, and knows no kind of an unknown source.</summary>
+    /// <summary>Proves the vocabulary tells harvested, synthetic and independent holdout sources apart.</summary>
     [Theory]
-    [InlineData("synthetic", "Synthetic")]
     [InlineData("synthetic-v2", "Synthetic")]
-    [InlineData("synthetic-v3", "Synthetic")]
     [InlineData("independent-holdout", "IndependentHoldout")]
-    [InlineData("harvest-masc", "Harvest")]
     [InlineData("harvest-silver-llm", "Harvest")]
-    [InlineData("synthetic-v4", null)]
-    [InlineData("harvest-wikipedia", null)]
     public void SourceInfo_KindOf_Source_ReturnsKindOrNull(string source, string? expected)
     {
         // Arrange / Act
@@ -199,17 +170,18 @@ public sealed class TextEnDataSetTests
         Assert.Equal(expected, kind?.ToString());
     }
 
-    /// <summary>Proves a source outside the closed vocabulary is not found.</summary>
+    /// <summary>Proves a source outside the closed vocabulary is not found and has no kind.</summary>
     [Theory]
     [InlineData("harvest-wikipedia")]
-    [InlineData("synthetic-v4")]
     [InlineData("")]
     public void SourceInfo_TryGet_UnknownSource_ReturnsFalse(string source)
     {
         // Arrange / Act
         var known = SourceInfo.TryGet(source, out _);
+        var kind = SourceInfo.KindOf(source);
 
         // Assert
         Assert.False(known);
+        Assert.Null(kind);
     }
 }

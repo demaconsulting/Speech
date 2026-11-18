@@ -3,7 +3,7 @@
 **Purpose**: Supply a pseudo-random sequence that depends only on its seed, never on the runtime, the operating system
 or the framework version, so that the order in which training rows are visited and the clusters a bootstrap resample
 draws are reproducible everywhere. The framework's own generator is deliberately not used: its algorithm is not part of
-its contract and may change between runtime versions, which would silently change a trained model.
+its contract and may change between runtime versions.
 
 **Data Model**: `DeterministicRandom` is an internal sealed class with one 64-bit state, set from the seed. The
 algorithm is SplitMix64, a fixed integer recurrence: the state advances by the constant `0x9E3779B97F4A7C15` and the
@@ -23,7 +23,7 @@ draws and is not thread-safe.
   permutation
 
 **Error Handling**: the only failure is the non-positive bound of `NextInt`, a defect of the caller that throws
-`ArgumentOutOfRangeException`. There is no I/O and nothing is caught.
+`ArgumentOutOfRangeException`. There is no I/O.
 
 **Dependencies**: none (the framework's integer arithmetic only).
 
