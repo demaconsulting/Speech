@@ -50,8 +50,8 @@ This package embeds the following data.
 - **Heteronym model (CC BY 3.0 US terms).** The file `heteronyms.bin` holds the trained weights with which the analyzer
   decides which reading of a heteronym a word has in its sentence. The weights are numbers that a training program
   computed from labeled sentences; the model contains no sentence text. The 19,865 training rows (18,935 distinct
-  sentences), of which the model is the result, come from three license classes: 2,328 rows adapted from the Manually
-  Annotated Sub-Corpus (MASC), licensed under CC BY 3.0 US (the sentences, their part-of-speech tags and their
+  sentences), of which the model is the result, come from three license classes: 2,328 rows adapted from the
+  Manually Annotated Sub-Corpus (MASC), licensed under CC BY 3.0 US (the sentences, their part-of-speech tags and their
   selection come from MASC); 3,860 public-domain rows (works of the United States federal government and Project
   Gutenberg texts); and 13,677 rows under CC0-1.0 (sentences written by language models for this purpose, and CC0
   sentences of the Tatoeba project). The labels (the reading of each word) were chosen by rules from part-of-speech
