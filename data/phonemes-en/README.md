@@ -14,6 +14,9 @@ resource lives in the library. Nothing here is legal advice.
 | File | What |
 | --- | --- |
 | [MANIFEST.tsv](MANIFEST.tsv) | pins: SHA-256, size and row count of the CMUdict input and of the uncompressed lexicon image; verified by `build-lexicon --check` |
+| [reading-pronunciations.tsv](reading-pronunciations.tsv) | the reviewed, frozen ARPAbet pronunciation of every heteronym reading id of `DemaConsulting.Speech.Text.En` (395 rows: `reading_id`, `arpabet`, `source`); embedded in the library |
+| [form-overrides.tsv](form-overrides.tsv) | the few inflected spellings the morphology rules cannot derive from a reading's headword (`does`, `lives`, `dove` ...); embedded in the library |
+| [reading-gaps.tsv](reading-gaps.tsv) | the committed list of (spelling, reading id) pairs that cannot be resolved; expected to be empty (header only) |
 | `external/` | git-ignored local cache: `external/cmudict/cmudict.dict` and its `LICENSE` (never committed) |
 | `work/` | git-ignored scratch for measurements (never committed) |
 
@@ -52,6 +55,32 @@ The rules (implemented in `tools/DemaConsulting.Speech.Phonemes.En.Tools/Lexicon
   bytes depend on the runtime's deflate and are never compared) and with `MANIFEST.tsv`, and proves that every entry reads back
   identical through the library's lookup.
 - The morphology rules that derive words the lexicon lacks are measured against the lexicon itself with `measure-morphology`.
+
+## Reading Pronunciations
+
+The English text analysis labels a heteronym such as `record` with a reading id (`record.noun`, `record.verb`); the phonemizer needs
+a pronunciation for every one of the 395 ids. CMUdict lists the variants of a heteronym but not which belongs to which sense, and
+about a quarter of the heteronyms lack a variant altogether, so the mapping is a reviewed table, built like this:
+
+- `propose-readings` proposes a row per reading id from CMUdict (variants matched by stress signature, so the noun gets the initial
+  stress and the verb the final stress; `-ate` and `-ment` endings by sound rule) into the git-ignored `work/` folder.
+- The proposals were reviewed and corrected by hand, then the whole table was audited a second time against the resolved
+  pronunciation of every (spelling, reading id) pair. No misaki, WikiPron or espeak-ng data was consulted for any row.
+- Each row's `source` says where it came from: `cmu#N` (variant `N` of the lemma in CMUdict), `rule:<name>` (derived from a CMUdict
+  entry by a named sound rule) or `authored` (written from the CMUdict base entry and phonetic knowledge; this includes the three
+  lemmas CMUdict lacks, `analyse`, `pasty` and `rerelease`).
+- A row is the pronunciation of the reading's own headword. An inflected spelling (`records`, `abused`, `abusing`) is that
+  pronunciation plus the sound of the ending by the morphology rules; `form-overrides.tsv` holds the spellings that rule cannot give.
+- `propose-readings --check` verifies the table: exactly the inventory's reading ids, every `cmu#N` row equal to the lexicon's
+  variant, every one of the 853 (spelling, reading id) pairs of `data/text-en/forms.tsv` resolves, and the pairs that do not are
+  exactly the committed `reading-gaps.tsv` (there are none). The library's tests assert the same, and the readings golden
+  corpus (`test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/readings-golden.tsv`, one sentence per reading id) pins the
+  pronunciation of every reading id end to end.
+
+```pwsh
+dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- propose-readings            # writes work/reading-review.tsv and a proposed table
+dotnet run --project tools/DemaConsulting.Speech.Phonemes.En.Tools -- propose-readings --check    # verifies the committed tables (exit 1 when inconsistent)
+```
 
 ## Measurement Oracles (local only)
 

@@ -11,7 +11,10 @@ and in `PACKAGE-LICENSE.md`, covers only the code of this repository. It does no
 - **Copyright**: Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
 - **License**: a BSD-style license (the BSD-2-Clause conditions plus an acknowledgment of funding), reproduced in
   full below.
-- **Used in**: the embedded lexicon `cmudict-en.bin.gz`.
+- **Used in**: the embedded lexicon `cmudict-en.bin.gz`, and the reading table `reading-pronunciations.tsv`, whose
+  rows for the heteronym readings of `DemaConsulting.Speech.Text.En` are either pronunciation variants copied from
+  CMUdict (`cmu#N`), derived from a CMUdict entry by a named sound rule (`rule:<name>`) or written by DEMA Consulting
+  from CMUdict and phonetic knowledge alone (`authored`).
 - **Changes**: the dictionary was filtered to the entries whose word consists of the letters a to z and apostrophes
   (133,973 of its 135,166 entries), grouped by word with the numbered variants of a word (`word(2)`) stored as
   ordered pronunciation variants of that word, two repeated identical variants were dropped, and the result was

@@ -1,0 +1,396 @@
+reading_id	mode	sentence	target	expected
+absent.adj	e2e	Her father was absent from the meeting.	absent	AE1 B S AH0 N T
+absent.verb	e2e	He was told not to absent himself from class.	absent	AE0 B S EH1 N T
+abstract.adj-noun	e2e	The painting was abstract and bold.	abstract	AE1 B S T R AE2 K T
+abstract.verb	e2e	Please abstract the key points from the long report.	abstract	AE0 B S T R AE1 K T
+abuse.noun	e2e	The report described years of abuse at the school.	abuse	AH0 B Y UW1 S
+abuse.verb	e2e	Never abuse your power over others.	abuse	AH0 B Y UW1 Z
+addict.noun	e2e	The addict began treatment last week.	addict	AE1 D IH2 K T
+addict.verb	e2e	Drugs can addict a person within days.	addict	AH0 D IH1 K T
+address.noun	e2e	Write your address on the envelope.	address	AE1 D R EH2 S
+address.verb	e2e	She will address the crowd tonight.	address	AH0 D R EH1 S
+advocate.noun	e2e	She is an advocate for clean water.	advocate	AE1 D V AH0 K AH0 T
+advocate.verb	e2e	Doctors advocate daily exercise for everyone.	advocate	AE1 D V AH0 K EY2 T
+affect.psych	e2e	The patient showed a flat affect during the interview.	affect	AE1 F EH0 K T
+affect.verb	e2e	The weather can affect your mood.	affect	AH0 F EH1 K T
+affiliate.noun	e2e	The store is an affiliate of a larger company.	affiliate	AH0 F IH1 L IY0 AH0 T
+affiliate.verb	e2e	Our club will affiliate with the national league.	affiliate	AH0 F IH1 L IY0 EY2 T
+age.verb	e2e	The children, aged five and seven, played outside.	aged	EY1 JH D
+aged.adj	e2e	The aged oak tree shaded the old house.	aged	EY1 JH IH0 D
+aggregate.adj-noun	e2e	The aggregate score was higher than expected.	aggregate	AE1 G R AH0 G AH0 T
+aggregate.verb	e2e	We aggregate the data from all the sensors.	aggregate	AE1 G R AH0 G EY2 T
+alternate.adj-noun	e2e	They meet on alternate Tuesdays.	alternate	AO1 L T ER0 N AH0 T
+alternate.verb	e2e	The lights alternate between red and green.	alternate	AO1 L T ER0 N EY2 T
+analyse.verb	e2e	She analyses the results every morning.	analyses	AE1 N AH0 L AY2 Z IH0 Z
+analysis.plural	e2e	The two analyses reached different conclusions.	analyses	AH0 N AE1 L AH0 S IY2 Z
+animate.adj-noun	e2e	Rocks are not animate objects.	animate	AE1 N AH0 M AH0 T
+animate.verb	e2e	Artists animate drawings with a computer.	animate	AE1 N AH0 M EY2 T
+appropriate.adj	e2e	That dress is appropriate for the party.	appropriate	AH0 P R OW1 P R IY0 AH0 T
+appropriate.verb	e2e	The city may appropriate the land for a park.	appropriate	AH0 P R OW1 P R IY0 EY2 T
+approximate.adj-noun	e2e	The approximate cost is ten dollars.	approximate	AH0 P R AA1 K S AH0 M AH0 T
+approximate.verb	e2e	The machine can approximate the value quickly.	approximate	AH0 P R AA1 K S AH0 M EY2 T
+articulate.adj	e2e	She is an articulate and confident speaker.	articulate	AA0 R T IH1 K Y AH0 L AH0 T
+articulate.verb	e2e	He struggled to articulate his feelings.	articulate	AA0 R T IH1 K Y AH0 L EY2 T
+associate.adj-noun	e2e	He is an associate of the firm.	associate	AH0 S OW1 S IY0 AH0 T
+associate.verb	forced	People often associate red with danger.	associate	AH0 S OW1 S IY0 EY2 T
+attribute.noun	e2e	Patience is an important attribute in a teacher.	attribute	AE1 T R AH0 B Y UW2 T
+attribute.verb	e2e	Historians attribute the poem to a monk.	attribute	AH0 T R IH1 B Y UW2 T
+augment.noun	e2e	In Greek grammar, the augment marks the past tense.	augment	AO1 G M AH0 N T
+augment.verb	e2e	They plan to augment their income with a second job.	augment	AO0 G M EH1 N T
+august.majestic	e2e	The august judge entered the quiet courtroom.	august	AO0 G AH1 S T
+august.month	e2e	We always go on vacation in August.	August	AO1 G AH0 S T
+august.name	e2e	August Wilson was a famous playwright.	August	AA1 G AH0 S T
+axe.tool	forced	He split the wood with two sharp axes.	axes	AE1 K S IH0 Z
+axis.plural	e2e	Draw the two axes on the graph.	axes	AE1 K S IY2 Z
+bass.fish	e2e	He caught a large bass in the lake.	bass	B AE1 S
+bass.music	forced	The bass in this song is too loud.	bass	B EY1 S
+bless.verb	e2e	She was blessed with good health.	blessed	B L EH1 S T
+blessed.adj	e2e	He prayed to the Blessed Virgin.	Blessed	B L EH1 S IH0 D
+bologna.city	e2e	We visited the university in Bologna last spring.	Bologna	B AH0 L OW1 N Y AH0
+bologna.sausage	e2e	He ate a bologna sandwich for lunch.	bologna	B AH0 L OW1 N IY0
+bow.bend	e2e	The actors take a bow at the end.	bow	B AW1
+bow.weapon	e2e	The archer drew back his bow.	bow	B OW1
+buffet.meal	e2e	The hotel serves a buffet every morning.	buffet	B AH0 F EY1
+buffet.strike	e2e	Strong winds buffet the small boat.	buffet	B AH1 F AH0 T
+celtic.culture	e2e	Celtic music uses fiddles and flutes.	Celtic	K EH1 L T IH0 K
+celtic.team	e2e	Celtic won the soccer match on Saturday.	Celtic	S EH1 L T IH0 K
+certificate.noun	e2e	She framed her birth certificate.	certificate	S ER0 T IH1 F IH0 K AH0 T
+certificate.verb	e2e	The board will certificate the new nurses next month.	certificate	S ER0 T IH1 F IH0 K EY2 T
+close.adj-noun	e2e	They are close friends.	close	K L OW1 S
+close.verb	e2e	Please close the door quietly.	close	K L OW1 Z
+combat.noun	e2e	He trained for close combat.	combat	K AA1 M B AE0 T
+combat.verb	e2e	Doctors combat the disease with new drugs.	combat	K AH0 M B AE1 T
+combine.noun	e2e	The farmer drove his combine across the field.	combine	K AA1 M B AY0 N
+combine.verb	e2e	Combine the flour and the sugar.	Combine	K AH0 M B AY1 N
+compact.adj-noun	e2e	The compact car fit the small space.	compact	K AA1 M P AE0 K T
+compact.verb	e2e	The machine will compact the trash.	compact	K AH0 M P AE1 K T
+compliment.noun	e2e	She gave him a nice compliment.	compliment	K AA1 M P L AH0 M AH0 N T
+compliment.verb	e2e	I want to compliment you on your work.	compliment	K AA1 M P L AH0 M EH2 N T
+compound.noun	e2e	Water is a compound of hydrogen and oxygen.	compound	K AA1 M P AW0 N D
+compound.verb	e2e	Late fees will compound the problem.	compound	K AH0 M P AW1 N D
+compress.noun	e2e	Apply a cold compress to the bruise.	compress	K AA1 M P R EH0 S
+compress.verb	e2e	You can compress the files to save space.	compress	K AH0 M P R EH1 S
+concert.noun	e2e	We heard a concert in the park.	concert	K AA1 N S ER0 T
+concert.verb	e2e	Nations must concert their efforts to stop the spread.	concert	K AH0 N S ER1 T
+conduct.noun	e2e	His conduct at the meeting was rude.	conduct	K AA1 N D AH0 K T
+conduct.verb	e2e	They will conduct the experiment tomorrow.	conduct	K AA0 N D AH1 K T
+confederate.adj-noun	e2e	A confederate soldier wrote the letter.	confederate	K AH0 N F EH1 D ER0 AH0 T
+confederate.verb	e2e	The small states confederate to share defense.	confederate	K AH0 N F EH1 D ER0 EY2 T
+confine.noun	e2e	He never left the confines of the village.	confines	K AA1 N F AY2 N Z
+confine.verb	forced	The doctor will confine her to bed.	confine	K AH0 N F AY1 N
+conflict.noun	e2e	The conflict lasted ten years.	conflict	K AA1 N F L IH0 K T
+conflict.verb	e2e	Your schedule may conflict with mine.	conflict	K AH0 N F L IH1 K T
+conglomerate.adj-noun	e2e	The conglomerate owns dozens of companies.	conglomerate	K AH0 N G L AA1 M ER0 AH0 T
+conglomerate.verb	e2e	Dust will conglomerate into larger clumps.	conglomerate	K AH0 N G L AA1 M ER0 EY2 T
+conjugate.adj-noun	e2e	The conjugate of the complex number is shown below.	conjugate	K AA1 N JH AH0 G AH0 T
+conjugate.verb	e2e	Students must conjugate the verb correctly.	conjugate	K AA1 N JH AH0 G EY2 T
+conscript.noun	e2e	The conscript marched all day.	conscript	K AA1 N S K R IH2 P T
+conscript.verb	e2e	The king will conscript young men for the war.	conscript	K AH0 N S K R IH1 P T
+conserve.noun	e2e	She spread strawberry conserve on the toast.	conserve	K AA1 N S ER0 V
+conserve.verb	e2e	We must conserve water during the drought.	conserve	K AH0 N S ER1 V
+console.noun	e2e	He plugged the game console into the television.	console	K AA1 N S OW0 L
+console.verb	e2e	She tried to console the crying child.	console	K AH0 N S OW1 L
+consort.noun	e2e	The queen and her consort waved to the crowd.	consort	K AA1 N S AO0 R T
+consort.verb	e2e	He was seen to consort with thieves.	consort	K AH0 N S AO1 R T
+construct.noun	e2e	Time is a social construct.	construct	K AA1 N S T R AH0 K T
+construct.verb	e2e	Workers will construct the bridge next year.	construct	K AH0 N S T R AH1 K T
+consummate.adj	e2e	She is a consummate professional.	consummate	K AA1 N S AH0 M AH0 T
+consummate.verb	e2e	They did not consummate the deal.	consummate	K AA1 N S AH0 M EY2 T
+content.noun	e2e	The content of the book was shocking.	content	K AA1 N T EH0 N T
+content.satisfied	e2e	She felt content with her simple life.	content	K AH0 N T EH1 N T
+contest.noun	e2e	He won the baking contest.	contest	K AA1 N T EH0 S T
+contest.verb	e2e	They plan to contest the ruling.	contest	K AH0 N T EH1 S T
+contract.noun	e2e	She signed the contract on Monday.	contract	K AA1 N T R AE2 K T
+contract.verb	e2e	Metal will contract in the cold.	contract	K AH0 N T R AE1 K T
+contrast.noun	e2e	The contrast between the two paintings is clear.	contrast	K AA1 N T R AE0 S T
+contrast.verb	e2e	Critics often contrast the two writers.	contrast	K AH0 N T R AE1 S T
+converse.adj-noun	e2e	The converse of the statement is also true.	converse	K AA1 N V ER0 S
+converse.verb	e2e	They converse in French at home.	converse	K AH0 N V ER1 S
+convert.noun	e2e	He is a new convert to the faith.	convert	K AA1 N V ER0 T
+convert.verb	e2e	You can convert the file to a different format.	convert	K AH0 N V ER1 T
+convict.noun	e2e	The convict escaped from prison.	convict	K AA1 N V IH0 K T
+convict.verb	e2e	The jury did not convict him.	convict	K AH0 N V IH1 K T
+coordinate.adj-noun	e2e	Enter the coordinate of the point on the map.	coordinate	K OW0 AO1 R D AH0 N AH0 T
+coordinate.verb	e2e	We need to coordinate our schedules.	coordinate	K OW0 AO1 R D AH0 N EY2 T
+correlate.noun	e2e	Height is a correlate of weight.	correlate	K AO1 R AH0 L AH0 T
+correlate.verb	e2e	Scientists try to correlate the two sets of data.	correlate	K AO1 R AH0 L EY2 T
+decrease.noun	e2e	There was a sharp decrease in sales.	decrease	D IY1 K R IY2 S
+decrease.verb	e2e	Prices will decrease next month.	decrease	D IH0 K R IY1 S
+defect.noun	e2e	The car had a serious defect.	defect	D IY1 F EH0 K T
+defect.verb	e2e	Some soldiers chose to defect to the other side.	defect	D IH0 F EH1 K T
+degenerate.adj-noun	e2e	The degenerate state of the building was clear.	degenerate	D IH0 JH EH1 N ER0 AH0 T
+degenerate.verb	e2e	Without care, the soil will degenerate.	degenerate	D IH0 JH EH1 N ER0 EY2 T
+delegate.noun	e2e	Each state sent one delegate to the convention.	delegate	D EH1 L AH0 G AH0 T
+delegate.verb	e2e	A good manager knows when to delegate.	delegate	D EH1 L AH0 G EY2 T
+deliberate.adj	e2e	It was a deliberate act.	deliberate	D IH0 L IH1 B ER0 AH0 T
+deliberate.verb	e2e	The jury will deliberate for hours.	deliberate	D IH0 L IH1 B ER0 EY2 T
+desert.noun	e2e	The Sahara is the largest desert in Africa.	desert	D EH1 Z ER0 T
+desert.verb	e2e	Soldiers who desert the army face punishment.	desert	D IH0 Z ER1 T
+designate.adj	e2e	He is the ambassador designate.	designate	D EH1 Z AH0 G N AH0 T
+designate.verb	e2e	They will designate a new leader.	designate	D EH1 Z AH0 G N EY2 T
+deviate.noun	e2e	A normal deviate is a random value drawn from a bell curve.	deviate	D IY1 V IY0 AH0 T
+deviate.verb	e2e	Do not deviate from the plan.	deviate	D IY1 V IY0 EY2 T
+diagnose.verb	e2e	The doctor diagnoses the illness quickly.	diagnoses	D AY2 AH0 G N OW1 S IH0 Z
+diagnosis.plural	e2e	The two diagnoses were very different.	diagnoses	D AY2 AH0 G N OW1 S IY2 Z
+diffuse.adj	e2e	The room was lit by diffuse light.	diffuse	D IH0 F Y UW1 S
+diffuse.verb	e2e	Heat will diffuse through the metal.	diffuse	D IH0 F Y UW1 Z
+discard.noun	e2e	She added a card to the discard pile.	discard	D IH1 S K AA2 R D
+discard.verb	e2e	Please discard the old batteries.	discard	D IH0 S K AA1 R D
+discharge.noun	e2e	The soldier received an honorable discharge.	discharge	D IH1 S CH AA2 R JH
+discharge.verb	e2e	The hospital will discharge him today.	discharge	D IH0 S CH AA1 R JH
+discount.noun	e2e	Students get a discount on tickets.	discount	D IH1 S K AW0 N T
+discount.verb	e2e	You should discount his wild claims.	discount	D IH0 S K AW1 N T
+discourse.noun	e2e	The discourse lasted for an hour.	discourse	D IH1 S K AO0 R S
+discourse.verb	e2e	He loved to discourse on philosophy.	discourse	D IH0 S K AO1 R S
+dive.past	e2e	He dove into the cold pool.	dove	D OW1 V
+do.verb	e2e	She does the dishes every night.	does	D AH1 Z
+document.noun	e2e	Please sign the document.	document	D AA1 K Y AH0 M AH0 N T
+document.verb	e2e	We document every change in a log.	document	D AA1 K Y AH0 M EH2 N T
+doe.plural	e2e	The does grazed near the creek.	does	D OW1 Z
+dove.bird	e2e	A white dove flew over the square.	dove	D AH1 V
+duplicate.adj-noun	e2e	She made a duplicate of the key.	duplicate	D UW1 P L AH0 K AH0 T
+duplicate.verb	e2e	Please do not duplicate this file.	duplicate	D UW1 P L AH0 K EY2 T
+elaborate.adj	e2e	They planned an elaborate wedding.	elaborate	IH0 L AE1 B R AH0 T
+elaborate.verb	e2e	Could you elaborate on that point?	elaborate	IH0 L AE1 B ER0 EY2 T
+entrance.noun	e2e	The entrance to the park is on Main Street.	entrance	EH1 N T R AH0 N S
+entrance.verb	e2e	The magician's tricks entrance the children.	entrance	IH0 N T R AE1 N S
+escort.noun	e2e	The president arrived with a police escort.	escort	EH1 S K AO0 R T
+escort.verb	e2e	A guard will escort you to the exit.	escort	EH0 S K AO1 R T
+essay.noun	e2e	He wrote an essay about the war.	essay	EH1 S EY2
+essay.verb	e2e	They essay a new approach to the problem.	essay	EH0 S EY1
+estimate.noun	e2e	The estimate was far too low.	estimate	EH1 S T AH0 M AH0 T
+estimate.verb	e2e	I estimate that it will take two hours.	estimate	EH1 S T AH0 M EY2 T
+excuse.noun	e2e	He gave a weak excuse for being late.	excuse	IH0 K S K Y UW1 S
+excuse.verb	e2e	Please excuse my mistake.	excuse	IH0 K S K Y UW1 Z
+expatriate.noun	e2e	The expatriate missed her home country.	expatriate	EH0 K S P EY1 T R IY0 AH0 T
+expatriate.verb	e2e	The regime will expatriate the dissidents.	expatriate	EH0 K S P EY1 T R IY0 EY2 T
+exploit.noun	e2e	The novel tells of the heroic exploit of a sailor.	exploit	EH1 K S P L OY2 T
+exploit.verb	e2e	Some firms exploit their workers.	exploit	EH2 K S P L OY1 T
+export.noun	e2e	Coffee is the country's main export.	export	EH1 K S P AO0 R T
+export.verb	e2e	They export cars to Europe.	export	IH0 K S P AO1 R T
+expose.noun	e2e	The newspaper ran an expose on the scandal.	expose	EH2 K S P OW0 Z EY1
+expose.verb	e2e	Do not expose the film to light.	expose	IH0 K S P OW1 Z
+extract.noun	e2e	He added a drop of vanilla extract.	extract	EH1 K S T R AE2 K T
+extract.verb	e2e	The dentist will extract the tooth.	extract	IH0 K S T R AE1 K T
+fragment.noun	e2e	She found a fragment of pottery.	fragment	F R AE1 G M AH0 N T
+fragment.verb	e2e	The ice began to fragment.	fragment	F R AE1 G M EH2 N T
+frequent.adj	e2e	He is a frequent visitor.	frequent	F R IY1 K W AH0 N T
+frequent.verb	e2e	Tourists frequent the old cafe.	frequent	F R IY0 K W EH1 N T
+graduate.adj-noun	e2e	She is a graduate of Yale.	graduate	G R AE1 JH AH0 W AH0 T
+graduate.verb	e2e	Students graduate in June.	graduate	G R AE1 JH AH0 W EY2 T
+house.noun	e2e	They bought a big house.	house	HH AW1 S
+house.verb	e2e	The museum will house the collection.	house	HH AW1 Z
+impact.noun	e2e	The impact of the crash was felt miles away.	impact	IH1 M P AE0 K T
+impact.verb	e2e	The new law will impact small businesses.	impact	IH2 M P AE1 K T
+implant.noun	e2e	He received a dental implant.	implant	IH1 M P L AE2 N T
+implant.verb	e2e	Surgeons implant the device under the skin.	implant	IH2 M P L AE1 N T
+implement.noun	e2e	A hammer is a simple implement.	implement	IH1 M P L AH0 M AH0 N T
+implement.verb	e2e	The city will implement the new rules.	implement	IH1 M P L AH0 M EH2 N T
+import.noun	e2e	Oil is a major import.	import	IH1 M P AO2 R T
+import.verb	e2e	They import wine from France.	import	IH2 M P AO1 R T
+incense.noun	e2e	The temple smelled of burning incense.	incense	IH1 N S EH2 N S
+incense.verb	e2e	Rude remarks incense him.	incense	IH2 N S EH1 N S
+incline.noun	e2e	The truck struggled up the steep incline.	incline	IH1 N K L AY0 N
+incline.verb	e2e	I incline to agree with you.	incline	IH2 N K L AY1 N
+incorporate.adj	e2e	The incorporate body held its first meeting.	incorporate	IH2 N K AO1 R P ER0 AH0 T
+incorporate.verb	e2e	We will incorporate your ideas into the plan.	incorporate	IH2 N K AO1 R P ER0 EY2 T
+increase.noun	e2e	There was a large increase in prices.	increase	IH1 N K R IY2 S
+increase.verb	e2e	Taxes will increase next year.	increase	IH2 N K R IY1 S
+increment.noun	e2e	The price rose by a small increment.	increment	IH1 N K R AH0 M AH0 N T
+increment.verb	e2e	The program will increment the counter.	increment	IH1 N K R AH0 M EH2 N T
+initiate.noun	e2e	The initiate took a sacred vow.	initiate	IH2 N IH1 SH IY0 AH0 T
+initiate.verb	e2e	They will initiate the project in May.	initiate	IH2 N IH1 SH IY0 EY2 T
+insert.noun	e2e	The magazine had an insert about travel.	insert	IH1 N S ER2 T
+insert.verb	e2e	Insert the key into the lock.	Insert	IH2 N S ER1 T
+inside.adj-noun	e2e	The inside of the box was red.	inside	IH1 N S AY2 D
+inside.adv-prep	e2e	Come inside before it rains.	inside	IH2 N S AY1 D
+instrument.noun	e2e	The violin is a beautiful instrument.	instrument	IH1 N S T R AH0 M AH0 N T
+instrument.verb	e2e	Engineers instrument the bridge with sensors.	instrument	IH1 N S T R AH0 M EH2 N T
+insult.noun	e2e	That remark was an insult.	insult	IH1 N S AH2 L T
+insult.verb	e2e	Do not insult your guests.	insult	IH2 N S AH1 L T
+intercept.noun	e2e	The line crosses the axis at the intercept.	intercept	IH1 N T ER0 S EH2 P T
+intercept.verb	e2e	Police tried to intercept the message.	intercept	IH2 N T ER0 S EH1 P T
+interchange.noun	e2e	We exited at the highway interchange.	interchange	IH1 N T ER0 CH EY2 N JH
+interchange.verb	e2e	You can interchange the two parts.	interchange	IH2 N T ER0 CH EY1 N JH
+intern.noun	e2e	The intern made coffee for the staff.	intern	IH1 N T ER0 N
+intern.verb	e2e	They will intern the prisoners in a camp.	intern	IH0 N T ER1 N
+intimate.adj	e2e	They had an intimate dinner for two.	intimate	IH1 N T AH0 M AH0 T
+intimate.verb	e2e	He did not intimate that he was leaving.	intimate	IH1 N T AH0 M EY2 T
+intrigue.noun	e2e	The play is full of royal intrigue.	intrigue	IH1 N T R IY0 G
+intrigue.verb	e2e	The mystery will intrigue readers.	intrigue	IH2 N T R IY1 G
+invalid.adj	e2e	The password you entered is invalid.	invalid	IH2 N V AE1 L AH0 D
+invalid.noun	e2e	The invalid rested in bed all day.	invalid	IH1 N V AH0 L AH0 D
+invert.adj-noun	e2e	The invert is the lowest point inside a pipe.	invert	IH1 N V ER0 T
+invert.verb	e2e	Invert the cake onto a plate.	Invert	IH2 N V ER1 T
+invite.noun	e2e	She sent an invite to all her friends.	invite	IH1 N V AY2 T
+invite.verb	e2e	We invite you to join us.	invite	IH2 N V AY1 T
+isolate.noun	e2e	Scientists studied the viral isolate.	isolate	AY1 S AH0 L AH0 T
+isolate.verb	e2e	Doctors isolate the patient to stop the spread.	isolate	AY1 S AH0 L EY2 T
+jesus.english	e2e	The church honors Jesus every Sunday.	Jesus	JH IY1 Z AH0 S
+jesus.spanish	e2e	My neighbor Jesus speaks only Spanish.	Jesus	HH EH0 S UW1 S
+job.bible	e2e	The Book of Job tells of great suffering.	Job	JH OW1 B
+job.work	e2e	He found a new job last week.	job	JH AA1 B
+laminate.noun	e2e	The kitchen has a laminate countertop.	laminate	L AE1 M AH0 N AH0 T
+laminate.verb	e2e	She will laminate the poster.	laminate	L AE1 M AH0 N EY2 T
+lead.guide	e2e	She will lead the team to victory.	lead	L IY1 D
+lead.metal	e2e	The pipes were made of lead.	lead	L EH1 D
+learn.verb	e2e	He learned to swim last summer.	learned	L ER1 N D
+learned.adj	e2e	The learned professor spoke for an hour.	learned	L ER1 N IH0 D
+legitimate.adj	e2e	She has a legitimate reason.	legitimate	L AH0 JH IH1 T AH0 M AH0 T
+legitimate.verb	e2e	The ruling would legitimate the new government.	legitimate	L AH0 JH IH1 T AH0 M EY2 T
+life.plural	forced	Doctors save lives every day.	lives	L AY1 V Z
+live.adj	e2e	The band played a live show.	live	L AY1 V
+live.verb	e2e	They live in a small town.	live	L IH1 V
+mate.companion	e2e	Her mate waited by the door.	mate	M EY1 T
+mate.drink	e2e	He sipped hot mate from a gourd.	mate	M AA1 T EY2
+mediate.adj	e2e	The mediate cause of the fire was a spark.	mediate	M IY1 D IY0 AH0 T
+mediate.verb	e2e	A neutral party will mediate the dispute.	mediate	M IY1 D IY0 EY2 T
+merchandise.noun	e2e	The store sells team merchandise.	merchandise	M ER1 CH AH0 N D AY2 S
+merchandise.verb	e2e	They merchandise their brand with toys.	merchandise	M ER1 CH AH0 N D AY2 Z
+minute.time	e2e	Wait one minute please.	minute	M IH1 N AH0 T
+minute.tiny	e2e	The surface had minute scratches.	minute	M AY0 N UW1 T
+misuse.noun	e2e	The misuse of funds led to his arrest.	misuse	M IH0 S Y UW1 S
+misuse.verb	e2e	Do not misuse the equipment.	misuse	M IH0 S Y UW1 Z
+mobile.city	e2e	We took the bus to Mobile, Alabama.	Mobile	M OW0 B IY1 L
+mobile.movable	e2e	She answered her mobile phone.	mobile	M OW1 B AH0 L
+mobile.sculpture	e2e	A colorful mobile hung above the crib.	mobile	M OW1 B IY2 L
+moderate.adj-noun	forced	The weather was moderate all week.	moderate	M AA1 D ER0 AH0 T
+moderate.verb	e2e	A teacher will moderate the debate.	moderate	M AA1 D ER0 EY2 T
+mope.verb	e2e	She moped around the house all day.	moped	M OW1 P T
+moped.noun	e2e	He rode his moped to work.	moped	M OW1 P EH0 D
+mouth.noun	e2e	Open your mouth wide.	mouth	M AW1 TH
+mouth.verb	e2e	He mouthed the words to the song.	mouthed	M AW1 DH D
+nestle.company	e2e	Nestle sells chocolate worldwide.	Nestle	N EH1 S L EY2
+nestle.snuggle	e2e	The kitten likes to nestle in my lap.	nestle	N EH1 S AH0 L
+nominate.adj	forced	The senator nominate awaited the vote.	nominate	N AA1 M AH0 N AH0 T
+nominate.verb	e2e	I nominate her for president.	nominate	N AA1 M AH0 N EY2 T
+number.noun	e2e	Pick a number between one and ten.	number	N AH1 M B ER0
+number.numb	e2e	My fingers got number in the cold.	number	N AH1 M ER0
+object.noun	e2e	A ball is a round object.	object	AA1 B JH EH0 K T
+object.verb	e2e	I object to that statement.	object	AH0 B JH EH1 K T
+offset.noun	e2e	The offset between the two lines is small.	offset	AO1 F S EH2 T
+offset.verb	e2e	Savings will offset the cost.	offset	AO0 F S EH1 T
+orient.noun	e2e	The ships sailed for the Orient.	Orient	AO1 R IY0 EH2 N T
+orient.verb	e2e	Please orient the map to the north.	orient	AO1 R IY0 EH2 N T
+ornament.noun	e2e	She hung an ornament on the tree.	ornament	AO1 R N AH0 M AH0 N T
+ornament.verb	e2e	They ornament the hall with flowers.	ornament	AO1 R N AH0 M EH2 N T
+overthrow.noun	e2e	The overthrow of the king shocked everyone.	overthrow	OW1 V ER0 TH R OW2
+overthrow.verb	e2e	Rebels hoped to overthrow the government.	overthrow	OW2 V ER0 TH R OW1
+pasty.adj	e2e	His face looked pale and pasty.	pasty	P EY1 S T IY0
+pasty.noun	e2e	He ate a hot pasty from the bakery.	pasty	P AE1 S T IY0
+perfect.adj	e2e	The weather was perfect.	perfect	P ER1 F IH2 K T
+perfect.verb	e2e	She worked hard to perfect her skill.	perfect	P ER0 F EH1 K T
+perfume.noun	e2e	Her perfume smelled of roses.	perfume	P ER1 F Y UW2 M
+perfume.verb	e2e	Flowers perfume the garden.	perfume	P ER0 F Y UW1 M
+permit.noun	e2e	You need a permit to park here.	permit	P ER1 M IH2 T
+permit.verb	e2e	The rules do not permit pets.	permit	P ER0 M IH1 T
+pervert.noun	e2e	The judge called the man a pervert.	pervert	P ER1 V ER0 T
+pervert.verb	e2e	Some fear that money will pervert justice.	pervert	P ER0 V ER1 T
+pigment.noun	e2e	The paint contains a red pigment.	pigment	P IH1 G M AH0 N T
+pigment.verb	e2e	Sunlight can pigment the skin.	pigment	P IH1 G M EH2 N T
+polish.nationality	e2e	She speaks Polish and German.	Polish	P OW1 L IH0 SH
+polish.shine	e2e	He used wax to polish the shoes.	polish	P AA1 L IH0 SH
+postulate.noun	e2e	That is a basic postulate of the theory.	postulate	P AA1 S CH AH0 L AH0 T
+postulate.verb	e2e	Scientists postulate that the universe is expanding.	postulate	P AA1 S CH AH0 L EY2 T
+precipitate.adj-noun	e2e	The precipitate in the test tube was white.	precipitate	P R IH0 S IH1 P IH0 T AH0 T
+precipitate.verb	e2e	Rising prices may precipitate a crisis.	precipitate	P R IH0 S IH1 P IH0 T EY2 T
+predicate.noun	e2e	The predicate of the sentence is a verb phrase.	predicate	P R EH1 D IH0 K AH0 T
+predicate.verb	e2e	He will predicate his argument on the facts.	predicate	P R EH1 D AH0 K EY2 T
+present.adj-noun	e2e	I wrapped a present for my sister.	present	P R EH1 Z AH0 N T
+present.verb	e2e	I will present the results tomorrow.	present	P R IY0 Z EH1 N T
+primer.paint	e2e	Apply a coat of primer before painting the wall.	primer	P R AY1 M ER0
+primer.textbook	e2e	The child read a primer to learn the alphabet.	primer	P R IH1 M ER0
+proceeds.noun	e2e	The proceeds go to charity.	proceeds	P R OW1 S IY2 D Z
+proceeds.verb	e2e	The meeting proceeds as planned.	proceeds	P R AH0 S IY1 D Z
+produce.noun	e2e	She bought fresh produce at the market.	produce	P R OW1 D UW0 S
+produce.verb	e2e	Factories produce cars.	produce	P R AH0 D UW1 S
+progress.noun	e2e	We made good progress today.	progress	P R AA1 G R EH2 S
+progress.verb	e2e	The disease may progress slowly.	progress	P R AH0 G R EH1 S
+project.noun	e2e	The project is almost finished.	project	P R AA1 JH EH0 K T
+project.verb	e2e	Light can project an image on the wall.	project	P R AH0 JH EH1 K T
+protest.noun	e2e	The students joined a protest.	protest	P R OW1 T EH2 S T
+protest.verb	e2e	Workers protest against the new rules.	protest	P R AH0 T EH1 S T
+put.verb	e2e	He is putting the books on the shelf.	putting	P UH1 T IH0 NG
+putt.verb	e2e	She is putting on the green.	putting	P AH1 T IH0 NG
+ravel.composer	e2e	The orchestra played a piece by Ravel.	Ravel	R AH0 V EH1 L
+ravel.tangle	e2e	The cat began to ravel the wool.	ravel	R AE1 V AH0 L
+read.past	e2e	Yesterday I read the whole book.	read	R EH1 D
+read.present	e2e	Please read the next page aloud.	read	R IY1 D
+reading.act	e2e	She enjoys reading before bed.	reading	R IY1 D IH0 NG
+reading.town	forced	We took the train to Reading, England.	Reading	R EH1 D IH0 NG
+rebel.noun	e2e	The rebel fled into the hills.	rebel	R EH1 B AH0 L
+rebel.verb	e2e	Teenagers often rebel against their parents.	rebel	R IH0 B EH1 L
+recall.noun	e2e	The company announced a recall of the toys.	recall	R IY1 K AO2 L
+recall.verb	e2e	I cannot recall his name.	recall	R IH0 K AO1 L
+recharge.noun	e2e	The phone needs a recharge.	recharge	R IY1 CH AA2 R JH
+recharge.verb	e2e	Please recharge the battery.	recharge	R IY0 CH AA1 R JH
+record.noun	e2e	She broke the world record.	record	R EH1 K ER0 D
+record.verb	e2e	They record the songs in a studio.	record	R AH0 K AO1 R D
+recount.again	e2e	Officials will recount the votes by hand.	recount	R IY2 K AW1 N T
+recount.narrate	forced	He will recount the story of his trip.	recount	R IH0 K AW1 N T
+refund.noun	e2e	I asked for a refund.	refund	R IY1 F AH2 N D
+refund.verb	e2e	The store will refund your money.	refund	R IH0 F AH1 N D
+refuse.noun	e2e	The truck collects refuse every Friday.	refuse	R EH1 F Y UW2 S
+refuse.verb	e2e	I refuse to go.	refuse	R AH0 F Y UW1 Z
+regiment.noun	e2e	The regiment marched through the town.	regiment	R EH1 JH AH0 M AH0 N T
+regiment.verb	e2e	Schools should not regiment every minute of a child's day.	regiment	R EH1 JH AH0 M EH2 N T
+reject.noun	e2e	The machine threw out each reject.	reject	R IY1 JH EH0 K T
+reject.verb	e2e	They will reject the offer.	reject	R IH0 JH EH1 K T
+relay.noun	e2e	She ran the last leg of the relay.	relay	R IY1 L EY2
+relay.verb	e2e	Please relay the message to him.	relay	R IY0 L EY1
+replicate.adj-noun	e2e	Each replicate gave the same result.	replicate	R EH1 P L AH0 K AH0 T
+replicate.verb	e2e	Other labs could not replicate the result.	replicate	R EH1 P L AH0 K EY2 T
+rerelease.noun	e2e	The studio announced a rerelease of the film.	rerelease	R IY1 R IH0 L IY2 S
+rerelease.verb	e2e	They plan to rerelease the album.	rerelease	R IY2 R IH0 L IY1 S
+research.noun	e2e	Her research focuses on bees.	research	R IY1 S ER0 CH
+research.verb	e2e	I need to research the topic first.	research	R IY0 S ER1 CH
+resume.noun	e2e	He sent his resume to ten companies.	resume	R EH1 Z AH0 M EY2
+resume.verb	e2e	Classes will resume on Monday.	resume	R IH0 Z UW1 M
+retard.noun	e2e	The school bans the word "retard" because it is hurtful.	retard	R IY1 T AA2 R D
+retard.verb	e2e	Cold weather can retard the growth of plants.	retard	R IH0 T AA1 R D
+rodeo.drive	e2e	We went shopping on Rodeo Drive.	Rodeo	R OW0 D EY1 OW0
+rodeo.event	e2e	The town holds a rodeo every summer.	rodeo	R OW1 D IY0 OW2
+row.argument	e2e	The couple had a loud row about money.	row	R AW1
+row.line	e2e	He sat in the front row.	row	R OW1
+sake.drink	e2e	They drank warm sake with dinner.	sake	S AA1 K IY0
+sake.purpose	e2e	Do it for the sake of your family.	sake	S EY1 K
+segment.noun	e2e	Each segment of the show lasts ten minutes.	segment	S EH1 G M AH0 N T
+segment.verb	e2e	We segment customers by age.	segment	S EH2 G M EH1 N T
+separate.adj	e2e	They live in separate houses.	separate	S EH1 P ER0 IH0 T
+separate.verb	e2e	Please separate the eggs.	separate	S EH1 P ER0 EY2 T
+sewer.drain	e2e	Rats ran through the sewer.	sewer	S UW1 ER0
+sewer.seamstress	forced	The sewer stitched the dress by hand.	sewer	S OW1 ER0
+sow.pig	e2e	The sow fed her piglets.	sow	S AW1
+sow.plant	e2e	Farmers sow the seeds in spring.	sow	S OW1
+subject.adj-noun	e2e	The subject of the essay was history.	subject	S AH1 B JH IH0 K T
+subject.verb	e2e	Do not subject the plants to frost.	subject	S AH0 B JH EH1 K T
+subordinate.adj-noun	e2e	The manager scolded a subordinate.	subordinate	S AH0 B AO1 R D AH0 N AH0 T
+subordinate.verb	e2e	We must not subordinate safety to profit.	subordinate	S AH0 B AO1 R D AH0 N EY2 T
+supplement.noun	e2e	She takes a vitamin supplement every day.	supplement	S AH1 P L AH0 M AH0 N T
+supplement.verb	e2e	He took a night job to supplement his income.	supplement	S AH2 P L AH0 M EH1 N T
+survey.noun	e2e	The survey asked about voting habits.	survey	S ER1 V EY2
+survey.verb	e2e	Engineers survey the land before building.	survey	S ER0 V EY1
+suspect.adj-noun	e2e	The police questioned the suspect.	suspect	S AH1 S P EH2 K T
+suspect.verb	e2e	I suspect that he is lying.	suspect	S AH0 S P EH1 K T
+syndicate.noun	e2e	A crime syndicate ran the port.	syndicate	S IH1 N D IH0 K AH0 T
+syndicate.verb	e2e	They plan to syndicate her column to many papers.	syndicate	S IH1 N D AH0 K EY2 T
+tear.drop	e2e	A tear rolled down her cheek.	tear	T IH1 R
+tear.rip	e2e	Be careful not to tear the paper.	tear	T EH1 R
+transform.noun	e2e	The Fourier transform is a useful tool.	transform	T R AE1 N S F AO0 R M
+transform.verb	e2e	The caterpillar will transform into a butterfly.	transform	T R AE0 N S F AO1 R M
+transplant.noun	e2e	He needed a heart transplant.	transplant	T R AE1 N S P L AE2 N T
+transplant.verb	e2e	Gardeners transplant the seedlings in May.	transplant	T R AE0 N S P L AE1 N T
+transport.noun	e2e	Public transport is cheap here.	transport	T R AE1 N S P AO0 R T
+transport.verb	e2e	Trucks transport goods across the country.	transport	T R AE0 N S P AO1 R T
+underestimate.noun	e2e	That was a gross underestimate.	underestimate	AH1 N D ER0 EH1 S T AH0 M AH0 T
+underestimate.verb	e2e	Never underestimate your opponent.	underestimate	AH1 N D ER0 EH1 S T AH0 M EY2 T
+uplift.noun	e2e	The speech gave the crowd a feeling of uplift.	uplift	AH1 P L IH0 F T
+uplift.verb	e2e	Good music can uplift the spirit.	uplift	AH0 P L IH1 F T
+upset.noun	e2e	The team pulled off a huge upset.	upset	AH1 P S EH2 T
+upset.verb	e2e	Do not upset the baby.	upset	AH0 P S EH1 T
+use.habitual	e2e	He used to live in Paris.	used	Y UW1 S T
+use.noun	e2e	The use of cell phones is banned.	use	Y UW1 S
+use.verb	e2e	Please use a pencil.	use	Y UW1 Z
+wind.air	e2e	The wind blew hard all night.	wind	W IH1 N D
+wind.coil	e2e	Wind the clock every week.	Wind	W AY1 N D
+wound.injury	e2e	The nurse cleaned the wound.	wound	W UW1 N D

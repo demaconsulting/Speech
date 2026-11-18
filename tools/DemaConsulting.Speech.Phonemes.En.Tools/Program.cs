@@ -1,10 +1,13 @@
 using DemaConsulting.Speech.Phonemes.En.Tools.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.Tools.MorphologySubsystem;
+using DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
+using DemaConsulting.Speech.Phonemes.En.Tools.ReadingSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tools;
 
 /// <summary>
-///     Hosts the Phonemes.En tools command line: <c>build-lexicon</c> and <c>measure-morphology</c>.
+///     Hosts the Phonemes.En tools command line: <c>build-lexicon</c>, <c>measure-morphology</c>, <c>propose-readings</c>
+///     and <c>regenerate-goldens</c>.
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it builds and verifies the embedded
@@ -22,6 +25,8 @@ internal static class Program
         Commands:
           build-lexicon        Build the embedded CMUdict lexicon, or verify it with --check (run 'build-lexicon --help').
           measure-morphology   Measure the morphology rules against the lexicon (run 'measure-morphology --help').
+          propose-readings     Propose reading-id pronunciations, or verify the frozen table with --check (run 'propose-readings --help').
+          regenerate-goldens   Regenerate the expected column of the sentence golden corpus (run 'regenerate-goldens --help').
         """;
 
     /// <summary>
@@ -58,6 +63,16 @@ internal static class Program
         if (string.Equals(args[0], MeasureMorphologyCommand.Name, StringComparison.Ordinal))
         {
             return MeasureMorphologyCommand.Run(rest, output, error);
+        }
+
+        if (string.Equals(args[0], ProposeReadingsCommand.Name, StringComparison.Ordinal))
+        {
+            return ProposeReadingsCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
+        }
+
+        if (string.Equals(args[0], RegenerateGoldensCommand.Name, StringComparison.Ordinal))
+        {
+            return RegenerateGoldensCommand.Run(rest, output, error, Directory.GetCurrentDirectory(), AppContext.BaseDirectory);
         }
 
         error.WriteLine($"Unknown command '{args[0]}'.");

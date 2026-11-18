@@ -1,0 +1,151 @@
+id	sentence	expected
+s001	I have 3 cats and 12 dogs.	I=AY1 | have=HH AE1 V | three=TH R IY1 | cats=K AE1 T S | and=AH0 N D | twelve=T W EH1 L V | dogs=D AA1 G Z | .
+s002	The population is 1,234,567.	The=DH AH0 | population=P AA2 P Y AH0 L EY1 SH AH0 N | is=IH1 Z | one=W AH1 N | million=M IH1 L Y AH0 N | two=T UW1 | hundred=HH AH1 N D R AH0 D | thirty=TH ER1 D IY2 | four=F AO1 R | thousand=TH AW1 Z AH0 N D | five=F AY1 V | hundred=HH AH1 N D R AH0 D | sixty=S IH1 K S T IY0 | seven=S EH1 V AH0 N | .
+s003	She scored 98.6 on the test.	She=SH IY1 | scored=S K AO1 R D | ninety=N AY1 N T IY0 | eight=EY1 T | point=P OY1 N T | six=S IH1 K S | on=AA1 N | the=DH AH0 | test=T EH1 S T | .
+s004	There are 1000 reasons to stay.	There=DH EH1 R | are=AA1 R | one=W AH1 N | thousand=TH AW1 Z AH0 N D | reasons=R IY1 Z AH0 N Z | to=T UW1 | stay=S T EY1 | .
+s005	He ran 5 miles in 42 minutes.	He=HH IY1 | ran=R AE1 N | five=F AY1 V | miles=M AY1 L Z | in=IH0 N | forty=F AO1 R T IY0 | two=T UW1 | minutes=M IH1 N AH0 T S | .
+s006	The year 1999 was long ago.	The=DH AH0 | year=Y IH1 R | nineteen=N AY1 N T IY1 N | ninety=N AY1 N T IY0 | nine=N AY1 N | was=W AA1 Z | long=L AO1 NG | ago=AH0 G OW1 | .
+s007	In 2024 we moved to Denver.	In=IH0 N | twenty=T W EH1 N T IY0 | twenty=T W EH1 N T IY0 | four=F AO1 R | we=W IY1 | moved=M UW1 V D | to=T UW1 | Denver=D EH1 N V ER0 | .
+s008	My phone number is 555-0199.	My=M AY1 | phone=F OW1 N | number=N AH1 M B ER0 | is=IH1 Z | five=F AY1 V | five=F AY1 V | five=F AY1 V | zero=Z IH1 R OW0 | one=W AH1 N | nine=N AY1 N | nine=N AY1 N | .
+s009	Call 911 right now.	Call=K AO1 L | nine=N AY1 N | hundred=HH AH1 N D R AH0 D | eleven=IH0 L EH1 V AH0 N | right=R AY1 T | now=N AW1 | .
+s010	It costs $5.50 per pound.	It=IH1 T | costs=K AA1 S T S | five=F AY1 V | dollars=D AA1 L ER0 Z | and=AH0 N D | fifty=F IH1 F T IY0 | cents=S EH1 N T S | per=P ER1 | pound=P AW1 N D | .
+s011	The house sold for $250,000.	The=DH AH0 | house=HH AW1 S | sold=S OW1 L D | for=F AO1 R | two=T UW1 | hundred=HH AH1 N D R AH0 D | fifty=F IH1 F T IY0 | thousand=TH AW1 Z AH0 N D | dollars=D AA1 L ER0 Z | .
+s012	She paid €20 for the ticket.	She=SH IY1 | paid=P EY1 D | twenty=T W EH1 N T IY0 | euros=Y UW1 R OW2 Z | for=F AO1 R | the=DH AH0 | ticket=T IH1 K AH0 T | .
+s013	That is £15.99 in total.	That=DH AE1 T | is=IH1 Z | fifteen=F IH0 F T IY1 N | pounds=P AW1 N D Z | and=AH0 N D | ninety=N AY1 N T IY0 | nine=N AY1 N | pence=P EH1 N S | in=IH0 N | total=T OW1 T AH0 L | .
+s014	The stock fell 3.5% today.	The=DH AH0 | stock=S T AA1 K | fell=F EH1 L | three=TH R IY1 | point=P OY1 N T | five=F AY1 V | percent=P ER0 S EH1 N T | today=T AH0 D EY1 | .
+s015	About 25% of voters agreed.	About=AH0 B AW1 T | twenty=T W EH1 N T IY0 | five=F AY1 V | percent=P ER0 S EH1 N T | of=AH1 V | voters=V OW1 T ER0 Z | agreed=AH0 G R IY1 D | .
+s016	He was 1st in line and she was 2nd.	He=HH IY1 | was=W AA1 Z | first=F ER1 S T | in=IH0 N | line=L AY1 N | and=AH0 N D | she=SH IY1 | was=W AA1 Z | second=S EH1 K AH0 N D | .
+s017	The 21st century began in 2001.	The=DH AH0 | twenty=T W EH1 N T IY0 | first=F ER1 S T | century=S EH1 N CH ER0 IY0 | began=B IH0 G AE1 N | in=IH0 N | two=T UW1 | thousand=TH AW1 Z AH0 N D | one=W AH1 N | .
+s018	We live on 5th Avenue.	We=W IY1 | live=L IH1 V | on=AA1 N | fifth=F IH1 F TH | Avenue=AE1 V AH0 N UW2 | .
+s019	Chapter 7 covers fractions.	Chapter=CH AE1 P T ER0 | seven=S EH1 V AH0 N | covers=K AH1 V ER0 Z | fractions=F R AE1 K SH AH0 N Z | .
+s020	The room is 10 ft by 12 ft.	The=DH AH0 | room=R UW1 M | is=IH1 Z | ten=T EH1 N | feet=F IY1 T | by=B AY1 | twelve=T W EH1 L V | feet=F IY1 T | .
+s021	The meeting is on Jan. 5, 2025.	The=DH AH0 | meeting=M IY1 T IH0 NG | is=IH1 Z | on=AA1 N | January=JH AE1 N Y UW0 EH2 R IY0 | fifth=F IH1 F TH | , | twenty=T W EH1 N T IY0 | twenty=T W EH1 N T IY0 | five=F AY1 V | .
+s022	Her birthday is 03/14/1990.	Her=HH ER1 | birthday=B ER1 TH D EY2 | is=IH1 Z | March=M AA1 R CH | fourteenth=F AO1 R T IY1 N TH | nineteen=N AY1 N T IY1 N | ninety=N AY1 N T IY0 | .
+s023	We met at 5:30pm.	We=W IY1 | met=M EH1 T | at=AE1 T | five=F AY1 V | thirty=TH ER1 D IY2 | P=P IY1 | M=EH1 M | .
+s024	The train leaves at 7:45 a.m. sharp.	The=DH AH0 | train=T R EY1 N | leaves=L IY1 V Z | at=AE1 T | seven=S EH1 V AH0 N | forty=F AO1 R T IY0 | five=F AY1 V | A=EY1 | M=EH1 M | sharp=SH AA1 R P | .
+s025	Dinner is at 6 p.m. tonight.	Dinner=D IH1 N ER0 | is=IH1 Z | at=AE1 T | six=S IH1 K S | P=P IY1 | M=EH1 M | tonight=T AH0 N AY1 T | .
+s026	It was 12:00 noon.	It=IH1 T | was=W AA1 Z | twelve=T W EH1 L V | o'clock=AH0 K L AA1 K | noon=N UW1 N | .
+s027	He arrived on Monday, March 3rd.	He=HH IY1 | arrived=ER0 AY1 V D | on=AA1 N | Monday=M AH1 N D IY0 | , | March=M AA1 R CH | third=TH ER1 D | .
+s028	The store opens at 9:00.	The=DH AH0 | store=S T AO1 R | opens=OW1 P AH0 N Z | at=AE1 T | nine=N AY1 N | o'clock=AH0 K L AA1 K | .
+s029	Dr. Smith will see you now.	Doctor=D AA1 K T ER0 | Smith=S M IH1 TH | will=W IH1 L | see=S IY1 | you=Y UW1 | now=N AW1 | .
+s030	Mr. and Mrs. Jones live next door.	Mister=M IH1 S T ER0 | and=AH0 N D | Missus=M IH1 S IH0 Z | Jones=JH OW1 N Z | live=L IH1 V | next=N EH1 K S T | door=D AO1 R | .
+s031	Prof. Lee teaches physics.	Professor=P R AH0 F EH1 S ER0 | Lee=L IY1 | teaches=T IY1 CH AH0 Z | physics=F IH1 Z IH0 K S | .
+s032	The U.S. economy grew last year.	The=DH AH0 | U=Y UW1 | S=EH1 S | economy=IH0 K AA1 N AH0 M IY0 | grew=G R UW1 | last=L AE1 S T | year=Y IH1 R | .
+s033	She works at 10 Downing St. in London.	She=SH IY1 | works=W ER1 K S | at=AE1 T | ten=T EH1 N | Downing=D AW1 N IH0 NG | Street=S T R IY1 T | in=IH0 N | London=L AH1 N D AH0 N | .
+s034	Visit our site, e.g. the home page.	Visit=V IH1 Z IH0 T | our=AW1 ER0 | site=S AY1 T | , | for=F AO1 R | example=IH0 G Z AE1 M P AH0 L | the=DH AH0 | home=HH OW1 M | page=P EY1 JH | .
+s035	Mt. Everest is very tall.	Mount=M AW1 N T | Everest=EH1 V ER0 AH0 S T | is=IH1 Z | very=V EH1 R IY0 | tall=T AO1 L | .
+s036	He lives in Washington, D.C.	He=HH IY1 | lives=L IH1 V Z | in=IH0 N | Washington=W AA1 SH IH0 NG T AH0 N | , | D=D IY1 | C=S IY1 | .
+s037	The FBI and the CIA cooperated.	The=DH AH0 | F=EH1 F | B=B IY1 | I=AY1 | and=AH0 N D | the=DH AH0 | C=S IY1 | I=AY1 | A=EY1 | cooperated=K OW0 AA1 P ER0 EY2 T AH0 D | .
+s038	NASA launched a new rocket.	NASA=N AE1 S AH0 | launched=L AO1 N CH T | a=AH0 | new=N UW1 | rocket=R AA1 K AH0 T | .
+s039	He works at IBM.	He=HH IY1 | works=W ER1 K S | at=AE1 T | IBM=AY1 B IY2 EH2 M | .
+s040	The NATO summit starts today.	The=DH AH0 | NATO=N EY1 T OW0 | summit=S AH1 M AH0 T | starts=S T AA1 R T S | today=T AH0 D EY1 | .
+s041	My PC runs Linux and I love it.	My=M AY1 | P=P IY1 | C=S IY1 | runs=R AH1 N Z | Linux=L IH1 N AH0 K S | and=AH0 N D | I=AY1 | love=L AH1 V | it=IH1 T | .
+s042	The CEO resigned on Friday.	The=DH AH0 | C=S IY1 | E=IY1 | O=OW1 | resigned=R IH0 Z AY1 N D | on=AA1 N | Friday=F R AY1 D IY0 | .
+s043	She has a PhD in biology.	She=SH IY1 | has=HH AE1 Z | a=AH0 | PhD=P IY1 EY2 CH D IY1 | in=IH0 N | biology=B AY0 AA1 L AH0 JH IY0 | .
+s044	The USB port is broken.	The=DH AH0 | U=Y UW1 | S=EH1 S | B=B IY1 | port=P AO1 R T | is=IH1 Z | broken=B R OW1 K AH0 N | .
+s045	Send it by email to HR.	Send=S EH1 N D | it=IH1 T | by=B AY1 | email=IY0 M EY1 L | to=T UW1 | H=EY1 CH | R=AA1 R | .
+s046	OK, let's go.	OK=OW1 K EY1 | , | let's=L EH1 T S | go=G OW1 | .
+s047	I can't go, but you can.	I=AY1 | can't=K AE1 N T | go=G OW1 | , | but=B AH1 T | you=Y UW1 | can=K AE1 N | .
+s048	They're sure we'll win.	They're=DH EH1 R | sure=SH UH1 R | we'll=W IY1 L | win=W IH1 N | .
+s049	She said she'd come, but he wouldn't.	She=SH IY1 | said=S EH1 D | she'd=SH IY1 D | come=K AH1 M | , | but=B AH1 T | he=HH IY1 | wouldn't=W UH1 D AH0 N T | .
+s050	It's been a long day.	It's=IH1 T S | been=B IH1 N | a=AH0 | long=L AO1 NG | day=D EY1 | .
+s051	We've seen what you've done.	We've=W IY1 V | seen=S IY1 N | what=W AH1 T | you've=Y UW1 V | done=D AH1 N | .
+s052	I'm happy that you're here.	I'm=AY1 M | happy=HH AE1 P IY0 | that=DH AE1 T | you're=Y UH1 R | here=HH IY1 R | .
+s053	Don't you think they're right?	Don't=D OW1 N T | you=Y UW1 | think=TH IH1 NG K | they're=DH EH1 R | right=R AY1 T | ?
+s054	He's gone and she's staying.	He's=HH IY1 Z | gone=G AO1 N | and=AH0 N D | she's=SH IY1 Z | staying=S T EY1 IH0 NG | .
+s055	Y'all should've called ahead.	Y'all=Y AO2 L | should've=SH UH1 D AH0 V | called=K AO1 L D | ahead=AH0 HH EH1 D | .
+s056	That's the dog's bone.	That's=DH AE1 T S | the=DH AH0 | dog's=D AO1 G Z | bone=B OW1 N | .
+s057	The children's toys are everywhere.	The=DH AH0 | children's=CH IH1 L D R AH0 N Z | toys=T OY1 Z | are=AA1 R | everywhere=EH1 V R IY0 W EH2 R | .
+s058	The boss's office is upstairs.	The=DH AH0 | boss's=B AO1 S IH0 Z | office=AO1 F IH0 S | is=IH1 Z | upstairs=AH0 P S T EH1 R Z | .
+s059	The dogs' bowls are empty.	The=DH AH0 | dogs'=D AO1 G Z | bowls=B OW1 L Z | are=AA1 R | empty=EH1 M P T IY0 | .
+s060	James's book is on the table.	James's=JH EY1 M Z IH0 Z | book=B UH1 K | is=IH1 Z | on=AA1 N | the=DH AH0 | table=T EY1 B AH0 L | .
+s061	Everyone's coat is here.	Everyone's=EH1 V R IY0 W AH2 N Z | coat=K OW1 T | is=IH1 Z | here=HH IY1 R | .
+s062	Rock 'n' roll never dies.	Rock=R AA1 K | 'n=AH0 N | ' | roll=R OW1 L | never=N EH1 V ER0 | dies=D AY1 Z | .
+s063	'Tis the season to be jolly.	'Tis=T IH1 Z | the=DH AH0 | season=S IY1 Z AH0 N | to=T UW1 | be=B IY1 | jolly=JH AA1 L IY0 | .
+s064	I told him 'no' twice.	I=AY1 | told=T OW1 L D | him=HH IH1 M | ' | no=N OW1 | ' | twice=T W AY1 S | .
+s065	She is a well-known author.	She=SH IY1 | is=IH1 Z | a=AH0 | well-known=W EH1 L N OW2 N | author=AO1 TH ER0 | .
+s066	A mother-in-law arrived early.	A=AH0 | mother-in-law=M AH1 DH ER0 IH0 N L AO2 | arrived=ER0 AY1 V D | early=ER1 L IY0 | .
+s067	He ate ice-cream in a state-of-the-art kitchen.	He=HH IY1 | ate=EY1 T | ice-cream=AY1 S K R IY2 M | in=IH0 N | a=AH0 | state-of-the-art=S T EY1 T AH2 V DH AH0 AA2 R T | kitchen=K IH1 CH AH0 N | .
+s068	The long-term plan is risky.	The=DH AH0 | long-term=L AO1 NG T ER2 M | plan=P L AE1 N | is=IH1 Z | risky=R IH1 S K IY0 | .
+s069	We bought a T-shirt and a pull-over.	We=W IY1 | bought=B AA1 T | a=AH0 | T-shirt=T IY1 SH ER2 T | and=AH0 N D | a=AH0 | pull-over=P UH1 L OW2 V ER0 | .
+s070	It was a one-time offer.	It=IH1 T | was=W AA1 Z | a=AH0 | one-time=W AH1 N T AY1 M | offer=AO1 F ER0 | .
+s071	A twenty-five-year-old drove the car.	A=AH0 | twenty-five-year-old=T W EH1 N T IY0 F AY2 V Y IH2 R OW2 L D | drove=D R OW1 V | the=DH AH0 | car=K AA1 R | .
+s072	The e-mail was sent by my brother-in-law.	The=DH AH0 | e-mail=IY0 M EY1 L | was=W AA1 Z | sent=S EH1 N T | by=B AY1 | my=M AY1 | brother-in-law=B R AH1 DH ER0 IH0 N L AO2 | .
+s073	I will record a record of my voice.	I=AY1 | will=W IH1 L | record=R AH0 K AO1 R D | a=AH0 | record=R EH1 K ER0 D | of=AH1 V | my=M AY1 | voice=V OY1 S | .
+s074	The wind will wind down by night.	The=DH AH0 | wind=W IH1 N D | will=W IH1 L | wind=W AY1 N D | down=D AW1 N | by=B AY1 | night=N AY1 T | .
+s075	He read the letter aloud yesterday.	He=HH IY1 | read=R EH1 D | the=DH AH0 | letter=L EH1 T ER0 | aloud=AH0 L AW1 D | yesterday=Y EH1 S T ER0 D EY2 | .
+s076	He wound the clock after the wound healed.	He=HH IY1 | wound=W AW1 N D | the=DH AH0 | clock=K L AA1 K | after=AE1 F T ER0 | the=DH AH0 | wound=W UW1 N D | healed=HH IY1 L D | .
+s077	They live near a live concert.	They=DH EY1 | live=L IH1 V | near=N IH1 R | a=AH0 | live=L AY1 V | concert=K AA1 N S ER0 T | .
+s078	The bass player caught a bass.	The=DH AH0 | bass=B EY1 S | player=P L EY1 ER0 | caught=K AA1 T | a=AH0 | bass=B AE1 S | .
+s079	Please close the door; the shop is close.	Please=P L IY1 Z | close=K L OW1 Z | the=DH AH0 | door=D AO1 R | ; | the=DH AH0 | shop=SH AA1 P | is=IH1 Z | close=K L OW1 S | .
+s080	She will lead us through the old lead mine.	She=SH IY1 | will=W IH1 L | lead=L IY1 D | us=AH1 S | through=TH R UW1 | the=DH AH0 | old=OW1 L D | lead=L EH1 D | mine=M AY1 N | .
+s081	I object to that object.	I=AY1 | object=AH0 B JH EH1 K T | to=T UW1 | that=DH AE1 T | object=AA1 B JH EH0 K T | .
+s082	The desert soldiers desert the desert.	The=DH AH0 | desert=D EH1 Z ER0 T | soldiers=S OW1 L JH ER0 Z | desert=D IH0 Z ER1 T | the=DH AH0 | desert=D EH1 Z ER0 T | .
+s083	She will present a present.	She=SH IY1 | will=W IH1 L | present=P R IY0 Z EH1 N T | a=AH0 | present=P R EH1 Z AH0 N T | .
+s084	The dove dove into the bushes.	The=DH AH0 | dove=D AH1 V | dove=D OW1 V | into=IH1 N T UW0 | the=DH AH0 | bushes=B UH1 SH AH0 Z | .
+s085	He did not refuse to take out the refuse.	He=HH IY1 | did=D IH1 D | not=N AA1 T | refuse=R AH0 F Y UW1 Z | to=T UW1 | take=T EY1 K | out=AW1 T | the=DH AH0 | refuse=R EH1 F Y UW2 S | .
+s086	He had a tear in his eye as he began to tear the letter.	He=HH IY1 | had=HH AE1 D | a=AH0 | tear=T IH1 R | in=IH0 N | his=HH IH1 Z | eye=AY1 | as=AE1 Z | he=HH IY1 | began=B IH0 G AE1 N | to=T UW1 | tear=T EH1 R | the=DH AH0 | letter=L EH1 T ER0 | .
+s087	A minute is a minute amount of time.	A=AH0 | minute=M IH1 N AH0 T | is=IH1 Z | a=AH0 | minute=M AY0 N UW1 T | amount=AH0 M AW1 N T | of=AH1 V | time=T AY1 M | .
+s088	They sow the field while the sow sleeps in the barn.	They=DH EY1 | sow=S OW1 | the=DH AH0 | field=F IY1 L D | while=W AY1 L | the=DH AH0 | sow=S AW1 | sleeps=S L IY1 P S | in=IH0 N | the=DH AH0 | barn=B AA1 R N | .
+s089	I'd like to console you at the game console.	I'd=AY1 D | like=L AY1 K | to=T UW1 | console=K AH0 N S OW1 L | you=Y UW1 | at=AE1 T | the=DH AH0 | game=G EY1 M | console=K AA1 N S OW0 L | .
+s090	The jury will convict the convict.	The=DH AH0 | jury=JH UH1 R IY0 | will=W IH1 L | convict=K AH0 N V IH1 K T | the=DH AH0 | convict=K AA1 N V IH0 K T | .
+s091	I use it for no good use.	I=AY1 | use=Y UW1 Z | it=IH1 T | for=F AO1 R | no=N OW1 | good=G UH1 D | use=Y UW1 S | .
+s092	They produce fresh produce.	They=DH EY1 | produce=P R AH0 D UW1 S | fresh=F R EH1 SH | produce=P R OW1 D UW0 S | .
+s093	He rowed in a row.	He=HH IY1 | rowed=R OW1 D | in=IH0 N | a=AH0 | row=R OW1 | .
+s094	She does what the does do.	She=SH IY1 | does=D AH1 Z | what=W AH1 T | the=DH AH0 | does=D OW1 Z | do=D UW1 | .
+s095	Polish the Polish silver.	Polish=P AA1 L IH0 SH | the=DH AH0 | Polish=P OW1 L IH0 SH | silver=S IH1 L V ER0 | .
+s096	The records were recorded.	The=DH AH0 | records=R EH1 K ER0 D Z | were=W ER1 | recorded=R AH0 K AO1 R D IH0 D | .
+s097	The project will project onto the wall.	The=DH AH0 | project=P R AA1 JH EH0 K T | will=W IH1 L | project=P R AH0 JH EH1 K T | onto=AA1 N T UW0 | the=DH AH0 | wall=W AO1 L | .
+s098	The cast took a bow at the end of the play.	The=DH AH0 | cast=K AE1 S T | took=T UH1 K | a=AH0 | bow=B AW1 | at=AE1 T | the=DH AH0 | end=EH1 N D | of=AH1 V | the=DH AH0 | play=P L EY1 | .
+s099	Her mouth moves as she mouths the words.	Her=HH ER1 | mouth=M AW1 TH | moves=M UW1 V Z | as=AE1 Z | she=SH IY1 | mouths=M AW1 DH Z | the=DH AH0 | words=W ER1 D Z | .
+s100	The wound was wound with cloth.	The=DH AH0 | wound=W UW1 N D | was=W AA1 Z | wound=W AW1 N D | with=W IH1 DH | cloth=K L AO1 TH | .
+s101	Zorblax is a made-up word.	Zorblax=Z IY1 OW1 AA1 R B IY1 EH1 L EY1 EH1 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH2 P | word=W ER1 D | .
+s102	We visited Xanadu and Kathmandu.	We=W IY1 | visited=V IH1 Z IH0 T IH0 D | Xanadu=Z AA1 N AH0 D UW2 | and=AH0 N D | Kathmandu=K EY1 EY1 T IY1 EY1 CH EH1 M EY1 EH1 N D IY1 Y UW1 !oov | .
+s103	The qwerty keyboard is common.	The=DH AH0 | qwerty=K Y UW1 D AH1 B AH0 L Y UW0 IY1 AA1 R T IY1 W AY1 !oov | keyboard=K IY1 B AO2 R D | is=IH1 Z | common=K AA1 M AH0 N | .
+s104	Frodo carried the ring to Mordor.	Frodo=F R OW1 D OW2 | carried=K AE1 R IY0 D | the=DH AH0 | ring=R IH1 NG | to=T UW1 | Mordor=M AO1 R D AO2 R | .
+s105	She named her cat Fluffernutter.	She=SH IY1 | named=N EY1 M D | her=HH ER1 | cat=K AE1 T | Fluffernutter=EH1 F EH1 L Y UW1 EH1 F EH1 F IY1 AA1 R EH1 N Y UW1 T IY1 T IY1 IY1 AA1 R !oov | .
+s106	Cryptocurrency exchanges rose again.	Cryptocurrency=S IY1 AA1 R W AY1 P IY1 T IY1 OW1 S IY1 Y UW1 AA1 R AA1 R IY1 EH1 N S IY1 W AY1 !oov | exchanges=IH0 K S CH EY1 N JH AH0 Z | rose=R OW1 Z | again=AH0 G EH1 N | .
+s107	He tweeted about the iPhone.	He=HH IY1 | tweeted=T W IY1 T IH0 D | about=AH0 B AW1 T | the=DH AH0 | iPhone=AY1 F OW2 N | .
+s108	The unfollowed accounts disappeared.	The=DH AH0 | unfollowed=AH0 N F AA1 L OW0 D | accounts=AH0 K AW1 N T S | disappeared=D IH2 S AH0 P IH1 R D | .
+s109	Their cats' toys are everywhere.	Their=DH EH1 R | cats'=K AE1 T S | toys=T OY1 Z | are=AA1 R | everywhere=EH1 V R IY0 W EH2 R | .
+s110	Her ex-boyfriend's car was towed.	Her=HH ER1 | ex-boyfriend's=EH1 K S B OY2 F R EH2 N D Z | car=K AA1 R | was=W AA1 Z | towed=T OW1 D | .
+s111	Hello, world!	Hello=HH AH0 L OW1 | , | world=W ER1 L D | !
+s112	Wait... what?	Wait=W EY1 T | ... | what=W AH1 T | ?
+s113	She said: "Never again."	She=SH IY1 | said=S EH1 D | : | " | Never=N EH1 V ER0 | again=AH0 G EH1 N | . | "
+s114	Yes; no; maybe.	Yes=Y EH1 S | ; | no=N OW1 | ; | maybe=M EY1 B IY0 | .
+s115	He paused — then left.	He=HH IY1 | paused=P AO1 Z D | — | then=DH EH1 N | left=L EH1 F T | .
+s116	(That was odd.)	( | That=DH AE1 T | was=W AA1 Z | odd=AA1 D | . | )
+s117	Really?! No way!!	Really=R IH1 L IY0 | ? | ! | No=N OW1 | way=W EY1 | !!
+s118	Items: apples, pears, and plums.	Items=AY1 T AH0 M Z | : | apples=AE1 P AH0 L Z | , | pears=P EH1 R Z | , | and=AH0 N D | plums=P L AH1 M Z | .
+s119	It's 'special' or "unique".	It's=IH1 T S | ' | special=S P EH1 SH AH0 L | ' | or=AO1 R | " | unique=Y UW0 N IY1 K | " | .
+s120	The quick brown fox jumps over the lazy dog.	The=DH AH0 | quick=K W IH1 K | brown=B R AW1 N | fox=F AA1 K S | jumps=JH AH1 M P S | over=OW1 V ER0 | the=DH AH0 | lazy=L EY1 Z IY0 | dog=D AO1 G | .
+s121	She sells seashells by the seashore.	She=SH IY1 | sells=S EH1 L Z | seashells=S IY1 SH EH2 L Z | by=B AY1 | the=DH AH0 | seashore=S IY1 SH AO2 R | .
+s122	Peter Piper picked a peck of pickled peppers.	Peter=P IY1 T ER0 | Piper=P AY1 P ER0 | picked=P IH1 K T | a=AH0 | peck=P EH1 K | of=AH1 V | pickled=P IH1 K AH0 L D | peppers=P EH1 P ER0 Z | .
+s123	How much wood would a woodchuck chuck?	How=HH AW1 | much=M AH1 CH | wood=W UH1 D | would=W UH1 D | a=AH0 | woodchuck=W UH1 D CH AH2 K | chuck=CH AH1 K | ?
+s124	To be, or not to be, that is the question.	To=T UW1 | be=B IY1 | , | or=AO1 R | not=N AA1 T | to=T UW1 | be=B IY1 | , | that=DH AE1 T | is=IH1 Z | the=DH AH0 | question=K W EH1 S CH AH0 N | .
+s125	Use the # key and the @ symbol.	Use=Y UW1 Z | the=DH AH0 | <#> | key=K IY1 | and=AH0 N D | the=DH AH0 | at=AE1 T | symbol=S IH1 M B AH0 L | .
+s126	Smile 😀 please.	Smile=S M AY1 L | <😀> | please=P L IY1 Z | .
+s127	He wrote 日本 on the card.	He=HH IY1 | wrote=R OW1 T | <日本> | on=AA1 N | the=DH AH0 | card=K AA1 R D | .
+s128	The café serves crème brûlée.	The=DH AH0 | café=K AH0 F EY1 | serves=S ER1 V Z | crème=K R IY1 M | brûlée=B IY1 AA1 R Y UW1 EH1 L IY1 IY1 !oov | .
+s129	The naïve façade fooled them.	The=DH AH0 | naïve=N AY2 IY1 V | façade=F AH0 S AA1 D | fooled=F UW1 L D | them=DH EH1 M | .
+s130	Wi-Fi is available in room 204.	Wi-Fi=W AY1 F AY2 | is=IH1 Z | available=AH0 V EY1 L AH0 B AH0 L | in=IH0 N | room=R UW1 M | two=T UW1 | hundred=HH AH1 N D R AH0 D | four=F AO1 R | .
+s131	The model is A1 or B2.	The=DH AH0 | model=M AA1 D AH0 L | is=IH1 Z | A=AH0 | 1=W AH1 N | or=AO1 R | B=B IY1 | 2=T UW1 | .
+s132	Press F5 to refresh.	Press=P R EH1 S | F=EH1 F | 5=F AY1 V | to=T UW1 | refresh=R IH0 F R EH1 SH | .
+s133	She won 4-2 in the final.	She=SH IY1 | won=W AH1 N | four=F AO1 R | to=T UW1 | two=T UW1 | in=IH0 N | the=DH AH0 | final=F AY1 N AH0 L | .
+s134	Version 2.0 is released.	Version=V ER1 ZH AH0 N | two=T UW1 | point=P OY1 N T | zero=Z IH1 R OW0 | is=IH1 Z | released=R IY0 L IY1 S T | .
+s135	Open www.example.com now.	Open=OW1 P AH0 N | www=D AH1 B AH0 L Y UW0 D AH1 B AH0 L Y UW0 D AH1 B AH0 L Y UW0 !oov | . | example=IH0 G Z AE1 M P AH0 L | . | com=K AA1 M | now=N AW1 | .
+s136	Mix 1/2 cup of flour.	Mix=M IH1 K S | one=W AH1 N | half=HH AE1 F | cup=K AH1 P | of=AH1 V | flour=F L AW1 ER0 | .
+s137	The temperature is -5 degrees.	The=DH AH0 | temperature=T EH1 M P R AH0 CH ER0 | is=IH1 Z | minus=M AY1 N AH0 S | five=F AY1 V | degrees=D IH0 G R IY1 Z | .
+s138	He weighs 180 lbs.	He=HH IY1 | weighs=W EY1 Z | one=W AH1 N | hundred=HH AH1 N D R AH0 D | eighty=EY1 T IY0 | pounds=P AW1 N D Z | .
+s139	The race is 10K long.	The=DH AH0 | race=R EY1 S | is=IH1 Z | 1=W AH1 N | 0=Z IH1 R OW0 | K=K EY1 | long=L AO1 NG | .
+s140	An ID card is required.	An=AE1 N | I=AY1 | D=D IY1 | card=K AA1 R D | is=IH1 Z | required=R IY0 K W AY1 ER0 D | .
+s141	A 3D printer made it.	A=AH0 | 3=TH R IY1 | D=D IY1 | printer=P R IH1 N T ER0 | made=M EY1 D | it=IH1 T | .
+s142	The area is 25 sq. ft.	The=DH AH0 | area=EH1 R IY0 AH0 | is=IH1 Z | twenty=T W EH1 N T IY0 | five=F AY1 V | sq=EH1 S K Y UW1 !oov | . | ft=EH1 F T IY1 !oov | .
+s143	She drove 60 mph for 2 hrs.	She=SH IY1 | drove=D R OW1 V | sixty=S IH1 K S T IY0 | miles=M AY1 L Z | per=P ER1 | hour=AW1 ER0 | for=F AO1 R | two=T UW1 | hours=AW1 ER0 Z | .
+s144	Add 2 + 2 to get 4.	Add=AE1 D | two=T UW1 | plus=P L AH1 S | two=T UW1 | to=T UW1 | get=G EH1 T | four=F AO1 R | .
+s145	After the storm, the town's mayor thanked the volunteers who had worked tirelessly.	After=AE1 F T ER0 | the=DH AH0 | storm=S T AO1 R M | , | the=DH AH0 | town's=T AW1 N Z | mayor=M EY1 ER0 | thanked=TH AE1 NG K T | the=DH AH0 | volunteers=V AA2 L AH0 N T IH1 R Z | who=HH UW1 | had=HH AE1 D | worked=W ER1 K T | tirelessly=T AY1 R L AH0 S L IY0 | .
+s146	If you can't find your keys, check the kitchen, the car, and your coat.	If=IH1 F | you=Y UW1 | can't=K AE1 N T | find=F AY1 N D | your=Y AO1 R | keys=K IY1 Z | , | check=CH EH1 K | the=DH AH0 | kitchen=K IH1 CH AH0 N | , | the=DH AH0 | car=K AA1 R | , | and=AH0 N D | your=Y AO1 R | coat=K OW1 T | .
+s147	The committee will not approve the budget unless the auditors' report is released.	The=DH AH0 | committee=K AH0 M IH1 T IY0 | will=W IH1 L | not=N AA1 T | approve=AH0 P R UW1 V | the=DH AH0 | budget=B AH1 JH IH0 T | unless=AH0 N L EH1 S | the=DH AH0 | auditors'=AO1 D IH0 T ER0 Z | report=R IY0 P AO1 R T | is=IH1 Z | released=R IY0 L IY1 S T | .
+s148	Although she was tired, Maria finished the marathon in under four hours.	Although=AO2 L DH OW1 | she=SH IY1 | was=W AA1 Z | tired=T AY1 ER0 D | , | Maria=M ER0 IY1 AH0 | finished=F IH1 N IH0 SH T | the=DH AH0 | marathon=M EH1 R AH0 TH AA2 N | in=IH0 N | under=AH1 N D ER0 | four=F AO1 R | hours=AW1 ER0 Z | .
+s149	Neither the teacher nor the students noticed the quiet announcement.	Neither=N IY1 DH ER0 | the=DH AH0 | teacher=T IY1 CH ER0 | nor=N AO1 R | the=DH AH0 | students=S T UW1 D AH0 N T S | noticed=N OW1 T AH0 S T | the=DH AH0 | quiet=K W AY1 AH0 T | announcement=AH0 N AW1 N S M AH0 N T | .
+s150	I wonder whether they've already heard the news about the merger.	I=AY1 | wonder=W AH1 N D ER0 | whether=W EH1 DH ER0 | they've=DH EY1 V | already=AO0 L R EH1 D IY0 | heard=HH ER1 D | the=DH AH0 | news=N UW1 Z | about=AH0 B AW1 T | the=DH AH0 | merger=M ER1 JH ER0 | .
