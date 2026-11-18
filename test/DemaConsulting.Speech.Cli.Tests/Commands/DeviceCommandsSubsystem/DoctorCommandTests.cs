@@ -161,6 +161,31 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that the managed Microsoft ONNX Runtime (used by the Kokoro, Piper, Nemotron and
+    ///     Chatterbox models) initializes in the same host that carries sherpa-onnx, and that sherpa's
+    ///     native library still resolves afterwards. Both share one native ONNX Runtime file name, so
+    ///     this fails if the host ends up with a native library older than the managed API.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_RawOnnxRuntimeInitializedFirst_SherpaNativeStillResolvable()
+    {
+        // Arrange
+        Assert.SkipUnless(
+            DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(AppContext.BaseDirectory) is not null,
+            "The SherpaOnnx native asset is not packaged for this runtime identifier.");
+        var context = Context.Create(["doctor"]);
+
+        // Act: the managed API throws here when the native runtime is older than it
+        var runtimeVersion = Microsoft.ML.OnnxRuntime.OrtEnv.Instance().GetVersionString();
+        var output = RunCapturingOutput(
+            context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), new FakeCliModelCatalog(), _tempDir);
+
+        // Assert
+        Assert.False(string.IsNullOrWhiteSpace(runtimeVersion));
+        Assert.Contains("[ OK ] SherpaOnnx native inference library is resolvable.", output);
+    }
+
+    /// <summary>
     ///     Test that <see cref="DoctorCommand.ResolveSherpaOnnxNativeLibraryPath"/> resolves the
     ///     RID-specific native asset path against a fixture directory laid out to match NuGet's
     ///     <c>runtimes/&lt;rid&gt;/native/</c> convention, deterministically and independent of

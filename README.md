@@ -54,18 +54,20 @@ sherpa-onnx-backed models used by this README's examples (and the `org.k2fsa.she
 they require); calling `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
 `DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via `.AddKokoroModels()`
 (it analyzes the English text with `DemaConsulting.Speech.Text.En` - numbers, dates, abbreviations and heteronyms such
-as the noun and the verb `record` - and phonemizes it with `DemaConsulting.Speech.Phonemes.En`; its British voices
-speak General American phonemes, so expect an American pronunciation in a British voice),
-and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime streaming NVIDIA Nemotron 3.5
-ASR recognition model via `.AddNemotronSttModels()`. The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package
-adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatterboxTurboModels(options)`. A host that
-only needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
-implementation - can depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose
-language-neutral annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview
-`DemaConsulting.Speech.Text.En` package (pre-release, installed with `--prerelease`) supplies such an analyzer for
-English: part of speech, sentence boundaries, normalization of abbreviations, symbols and numbers, host pronunciation
-overrides and heteronym readings. See [English text analysis (preview)](#english-text-analysis-preview) below and
-the [text analysis chapter of the user guide][link-text-analysis].
+as the noun and the verb `record` - and phonemizes it with `DemaConsulting.Speech.Phonemes.En`; its British voices speak
+General American phonemes, so expect an American pronunciation in a British voice), the optional
+`DemaConsulting.Speech.Onnx.Piper` package adds a sixth, raw ONNX Runtime Piper LibriTTS-R English (US, 904 speakers)
+voice via `.AddPiperModels()` (same text analysis and phonemization as Kokoro, rendered as espeak-style IPA), and the
+optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime streaming NVIDIA Nemotron 3.5 ASR
+recognition model via `.AddNemotronSttModels()`. The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds
+a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatterboxTurboModels(options)`. A host that only
+needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel` implementation - can
+depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose language-neutral
+annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview `DemaConsulting.Speech.Text.En`
+package (pre-release, installed with `--prerelease`) supplies such an analyzer for English: part of speech, sentence
+boundaries, normalization of abbreviations, symbols and numbers, host pronunciation overrides and heteronym readings.
+See [English text analysis (preview)](#english-text-analysis-preview) below and the
+[text analysis chapter of the user guide][link-text-analysis].
 
 ### PortAudio runtime support
 
@@ -82,32 +84,25 @@ No `win-arm64` PortAudio runtime package is available through this dependency ch
 if PortAudio fails to initialize on a machine, the library
 still composes safely but reports audio devices as unavailable.
 
-### Combining the raw ONNX packages (Kokoro, Nemotron STT, Chatterbox Turbo) with sherpa-onnx
+### Combining the raw ONNX packages (Kokoro, Piper, Nemotron STT, Chatterbox Turbo) with sherpa-onnx
 
-`DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.NemotronStt` and
-`DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
-Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.31.1),
-and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
-with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references any of these
-packages together with sherpa-onnx restores both copies into the same `runtimes/<rid>/native/` folder;
-Microsoft's copy can
-overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add this direct
-reference so only sherpa's native runtime is used (the managed APIs run against it):
-
-```xml
-<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" ExcludeAssets="native" />
-```
-
-The sherpa-onnx 1.13.8 native library is ONNX Runtime 1.28.2, while the managed API pinned above is
-1.31.1. Microsoft's managed API requires a native library at least as new as itself, so this override
-is expected to fail to initialize against an older native library: it only works once the sherpa-onnx
-native runtime is at least the pinned managed version (check the version of the sherpa-onnx native
-package you restore). An application using Kokoro,
-Nemotron STT or Chatterbox Turbo without sherpa-onnx needs no override and gets Microsoft's native runtime
-transitively. To use an
-accelerated provider (for example DirectML or CUDA), reference the matching
-`Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The
-`speech-cli` tool and the Demo application already apply this override.
+`DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.Piper`,
+`DemaConsulting.Speech.Onnx.NemotronStt` and `DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
+Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.31.1), and the sherpa-onnx native runtime packages
+ship their own native ONNX Runtime library with the same file name (1.28.2 for sherpa-onnx 1.13.8). An
+application that references both restores two copies of that file into the same `runtimes/<rid>/native/`
+folder, and only one can be loaded. Microsoft's managed API requires a native library at least as new as
+itself (an older one fails with "The requested API version [31] is not available"), so **Microsoft's
+native runtime must be the one that stays**. Do not exclude its native assets
+(`ExcludeAssets="native"` leaves sherpa's older copy in place and breaks every raw ONNX model). The newer
+runtime is backward compatible, so sherpa-onnx runs on it too. On `win-x64` and `win-arm64` NuGet places
+Microsoft's copy in the output when both packages are restored, and the `speech-cli` tool and the Demo
+application run both families that way. Linux and macOS use the same mechanism but are not verified on a
+local machine; if a host there ends up with sherpa's older copy, reference
+`Microsoft.ML.OnnxRuntime` directly so its native assets win. Microsoft publishes no `win-x86` native
+runtime, so the raw ONNX packages are not available on that RID. To use an accelerated provider (for
+example DirectML or CUDA), reference the matching `Microsoft.ML.OnnxRuntime.*` package instead of the
+CPU one.
 
 ### Speech engine runtime support
 
@@ -115,7 +110,8 @@ The library is **designed for extensibility**: each speech engine is a self-cont
 `IRecognitionModel`/`ISynthesisModel`-backed class, registered into a `SpeechModelCatalog` via an
 `AddModels`/`Add*Models`-style extension method - `DemaConsulting.Speech.Sherpa` supplies
 `AddSherpaModels()` for the four sherpa-onnx models and `DemaConsulting.Speech.Onnx.Kokoro`
-supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model, and `DemaConsulting.Speech.Onnx.NemotronStt`
+supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model, `DemaConsulting.Speech.Onnx.Piper`
+supplies `AddPiperModels()` for the raw ONNX Runtime Piper model, and `DemaConsulting.Speech.Onnx.NemotronStt`
 supplies `AddNemotronSttModels()` for the raw ONNX Runtime Nemotron model - so adding a new engine is a new model class
 and extension method, not a redesign of the core library. Native runtimes restore transitively
 through the managed `org.k2fsa.sherpa.onnx` package; if one is missing for your target RID,
@@ -130,9 +126,10 @@ your own cancellation), `HttpError` (the server answered with a failure status c
 underlying exception in `SpeechModelDownloadResult.Error`; an unrecognized model id throws
 `ArgumentException`.
 
-This release ships seven models through four packages. `DemaConsulting.Speech.Sherpa`
+This release ships eight models through five packages. `DemaConsulting.Speech.Sherpa`
 (`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
-(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.NemotronStt`
+(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.Piper`
+(`AddPiperModels()`) supplies the raw ONNX Runtime Piper LibriTTS-R model; `DemaConsulting.Speech.Onnx.NemotronStt`
 (`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model; and
 `DemaConsulting.Speech.Onnx.ChatterboxTurbo` (`AddChatterboxTurboModels(options)`) supplies the
 Chatterbox Turbo voice-cloning model:
@@ -144,6 +141,7 @@ Chatterbox Turbo voice-cloning model:
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 | `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
+| `OnnxPiperLibriTtsEnSynthesisModel` | TTS, 904 speakers (Piper LibriTTS-R, `speaker` 0-903) | CC BY 4.0 |
 | `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | MIT and NVIDIA Open Model License |
 | `OnnxChatterboxTurboEnglishSynthesisModel` | TTS, voice cloning from your reference clip | MIT |
 

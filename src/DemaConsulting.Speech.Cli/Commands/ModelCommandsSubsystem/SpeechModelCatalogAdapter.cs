@@ -23,6 +23,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
 using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.Onnx.NemotronStt;
+using DemaConsulting.Speech.Onnx.Piper;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -85,6 +86,7 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
             catalog
                 .AddSherpaModels()
                 .AddKokoroModels()
+                .AddPiperModels()
                 .AddNemotronSttModels();
 
             // One library instance serves both the Chatterbox model (voice list read now) and the

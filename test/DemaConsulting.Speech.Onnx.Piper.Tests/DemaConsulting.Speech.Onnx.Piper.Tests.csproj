@@ -82,6 +82,12 @@
           Link="TestData\piper-ipa-golden.tsv" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\DemaConsulting.Speech.Onnx.Kokoro.Tests\TestData\kokoro-pipeline-golden.tsv"
           Link="TestData\kokoro-pipeline-golden.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The 300 tuning sentences and 60 validation sentences the renderer was measured on (the repository's
+         data folder): every one of them is run through this package's pipeline. -->
+    <None Include="..\..\data\phonemes-en\renderer-corpus.tsv"
+          Link="TestData\renderer-corpus.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\phonemes-en\renderer-validation.tsv"
+          Link="TestData\renderer-validation.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

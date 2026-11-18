@@ -61,6 +61,46 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
+    ///     Proves that the engine's path equals the renderer's path over the whole measured corpus: for each of the 360
+    ///     renderer corpus and validation sentences, run the way a session runs them, no symbol is unknown to the voice, and
+    ///     the phonemes and ids of every chunk that fits one utterance are exactly what the renderer produces for it.
+    /// </summary>
+    [Fact]
+    public void Pipeline_RendererCorpusAndValidationSentences_MatchTheRendererPathWithNoUnknownSymbol()
+    {
+        // Arrange
+        var sentences = new[] { "renderer-corpus.tsv", "renderer-validation.tsv" }
+            .SelectMany(file => File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "TestData", file)).Skip(1))
+            .Where(line => line.Length > 0)
+            .Select(line => line.Split('\t')[1])
+            .ToList();
+        var compared = 0;
+
+        // Act & Assert
+        Assert.Equal(360, sentences.Count);
+        foreach (var sentence in sentences)
+        {
+            foreach (var chunk in AnalyzeAndChunk(sentence))
+            {
+                var annotations = NullIfEmpty(chunk.Annotations);
+                var utterances = Pipeline.ToUtterances(chunk.Text, annotations);
+                Assert.All(utterances, utterance => Assert.Empty(utterance.UnknownSymbols));
+                if (utterances.Count != 1)
+                {
+                    continue;
+                }
+
+                var expected = Renderer.Render(Phonemizer.Phonemize(chunk.Text, annotations));
+                Assert.Equal(expected, utterances[0].Phonemes);
+                Assert.Equal(Pipeline.Encode(expected).Ids, utterances[0].Ids);
+                compared++;
+            }
+        }
+
+        Assert.True(compared >= sentences.Count, "Every sentence has at least one chunk that fits one utterance.");
+    }
+
+    /// <summary>
     ///     Proves the framing: the begin id, each symbol's id followed by the pad id, the end id.
     /// </summary>
     [Fact]

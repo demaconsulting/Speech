@@ -12,6 +12,7 @@ using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.Onnx.NemotronStt;
+using DemaConsulting.Speech.Onnx.Piper;
 using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo;
@@ -177,7 +178,7 @@ public sealed class App : Application
         var storeOptions = launchOptions?.CreateStoreOptions();
         var downloaderOptions = launchOptions?.CreateDownloaderOptions();
 
-        // Captures storeOptions and the Sherpa/Kokoro/Nemotron/Chatterbox composition so the
+        // Captures storeOptions and the Sherpa/Kokoro/Piper/Nemotron/Chatterbox composition so the
         // catalog service below can rebuild an equivalent catalog, pointed at a new mirror,
         // whenever the user applies new mirror settings from the model catalog panel, or
         // installs/removes a reference-voice pack (the Chatterbox voice list is read when the
@@ -192,6 +193,7 @@ public sealed class App : Application
             {
                 catalog.AddSherpaModels()
                     .AddKokoroModels()
+                    .AddPiperModels()
                     .AddNemotronSttModels();
                 voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, options);
                 catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions

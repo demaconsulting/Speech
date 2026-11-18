@@ -119,7 +119,7 @@ public class SpeechDemoTests
     ///     them as an empty catalog.
     /// </summary>
     /// <remarks>
-    ///     The demo's composition root (<c>App.Compose</c>) registers the Sherpa, Kokoro,
+    ///     The demo's composition root (<c>App.Compose</c>) registers the Sherpa, Kokoro, Piper,
     ///     Nemotron STT and Chatterbox Turbo model families, so the panel must surface the real
     ///     models rather than the empty-catalog message. The test composes through
     ///     <c>App.Compose</c> itself and asserts the literal identifiers of the documented model families
