@@ -352,6 +352,49 @@ public sealed class LeakageCheckerTests
         Assert.Equal(expected, inside);
     }
 
+    /// <summary>Proves a link outside the root that points into it counts as inside, and a link inside the root that points out counts as outside.</summary>
+    [Fact]
+    public void LeakageChecker_IsInside_LinkedPaths_UseRealLocations()
+    {
+        // Arrange: a root with a real folder, an outside folder, a link out to the root and a link in to the outside folder
+        var baseDirectory = Path.Combine(Path.GetTempPath(), "texten-links-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(baseDirectory, "root");
+        var outside = Path.Combine(baseDirectory, "outside");
+        Directory.CreateDirectory(Path.Combine(root, "real"));
+        Directory.CreateDirectory(outside);
+        try
+        {
+            var linkIn = Path.Combine(baseDirectory, "link-to-root");
+            var linkOut = Path.Combine(root, "link-to-outside");
+            Assert.SkipUnless(DirectoryLink.TryCreate(linkIn, root) && DirectoryLink.TryCreate(linkOut, outside), DirectoryLink.SkipReason);
+
+            // Act
+            var insideViaLinkIn = LeakageChecker.IsInside(Path.Combine(linkIn, "real"), root);
+            var newFolderViaLink = LeakageChecker.IsInside(Path.Combine(linkIn, "not-yet", "created"), root);
+            var insideViaLink = LeakageChecker.IsInside(Path.Combine(linkOut, "x"), root);
+            var plainOutside = LeakageChecker.IsInside(Path.Combine(outside, "x"), root);
+
+            // Assert
+            Assert.True(insideViaLinkIn);
+            Assert.True(newFolderViaLink);
+            Assert.False(insideViaLink);
+            Assert.False(plainOutside);
+        }
+        finally
+        {
+            // Remove the links themselves first so the recursive delete never meets them
+            foreach (var link in new[] { Path.Combine(baseDirectory, "link-to-root"), Path.Combine(root, "link-to-outside") })
+            {
+                if (Directory.Exists(link))
+                {
+                    Directory.Delete(link, false);
+                }
+            }
+
+            Directory.Delete(baseDirectory, true);
+        }
+    }
+
     /// <summary>Proves the report is written as UTF-8 without byte order mark, LF line endings and the documented columns.</summary>
     [Fact]
     public void LeakageChecker_WriteReport_Rows_WritesDocumentedFormat()

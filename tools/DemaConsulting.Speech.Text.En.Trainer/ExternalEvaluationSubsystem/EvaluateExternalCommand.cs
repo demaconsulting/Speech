@@ -249,6 +249,33 @@ internal static class EvaluateExternalCommand
     }
 
     /// <summary>
+    ///     Refuses a cache folder that would put downloaded third-party files into the repository.
+    /// </summary>
+    /// <remarks>
+    ///     The comparison is made on real paths: a link below an outside cache folder can lead into the repository, a
+    ///     link in the data folder can move the repository, and a link in place of the ignored folder can lead into
+    ///     tracked files, so a lexical comparison would not be a boundary.
+    /// </remarks>
+    /// <param name="cachePath">The requested cache folder.</param>
+    /// <param name="root">The data folder.</param>
+    /// <param name="defaultCache">The git-ignored external folder of the data folder.</param>
+    /// <exception cref="InvalidDataException">Thrown when the real cache folder is inside the repository but not inside the ignored folder.</exception>
+    private static void RejectCacheInRepository(string cachePath, string root, string defaultCache)
+    {
+        // Real paths on every side; the repository is derived from the real data folder so ".." cannot pass through a link
+        var realRoot = LeakageChecker.ResolveRealPath(root);
+        var realRepository = Path.GetFullPath(Path.Combine(realRoot, "..", ".."));
+        var realCache = LeakageChecker.ResolveRealPath(cachePath);
+        var allowed = Path.Combine(realRoot, "external");
+
+        // The ignored folder is judged by its own path (not its target), so a link standing in for it cannot lead into tracked files
+        if (!LeakageChecker.IsLexicallyInside(realCache, allowed) && LeakageChecker.IsLexicallyInside(realCache, realRepository))
+        {
+            throw new InvalidDataException($"the cache folder must be {defaultCache} (git-ignored) or outside the repository {realRepository}; refusing {cachePath}");
+        }
+    }
+
+    /// <summary>
     ///     Runs the evaluation and prints the results.
     /// </summary>
     /// <param name="options">The options.</param>
@@ -263,11 +290,7 @@ internal static class EvaluateExternalCommand
         var repository = Path.GetFullPath(Path.Combine(root, "..", ".."));
         var defaultCache = Path.Combine(root, "external");
         var cachePath = options.Cache is null ? defaultCache : Path.GetFullPath(options.Cache, currentDirectory);
-        if (!LeakageChecker.IsInside(cachePath, defaultCache) && LeakageChecker.IsInside(cachePath, repository))
-        {
-            throw new InvalidDataException($"the cache folder must be {defaultCache} (git-ignored) or outside the repository {repository}; refusing {cachePath}");
-        }
-
+        RejectCacheInRepository(cachePath, root, defaultCache);
         var pinsPath = options.Pins is null
             ? Path.Combine(repository, "tools", "DemaConsulting.Speech.Text.En.Trainer", "external-sources.json")
             : Path.GetFullPath(options.Pins, currentDirectory);

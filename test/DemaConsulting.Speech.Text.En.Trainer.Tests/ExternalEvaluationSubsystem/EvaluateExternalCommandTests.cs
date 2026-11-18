@@ -124,6 +124,41 @@ public sealed class EvaluateExternalCommandTests
         Assert.False(Directory.Exists(insideData));
     }
 
+    /// <summary>Proves an outside cache folder that links into the repository is refused before anything is fetched, and a plain outside folder is accepted.</summary>
+    [Fact]
+    public void EvaluateExternalCommand_Run_CacheLinkedIntoRepository_ExitsTwo()
+    {
+        // Arrange: a link outside the repository that points at a tracked folder inside it
+        using var rig = new ExternalEvaluationRig();
+        var tracked = Path.Combine(rig.Training.BaseDirectory, "tracked");
+        Directory.CreateDirectory(tracked);
+        var link = rig.External.NewFolder("linked-cache");
+        Assert.SkipUnless(DirectoryLink.TryCreate(link, tracked), DirectoryLink.SkipReason);
+        (int ExitCode, string Output, string Error) linked, below, plain;
+        try
+        {
+            // Act
+            linked = rig.Run("--fetch", "--cache", link);
+            below = rig.Run("--fetch", "--cache", Path.Combine(link, "sub"));
+            plain = rig.Run("--fetch", "--set", "bench");
+        }
+        finally
+        {
+            // Remove the link itself first so the fixture's recursive delete never meets it
+            Directory.Delete(link, false);
+        }
+
+        // Assert
+        Assert.All(new[] { linked, below }, result =>
+        {
+            Assert.Equal(2, result.ExitCode);
+            Assert.Contains("cache folder must be", result.Error, StringComparison.Ordinal);
+            Assert.Equal(string.Empty, result.Output);
+        });
+        Assert.Empty(Directory.EnumerateFileSystemEntries(tracked));
+        Assert.Equal(0, plain.ExitCode);
+    }
+
     /// <summary>Proves the default cache is the external folder of the data folder, a folder inside it and a folder outside the repository are accepted.</summary>
     [Fact]
     public void EvaluateExternalCommand_Run_DefaultAndOutsideCache_AreAccepted()
