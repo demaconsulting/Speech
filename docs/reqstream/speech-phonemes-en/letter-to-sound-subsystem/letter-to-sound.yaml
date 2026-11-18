@@ -1,0 +1,32 @@
+---
+# Software Unit Requirements for LetterToSound
+#
+# These requirements describe the behavior of the LetterToSound unit: the converter that pronounces a word with
+# the trained model, caches the answers and falls back to letter names so that a word with letters is never
+# silent. It decomposes the parent SpeechPhonemesEn LetterToSoundSubsystem requirement. Covered by the
+# LetterToSound_* tests in test/DemaConsulting.Speech.Phonemes.En.Tests/LetterToSoundSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LetterToSoundSubsystem Requirements
+        sections:
+          - title: LetterToSound Requirements
+            requirements:
+              - id: SpeechPhonemesEn-LetterToSound-LetterToSound-Conversion
+                title: >-
+                  The LetterToSound class shall convert a word to a pronunciation that contains a vowel for
+                  any spelling with at least one letter (repeated letters, apostrophes, upper case, accents,
+                  digits and marks mixed in, thousands of letters long), shall speak a word that the model
+                  gives no vowel by the names of its letters, and shall report no pronunciation for text
+                  without a letter, ignoring every character that is not a letter or an apostrophe.
+                justification: |
+                  The phonemizer asks about whatever the text contains, including strings that are not words,
+                  so the converter must never throw, never answer with silence for something that has a
+                  letter, and never invent a sound for something that has none. Spelling a vowel-less
+                  string by letter names is how a voice has to say "www".
+                tests:
+                  - LetterToSound_TryConvert_OddSpellings_GetANonEmptyPronunciation
+                  - LetterToSound_TryConvert_VowelLessWord_IsSpokenByLetterNames
+                  - LetterToSound_TryConvert_VeryLongWord_IsPronouncedWithoutFailure
+                  - LetterToSound_TryConvert_NoLetters_HasNoPronunciation

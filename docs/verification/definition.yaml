@@ -234,6 +234,24 @@ input-files:
   - docs/verification/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.md
   - docs/verification/speech-text-en/external-evaluation-subsystem/external-evaluation-record.md
   - docs/verification/speech-text-en/external-evaluation-subsystem/evaluate-external-command.md
+  - docs/verification/speech-phonemes-en.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/cmu-lexicon.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/phone.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/morphology.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.md
+  - docs/verification/speech-phonemes-en/letter-to-sound-subsystem.md
+  - docs/verification/speech-phonemes-en/letter-to-sound-subsystem/lts-model.md
+  - docs/verification/speech-phonemes-en/letter-to-sound-subsystem/letter-to-sound.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem/english-phonemizer.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem/word-tokenizer.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/espeak-ipa-renderer.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/misaki-renderer.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/weak-forms.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/phoneme-stream.md
   - docs/verification/speech-sherpa.md
   - docs/verification/speech-sherpa/model-management-subsystem.md
   - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

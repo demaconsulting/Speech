@@ -1,0 +1,257 @@
+---
+# Software System Requirements for SpeechPhonemesEn
+#
+# These requirements describe the externally visible behavior of the SpeechPhonemesEn library
+# (DemaConsulting.Speech.Phonemes.En) from the point of view of a speech model package that consumes
+# it. SpeechPhonemesEn is a sibling system to Speech and SpeechTextEn: it turns English text, with
+# the annotations that SpeechTextEn produced for it (normalized and spelled replacements, the reading
+# of a heteronym, host pronunciation overrides) or without them, into a stream of words with ARPAbet
+# pronunciations, and renders that stream as the phoneme string a voice model reads: espeak-style IPA
+# for the Piper voice, misaki symbols for Kokoro. Its only pronunciation source is the CMU
+# Pronouncing Dictionary (BSD-style license, embedded as a compact image); its fallback for words the
+# dictionary and the sound rules cannot give is a letter-to-sound model trained on that dictionary alone.
+#
+# The data of the package is built by the non-shipped tools project (tools/DemaConsulting.Speech.Phonemes.En.Tools),
+# whose build-lexicon, train-lts and propose-readings commands each have a --check mode that reproduces the
+# embedded data from the pinned input; those checks and the aggregate quality measurements are recorded in
+# data/phonemes-en/README.md and docs/evaluation/phonemes-en/, and are not requirements evidence here.
+#
+# Covered by test/DemaConsulting.Speech.Phonemes.En.Tests/SpeechPhonemesEnTests.cs and by the FileAssert tests
+# of the built package. The subsystem and unit requirements under docs/reqstream/speech-phonemes-en/ decompose
+# these.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    requirements:
+      - id: SpeechPhonemesEn-Lexicon-CmuDictionary
+        title: >-
+          The library shall pronounce every word of the CMU Pronouncing Dictionary from a compact lexicon
+          embedded in the package, built from that dictionary and no other pronunciation source, shall give
+          the first variant of the dictionary as the default pronunciation, and shall find a word whatever
+          its case and whichever apostrophe it is written with.
+        tags: [system]
+        justification: |
+          A voice model needs a pronunciation for every word it is asked to say, and the owner decided that
+          the only pronunciation data in the repository is the CMU Pronouncing Dictionary (no misaki, espeak
+          or WikiPron data), embedded as a compact image under the license notice the dictionary requires, so
+          that the package works offline and carries no data of unknown origin. The dictionary lists the
+          pronunciations of a heteronym in a fixed order, and the first one is the safe default when the text
+          analysis gave no reading. Text arrives in any case and with typographic apostrophes.
+        children:
+          - SpeechPhonemesEn-Lexicon-DictionaryContent
+        tests:
+          - SpeechPhonemesEn_Phonemize_DictionaryWords_UseTheDictionaryPronunciation
+          - SpeechPhonemesEn_Phonemize_NoAnnotations_EveryInventoryFormGetsItsDefaultReading
+
+      - id: SpeechPhonemesEn-Readings-EveryReading
+        title: >-
+          The library shall give a pronunciation to every reading id of the English text analysis inventory
+          and to every spelling that analysis can label with it, with no gap that is silently skipped, and
+          shall pronounce a word with the reading that the analysis chose for it.
+        tags: [system]
+        justification: |
+          The text analysis decides which reading a heteronym has ("record" as a noun or a verb), but the
+          dictionary has no sense information and lacks a variant for about a quarter of the heteronyms, so
+          the readings are mapped to pronunciations by a reviewed table plus the sound rules for inflected
+          forms. A reading id that resolved to nothing would make the model say the wrong word, so
+          every one of the 395 reading ids and 853 spelling and reading pairs must resolve, the gap list is
+          committed and empty, and one reviewed sentence per reading id is run through the real analysis and
+          the phonemizer to prove the table says what the reviewers intended.
+        children:
+          - SpeechPhonemesEn-Lexicon-ReadingCoverage
+          - SpeechPhonemesEn-Phonemizer-ReadingSelection
+        tests:
+          - SpeechPhonemesEn_ReadingGolden_EveryReadingIsPronouncedAsReviewed
+          - SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate
+
+      - id: SpeechPhonemesEn-Pronunciation-SourcePriority
+        title: >-
+          The library shall pronounce each word from the first source that can pronounce it, in the order
+          host override, reading chosen by the text analysis, dictionary, morphology rules, letter-to-sound
+          model, and shall report which source gave each word.
+        tags: [system]
+        justification: |
+          A host override is the owner's explicit instruction, a reading is the analysis's decision about
+          the sense of the word in its sentence, the dictionary is reviewed data, the morphology rules are
+          documented sound laws, and the trained model is a guess. Using them in that order gives the best
+          available answer, and reporting the source lets a host and the tests see how much of a text is
+          known and how much is guessed.
+        children:
+          - SpeechPhonemesEn-Phonemizer-SourcePriority
+        tests:
+          - SpeechPhonemesEn_Phonemize_SourcesInPriorityOrder_OverrideReadingLexiconMorphologyLetterToSound
+
+      - id: SpeechPhonemesEn-Pronunciation-Morphology
+        title: >-
+          The library shall pronounce a regular inflected form or a prefixed form that the dictionary does
+          not list from the pronunciation of its stem and the documented sound of the ending (the s, z or iz
+          of a plural, the t, d or id of a past tense, the ending of -ing, a possessive or a contraction),
+          without guessing and without reporting the word as unknown.
+        tags: [system]
+        justification: |
+          The dictionary lists most plurals and past tenses but not all of them, and names and new words
+          appear in inflected forms ("unfollowed", "zebra's"). The ending of an English inflection is
+          decided by the last sound of the stem, which is certain, whereas the letter-to-sound model would
+          only guess the whole word. The rules are measured against the dictionary's own inflected entries
+          so their choices are known to agree with it.
+        children:
+          - SpeechPhonemesEn-Lexicon-Morphology
+        tests:
+          - SpeechPhonemesEn_Phonemize_InflectedAndPrefixedWordsAbsentFromTheDictionary_AreDerivedFromTheirStem
+
+      - id: SpeechPhonemesEn-Pronunciation-OutOfVocabulary
+        title: >-
+          The library shall pronounce a word that is in neither the dictionary nor derivable from it with a
+          letter-to-sound model trained on the dictionary alone, shall never leave a word with letters
+          silent, and shall flag such a word as out of vocabulary and list it in the result.
+        tags: [system]
+        justification: |
+          Names, brands and new words are always missing from a dictionary, and a voice that skips them
+          makes sentences unintelligible. A model trained on the dictionary alone has a clean provenance
+          (no data of unknown origin), pronounces such a word plausibly (the measured phone error rate is
+          less than half of the rule-based baseline), and is deterministic. Flagging the word keeps the
+          guess visible, so a host can offer an override.
+        children:
+          - SpeechPhonemesEn-LetterToSound-TrainedModel
+          - SpeechPhonemesEn-LetterToSound-NeverSilent
+          - SpeechPhonemesEn-Phonemizer-Reporting
+        tests:
+          - SpeechPhonemesEn_Phonemize_UnknownWord_IsPronouncedByTheModelAndReported
+
+      - id: SpeechPhonemesEn-Annotations-AnalysisAware
+        title: >-
+          The library shall phonemize text with the annotations of the English text analysis by speaking the
+          normalized replacement of an annotated span instead of its written text, speaking a spelled
+          replacement letter by letter by the names of the letters, honoring a host pronunciation given as
+          ARPAbet or IPA, and ignoring an annotation that does not fit the text; and shall phonemize text
+          without annotations as written, with the default reading of every word and no normalization.
+        tags: [system]
+        justification: |
+          A model must say "Doctor Smith" for "Dr. Smith" and "five dollars" for "$5", spell "FBI", say the
+          pronunciation the host asked for, and still work when no analysis is available (the plain
+          generation path has no analysis). The annotations come from another package and from hosts, so a
+          malformed or out-of-range one must never corrupt the result.
+        children:
+          - SpeechPhonemesEn-Phonemizer-AnnotationAwareSpeech
+          - SpeechPhonemesEn-Phonemizer-Tokens
+        tests:
+          - SpeechPhonemesEn_Phonemize_AnalyzedText_SpeaksNormalizationsSpelledLettersAndReadings
+          - SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream
+          - SpeechPhonemesEn_Phonemize_NoAnnotations_EveryInventoryFormGetsItsDefaultReading
+
+      - id: SpeechPhonemesEn-Reporting-UnsupportedText
+        title: >-
+          The library shall keep every token that it cannot pronounce (an emoji, a character of another
+          script, a symbol) as an item of the result and list it, so that no part of the text disappears
+          unannounced.
+        tags: [system]
+        justification: |
+          A model that silently drops what it cannot say changes the meaning of a sentence without telling
+          anyone. Keeping the token, with no sound, in its place and listing it lets the host warn the user
+          or rewrite the text.
+        children:
+          - SpeechPhonemesEn-Phonemizer-Reporting
+        tests:
+          - SpeechPhonemesEn_Phonemize_UnsupportedText_IsKeptAndReportedNeverDropped
+
+      - id: SpeechPhonemesEn-Rendering-VoiceSymbols
+        title: >-
+          The library shall render a phonemized text as the espeak-style IPA text that the Piper voice reads
+          and as the misaki symbol text that Kokoro reads, each using only symbols of its voice model's own
+          symbol table, for every text including every dictionary pronunciation, every out-of-vocabulary
+          conversion and every unsupported or punctuation token.
+        tags: [system]
+        justification: |
+          A voice model has a fixed table of symbols, and a symbol outside it is dropped or fails at
+          inference time, which would corrupt the speech with no signal. The renderers apply the sound
+          conventions of each model (stress marks, flapping, long vowels, linking r, the models' own vowel
+          symbols), and the check that nothing outside the table is ever produced is made over the whole
+          dictionary, every phone in every neighborhood and the sentence corpus, not only for the texts
+          somebody thought of.
+        children:
+          - SpeechPhonemesEn-Rendering-SymbolCoverage
+          - SpeechPhonemesEn-Rendering-ModelConventions
+        tests:
+          - SpeechPhonemesEn_Render_SentenceCorpus_UsesOnlySymbolsOfTheVoiceModels
+
+      - id: SpeechPhonemesEn-Rendering-WeakForms
+        title: >-
+          The library shall render the small function words of the Piper rendering in their unstressed or
+          reduced forms by default, shall let a caller switch that off, and shall keep the full forms for
+          Kokoro unless the caller asks for the reduced ones.
+        tags: [system]
+        justification: |
+          The Piper voice was trained on speech in which function words ("the", "of", "and") are unstressed,
+          so stressed dictionary forms make it sound like a list of words. Kokoro's own phonemizer renders
+          full forms, and the owner decided to leave that default alone, so the profile is a choice of the
+          caller and the choice must be observable.
+        children:
+          - SpeechPhonemesEn-Rendering-WeakFormTable
+        tests:
+          - SpeechPhonemesEn_Render_FunctionWords_AreWeakForPiperAndFullForKokoroByDefault
+
+      - id: SpeechPhonemesEn-Rendering-LongText
+        title: >-
+          The library shall render a long text as parts that each stay within a caller-supplied number of
+          symbols, are cut between words after a clause mark where there is one, and together carry every
+          sound of the whole text.
+        tags: [system]
+        justification: |
+          A voice model accepts a bounded number of input symbols (Kokoro 510 tokens, Piper a practical
+          limit per utterance), and a text longer than that has to be cut. Cutting inside a word or dropping
+          a part would be audible, so the cut is made by the renderer, which knows the words and the clause
+          marks, instead of by every model package on its own.
+        children:
+          - SpeechPhonemesEn-Rendering-Parts
+        tests:
+          - SpeechPhonemesEn_Render_LongText_IsSplitAtClauseBoundariesWithinTheLimit
+
+      - id: SpeechPhonemesEn-Determinism-Repeatable
+        title: >-
+          The library shall give the same result for the same text and annotations on every call, on every
+          supported runtime and operating system, and from any number of threads at once, with the
+          embedded data loaded on first use and shared.
+        tags: [system]
+        justification: |
+          Speech is regenerated and compared (a golden corpus is the regression baseline of the renderers),
+          one phonemizer serves many requests, and the model arithmetic must not depend on the machine. The
+          letter-to-sound model therefore uses exact integer arithmetic, the lexicon and tables are
+          immutable, and the golden tests run on every target runtime in the build matrix.
+        children:
+          - SpeechPhonemesEn-LetterToSound-Deterministic
+          - SpeechPhonemesEn-Lexicon-DictionaryContent
+        tests:
+          - SpeechPhonemesEn_Pipeline_RepeatedAndConcurrentRuns_GiveIdenticalResults
+          - SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream
+
+      - id: SpeechPhonemesEn-Packaging-LicenseNotices
+        title: >-
+          The package shall declare its license through a license file that starts with the SPDX expression
+          MIT AND LicenseRef-CMUdict and contains the MIT license text and the license of the CMU Pronouncing
+          Dictionary, and shall carry a third-party notice file that reproduces the dictionary's copyright
+          notice and license, states the changes made to it and names the embedded data derived from it; both
+          files shall be packed at the package root and the nuspec shall name the license file.
+        tags: [system]
+        justification: |
+          The package embeds a compact image of the CMU Pronouncing Dictionary, a letter-to-sound model
+          trained on it and a reading table derived from it. The dictionary's license requires its notice to
+          travel with every redistribution, so the notice cannot be left in the repository only. Declaring
+          the MIT License alone would misstate what a consumer receives. The built package is inspected by a
+          FileAssert test; it is not legal advice, and the declaration is revisited when the data changes.
+        tests:
+          - PhonemesEn_PackageLicenseFiles_Content
+
+      - id: SpeechPhonemesEn-Packaging-PublicApi
+        title: >-
+          The package shall expose as public API only the phonemizer, its result types, and the two renderers
+          with their profiles, shall keep the lexicon, the morphology rules, the reading tables and the
+          letter-to-sound model internal, and shall depend on no speech-engine inference runtime.
+        tags: [system]
+        justification: |
+          Everything public is a promise to every consumer and a surface to keep compatible. The package is
+          a preview, and its data structures and algorithms are expected to change, so only what a model
+          package needs is exposed; the generated API documentation in the package is checked to list exactly
+          that surface. The phonemization is plain managed text processing and must stay usable by any model
+          package, so it must not drag an inference runtime into every consumer.
+        tests:
+          - PhonemesEn_PackagePublicApi_Surface

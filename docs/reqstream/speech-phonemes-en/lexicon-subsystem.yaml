@@ -1,0 +1,69 @@
+---
+# Software Subsystem Requirements for the SpeechPhonemesEn LexiconSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechPhonemesEn LexiconSubsystem,
+# decomposing the system-level requirements in docs/reqstream/speech-phonemes-en.yaml. The subsystem holds
+# everything the package knows about the pronunciation of words as data: the embedded CMU Pronouncing
+# Dictionary (CmuLexicon), the phone and pronunciation value types that the whole package is built on (Phone),
+# the sound rules that derive inflected, prefixed and contracted forms from a stem (Morphology), and the
+# mapping of every reading id of the English text analysis inventory to a pronunciation
+# (ReadingPronunciations). It knows nothing of text, annotations or voices. Each requirement states one
+# observable behavior.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-phonemes-en/lexicon-subsystem/.
+# Covered by the LexiconSubsystem_* tests in test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests*.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LexiconSubsystem Requirements
+        requirements:
+          - id: SpeechPhonemesEn-Lexicon-DictionaryContent
+            title: >-
+              The LexiconSubsystem shall hold every dictionary word that consists of the letters a to z and
+              apostrophes with all of its pronunciation variants in dictionary order, shall return for each
+              held word exactly the variants it holds and for any other text none.
+            justification: |
+              The package ships a compact image of the pinned dictionary, and a compact format is only
+              trustworthy if every word that went in comes out again unchanged. Enumerating the whole
+              lexicon and looking every entry up again proves the storage and the search agree for all of
+              the 124,926 words, not just the few a person would try.
+            children:
+              - SpeechPhonemesEn-Lexicon-CmuLexicon-Lookup
+              - SpeechPhonemesEn-Lexicon-Phone-ArpabetForm
+            tests:
+              - LexiconSubsystem_Entries_EveryEntryIsFoundByLookup
+
+          - id: SpeechPhonemesEn-Lexicon-ReadingCoverage
+            title: >-
+              The LexiconSubsystem shall have a pronunciation row for exactly every reading id of the
+              English text analysis inventory, shall take every row that names a dictionary variant from
+              that variant, and shall resolve every spelling and reading pair of the inventory to a
+              non-empty pronunciation, so that the list of unresolved pairs is empty.
+            justification: |
+              A heteronym reading whose pronunciation is missing would be spoken as the wrong word or not
+              at all. The reading table is reviewed data derived from the dictionary and from phonetic
+              knowledge, and the inflected spellings of a reading come from the morphology rules, so only a
+              check of every pair of the real inventory against the real tables proves there is no gap; the
+              committed gap list is the evidence and is expected to stay empty.
+            children:
+              - SpeechPhonemesEn-Lexicon-ReadingPronunciations-Resolution
+            tests:
+              - LexiconSubsystem_Readings_Table_CoversTheInventoryAndMatchesTheLexicon
+              - LexiconSubsystem_Readings_Resolve_EveryInventoryPair_ResolvesWithNoSilentGap
+
+          - id: SpeechPhonemesEn-Lexicon-Morphology
+            title: >-
+              The LexiconSubsystem shall derive the pronunciation of a regular plural, past tense, -ing
+              form, possessive or contraction from the pronunciation of its stem such that, for every
+              dictionary entry that is a listed stem plus a regular ending, the choice of the ending's
+              sound agrees with the dictionary's own entry in at least 98 percent of the cases.
+            justification: |
+              The rules replace a guess with a law: the sound of an English ending follows from the last
+              sound of the stem. That the rules are right is not an opinion, because the dictionary lists
+              tens of thousands of inflected entries next to their stems; measuring the rules against them
+              gives the agreement, and the gate keeps a later change from making the rules worse.
+            children:
+              - SpeechPhonemesEn-Lexicon-Morphology-Derivation
+            tests:
+              - LexiconSubsystem_Morphology_Audit_RegularEndings_AgreeWithLexiconAtLeast98Percent

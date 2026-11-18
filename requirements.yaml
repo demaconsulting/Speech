@@ -252,6 +252,24 @@ includes:
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.yaml
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/external-evaluation-record.yaml
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/evaluate-external-command.yaml
+  - docs/reqstream/speech-phonemes-en.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/cmu-lexicon.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/phone.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/morphology.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.yaml
+  - docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem/lts-model.yaml
+  - docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem/letter-to-sound.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem/english-phonemizer.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem/word-tokenizer.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/espeak-ipa-renderer.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/misaki-renderer.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/weak-forms.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/phoneme-stream.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

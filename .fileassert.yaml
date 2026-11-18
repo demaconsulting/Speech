@@ -52,6 +52,90 @@ tests:
               text:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
+  - name: PhonemesEn_PackageLicenseFiles_Content
+    description: "Phonemes.En NuGet package, when it is packed (only for a pre-release version), ships its license file (MIT AND LicenseRef-CMUdict with the CMUdict license text) and its third-party notices at the package root and names the license file in its nuspec"
+    tags: [api-docs]
+    files:
+      # Phonemes.En is packed only for a pre-release version (its Text.En dependency chain is pre-release), so no
+      # package at all (min: 0) is valid for a stable version; when a package exists it must be exactly one and
+      # satisfy every check below.
+      - pattern: "src/DemaConsulting.Speech.Phonemes.En/bin/Release/DemaConsulting.Speech.Phonemes.En.*.nupkg"
+        min: 0
+        max: 1
+        zip:
+          files:
+            - pattern: "PACKAGE-LICENSE.md"
+              min: 1
+              max: 1
+              text:
+                # The line break makes the match exact: the declaration is exactly MIT AND LicenseRef-CMUdict.
+                - contains: "SPDX-License-Identifier: MIT AND LicenseRef-CMUdict\n\n# License of the DemaConsulting.Speech.Phonemes.En Package"
+                - contains: "THIRD-PARTY-NOTICES.md"
+                - contains: "CMU Pronouncing Dictionary"
+                - contains: "Carnegie Mellon University"
+            - pattern: "THIRD-PARTY-NOTICES.md"
+              min: 1
+              max: 1
+              text:
+                - contains: "CMU Pronouncing Dictionary (CMUdict)"
+                - contains: "Copyright (C) 1993-2015 Carnegie Mellon University"
+                - contains: "cmudict-en.bin.gz"
+                - contains: "lts-en.bin.gz"
+            - pattern: "DemaConsulting.Speech.Phonemes.En.nuspec"
+              min: 1
+              max: 1
+              text:
+                - contains: 'type="file">PACKAGE-LICENSE.md</license>'
+
+  - name: PhonemesEn_PackagePublicApi_Surface
+    description: "Phonemes.En NuGet package, when it is packed (only for a pre-release version), exposes as public API only the phonemizer with its result types and the two renderers with their profiles (the lexicon, morphology, letter-to-sound and reading tables are internal) and declares no speech-engine inference runtime as a dependency"
+    tags: [api-docs]
+    files:
+      - pattern: "src/DemaConsulting.Speech.Phonemes.En/bin/Release/DemaConsulting.Speech.Phonemes.En.*.nupkg"
+        min: 0
+        max: 1
+        zip:
+          files:
+            # The nine public types: the phonemizer and its result types, the two renderers and their profiles
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem/EnglishPhonemizer.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem/PhonemizedText.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem/PhonemizedItem.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem/PhonemizedItemKind.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem/PronunciationSource.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.RenderingSubsystem/EspeakIpaRenderer.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.RenderingSubsystem/EspeakIpaProfile.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.RenderingSubsystem/MisakiRenderer.md"
+              min: 1
+              max: 1
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.RenderingSubsystem/MisakiProfile.md"
+              min: 1
+              max: 1
+            # Nothing of the internal subsystems is documented as API
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.LexiconSubsystem*"
+              max: 0
+            - pattern: "api/DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem*"
+              max: 0
+            - pattern: "DemaConsulting.Speech.Phonemes.En.nuspec"
+              min: 1
+              max: 1
+              text:
+                # No inference runtime (ONNX Runtime, sherpa-onnx) is pulled into the consumers of the phonemizer.
+                - does-not-contain-regex: '(?i)dependency id="[^"]*(onnx|sherpa)'
+
   - name: TextEn_PackageLicenseFiles_Content
     description: "Text.En NuGet package, when it is packed (only for a pre-release version), ships its license file (MIT AND CC-BY-3.0-US, naming the embedded heteronym model) and its notices (MASC attribution, dependency notice) at the package root and names the license file in its nuspec"
     tags: [api-docs]

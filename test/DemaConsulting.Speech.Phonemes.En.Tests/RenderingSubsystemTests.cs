@@ -9,12 +9,13 @@ using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Subsystem tests of the renderers that turn a phonemized text into the phoneme string of a voice model: the Piper
+///     Tests of the renderers that turn a phonemized text into the phoneme string of a voice model: the Piper
 ///     espeak-style IPA (<see cref="EspeakIpaRenderer"/>) and the Kokoro misaki symbols (<see cref="MisakiRenderer"/>).
-///     The evidence is the golden corpora (the renderings of the 150 reviewed sentences, with the model token ids), the
-///     vocabulary-coverage gates (no symbol outside the Piper <c>phoneme_id_map</c> or the Kokoro vocabulary, for every
-///     dictionary pronunciation, every out-of-vocabulary conversion and every phone in every neighborhood), and a few
-///     behavior examples of the layout and the sound rules.
+///     Subsystem level (<c>RenderingSubsystem_*</c>): the vocabulary-coverage gates (no symbol outside the Piper
+///     <c>phoneme_id_map</c> or the Kokoro vocabulary, for every dictionary pronunciation, every out-of-vocabulary
+///     conversion and every phone in every neighborhood) and the layout and sound rules of both renderers together.
+///     Unit level: the two renderers (the golden corpora, the renderings of the 150 reviewed sentences with the model
+///     token ids, and the argument checks), the WeakForms table and the shared PhonemeStream layout and splitter.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -42,17 +43,17 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves the Piper rendering of every golden sentence and its token ids are the reviewed ones.</summary>
     [Fact]
-    public void PiperGolden_Sentences_RenderTheReviewedPhonemeStrings() =>
+    public void EspeakIpaRenderer_Render_Sentences_RenderTheReviewedPhonemeStrings() =>
         AssertGolden("piper-ipa-golden.tsv", new EspeakIpaRenderer().Render, Piper);
 
     /// <summary>Proves the Kokoro rendering of every golden sentence and its token ids are the reviewed ones.</summary>
     [Fact]
-    public void KokoroGolden_Sentences_RenderTheReviewedPhonemeStrings() =>
+    public void MisakiRenderer_Render_Sentences_RenderTheReviewedPhonemeStrings() =>
         AssertGolden("kokoro-misaki-golden.tsv", new MisakiRenderer().Render, Kokoro);
 
     /// <summary>Proves the inventories are the real ones: the Piper voice's 159 symbols and Kokoro's vocabulary.</summary>
     [Fact]
-    public void Inventories_AreTheModelsOwnSymbolTables()
+    public void RenderingSubsystem_Inventories_AreTheModelsOwnSymbolTables()
     {
         // Assert: the Piper map has the 159 symbols of the voice (the pad, bos and eos included); Kokoro's vocabulary has its 115 symbols
         Assert.Equal(159, Piper.Count);
@@ -63,7 +64,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves every pronunciation of the dictionary (all variants of all words) renders to symbols of the Piper voice and of Kokoro.</summary>
     [Fact]
-    public void Coverage_EveryDictionaryPronunciation_UsesOnlySymbolsOfBothModels()
+    public void RenderingSubsystem_Coverage_EveryDictionaryPronunciation_UsesOnlySymbolsOfBothModels()
     {
         // Arrange
         var piperMissing = new HashSet<char>();
@@ -90,7 +91,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves every phone in every neighborhood of two phones (all 69 x 69 x 69 sequences) renders to symbols of the models, whatever the context rules do.</summary>
     [Fact]
-    public void Coverage_EveryPhoneInEveryNeighborhood_UsesOnlySymbolsOfBothModels()
+    public void RenderingSubsystem_Coverage_EveryPhoneInEveryNeighborhood_UsesOnlySymbolsOfBothModels()
     {
         // Arrange
         var phones = Enumerable.Range(1, Phone.MaxCode).Select(code => Phone.FromCode((byte)code)).ToArray();
@@ -118,7 +119,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves every conversion of the out-of-vocabulary model (the dictionary words it would pronounce, the golden words) renders to symbols of the models.</summary>
     [Fact]
-    public void Coverage_EveryOutOfVocabularyConversion_UsesOnlySymbolsOfBothModels()
+    public void RenderingSubsystem_Coverage_EveryOutOfVocabularyConversion_UsesOnlySymbolsOfBothModels()
     {
         // Arrange: a deterministic sample of the dictionary spellings and the hand-chosen words of the out-of-vocabulary golden
         var golden = File.ReadLines(TestFile("oov-golden.tsv")).Where(l => l.Length > 0 && l[0] != '#').Select(l => l.Split('\t')[0]);
@@ -142,7 +143,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves text with every kind of punctuation, the weak-form words and unsupported symbols renders to symbols of the models in every renderer mode.</summary>
     [Fact]
-    public void Coverage_WeakFormWordsAndPunctuation_UseOnlySymbolsOfBothModels()
+    public void RenderingSubsystem_Coverage_WeakFormWordsAndPunctuation_UseOnlySymbolsOfBothModels()
     {
         // Arrange: every weak-form word before a consonant and before a vowel, then every punctuation mark the tokenizer knows
         var words = WeakForms.Words.ToList();
@@ -167,7 +168,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves the layout: words are separated by a space, clause punctuation attaches to the word before it, and the models' stress and sound conventions appear.</summary>
     [Fact]
-    public void Layout_WordsAndClausePunctuation_FollowTheModelConventions()
+    public void RenderingSubsystem_Layout_WordsAndClausePunctuation_FollowTheModelConventions()
     {
         // Arrange
         var result = Phonemizer.Phonemize("Hello, world!");
@@ -183,7 +184,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves the layout of quotation marks and dashes: Piper has no symbol for them and pauses, Kokoro keeps its own marks.</summary>
     [Fact]
-    public void Layout_QuotesAndDashes_AreRenderedPerModel()
+    public void RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel()
     {
         // Arrange
         var quoted = Phonemizer.Phonemize("\"Yes,\" she said.");
@@ -198,7 +199,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves the espeak-style details of the weak-form table: the flap of <i>it</i> and <i>at</i> before a vowel, <i>on the</i> and <i>for the</i> as one group, and the secondary stress of a few more words, none of which misaki's profile has.</summary>
     [Fact]
-    public void WeakForms_EspeakStyleDetails_AreForPiperOnly()
+    public void WeakForms_TryGet_EspeakStyleDetails_AreForPiperOnly()
     {
         // Arrange
         var flap = Phonemizer.Phonemize("it is at all");
@@ -219,7 +220,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves Kokoro keeps the stress on the first part of a hyphenated compound only (the later primary stresses become secondary), where Piper stresses every part.</summary>
     [Fact]
-    public void Compounds_StressIsPerModel()
+    public void RenderingSubsystem_Compounds_StressIsPerModel()
     {
         // Arrange
         var result = Phonemizer.Phonemize("a well-known author");
@@ -231,7 +232,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves an ellipsis keeps its length for Piper (three dots) and is Kokoro's single ellipsis mark.</summary>
     [Fact]
-    public void Layout_Ellipsis_IsRenderedPerModel()
+    public void RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel()
     {
         // Arrange
         var result = Phonemizer.Phonemize("Well... okay.");
@@ -243,7 +244,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves the sound rules: the flap, the linking r, the stress marks, the secondary stress next to the primary, and the models' own vowel symbols.</summary>
     [Fact]
-    public void SoundRules_FlapLinkingRAndStress_FollowTheModelConventions()
+    public void RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions()
     {
         // Arrange and act
         var city = Phonemizer.Phonemize("city");
@@ -268,7 +269,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves the weak forms: function words lose their stress and reduce in the Piper profile, and can be switched off; Kokoro has the full forms unless asked.</summary>
     [Fact]
-    public void WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled()
+    public void RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled()
     {
         // Arrange
         var sentence = Phonemizer.Phonemize("a cup of the tea");
@@ -290,7 +291,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves a host IPA pronunciation passes through unchanged and an unsupported token produces no sound and no extra space.</summary>
     [Fact]
-    public void Items_IpaOverrideAndUnsupportedToken_AreHandledPerItem()
+    public void EspeakIpaRenderer_Render_IpaOverrideAndUnsupportedToken_AreHandledPerItem()
     {
         // Arrange
         var overridden = Phonemizer.Phonemize("record", [new SegmentAnnotation(0, 6, TextEnAnnotations.Pronunciation, "ipa:ɹɪˈkɔɹd")]);
@@ -310,7 +311,7 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves a long text is rendered as parts that stay within the symbol limit, end after a clause mark and lose no sound, for both renderers.</summary>
     [Fact]
-    public void Parts_LongText_StayWithinTheLimitAtClauseBoundariesWithoutLoss()
+    public void RenderingSubsystem_Parts_LongText_StayWithinTheLimitAtClauseBoundariesWithoutLoss()
     {
         // Arrange: 40 sentences of about 40 symbols each
         const int limit = 100;
@@ -335,16 +336,83 @@ public sealed class RenderingSubsystemTests
 
     /// <summary>Proves invalid arguments are rejected: a missing text, a part limit that is too small, and a profile that is not defined.</summary>
     [Fact]
-    public void Arguments_Invalid_AreRejected()
+    public void EspeakIpaRenderer_Render_InvalidArguments_AreRejected()
     {
         // Assert
         Assert.Throws<ArgumentNullException>(() => new EspeakIpaRenderer().Render((PhonemizedText)null!));
         Assert.Throws<ArgumentNullException>(() => new EspeakIpaRenderer().RenderParts(null!, 100));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EspeakIpaRenderer().RenderParts(Phonemizer.Phonemize("Hi."), 15));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EspeakIpaRenderer((EspeakIpaProfile)99));
+    }
+
+    /// <summary>Proves the table gives a function word its weak form by the sound that follows it, reports a demoted word without a form, and does not know an ordinary word.</summary>
+    [Fact]
+    public void WeakForms_TryGet_ListedWords_GiveTheirFormByFollowingSound()
+    {
+        // Act
+        var article = WeakForms.TryGet("The", nextStartsWithVowel: false, nextWord: null, espeakStyle: false, out var beforeConsonant, out var articleDemoted);
+        var beforeVowelFound = WeakForms.TryGet("the", nextStartsWithVowel: true, nextWord: null, espeakStyle: false, out var beforeVowel, out _);
+        var demotedWord = WeakForms.TryGet("but", nextStartsWithVowel: false, nextWord: null, espeakStyle: false, out var butForm, out var butDemoted);
+        var ordinary = WeakForms.TryGet("cat", nextStartsWithVowel: false, nextWord: null, espeakStyle: false, out var catForm, out var catDemoted);
+
+        // Assert: the article is reduced, differently before a vowel; "but" only loses its primary stress; "cat" is not in the table
+        Assert.True(article);
+        Assert.Equal("ðə", beforeConsonant);
+        Assert.False(articleDemoted);
+        Assert.True(beforeVowelFound);
+        Assert.NotEqual(beforeConsonant, beforeVowel);
+        Assert.True(demotedWord);
+        Assert.Empty(butForm);
+        Assert.True(butDemoted);
+        Assert.False(ordinary);
+        Assert.Empty(catForm);
+        Assert.False(catDemoted);
+    }
+
+    /// <summary>Proves the shared layout: words are separated by one space, a closing mark attaches to the word before it, an opening mark to the word after it, and an item with no piece adds no space.</summary>
+    [Fact]
+    public void PhonemeStream_Join_WordsAndMarks_AreSpacedByTheSharedLayout()
+    {
+        // Arrange: Hi , ( there ) and an emoji that renders to nothing
+        var items = Phonemizer.Phonemize("Hi, (there) \U0001F600").Items;
+        string[] pieces = ["hˈaɪ", ",", "(", "ðɛɹ", ")", string.Empty];
+
+        // Act
+        var joined = PhonemeStream.Join(pieces, items, openingMarks: "(");
+
+        // Assert
+        Assert.Equal(pieces.Length, items.Count);
+        Assert.Equal("hˈaɪ, (ðɛɹ)", joined);
+    }
+
+    /// <summary>Proves the splitter cuts a long item sequence between items into parts within the budget, after the last clause mark that fits, losing nothing and splitting nothing smaller than an item.</summary>
+    [Fact]
+    public void PhonemeStream_Split_ItemsBeyondTheLimit_AreCutAtClauseMarksWithoutLoss()
+    {
+        // Arrange: twelve short sentences, each item rendered as its own text
+        var items = Phonemizer.Phonemize(string.Concat(Enumerable.Repeat("Go now, please. ", 12))).Items;
+        var pieces = items.Select(i => i.Text).ToList();
+        string Render(IReadOnlyList<PhonemizedItem> run) => string.Join(' ', run.Select(i => i.Text));
+
+        // Act
+        var parts = PhonemeStream.Split(items, pieces, maxSymbols: 40, Render);
+
+        // Assert: every part fits the limit, each but the last ends at a clause mark, and the words of the whole are all there
+        Assert.True(parts.Count > 3);
+        Assert.All(parts, part => Assert.True(part.Length <= 40));
+        Assert.All(parts.Take(parts.Count - 1), part => Assert.Contains(part[^1], ",."));
+        Assert.Equal(Render(items).Replace(" ", string.Empty, StringComparison.Ordinal), string.Concat(parts).Replace(" ", string.Empty, StringComparison.Ordinal));
+        Assert.Empty(PhonemeStream.Split([], [], 40, Render));
+    }
+
+    /// <summary>Proves invalid arguments of the Kokoro renderer are rejected: a missing text, a part limit that is too small, and a profile that is not defined.</summary>
+    [Fact]
+    public void MisakiRenderer_Render_InvalidArguments_AreRejected()
+    {
+        // Assert
         Assert.Throws<ArgumentNullException>(() => new MisakiRenderer().Render((PhonemizedText)null!));
         Assert.Throws<ArgumentNullException>(() => new MisakiRenderer().RenderParts(null!, 100));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new EspeakIpaRenderer().RenderParts(Phonemizer.Phonemize("Hi."), 15));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MisakiRenderer().RenderParts(Phonemizer.Phonemize("Hi."), 15));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new EspeakIpaRenderer((EspeakIpaProfile)99));
         Assert.Throws<ArgumentOutOfRangeException>(() => new MisakiRenderer((MisakiProfile)99));
     }
 

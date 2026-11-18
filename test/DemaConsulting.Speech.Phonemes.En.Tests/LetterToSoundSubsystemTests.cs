@@ -4,10 +4,11 @@ using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Subsystem tests of the letter-to-sound conversion that pronounces words the dictionary does not know: a golden
-///     corpus of about a hundred realistic out-of-vocabulary words pinned to the shipped model's output (to detect any
-///     drift of the weights), the guarantee that every spelling gets a sensible non-empty pronunciation, and stability
-///     under concurrent use.
+///     Tests of the letter-to-sound subsystem that pronounces words the dictionary does not know. Subsystem level: a
+///     golden corpus of about a hundred realistic out-of-vocabulary words pinned to the shipped model's output (to
+///     detect any drift of the weights) and stability under concurrent use. Unit level: the LtsModel unit (one primary
+///     stress for every dictionary spelling, damaged images rejected) and the LetterToSound unit (every spelling gets
+///     a sensible non-empty pronunciation, no letters means no pronunciation, vowel-less words are spelled).
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -38,20 +39,32 @@ public sealed class LetterToSoundSubsystemTests
         Assert.Empty(actual.Where(a => a.Expected != a.Actual).Select(a => $"{a.Word}: expected {a.Expected}, actual {a.Actual}"));
     }
 
-    /// <summary>Proves a pronunciation is never empty for a word with letters and has exactly one primary stress when it has a vowel.</summary>
+    /// <summary>Proves the model alone gives every dictionary spelling a pronunciation with exactly one primary stress, and the same one on every call.</summary>
     [Fact]
-    public void LetterToSoundSubsystem_DictionaryWords_AreNeverSilentAndHaveOnePrimaryStress()
+    public void LtsModel_Convert_DictionarySpellings_HaveOnePrimaryStressAndAreRepeatable()
     {
         // Arrange: every 40th dictionary word that has a vowel letter, so the test needs no external data and covers short and long words
         var words = CmuLexicon.Default.Entries().Where((_, i) => i % 40 == 0).Select(e => e.Word).Where(w => w.IndexOfAny(['a', 'e', 'i', 'o', 'u', 'y']) >= 0).ToList();
 
         // Act
-        var results = words.Select(w => (Word: w, Pronunciation: Convert(w))).ToList();
+        var results = words.Select(w => (Word: w, Pronunciation: LtsModel.Default.Convert(w).ToString(), Again: LtsModel.Default.Convert(w).ToString())).ToList();
 
         // Assert
         Assert.True(words.Count > 3000);
         Assert.All(results, r => Assert.NotEmpty(r.Pronunciation));
+        Assert.All(results, r => Assert.Equal(r.Pronunciation, r.Again));
         Assert.All(results, r => Assert.Equal(1, r.Pronunciation.Split(' ').Count(p => p.EndsWith('1') && p.Length == 3)));
+    }
+
+    /// <summary>Proves a damaged model image is rejected with an invalid-data error instead of being used: a wrong header, a truncated image and a missing stream.</summary>
+    [Fact]
+    public void LtsModel_FromImage_DamagedImage_IsRejected()
+    {
+        // Act and assert
+        Assert.Throws<InvalidDataException>(() => LtsModel.FromImage([1, 2, 3, 4, 5, 6]));
+        Assert.Throws<InvalidDataException>(() => LtsModel.FromImage("LTS1"u8.ToArray()));
+        Assert.Throws<ArgumentNullException>(() => LtsModel.FromImage(null!));
+        Assert.Throws<ArgumentNullException>(() => LtsModel.FromGZipStream(null!));
     }
 
     /// <summary>Proves odd spellings are pronounced without an exception: very long words, repeated letters, apostrophes and other characters.</summary>
@@ -67,7 +80,7 @@ public sealed class LetterToSoundSubsystemTests
     [InlineData("www")]
     [InlineData("Straße")]
     [InlineData("ABC123")]
-    public void LetterToSoundSubsystem_OddSpellings_GetANonEmptyPronunciation(string word)
+    public void LetterToSound_TryConvert_OddSpellings_GetANonEmptyPronunciation(string word)
     {
         // Arrange
         var letterToSound = LetterToSound.Default;
@@ -80,9 +93,25 @@ public sealed class LetterToSoundSubsystemTests
         Assert.Contains(pronunciation.ToString().Split(' '), p => p.Length == 3);
     }
 
+    /// <summary>Proves a word the model gives no vowel (an initialism or an interjection) is spoken letter by letter by letter name, never silent.</summary>
+    [Fact]
+    public void LetterToSound_TryConvert_VowelLessWord_IsSpokenByLetterNames()
+    {
+        // Arrange: the letter names of "sq"
+        LetterNames.TryGet('s', out var s);
+        LetterNames.TryGet('q', out var q);
+
+        // Act
+        var found = LetterToSound.Default.TryConvert("sq", out var pronunciation);
+
+        // Assert
+        Assert.True(found);
+        Assert.Equal(s.Append(q.Phones).ToString(), pronunciation.ToString());
+    }
+
     /// <summary>Proves a very long word is pronounced without failure and in proportion to its length.</summary>
     [Fact]
-    public void LetterToSoundSubsystem_VeryLongWord_IsPronouncedWithoutFailure()
+    public void LetterToSound_TryConvert_VeryLongWord_IsPronouncedWithoutFailure()
     {
         // Arrange
         var word = string.Concat(Enumerable.Repeat("supercalifragilistic", 200));
@@ -102,7 +131,7 @@ public sealed class LetterToSoundSubsystemTests
     [InlineData("'")]
     [InlineData("123")]
     [InlineData("-")]
-    public void LetterToSoundSubsystem_NoLetters_HasNoPronunciation(string text)
+    public void LetterToSound_TryConvert_NoLetters_HasNoPronunciation(string text)
     {
         // Act
         var found = LetterToSound.Default.TryConvert(text, out var pronunciation);
@@ -110,6 +139,24 @@ public sealed class LetterToSoundSubsystemTests
         // Assert
         Assert.False(found);
         Assert.Equal(0, pronunciation.Count);
+    }
+
+    /// <summary>Proves the subsystem never leaves a word silent: a sample of dictionary spellings, the golden words and odd spellings all get a non-empty pronunciation with a vowel.</summary>
+    [Fact]
+    public void LetterToSoundSubsystem_AnySpelling_IsNeverSilent()
+    {
+        // Arrange: every 25th dictionary word, the golden words and a few hostile spellings
+        var words = CmuLexicon.Default.Entries().Where((_, i) => i % 25 == 0).Select(e => e.Word)
+            .Concat(ReadGolden().Select(c => c.Word))
+            .Concat(["www", "sq", "hmm", "xyzzy", "'''a'''", "pneumonoultramicroscopicsilicovolcanoconiosis"])
+            .ToList();
+
+        // Act
+        var silent = words.Where(w => !LetterToSound.Default.TryConvert(w, out var p) || !p.Phones.ToArray().Any(phone => phone.IsVowel)).ToList();
+
+        // Assert
+        Assert.True(words.Count > 5000);
+        Assert.Empty(silent);
     }
 
     /// <summary>Proves the answer depends on the word alone: many threads converting the same words get the single-threaded answers.</summary>

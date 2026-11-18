@@ -1,3 +1,5 @@
+using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
+using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
@@ -5,14 +7,16 @@ using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Subsystem tests for the English phonemizer, driven through its public contract with synthetic annotations of
-///     the kinds the English text analysis defines: default pronunciation without annotations, reading selection,
-///     host overrides, replacements and spelled letters, punctuation, contractions, compounds, digits, and the honest
-///     reporting of out-of-vocabulary words and unsupported tokens.
+///     Tests of the English phonemizer subsystem. Subsystem level, driven through the public contract with synthetic
+///     annotations of the kinds the English text analysis defines: default pronunciation without annotations, reading
+///     selection, host overrides, replacements and spelled letters, punctuation, contractions, compounds, digits, and
+///     the honest reporting of out-of-vocabulary words and unsupported tokens. Unit level: the EnglishPhonemizer unit
+///     (argument and annotation handling), the WordTokenizer unit (with the spoken text it tokenizes) and the
+///     WordPronouncer unit (the priority list), driven directly.
 /// </summary>
 /// <remarks>
 ///     The pronunciations asserted are well-known CMU Pronouncing Dictionary entries or the documented sound rules of
-///     the morphology. The end-to-end behavior with the real text analysis is covered by the golden corpora tests.
+///     the morphology. The end-to-end behavior with the real text analysis is covered by the system golden corpora tests.
 /// </remarks>
 public sealed class PhonemizerSubsystemTests
 {
@@ -39,7 +43,7 @@ public sealed class PhonemizerSubsystemTests
 
     /// <summary>Proves an empty annotation list behaves exactly like no annotations.</summary>
     [Fact]
-    public void PhonemizerSubsystem_Phonemize_EmptyAnnotations_EqualsNoAnnotations()
+    public void EnglishPhonemizer_Phonemize_EmptyAnnotations_EqualsNoAnnotations()
     {
         // Act
         var none = Phonemizer.Phonemize("The record was 5.");
@@ -253,10 +257,123 @@ public sealed class PhonemizerSubsystemTests
 
     /// <summary>Proves null text is rejected.</summary>
     [Fact]
-    public void PhonemizerSubsystem_Phonemize_NullText_Throws()
+    public void EnglishPhonemizer_Phonemize_NullText_Throws()
     {
         // Act / Assert
         Assert.Throws<ArgumentNullException>(() => Phonemizer.Phonemize(null!));
+        Assert.Throws<ArgumentNullException>(() => Phonemizer.Phonemize(null!, []));
+    }
+
+    /// <summary>Proves the words, punctuation, digits and unsupported runs of a text are classified and the audio-tag placeholder is skipped.</summary>
+    [Fact]
+    public void WordTokenizer_Tokenize_WordsPunctuationDigitsAndUnsupportedRuns_AreClassified()
+    {
+        // Arrange
+        var spoken = SpokenText.Build("Wait... don't well-known 42 \U0001F600 \uFFFC go!", null);
+
+        // Act
+        var tokens = WordTokenizer.Tokenize(spoken, CmuLexicon.Default);
+
+        // Assert: apostrophes and hyphens stay inside a word, a run of one mark is one token, the placeholder is skipped
+        Assert.Equal(
+            ["Wait", "...", "don't", "well-known", "42", "\U0001F600", "go", "!"],
+            tokens.Select(t => spoken.Text.Substring(t.Start, t.Length)));
+        Assert.Equal(
+            [TokenKind.Word, TokenKind.Punctuation, TokenKind.Word, TokenKind.Word, TokenKind.Digits, TokenKind.Unsupported, TokenKind.Word, TokenKind.Punctuation],
+            tokens.Select(t => t.Kind));
+    }
+
+    /// <summary>Proves a leading apostrophe belongs to a word only when the dictionary lists it that way, and otherwise is a quote mark.</summary>
+    [Fact]
+    public void WordTokenizer_Tokenize_LeadingApostrophe_IsPartOfAWordOnlyWhenTheDictionaryListsIt()
+    {
+        // Act
+        var tis = WordTokenizer.Tokenize(SpokenText.Build("'tis", null), CmuLexicon.Default);
+        var quoted = WordTokenizer.Tokenize(SpokenText.Build("'hello'", null), CmuLexicon.Default);
+
+        // Assert
+        Assert.Equal([TokenKind.Word], tis.Select(t => t.Kind));
+        Assert.Equal([TokenKind.Punctuation, TokenKind.Word, TokenKind.Punctuation], quoted.Select(t => t.Kind));
+    }
+
+    /// <summary>Proves the spoken text applies a replacement to its span, speaks a spelled replacement letter by letter, and ignores an annotation that does not fit the text.</summary>
+    [Fact]
+    public void WordTokenizer_Tokenize_ReplacementsAndSpelledLetters_AreAppliedAndBadAnnotationsIgnored()
+    {
+        // Act
+        var replaced = SpokenText.Build("Dr. Smith", [Norm(0, 3, "Doctor")]);
+        var outside = SpokenText.Build("cat", [Norm(0, 50, "dog")]);
+        var spelled = SpokenText.Build("FBI's", [Spell(0, 3, "F B I")]);
+        var letters = WordTokenizer.Tokenize(spelled, CmuLexicon.Default);
+
+        // Assert: the replacement is spoken in place of the span; an out-of-range annotation changes nothing
+        Assert.Equal("Doctor Smith", replaced.Text);
+        Assert.Equal("cat", outside.Text);
+
+        // Assert: one letter token per spelled letter, then the clitic that the replacement boundary cut off
+        Assert.Equal([TokenKind.Letter, TokenKind.Letter, TokenKind.Letter, TokenKind.Clitic], letters.Select(t => t.Kind));
+    }
+
+    /// <summary>Proves each source of the priority list is used in order and reported: the reading, the dictionary's first variant, the morphology rules, a productive prefix, and the letter-to-sound model last.</summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var reading = pronouncer.Pronounce("record", "record.noun");
+        var listed = pronouncer.Pronounce("record", null);
+        var derived = pronouncer.Pronounce("unfollowed", null);
+        var guessed = pronouncer.Pronounce("Zorblax", null);
+
+        // Assert: the reading beats the dictionary, which beats the rules, which beat the model
+        Assert.Equal((PronunciationSource.Reading, "R EH1 K ER0 D"), (reading!.Source, reading.Pronunciation.ToString()));
+        Assert.Equal((PronunciationSource.Lexicon, "R AH0 K AO1 R D"), (listed!.Source, listed.Pronunciation.ToString()));
+        Assert.Equal((PronunciationSource.Morphology, "AH0 N F AA1 L OW0 D"), (derived!.Source, derived.Pronunciation.ToString()));
+        Assert.Equal(PronunciationSource.LetterToSound, guessed!.Source);
+        Assert.True(guessed.Pronunciation.Count > 0);
+    }
+
+    /// <summary>Proves a productive prefix on a known word is pronounced as prefix plus word, and a word that merely begins like a prefix is left to the dictionary.</summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_ProductivePrefix_IsPrefixPlusKnownWord()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var prefixed = pronouncer.Pronounce("unfollow", null);
+        var real = pronouncer.Pronounce("under", null);
+
+        // Assert
+        Assert.NotNull(prefixed);
+        Assert.Equal(PronunciationSource.Morphology, prefixed.Source);
+        Assert.StartsWith("AH0 N F AA1 L", prefixed.Pronunciation.ToString(), StringComparison.Ordinal);
+        Assert.Equal(PronunciationSource.Lexicon, real!.Source);
+    }
+
+    /// <summary>Proves diacritics are folded for lookup, a hyphenated compound pronounces every part with its own stress, a small function word inside it is unstressed, and text that is no word has no pronunciation.</summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var accented = pronouncer.Pronounce("café", null);
+        var plain = pronouncer.Pronounce("cafe", null);
+        var fullTime = pronouncer.Pronounce("full-time", null);
+        var stateOfTheArt = pronouncer.Pronounce("state-of-the-art", null);
+        var wifi = pronouncer.Pronounce("wi-fi", null);
+        var notAWord = pronouncer.Pronounce("日本", null);
+
+        // Assert
+        Assert.Equal(plain!.Pronunciation.ToString(), accented!.Pronunciation.ToString());
+        Assert.Equal("F UH1 L T AY1 M", fullTime!.Pronunciation.ToString());
+        Assert.Equal("S T EY1 T AH2 V DH AH0 AA1 R T", stateOfTheArt!.Pronunciation.ToString());
+        Assert.Equal("W AY1 F AY2", wifi!.Pronunciation.ToString());
+        Assert.Null(notAWord);
     }
 
     /// <summary>Creates a reading annotation.</summary>

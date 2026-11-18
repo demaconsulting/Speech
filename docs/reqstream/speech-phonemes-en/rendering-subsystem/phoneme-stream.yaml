@@ -1,0 +1,32 @@
+---
+# Software Unit Requirements for PhonemeStream
+#
+# These requirements describe the behavior of the PhonemeStream unit: the layout that both renderers share
+# (words joined by one space, closing marks attached to the word before, opening marks to the word after) and
+# the splitter that cuts a long item sequence into parts within a symbol budget. It decomposes the parent
+# SpeechPhonemesEn RenderingSubsystem requirements. Covered by the PhonemeStream_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: RenderingSubsystem Requirements
+        sections:
+          - title: PhonemeStream Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Rendering-PhonemeStream-Layout
+                title: >-
+                  The PhonemeStream class shall join the rendered pieces of a sequence of items with one
+                  space between words, attach a closing mark to the word before it and an opening mark to
+                  the word after it, and add nothing for an item with no piece; and shall split a long
+                  sequence between items into parts that each stay within the budget, end after the last
+                  clause mark in the second half of the part if there is one, otherwise after the last word
+                  that fits, and together contain every item, returning no part for an empty sequence.
+                justification: |
+                  Both renderers need the same layout and the same cut, and a difference between them would
+                  be a defect that no listener could explain. The budget keeps a reserve for the few symbols
+                  that rendering a run of items can add at its edges, so a part never exceeds the limit of
+                  the model.
+                tests:
+                  - PhonemeStream_Join_WordsAndMarks_AreSpacedByTheSharedLayout
+                  - PhonemeStream_Split_ItemsBeyondTheLimit_AreCutAtClauseMarksWithoutLoss

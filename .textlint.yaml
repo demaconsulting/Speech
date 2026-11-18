@@ -210,6 +210,10 @@ words:
   - nestings
   - shopt
   - unidirectionality
+  # The Phonemes.En word pronouncer (a unit name that appears in file names, requirement ids and configuration)
+  # and the golden corpora it regenerates (the regenerate-goldens command of the Phonemes.En tools)
+  - goldens
+  - pronouncer
 
 ignorePaths:
   - '**/.git/**'
@@ -424,3 +428,51 @@ overrides:
   - filename: '{src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md,src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md,.textlint.yaml}'
     words:
       - tatoeba
+  # The Phonemes.En package, its tests and tools, its documents and its data: terms of the pronunciation domain,
+  # word-ending fragments of the sound rules (the suffix of a stem change, not prose), the magic number of the
+  # lexicon image, invented and out-of-dictionary test words (a name, a brand, a spelling that proves the
+  # letter-to-sound fallback) and the local-only oracle packages named in the tools README. IPA written in
+  # the goldens, the sound-rule tests and the documents is not prose either; no misspelled or British word is added
+  - filename: >-
+      {src/DemaConsulting.Speech.Phonemes.En/**,test/DemaConsulting.Speech.Phonemes.En.Tests/**,tools/DemaConsulting.Speech.Phonemes.En.Tools/**,docs/design/speech-phonemes-en.md,docs/design/speech-phonemes-en/**,docs/verification/speech-phonemes-en.md,docs/verification/speech-phonemes-en/**,docs/reqstream/speech-phonemes-en.yaml,docs/reqstream/speech-phonemes-en/**,docs/evaluation/phonemes-en/**,data/phonemes-en/**,.textlint.yaml}
+    words:
+      - aeiouaeiouaeiou
+      - bokeh
+      - cmul
+      - djembe
+      - espeakng
+      - fluffernutter
+      - iest
+      - ization
+      - kombucha
+      - phonemizers
+      - phonemizing
+      - qwrtp
+      - qwxzs
+      - saoirse
+      - spacy
+      - stopp
+      - straße
+      - undoubling
+      - unstresses
+      - xiomara
+      - xyzzy
+      - ying
+      - zorblax
+      - zzxqvk
+    ignoreRegExpList:
+      # IPA and misaki phoneme strings
+      - /\S*[\u0250-\u02FF\u1D00-\u1DBF]\S*/
+  # A lemma that the CMU Pronouncing Dictionary lacks is named in the data README as the reading table has it,
+  # and the spelling of a reading id is immutable
+  - filename: '{data/phonemes-en/README.md,.textlint.yaml}'
+    ignoreRegExpList:
+      - /`analyse`/
+  # The hexadecimal constant of the float network of the letter-to-sound trainer
+  - filename: '{tools/DemaConsulting.Speech.Phonemes.En.Tools/LetterToSoundSubsystem/FloatNetwork.cs,.textlint.yaml}'
+    ignoreRegExpList:
+      - /\S*EBUL\S*/
+  # Skipped: the letter-to-sound rules baseline (the classic text-to-speech rules of the Naval Research Laboratory
+  # style) is a table of letter patterns written in capitals and of word-ending fragments, not prose
+  - filename: tools/DemaConsulting.Speech.Phonemes.En.Tools/LetterToSoundSubsystem/NrlRules.cs
+    enabled: false

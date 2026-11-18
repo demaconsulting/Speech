@@ -1,0 +1,29 @@
+---
+# Software Unit Requirements for LtsModel
+#
+# These requirements describe the behavior of the LtsModel unit: the trained letter-to-sound model (the image
+# reader, the feature extraction and the exact integer network that chooses the phones and the stresses of a
+# word). It decomposes the parent SpeechPhonemesEn LetterToSoundSubsystem requirements. Covered by the LtsModel_*
+# tests in test/DemaConsulting.Speech.Phonemes.En.Tests/LetterToSoundSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LetterToSoundSubsystem Requirements
+        sections:
+          - title: LtsModel Requirements
+            requirements:
+              - id: SpeechPhonemesEn-LetterToSound-LtsModel-Conversion
+                title: >-
+                  The LtsModel class shall convert a word to the same pronunciation on every call, with
+                  exactly one primary stress for a word with a vowel, and shall reject a model image that is
+                  damaged (a wrong header, a truncated image, a missing stream) with an invalid-data error
+                  instead of using it.
+                justification: |
+                  The model is the only part of the package whose answers are learned instead of reviewed,
+                  so the properties that make it safe to ship are checked directly: a word has one stress
+                  carrier, the answer never varies, and a corrupted resource fails at once instead of
+                  producing nonsense pronunciations that nobody would trace back to the data.
+                tests:
+                  - LtsModel_Convert_DictionarySpellings_HaveOnePrimaryStressAndAreRepeatable
+                  - LtsModel_FromImage_DamagedImage_IsRejected

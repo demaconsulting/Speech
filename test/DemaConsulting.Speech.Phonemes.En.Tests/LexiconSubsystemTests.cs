@@ -3,10 +3,10 @@ using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Subsystem tests for the lexicon of the English pronunciation package: the embedded CMU Pronouncing
-///     Dictionary lexicon read through its lookup contract (all variants, case folding, apostrophes) and the phone
-///     text form the rest of the package builds on. The morphology and the reading pronunciations of the subsystem
-///     are tested in the other parts of this class.
+///     Lexicon subsystem tests, lookup part: the tests of the CmuLexicon unit (all variants, case and apostrophe
+///     folding, absent words, concurrent use), of the pronunciation text form of the Phone unit, and the
+///     subsystem test that every dictionary entry is found again by lookup. The morphology and the reading
+///     pronunciations of the subsystem are tested in the other parts of this class.
 /// </summary>
 /// <remarks>
 ///     The pronunciations asserted here are a handful of well-known CMUdict entries used as golden values. The
@@ -18,7 +18,7 @@ public sealed partial class LexiconSubsystemTests
 {
     /// <summary>Proves a word with one pronunciation and a heteronym with three come back with every variant in dictionary order.</summary>
     [Fact]
-    public void LexiconSubsystem_Lookup_KnownWords_ReturnsAllVariantsInOrder()
+    public void CmuLexicon_Lookup_KnownWords_ReturnsAllVariantsInOrder()
     {
         // Arrange
         var lexicon = CmuLexicon.Default;
@@ -34,7 +34,7 @@ public sealed partial class LexiconSubsystemTests
 
     /// <summary>Proves lookup ignores case, accepts the typographic apostrophe and finds apostrophe words.</summary>
     [Fact]
-    public void LexiconSubsystem_Lookup_CaseAndApostrophe_AreFolded()
+    public void CmuLexicon_Lookup_CaseAndApostrophe_AreFolded()
     {
         // Arrange
         var lexicon = CmuLexicon.Default;
@@ -56,7 +56,7 @@ public sealed partial class LexiconSubsystemTests
     [InlineData("")]
     [InlineData("route66")]
     [InlineData("well-known")]
-    public void LexiconSubsystem_Lookup_UnknownOrInvalidWord_ReturnsEmpty(string word)
+    public void CmuLexicon_Lookup_UnknownOrInvalidWord_ReturnsEmpty(string word)
     {
         // Act
         var result = CmuLexicon.Default.Lookup(word);
@@ -90,7 +90,7 @@ public sealed partial class LexiconSubsystemTests
 
     /// <summary>Proves the shared default lexicon answers the same from many threads at once, including the first use.</summary>
     [Fact]
-    public void LexiconSubsystem_Lookup_ConcurrentUse_GivesTheSingleThreadedAnswers()
+    public void CmuLexicon_Lookup_ConcurrentUse_GivesTheSingleThreadedAnswers()
     {
         // Arrange
         string[] words = ["cat", "record", "don't", "zzxqvk", "photograph"];
@@ -114,7 +114,7 @@ public sealed partial class LexiconSubsystemTests
 
     /// <summary>Proves the CMUdict text form of a pronunciation parses and prints back unchanged and exposes stress.</summary>
     [Fact]
-    public void LexiconSubsystem_Pronunciation_TextForm_RoundTrips()
+    public void Pronunciation_Parse_TextForm_RoundTrips()
     {
         // Arrange
         const string text = "R EH1 K ER0 D";

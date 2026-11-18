@@ -1,0 +1,114 @@
+---
+# Software Subsystem Requirements for the SpeechPhonemesEn PhonemizerSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechPhonemesEn PhonemizerSubsystem,
+# decomposing the system-level requirements in docs/reqstream/speech-phonemes-en.yaml. The subsystem turns the
+# text of one speech segment, with or without the annotations of the English text analysis, into a stream of
+# word, punctuation and unsupported items with ARPAbet pronunciations and their provenance: the public
+# EnglishPhonemizer and its result types, the spoken text that applies the replacements and the tokenizer that
+# cuts it into tokens (WordTokenizer), and the pronouncer that applies the priority list to one word
+# (WordPronouncer). It uses the LexiconSubsystem and the LetterToSoundSubsystem and knows nothing of voices;
+# the RenderingSubsystem turns its result into a phoneme string. Each requirement states one observable
+# behavior.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-phonemes-en/phonemizer-subsystem/.
+# Covered by the PhonemizerSubsystem_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/PhonemizerSubsystemTests.cs, which drive the phonemizer through its
+# public contract with synthetic annotations of the kinds the text analysis defines.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: PhonemizerSubsystem Requirements
+        requirements:
+          - id: SpeechPhonemesEn-Phonemizer-SourcePriority
+            title: >-
+              The PhonemizerSubsystem shall pronounce each word from a host pronunciation override when one
+              covers the word, otherwise from the reading the text analysis chose for it, otherwise from the
+              dictionary's first variant, and shall report the source in the item; a host override shall beat
+              a reading, and a text without annotations shall give every word its dictionary default.
+            justification: |
+              The order is the contract that lets a host correct a word and lets the analysis disambiguate
+              a heteronym; the reported source is how a test or a host can tell which rule decided. The
+              later steps of the order (morphology, letter-to-sound) are decided inside the word pronouncer
+              and are covered by its unit requirement.
+            children:
+              - SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
+            tests:
+              - PhonemizerSubsystem_Phonemize_PronunciationOverride_BeatsReadingAndLexicon
+              - PhonemizerSubsystem_Phonemize_NoAnnotations_UsesDefaultReadingsWithoutNormalization
+
+          - id: SpeechPhonemesEn-Phonemizer-ReadingSelection
+            title: >-
+              The PhonemizerSubsystem shall pronounce a word with the reading named by a reading annotation
+              for the lemma, an inflected form and a possessive of it, shall pronounce a word whose reading
+              does not apply to it (the id belongs to another word) with its dictionary default, and shall
+              keep the requested reading id in the item with a flag that says the reading was not applied.
+            justification: |
+              The reading id is the analysis's decision about the sense of a heteronym; the noun and the
+              verb of "record" differ in stress and vowels. An id that cannot apply to the word it
+              annotates is a defect of the analysis or of the host, and falling back visibly (the default
+              pronunciation and a flag) is safer than failing the whole text or applying the wrong sound.
+            children:
+              - SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
+            tests:
+              - PhonemizerSubsystem_Phonemize_ReadingAnnotation_SelectsThatReading
+              - PhonemizerSubsystem_Phonemize_ReadingThatDoesNotApply_FallsBackVisibly
+
+          - id: SpeechPhonemesEn-Phonemizer-AnnotationAwareSpeech
+            title: >-
+              The PhonemizerSubsystem shall speak the replacement of a normalization annotation instead of
+              the span it covers (an empty replacement removes the span), shall speak a spell-out annotation
+              letter by letter by letter names (so that a spelled A or I is a letter and never the article
+              or the pronoun) and attach a following contraction ending to the last letter, shall ignore an
+              annotation that lies outside the text or has a malformed value, and shall treat an empty
+              annotation list exactly like no annotations.
+            justification: |
+              The text analysis never rewrites the text; it describes how parts of it are spoken, with
+              offsets into the unchanged text. The phonemizer is where that description becomes speech, so
+              it has to follow the spans exactly and survive annotations that are wrong, because they come
+              from another package and from hosts.
+            children:
+              - SpeechPhonemesEn-Phonemizer-WordTokenizer-Tokens
+              - SpeechPhonemesEn-Phonemizer-EnglishPhonemizer-Phonemize
+            tests:
+              - PhonemizerSubsystem_Phonemize_Replacements_AreSpoken
+              - PhonemizerSubsystem_Phonemize_SpelledLetterAOrI_IsTheLetterName
+              - PhonemizerSubsystem_Phonemize_AnnotationOutsideTheText_IsIgnored
+
+          - id: SpeechPhonemesEn-Phonemizer-Tokens
+            title: >-
+              The PhonemizerSubsystem shall treat a contraction, a possessive and a hyphenated compound as one
+              word (each part of a compound with its own stress and a small function word inside it
+              unstressed), shall pass clause punctuation through as items and skip the audio-tag placeholder,
+              shall speak a bare run of digits digit by digit, and shall look a word with a diacritic up
+              without it.
+            justification: |
+              The text analysis hands over words as people write them, and "don't", "well-known" and "café"
+              must come out as one word each with the sound a speaker gives them. Numbers should arrive
+              written out by the analysis, but a digit that gets through must be spoken, not dropped.
+            children:
+              - SpeechPhonemesEn-Phonemizer-WordTokenizer-Tokens
+              - SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
+            tests:
+              - PhonemizerSubsystem_Phonemize_Punctuation_PassesThrough
+              - PhonemizerSubsystem_Phonemize_ContractionsPossessivesAndCompounds_AreOneWord
+              - PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressEveryPartAndReduceFunctionWords
+              - PhonemizerSubsystem_Phonemize_BareDigits_AreSpokenOneByOne
+              - PhonemizerSubsystem_Phonemize_Diacritics_AreFoldedForLookup
+
+          - id: SpeechPhonemesEn-Phonemizer-Reporting
+            title: >-
+              The PhonemizerSubsystem shall pronounce a word that it cannot get from the dictionary or the
+              rules with the letter-to-sound model, flag the item as out of vocabulary and list the word
+              once in the result however often it occurs, and shall keep a token that it cannot pronounce as
+              an unsupported item without sound and list it, never dropping it.
+            justification: |
+              The result is the only channel through which a host learns what was guessed and what was
+              skipped; a word listed once per distinct spelling is what an override dictionary needs, and an
+              unsupported token that stayed in place keeps the surrounding words in their order.
+            children:
+              - SpeechPhonemesEn-Phonemizer-EnglishPhonemizer-Phonemize
+            tests:
+              - PhonemizerSubsystem_Phonemize_UnknownWord_IsFlaggedAndReported
+              - PhonemizerSubsystem_Phonemize_UnsupportedTokens_AreKeptAndReported

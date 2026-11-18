@@ -14,6 +14,7 @@ package Speech {
         expose SpeechOnnxChatterboxTurbo;
         expose SpeechOnnxNemotronStt;
         expose SpeechTextEn;
+        expose SpeechPhonemesEn;
     }
 
     view SpeechView {
@@ -221,5 +222,30 @@ package SpeechTextEn {
 
     view TextEnExternalEvaluationSubsystemView {
         expose ExternalEvaluationSubsystem;
+    }
+}
+
+// SpeechPhonemesEn views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly. The subsystem views carry a 'PhonemesEn' prefix because rendered SVG
+// filenames are keyed by bare view name, so a generic name could overwrite another package's diagram.
+package SpeechPhonemesEn {
+    view SpeechPhonemesEnView {
+        expose SpeechPhonemesEnSystem;
+    }
+
+    view PhonemesEnLexiconSubsystemView {
+        expose LexiconSubsystem;
+    }
+
+    view PhonemesEnLetterToSoundSubsystemView {
+        expose LetterToSoundSubsystem;
+    }
+
+    view PhonemesEnPhonemizerSubsystemView {
+        expose PhonemizerSubsystem;
+    }
+
+    view PhonemesEnRenderingSubsystemView {
+        expose RenderingSubsystem;
     }
 }

@@ -1,0 +1,33 @@
+---
+# Software Unit Requirements for EspeakIpaRenderer
+#
+# These requirements describe the behavior of the EspeakIpaRenderer unit: the renderer that turns a phonemized
+# text into the espeak-style IPA string the Piper voice reads (with its profile, the ARPAbet to IPA table, the
+# word-shape sound rules and the weak-form profile it applies). It decomposes the parent SpeechPhonemesEn
+# RenderingSubsystem requirements. Covered by the EspeakIpaRenderer_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs, with the golden file
+# TestData/piper-ipa-golden.tsv.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: RenderingSubsystem Requirements
+        sections:
+          - title: EspeakIpaRenderer Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Rendering-EspeakIpaRenderer-IpaRendering
+                title: >-
+                  The EspeakIpaRenderer class shall render each of the 150 sentences of the golden corpus to
+                  exactly its reviewed IPA string with the token ids of the Piper voice's symbol table,
+                  using no symbol outside that table; shall pass a host IPA pronunciation through unchanged
+                  and give an unsupported token no sound and no extra space; and shall reject a missing
+                  text, a part limit below the minimum and an undefined profile with an argument error.
+                justification: |
+                  The golden is the regression baseline of the Piper rendering: each line was generated,
+                  reviewed against the sound conventions and frozen, so a changed line is a reviewed
+                  behavior change and never an accident. A host that gives IPA has already chosen the
+                  symbols, and an unsupported token has no sound to render.
+                tests:
+                  - EspeakIpaRenderer_Render_Sentences_RenderTheReviewedPhonemeStrings
+                  - EspeakIpaRenderer_Render_IpaOverrideAndUnsupportedToken_AreHandledPerItem
+                  - EspeakIpaRenderer_Render_InvalidArguments_AreRejected

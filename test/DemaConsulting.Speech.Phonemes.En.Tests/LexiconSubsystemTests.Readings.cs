@@ -1,27 +1,16 @@
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
-using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
-using DemaConsulting.Speech.Phonemes.En.Tools.PhonemizerSubsystem;
 using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 
 namespace DemaConsulting.Speech.Phonemes.En.Tests;
 
 /// <summary>
-///     Lexicon subsystem tests, reading pronunciations part: the contract that every reading id and every (spelling,
-///     reading) pair of the English text analysis inventory resolves to a pronunciation, with every gap explicit; the
-///     golden corpus of one reviewed sentence per reading id run through the real text analysis and the phonemizer; and
-///     the default reading of a heteronym when no analysis is available.
+///     Lexicon subsystem tests, reading pronunciations part: the subsystem contract that every reading id and every
+///     (spelling, reading) pair of the English text analysis inventory resolves to a pronunciation, with every gap
+///     explicit, and the tests of the ReadingPronunciations unit (headword, inflection, form override, gap and table
+///     parsing). The reviewed sentence per reading id is the system test <c>SpeechPhonemesEn_ReadingGolden_*</c>.
 /// </summary>
-/// <remarks>
-///     The reading golden has two kinds of rows. An <c>e2e</c> row runs the whole pipeline (the trained classifier
-///     picks the reading, the phonemizer applies it). A <c>forced</c> row is one the classifier labels differently; the
-///     golden is not bent to the classifier, so the phonemizer is tested with a synthetic reading annotation instead.
-///     The share of <c>e2e</c> rows is the classifier's hit rate on these own-written sentences and is gated below.
-/// </remarks>
 public sealed partial class LexiconSubsystemTests
 {
-    /// <summary>The share of reading sentences the real classifier must label correctly (measured 97.5%).</summary>
-    private const double MinimumClassifierHitRate = 0.95;
-
     /// <summary>Proves the table has a row for exactly every reading id of the inventory and that every <c>cmu#N</c> row is that variant of the lexicon.</summary>
     [Fact]
     public void LexiconSubsystem_Readings_Table_CoversTheInventoryAndMatchesTheLexicon()
@@ -74,66 +63,60 @@ public sealed partial class LexiconSubsystemTests
         Assert.Empty(unresolved);
     }
 
-    /// <summary>Proves the readings golden: every reading id has one sentence and its reviewed pronunciation comes out of the pipeline (end to end, or with the reading forced where the classifier labels the sentence differently).</summary>
+    /// <summary>Proves one spelling under one reading resolves from the table: the headword as listed, a regular inflection by the morphology rules, and an explicit form override that beats them.</summary>
     [Fact]
-    public void LexiconSubsystem_Readings_Golden_EveryReadingIsPronouncedAsReviewed()
+    public void ReadingPronunciations_TryResolve_HeadwordInflectionAndOverride_ResolveFromTheTables()
     {
         // Arrange
-        var cases = GoldenCorpus.ReadReadings(TestDataPath("readings-golden.tsv"));
-        var failures = new List<string>();
+        var tables = ReadingPronunciations.Default;
 
         // Act
-        foreach (var c in cases)
-        {
-            var forced = c.Mode == "forced";
-            var result = forced ? GoldenCorpus.RunForced(c.Sentence, c.Target, c.ReadingId) : GoldenCorpus.RunEndToEnd(c.Sentence);
-            var item = GoldenCorpus.FindWord(result, c.Target);
-            if (item is null || !item.FromReading || item.ReadingId != c.ReadingId || item.Arpabet != c.Expected)
-            {
-                failures.Add($"{c.ReadingId} ({c.Mode}): expected '{c.Expected}' with reading applied, got '{item?.Arpabet}' reading '{item?.ReadingId}' applied {item?.FromReading}");
-            }
-        }
+        var headword = tables.TryResolve("record", "record.noun", out var noun);
+        var verb = tables.TryResolve("record", "record.verb", out var verbPronunciation);
+        var inflected = tables.TryResolve("records", "record.noun", out var plural);
+        var overridden = tables.TryResolve("does", "do.verb", out var does);
 
-        // Assert: one case per reading id of the inventory, all as reviewed
-        Assert.Equal(ReadingInventory.Default.ReadingIds.Order(StringComparer.Ordinal), cases.Select(c => c.ReadingId).Order(StringComparer.Ordinal));
-        Assert.All(cases, c => Assert.Contains(c.Mode, new[] { "e2e", "forced" }));
-        Assert.Empty(failures);
+        // Assert: the headword as listed (noun stress first, verb stress second), the ending by the rules, the override as listed
+        Assert.True(headword);
+        Assert.Equal("R EH1 K ER0 D", noun!.ToString());
+        Assert.True(verb);
+        Assert.Equal("R AH0 K AO1 R D", verbPronunciation!.ToString());
+        Assert.True(inflected);
+        Assert.Equal("R EH1 K ER0 D Z", plural!.ToString());
+        Assert.True(overridden);
+        Assert.Equal("D AH1 Z", does!.ToString());
     }
 
-    /// <summary>Proves the real classifier labels at least the gated share of the readings golden sentences correctly (its hit rate on own-written sentences).</summary>
+    /// <summary>Proves a pair that has no row, no regular inflection and no override is a gap that is reported, never a default.</summary>
     [Fact]
-    public void LexiconSubsystem_Readings_Golden_ClassifierHitRate_MeetsTheGate()
+    public void ReadingPronunciations_TryResolve_UnknownReadingOrUnrelatedForm_IsAGap()
     {
-        // Arrange
-        var cases = GoldenCorpus.ReadReadings(TestDataPath("readings-golden.tsv"));
-
-        // Act: count the rows the committed mode says the classifier gets right, and re-check each against the classifier now
-        var endToEnd = cases.Where(c => c.Mode == "e2e").ToList();
-        var stale = endToEnd.Where(c => GoldenCorpus.ClassifiedReading(c.Sentence, c.Target) != c.ReadingId).Select(c => c.ReadingId).ToList();
+        // Act
+        var unknownReading = ReadingPronunciations.Default.TryResolve("record", "nonsense.reading", out var none1);
+        var unrelatedForm = ReadingPronunciations.Default.TryResolve("cat", "record.noun", out var none2);
 
         // Assert
-        Assert.Empty(stale);
-        Assert.True((double)endToEnd.Count / cases.Count >= MinimumClassifierHitRate, $"hit rate {endToEnd.Count}/{cases.Count}");
+        Assert.False(unknownReading);
+        Assert.Null(none1);
+        Assert.False(unrelatedForm);
+        Assert.Null(none2);
+        Assert.Throws<ArgumentNullException>(() => ReadingPronunciations.Default.TryResolve(null!, "record.noun", out _));
     }
 
-    /// <summary>Proves that without an analysis every spelling of the inventory is pronounced as its default reading: the first variant of the dictionary.</summary>
+    /// <summary>Proves malformed tables are rejected with a format error naming the file and line, and a repeated reading id is rejected.</summary>
     [Fact]
-    public void LexiconSubsystem_Readings_NoAnnotations_EveryInventoryFormGetsItsDefaultReading()
+    public void ReadingPronunciations_Parse_MalformedTables_AreRejected()
     {
         // Arrange
-        var phonemizer = new EnglishPhonemizer();
-        var forms = ReadTsv("forms.tsv").Select(f => f[0]).Distinct(StringComparer.Ordinal).Where(f => CmuLexicon.Default.Contains(f)).ToList();
+        const string header = "reading_id\tarpabet\tsource\n";
+        const string overridesHeader = "form\treading_id\tarpabet\tnote\n";
 
-        // Act
-        var wrong = forms.Where(f =>
-        {
-            var item = phonemizer.Phonemize(f).Items[0];
-            return item.FromReading || item.Source != PronunciationSource.Lexicon || item.Arpabet != CmuLexicon.Default.Lookup(f)[0].ToString();
-        }).ToList();
-
-        // Assert: nearly all 501 forms are in the dictionary
-        Assert.True(forms.Count >= 480);
-        Assert.Empty(wrong);
+        // Act and assert: a good table parses; a wrong source, a non-ARPAbet phone and a repeated id do not
+        var good = ReadingPronunciations.Parse(new StringReader(header + "record.noun\tR EH1 K ER0 D\tauthored\n"), new StringReader(overridesHeader));
+        Assert.Single(good.Entries);
+        Assert.Throws<FormatException>(() => ReadingPronunciations.Parse(new StringReader(header + "record.noun\tR EH1 K ER0 D\tguessed\n"), new StringReader(overridesHeader)));
+        Assert.Throws<FormatException>(() => ReadingPronunciations.Parse(new StringReader(header + "record.noun\tR QQ1 K\tauthored\n"), new StringReader(overridesHeader)));
+        Assert.Throws<FormatException>(() => ReadingPronunciations.Parse(new StringReader(header + "a.b\tAH0\tauthored\na.b\tAH0\tauthored\n"), new StringReader(overridesHeader)));
     }
 
     /// <summary>Gets the path of a file in the test data folder beside the test assembly.</summary>

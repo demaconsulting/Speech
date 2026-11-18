@@ -1,0 +1,37 @@
+---
+# Software Unit Requirements for WordPronouncer
+#
+# These requirements describe the behavior of the WordPronouncer unit: the pronunciation of one word by the
+# priority list (reading, dictionary, morphology and productive prefixes, letter-to-sound model), with the
+# rules for hyphenated compounds and diacritics. It decomposes the parent SpeechPhonemesEn PhonemizerSubsystem
+# requirements. Covered by the WordPronouncer_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/PhonemizerSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: PhonemizerSubsystem Requirements
+        sections:
+          - title: WordPronouncer Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
+                title: >-
+                  The WordPronouncer class shall pronounce a word from the reading when the reading table
+                  resolves it, else from the dictionary's first variant, else from the morphology rules of a
+                  known stem, else from a productive prefix and a known remainder of at least four letters
+                  (never splitting a word the dictionary lists), else from the letter-to-sound model, and
+                  report the source of its answer; shall fold diacritics before the lookup; shall pronounce
+                  a hyphenated compound part by part with each part's own stress, a small function word
+                  inside it unstressed, except that a closed dictionary spelling is used when a part is not a
+                  word of its own; and shall give no pronunciation for text that contains a letter it cannot
+                  fold to the Latin alphabet.
+                justification: |
+                  This is the priority list of the package for one word. The morphology and prefix steps
+                  come before the model because they are exact where the model guesses, and the minimum
+                  remainder keeps a real word that merely begins like a prefix from being split. The
+                  compound and diacritic rules are what make "well-known", "state-of-the-art" and "café"
+                  sound like the words they are.
+                tests:
+                  - WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed
+                  - WordPronouncer_Pronounce_ProductivePrefix_IsPrefixPlusKnownWord
+                  - WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules
