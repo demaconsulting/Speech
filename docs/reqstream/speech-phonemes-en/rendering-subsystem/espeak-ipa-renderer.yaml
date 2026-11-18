@@ -19,14 +19,16 @@ sections:
                 title: >-
                   The EspeakIpaRenderer class shall render each of the 150 sentences of the golden corpus to
                   exactly its reviewed IPA string with the token ids of the Piper voice's symbol table,
-                  using no symbol outside that table; shall pass a host IPA pronunciation through unchanged
-                  and give an unsupported token no sound and no extra space; and shall reject a missing
+                  using no symbol outside that table; shall keep a host IPA pronunciation whose symbols all are in that
+                  table (translating the ligatures and the r-colored vowel into its symbols) and speak the
+                  word's normal pronunciation otherwise, and give an unsupported token no sound and no extra space; and shall reject a missing
                   text, a part limit below the minimum and an undefined profile with an argument error.
                 justification: |
                   The golden is the regression baseline of the Piper rendering: each line was generated,
                   reviewed against the sound conventions and frozen, so a changed line is a reviewed
                   behavior change and never an accident. A host that gives IPA has already chosen the
-                  symbols, and an unsupported token has no sound to render.
+                  sounds, but a symbol the voice does not know would be dropped, so it is never approximated, and
+                  an unsupported token has no sound to render.
                 tests:
                   - EspeakIpaRenderer_Render_Sentences_RenderTheReviewedPhonemeStrings
                   - EspeakIpaRenderer_Render_IpaOverrideAndUnsupportedToken_AreHandledPerItem

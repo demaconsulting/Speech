@@ -136,6 +136,7 @@ sections:
           - SpeechPhonemesEn-Phonemizer-Tokens
         tests:
           - SpeechPhonemesEn_Phonemize_AnalyzedText_SpeaksNormalizationsSpelledLettersAndReadings
+          - SpeechPhonemesEn_Phonemize_AnalyzedPossessiveOfAHeteronym_KeepsTheChosenReadingForBothApostrophes
           - SpeechPhonemesEn_SentenceGolden_EverySentenceProducesItsReviewedWordStream
           - SpeechPhonemesEn_Phonemize_NoAnnotations_EveryInventoryFormGetsItsDefaultReading
 

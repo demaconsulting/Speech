@@ -27,6 +27,9 @@ internal sealed class SpokenText
     /// <summary>The original index of each spoken character, or <c>-1</c> for replacement text.</summary>
     private readonly int[] _origin;
 
+    /// <summary>One past the last original index each spoken character stands for (its own index plus one for original text, the end of the replaced span for replacement text).</summary>
+    private readonly int[] _sourceEnd;
+
     /// <summary>Whether each spoken character belongs to a spelled replacement.</summary>
     private readonly bool[] _spelled;
 
@@ -35,11 +38,13 @@ internal sealed class SpokenText
     /// </summary>
     /// <param name="text">The spoken string.</param>
     /// <param name="origin">The origin of each character.</param>
+    /// <param name="sourceEnd">The end of the original span of each character.</param>
     /// <param name="spelled">The spelled flag of each character.</param>
-    private SpokenText(string text, int[] origin, bool[] spelled)
+    private SpokenText(string text, int[] origin, int[] sourceEnd, bool[] spelled)
     {
         Text = text;
         _origin = origin;
+        _sourceEnd = sourceEnd;
         _spelled = spelled;
     }
 
@@ -61,6 +66,7 @@ internal sealed class SpokenText
 
         var builder = new StringBuilder(text.Length + 16);
         var origin = new List<int>(text.Length + 16);
+        var sourceEnd = new List<int>(text.Length + 16);
         var spelled = new List<bool>(text.Length + 16);
         var cursor = 0;
         foreach (var (start, length, value, isSpelled) in Replacements(annotations, text.Length))
@@ -71,15 +77,16 @@ internal sealed class SpokenText
                 continue;
             }
 
-            AppendOriginal(text, cursor, start, builder, origin, spelled);
+            AppendOriginal(text, cursor, start, builder, origin, sourceEnd, spelled);
             builder.Append(value);
             origin.AddRange(Enumerable.Repeat(-1, value.Length));
+            sourceEnd.AddRange(Enumerable.Repeat(start + length, value.Length));
             spelled.AddRange(Enumerable.Repeat(isSpelled, value.Length));
             cursor = start + length;
         }
 
-        AppendOriginal(text, cursor, text.Length, builder, origin, spelled);
-        return new SpokenText(builder.ToString(), [.. origin], [.. spelled]);
+        AppendOriginal(text, cursor, text.Length, builder, origin, sourceEnd, spelled);
+        return new SpokenText(builder.ToString(), [.. origin], [.. sourceEnd], [.. spelled]);
     }
 
     /// <summary>
@@ -90,26 +97,41 @@ internal sealed class SpokenText
     public bool IsSpelledAt(int index) => _spelled[index];
 
     /// <summary>
-    ///     Finds the original span of a spoken range that is unchanged text.
+    ///     Finds the original span of a spoken range, for matching the annotations that are anchored to original text.
     /// </summary>
     /// <param name="start">The first spoken index.</param>
     /// <param name="end">One past the last spoken index.</param>
     /// <param name="sourceStart">Receives the start in the original text.</param>
-    /// <returns><see langword="true"/> when every character of the range is original text, in order and without a gap.</returns>
-    public bool TryGetSourceStart(int start, int end, out int sourceStart)
+    /// <param name="sourceLength">Receives the length of the whole original span the range stands for, replaced characters included.</param>
+    /// <param name="unchangedPrefix">
+    ///     Receives the length of the leading part of the range that is unchanged original text, in order and without a gap
+    ///     (so the same length counts both the spoken and the original characters).
+    /// </param>
+    /// <returns><see langword="true"/> when the range starts with unchanged original text.</returns>
+    /// <remarks>
+    ///     A range that is only partly unchanged (<c>bass</c> followed by an apostrophe the analysis normalized) still
+    ///     has an unchanged headword that an annotation can describe; the caller decides what the rest may be.
+    /// </remarks>
+    public bool TryGetSourceSpan(int start, int end, out int sourceStart, out int sourceLength, out int unchangedPrefix)
     {
         sourceStart = _origin[start];
+        sourceLength = 0;
+        unchangedPrefix = 0;
         if (sourceStart < 0)
         {
             return false;
         }
 
+        var sourceEnd = sourceStart;
         for (var i = start; i < end; i++)
         {
-            if (_origin[i] != sourceStart + (i - start))
-            {
-                return false;
-            }
+            sourceEnd = Math.Max(sourceEnd, _sourceEnd[i]);
+        }
+
+        sourceLength = sourceEnd - sourceStart;
+        while (start + unchangedPrefix < end && _origin[start + unchangedPrefix] == sourceStart + unchangedPrefix)
+        {
+            unchangedPrefix++;
         }
 
         return true;
@@ -123,13 +145,15 @@ internal sealed class SpokenText
     /// <param name="to">One past the last original index.</param>
     /// <param name="builder">Receives the characters.</param>
     /// <param name="origin">Receives the origins.</param>
+    /// <param name="sourceEnd">Receives the ends of the original spans.</param>
     /// <param name="spelled">Receives the spelled flags (false).</param>
-    private static void AppendOriginal(string text, int from, int to, StringBuilder builder, List<int> origin, List<bool> spelled)
+    private static void AppendOriginal(string text, int from, int to, StringBuilder builder, List<int> origin, List<int> sourceEnd, List<bool> spelled)
     {
         for (var i = from; i < to; i++)
         {
             builder.Append(text[i]);
             origin.Add(i);
+            sourceEnd.Add(i + 1);
             spelled.Add(false);
         }
     }

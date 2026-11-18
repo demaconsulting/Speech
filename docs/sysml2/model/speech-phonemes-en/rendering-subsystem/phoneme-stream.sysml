@@ -6,7 +6,7 @@ package SpeechPhonemesEn {
              * clause marks without loss; and holds the word-shape helpers (WordShape) that the sound
              * rules of both renderers use. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/PhonemeStream.cs, src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/WordShape.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/PhonemeStream.cs, src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/WordShape.cs, src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/IpaSymbols.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs */
         comment designRef /* Design: docs/design/speech-phonemes-en/rendering-subsystem/phoneme-stream.md */
         comment verificationRef /* Verification: docs/verification/speech-phonemes-en/rendering-subsystem/phoneme-stream.md */

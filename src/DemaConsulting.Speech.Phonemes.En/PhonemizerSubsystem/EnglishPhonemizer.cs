@@ -230,24 +230,41 @@ public sealed class EnglishPhonemizer
     /// <param name="spoken">The spoken text.</param>
     /// <param name="index">The annotation index.</param>
     /// <returns>The item.</returns>
+    /// <remarks>
+    ///     Annotations are anchored to the headword of the original text (the text analysis tokenizes <c>record's</c> as
+    ///     <c>record</c> and <c>'s</c>) while this tokenizer keeps the possessive or contraction in the same token, so an
+    ///     annotation may cover only the start of the token. The ending, with a straight or a typographic apostrophe, is
+    ///     then attached to the annotated headword's pronunciation. An override beats a reading of the same headword.
+    /// </remarks>
     private PhonemizedItem PronounceWord(Token token, string text, SpokenText spoken, AnnotationIndex index)
     {
-        // Annotations are anchored to original text: only a token that is entirely original can carry one
-        if (spoken.TryGetSourceStart(token.Start, token.End, out var sourceStart))
+        // Annotations are anchored to the original text: a token that starts with unchanged original text can carry one
+        if (spoken.TryGetSourceSpan(token.Start, token.End, out var sourceStart, out var sourceLength, out var unchangedPrefix))
         {
-            if (index.TryGetPronunciation(sourceStart, token.Length, out var scheme, out var phonemes))
+            var hasOverride = index.TryGetPronunciation(sourceStart, sourceLength, unchangedPrefix, out var scheme, out var phonemes, out var overrideCovered);
+            var hasReading = index.TryGetReading(sourceStart, sourceLength, unchangedPrefix, out var readingId, out var readingCovered);
+            if (hasOverride && (!hasReading || overrideCovered >= readingCovered))
             {
-                return Override(text, scheme, phonemes) ?? Item(text, _pronouncer.Pronounce(text, null), null);
+                return Override(text, SpokenLength(overrideCovered, sourceLength, text), scheme, phonemes) ?? Item(text, _pronouncer.Pronounce(text, null), null);
             }
 
-            if (index.TryGetReading(sourceStart, token.Length, out var readingId, out var covered))
+            if (hasReading)
             {
-                return WithReading(text, readingId, covered);
+                return WithReading(text, readingId, SpokenLength(readingCovered, sourceLength, text));
             }
         }
 
         return Item(text, _pronouncer.Pronounce(text, null), null);
     }
+
+    /// <summary>
+    ///     Converts the length of an annotated span in the original text to its length in the token's spoken text.
+    /// </summary>
+    /// <param name="covered">The annotated length in the original text.</param>
+    /// <param name="sourceLength">The length of the whole token's original span.</param>
+    /// <param name="text">The token text.</param>
+    /// <returns>The whole token's length for an annotation of the whole span; otherwise the same length, which is the unchanged headword.</returns>
+    private static int SpokenLength(int covered, int sourceLength, string text) => covered == sourceLength ? text.Length : covered;
 
     /// <summary>
     ///     Pronounces a word whose reading is known; the reading may cover only the start of the token.
@@ -264,12 +281,10 @@ public sealed class EnglishPhonemizer
         }
 
         // record's: the reading applies to record and the ending follows it
-        var ending = text[covered..];
         var baseWord = _pronouncer.Pronounce(text[..covered], readingId);
-        if (baseWord is not null && baseWord.Pronunciation.Count > 0 && ending.Length > 1
-            && WordTokenizer.IsApostrophe(ending[0]) && TryCliticKind(ending[1..], out var kind))
+        if (baseWord is not null && baseWord.Pronunciation.Count > 0 && TryEnding(text[covered..], out var kind))
         {
-            var joined = Morphology.AppendClitic(baseWord.Pronunciation, kind);
+            var joined = kind is null ? baseWord.Pronunciation : Morphology.AppendClitic(baseWord.Pronunciation, kind.Value);
             return new PhonemizedItem(PhonemizedItemKind.Word, text, joined, baseWord.Source, readingId);
         }
 
@@ -278,21 +293,116 @@ public sealed class EnglishPhonemizer
     }
 
     /// <summary>
-    ///     Builds the item of a host pronunciation override.
+    ///     Builds the item of a host pronunciation override; the override may cover only the headword of the token.
     /// </summary>
     /// <param name="text">The token text.</param>
+    /// <param name="covered">The length of the overridden part of the token.</param>
     /// <param name="scheme">The override's scheme.</param>
     /// <param name="phonemes">The override's phonemes.</param>
-    /// <returns>The item, or <see langword="null"/> when an ARPAbet override cannot be parsed.</returns>
-    private static PhonemizedItem? Override(string text, PronunciationScheme scheme, string phonemes)
+    /// <returns>The item, or <see langword="null"/> when an ARPAbet override cannot be parsed or the token's ending is not a clitic.</returns>
+    private PhonemizedItem? Override(string text, int covered, PronunciationScheme scheme, string phonemes)
     {
+        SuffixKind? kind = null;
+        if (covered < text.Length && !TryEnding(text[covered..], out kind))
+        {
+            return null;
+        }
+
         if (scheme == PronunciationScheme.Ipa)
         {
-            return new PhonemizedItem(PhonemizedItemKind.Word, text, null, PronunciationSource.Override, null, phonemes);
+            var ipa = kind is null ? phonemes : AppendIpaClitic(phonemes, kind.Value);
+            if (ipa is null)
+            {
+                return null;
+            }
+
+            // The word's normal pronunciation travels with the IPA: a renderer whose voice cannot represent the IPA speaks it instead
+            var normal = _pronouncer.Pronounce(text, null);
+            return new PhonemizedItem(PhonemizedItemKind.Word, text, normal?.Pronunciation, PronunciationSource.Override, null, ipa, normal?.CompoundBreak ?? -1);
         }
 
         var parsed = ParseArpabet(phonemes);
-        return parsed is null ? null : new PhonemizedItem(PhonemizedItemKind.Word, text, parsed, PronunciationSource.Override);
+        if (parsed is null)
+        {
+            return null;
+        }
+
+        var joined = kind is null ? parsed : Morphology.AppendClitic(parsed, kind.Value);
+        return new PhonemizedItem(PhonemizedItemKind.Word, text, joined, PronunciationSource.Override);
+    }
+
+    /// <summary>
+    ///     Appends the sound of a contraction or possessive ending to an IPA pronunciation, by the same sound rules as the ARPAbet morphology.
+    /// </summary>
+    /// <param name="ipa">The IPA of the headword.</param>
+    /// <param name="kind">The ending.</param>
+    /// <returns>The IPA of the whole word, or <see langword="null"/> when the last sound of the headword is not recognized.</returns>
+    /// <remarks>
+    ///     The possessive/is ending is <c>ɪz</c> after a sibilant, <c>s</c> after another voiceless consonant and <c>z</c>
+    ///     otherwise; the other endings are the full consonant after a vowel and are reduced with a schwa after a consonant
+    ///     (<c>əd</c>, <c>əl</c>, <c>əv</c>, <c>əm</c>, and <c>ɚ</c> for <c>'re</c>, <c>ɹ</c> after a vowel).
+    /// </remarks>
+    private static string? AppendIpaClitic(string ipa, SuffixKind kind)
+    {
+        var last = ipa.TrimEnd('ː', 'ˈ', 'ˌ').LastOrDefault();
+        if (last == default)
+        {
+            return null;
+        }
+
+        const string Vowels = "aeiouyɑɐæɒɔəɘɚɛɜɝɞɨɪɯɵøʉʊʌᵻᵿᵊ";
+        const string Sibilants = "szʃʒʧʤ";
+        const string Voiceless = "ptkfθχçh";
+        var vowel = Vowels.Contains(last);
+        if (!vowel && !char.IsLetter(last))
+        {
+            return null;
+        }
+
+        var possessive = Sibilants.Contains(last) ? "ɪz" : "z";
+        if (Voiceless.Contains(last))
+        {
+            possessive = "s";
+        }
+
+        return kind switch
+        {
+            SuffixKind.PossessiveS => ipa + possessive,
+            SuffixKind.ContractionD => ipa + (vowel ? "d" : "əd"),
+            SuffixKind.ContractionLl => ipa + (vowel ? "l" : "əl"),
+            SuffixKind.ContractionVe => ipa + (vowel ? "v" : "əv"),
+            SuffixKind.ContractionRe => ipa + (vowel ? "ɹ" : "ɚ"),
+            SuffixKind.ContractionM => ipa + (vowel ? "m" : "əm"),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    ///     Reads the ending of a token after its annotated headword.
+    /// </summary>
+    /// <param name="ending">The rest of the token: an apostrophe (straight or typographic) and optionally the clitic letters.</param>
+    /// <param name="kind">Receives the clitic kind, or <see langword="null"/> for the bare apostrophe of a plural possessive, which adds no sound.</param>
+    /// <returns><see langword="true"/> when the ending is a plural-possessive apostrophe or a supported clitic.</returns>
+    private static bool TryEnding(string ending, out SuffixKind? kind)
+    {
+        kind = null;
+        if (ending.Length == 0 || !WordTokenizer.IsApostrophe(ending[0]))
+        {
+            return false;
+        }
+
+        if (ending.Length == 1)
+        {
+            return true;
+        }
+
+        if (TryCliticKind(ending[1..], out var found))
+        {
+            kind = found;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -38,8 +38,12 @@ Kokoro's own marks for Kokoro; an ellipsis is three dots for Piper and `…` for
 stress for Piper and only the first for Kokoro; the flap, the linking r and the stress rules give the documented
 strings; function words are weak only when weak forms are enabled (on by default for the Piper renderer, off by default
 for the Kokoro renderer, which the Kokoro model package switches on; see *SpeechOnnxKokoro KokoroPhonemePipeline
-Verification*);
-and a long text is rendered as parts within the limit that lose nothing.
+Verification*); a host IPA override is translated into the symbols of each voice (`bɝd` is `bɜːd` for Piper and `bɜɹd`
+for Kokoro, `ɹˈaɪt` is `ɹˈIt` for Kokoro, `tʃˈɛk` is `ʧˈɛk`), one that a voice cannot represent completely (a symbol
+outside its table) is replaced by the word's normal pronunciation, and every symbol of both tables, alone or next to a
+diphthong or r-colored vowel, yields only symbols of each voice; an ARPAbet override renders like the dictionary word
+with the same phones; only the seven numbers thirteen to nineteen take the first-syllable number stress for Piper
+(`routine` and `canteen` do not); and a long text is rendered as parts within the limit that lose nothing.
 
 ### Test Scenarios
 
@@ -49,7 +53,9 @@ and a long text is rendered as parts within the limit that lose nothing.
 `RenderingSubsystem_Coverage_EveryDictionaryPronunciation_UsesOnlySymbolsOfBothModels`,
 `RenderingSubsystem_Coverage_EveryPhoneInEveryNeighborhood_UsesOnlySymbolsOfBothModels`,
 `RenderingSubsystem_Coverage_EveryOutOfVocabularyConversion_UsesOnlySymbolsOfBothModels`,
-`RenderingSubsystem_Coverage_WeakFormWordsAndPunctuation_UseOnlySymbolsOfBothModels`
+`RenderingSubsystem_Coverage_WeakFormWordsAndPunctuation_UseOnlySymbolsOfBothModels`,
+`RenderingSubsystem_IpaOverrides_CannotBeRepresentedCompletely_FallBackToTheNormalPronunciation`,
+`RenderingSubsystem_IpaOverrides_AnySymbolOrPair_YieldsOnlySymbolsOfTheVoice`
 
 The set of symbols that the renderers can emit is a subset of each voice's table in every case; a symbol outside it is
 reported by name. The precondition test shows that the tables are the real ones and not empty.
@@ -59,11 +65,15 @@ reported by name. The precondition test shows that the tables are the real ones 
 **Tests**: `RenderingSubsystem_Layout_WordsAndClausePunctuation_FollowTheModelConventions`,
 `RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel`,
 `RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel`, `RenderingSubsystem_Compounds_StressIsPerModel`,
-`RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`
+`RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`,
+`RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
+`RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones`,
+`RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice`
 
 Short texts are rendered by both renderers and compared with the documented strings: `city` and `water` (flap),
 `number is` (linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
-`a well-known author`.
+`a well-known author`; the numbers `thirteen` to `nineteen` and their neighbors `routine`, `canteen`, `thirteenth`;
+ARPAbet and IPA overrides of `record` against the dictionary words with the same phones.
 
 #### Weak forms
 

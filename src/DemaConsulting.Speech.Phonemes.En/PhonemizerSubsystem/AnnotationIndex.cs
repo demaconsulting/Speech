@@ -70,7 +70,8 @@ internal sealed class AnnotationIndex
     ///     Finds the reading annotation of a token.
     /// </summary>
     /// <param name="start">The token's start in the original text.</param>
-    /// <param name="length">The token's length.</param>
+    /// <param name="length">The length of the original span of the token.</param>
+    /// <param name="partialLimit">The longest annotated span shorter than <paramref name="length"/> that may be taken (the unchanged headword of the token).</param>
     /// <param name="readingId">Receives the reading id.</param>
     /// <param name="coveredLength">
     ///     Receives the length of the annotated span: <paramref name="length"/> for an exact match, shorter when the
@@ -78,18 +79,53 @@ internal sealed class AnnotationIndex
     ///     <c>'s</c>).
     /// </param>
     /// <returns><see langword="true"/> when a reading annotation starts at the token and does not extend beyond it.</returns>
-    public bool TryGetReading(int start, int length, out string readingId, out int coveredLength)
+    public bool TryGetReading(int start, int length, int partialLimit, out string readingId, out int coveredLength) =>
+        TryGet(_readings, start, length, partialLimit, out readingId, out coveredLength);
+
+    /// <summary>
+    ///     Finds the pronunciation override of a token.
+    /// </summary>
+    /// <param name="start">The token's start in the original text.</param>
+    /// <param name="length">The length of the original span of the token.</param>
+    /// <param name="partialLimit">The longest annotated span shorter than <paramref name="length"/> that may be taken (the unchanged headword of the token).</param>
+    /// <param name="scheme">Receives the scheme.</param>
+    /// <param name="phonemes">Receives the phonemes.</param>
+    /// <param name="coveredLength">
+    ///     Receives the length of the annotated span: <paramref name="length"/> for an exact match, shorter when the
+    ///     override covers only the start of the token (the headword of a possessive or contraction).
+    /// </param>
+    /// <returns><see langword="true"/> when an override starts at the token and does not extend beyond it.</returns>
+    public bool TryGetPronunciation(int start, int length, int partialLimit, out PronunciationScheme scheme, out string phonemes, out int coveredLength)
     {
-        if (_readings.TryGetValue((start, length), out readingId!))
+        var found = TryGet(_pronunciations, start, length, partialLimit, out var value, out coveredLength);
+        scheme = value.Scheme;
+        phonemes = value.Phonemes ?? string.Empty;
+        return found;
+    }
+
+    /// <summary>
+    ///     Finds the annotation of a token: the exact span first, then the longest shorter span up to a limit.
+    /// </summary>
+    /// <typeparam name="T">The annotation value type.</typeparam>
+    /// <param name="annotations">The annotations of one kind by span.</param>
+    /// <param name="start">The token's start.</param>
+    /// <param name="length">The length of the token's span.</param>
+    /// <param name="partialLimit">The longest shorter span that may be taken.</param>
+    /// <param name="value">Receives the annotation value.</param>
+    /// <param name="coveredLength">Receives the length of the span found.</param>
+    /// <returns><see langword="true"/> when an annotation was found.</returns>
+    private static bool TryGet<T>(Dictionary<(int Start, int Length), T> annotations, int start, int length, int partialLimit, out T value, out int coveredLength)
+    {
+        if (annotations.TryGetValue((start, length), out value!))
         {
             coveredLength = length;
             return true;
         }
 
         // The annotated word may be only the start of the token (a possessive or contraction follows it)
-        for (var shorter = length - 1; shorter > 0; shorter--)
+        for (var shorter = Math.Min(length - 1, partialLimit); shorter > 0; shorter--)
         {
-            if (_readings.TryGetValue((start, shorter), out readingId!))
+            if (annotations.TryGetValue((start, shorter), out value!))
             {
                 coveredLength = shorter;
                 return true;
@@ -97,28 +133,6 @@ internal sealed class AnnotationIndex
         }
 
         coveredLength = 0;
-        return false;
-    }
-
-    /// <summary>
-    ///     Finds the pronunciation override of a token.
-    /// </summary>
-    /// <param name="start">The token's start in the original text.</param>
-    /// <param name="length">The token's length.</param>
-    /// <param name="scheme">Receives the scheme.</param>
-    /// <param name="phonemes">Receives the phonemes.</param>
-    /// <returns><see langword="true"/> when an override covers exactly the token.</returns>
-    public bool TryGetPronunciation(int start, int length, out PronunciationScheme scheme, out string phonemes)
-    {
-        if (_pronunciations.TryGetValue((start, length), out var found))
-        {
-            scheme = found.Scheme;
-            phonemes = found.Phonemes;
-            return true;
-        }
-
-        scheme = default;
-        phonemes = string.Empty;
         return false;
     }
 }

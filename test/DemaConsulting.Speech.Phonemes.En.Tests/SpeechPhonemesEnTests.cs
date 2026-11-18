@@ -226,6 +226,22 @@ public sealed class SpeechPhonemesEnTests
         Assert.Equal("R EH1 K ER0 D", record.Arpabet);
     }
 
+    /// <summary>Proves a reading the real analysis chose for the headword of a possessive is applied the same with a straight and with a typographic apostrophe (the analysis also normalizes the typographic one).</summary>
+    [Theory]
+    [InlineData("The fish's bass's fin was big.")]
+    [InlineData("The fish\u2019s bass\u2019s fin was big.")]
+    public void SpeechPhonemesEn_Phonemize_AnalyzedPossessiveOfAHeteronym_KeepsTheChosenReadingForBothApostrophes(string sentence)
+    {
+        // Act
+        var result = GoldenCorpus.RunEndToEnd(sentence);
+
+        // Assert: the fish reading of bass (not the dictionary's first variant) with the possessive ending
+        var bass = Assert.Single(result.Items, i => i.Text == "bass's");
+        Assert.True(bass.FromReading);
+        Assert.Equal("bass.fish", bass.ReadingId);
+        Assert.Equal("B AE1 S IH0 Z", bass.Arpabet);
+    }
+
     /// <summary>Proves both renderers emit only symbols of their voice model for the whole sentence corpus, and that the rendering is non-empty for every sentence.</summary>
     [Fact]
     public void SpeechPhonemesEn_Render_SentenceCorpus_UsesOnlySymbolsOfTheVoiceModels()

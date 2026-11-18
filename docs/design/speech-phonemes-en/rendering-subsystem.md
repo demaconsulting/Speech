@@ -16,7 +16,8 @@ the following units:
   word-sound rules (`MisakiWordRules`)
 - **WeakForms**: the table of the small function words that are unstressed in running speech, with their reduced forms
 - **PhonemeStream**: the layout both renderers share, the splitter that cuts a long text into parts of a bounded size,
-  and the word-shape helpers (`WordShape`) that the sound rules of both renderers use
+  the word-shape helpers (`WordShape`) that the sound rules of both renderers use, and the translation and validation of
+  host IPA overrides against the two voices' symbol tables (`IpaSymbols`)
 
 ### Interfaces
 
@@ -44,9 +45,9 @@ to, one symbol per sound (`tʃ`, `oʊ`, `ɜː`), the flap `ɾ` for a `t` between
 before `k` or `g`, a linking `ɹ` after a word-final `ɚ` or `ɜː` before a vowel-initial word, the unstressed `AH0`, `IH0`
 and `IY0` by environment (`ᵻ` for `-ed` after `t` or `d` and `-es` after a sibilant, `ɐ` word-initially, `ɛ` for `ex-`
 and `en-`, `ɪ` for `-ing`, `-ic`, `-age`), `ɔ` before `ŋ f θ s`, the secondary stress dropped next to the primary and on
-a final `-y`, and the teens stressed on the first syllable. Quotation marks, brackets and dashes become a comma (a
-pause) because the voice has no symbol for them, an ellipsis stays three dots, and the clause marks `, ; : . ! ?` pass
-through. Every part of a hyphenated compound keeps its stress.
+a final `-y`, and the numbers thirteen to nineteen (and only those) stressed on the first syllable. Quotation marks,
+brackets and dashes become a comma (a pause) because the voice has no symbol for them, an ellipsis stays three dots, and
+the clause marks `, ; : . ! ?` pass through. Every part of a hyphenated compound keeps its stress.
 
 **Kokoro (misaki) rules.** The same textbook table in the misaki symbols (`A I O W Y ʧ ʤ ɜɹ əɹ`), the flap, `ᵻ`, `ᵊ` for
 a final syllabic `l` after a consonant or `m` and `n` after `t d s z p f`, an unstressed `IH0` as a schwa except in
@@ -81,4 +82,6 @@ two golden corpora, the renderings of the 150 reviewed sentences with the model 
 
 **Error handling.** A null text throws `ArgumentNullException`, a part limit below 16 `ArgumentOutOfRangeException`, and
 a profile that is not defined `ArgumentOutOfRangeException` at construction. A word that the host pronounced with an IPA
-override passes through unchanged, and an unsupported token renders to nothing without an extra space.
+override is translated into the symbols of the voice (`IpaSymbols`) and, when the voice's table lacks one of its
+symbols, replaced by the word's normal pronunciation rather than approximated, and an unsupported token renders to
+nothing without an extra space.

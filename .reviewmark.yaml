@@ -4588,6 +4588,7 @@ reviews:
       - "docs/verification/speech-phonemes-en/rendering-subsystem/phoneme-stream.md"
       - "src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/PhonemeStream.cs"
       - "src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/WordShape.cs"
+      - "src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/IpaSymbols.cs"
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs"
 
   # SpeechPhonemesEn-DataTools Reviews (one per group of the non-shipped tools project)

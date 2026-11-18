@@ -42,12 +42,15 @@ pronounced as described below. The result lists each out-of-vocabulary word once
 **Annotations are anchored to original text.** The text analysis never rewrites text: `en.norm` and `en.spell` give the
 spoken replacement of a span, and `en.reading` and `en.pron` annotate a word of the original. `SpokenText` therefore
 builds the spoken string itself and remembers, for every spoken character, where it came from in the original (or that a
-replacement introduced it) and whether it belongs to a spelled replacement. A reading or pronunciation annotation
-applies to a word token only when the whole token is unchanged original text; a token made of replacement text is
-pronounced as plain text. A reading may cover only the start of a token (the `record` of `record's`), in which case the
-ending that follows is a clitic that is attached by `Morphology`. Overlapping replacements cannot both apply (the
-earlier wins), and an annotation that is out of range, empty of value or malformed is not indexed and the text is spoken
-as usual.
+replacement introduced it) and whether it belongs to a spelled replacement. It also remembers the end of the original
+span each character stands for. A reading or pronunciation annotation applies to a word token that starts with unchanged
+original text, and covers either the whole original span of the token or only its unchanged headword (the `record` of
+`record's`, also when the text analysis normalized the typographic apostrophe of `record’s`, which makes the apostrophe
+replacement text); the ending that follows the headword must be a bare plural-possessive apostrophe or a clitic, which
+`Morphology` attaches (for an IPA override the same sound rules in IPA), otherwise the annotation does not describe the
+token. A token that starts with replacement text is pronounced as plain text, and an override beats a reading of the
+same headword. Overlapping replacements cannot both apply (the earlier wins), and an annotation that is out of range,
+empty of value or malformed is not indexed and the text is spoken as usual.
 
 **Tokens.** At each position the tokenizer tries, in order: skip whitespace and the audio-tag placeholder (U+FFFC); a
 letter of a spelled replacement is a token of its own; a run of ASCII digits; a run of Latin letters, which may contain
@@ -65,8 +68,9 @@ the dictionary entry; the morphology derivation from a known stem; a productive 
 at least four letters, so that a real word that merely begins like a prefix is never split; and the letter-to-sound
 model, which marks the item out of vocabulary. A host override is handled by the phonemizer before the pronouncer is
 asked, because it replaces the word entirely: an ARPAbet override is parsed (a text without a stress digit gives its
-first vowel primary stress, so the word is not spoken flat) and an IPA override is carried on the item with no phones
-and passed through by the renderer. An override that cannot be parsed falls back to the plain word.
+first vowel primary stress, so the word is not spoken flat) and an IPA override is carried on the item together with the
+word's normal pronunciation, which a renderer speaks when its voice cannot represent the IPA. An override that cannot be
+parsed falls back to the plain word.
 
 **Hyphenated compounds.** The closed spelling of the dictionary is used only when a part is not a word of its own
 (`wi-fi` is `wifi`); otherwise each part is pronounced with its own primary stress (`well-known` has two), and a small

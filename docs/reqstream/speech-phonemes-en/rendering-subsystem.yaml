@@ -24,7 +24,9 @@ sections:
               The RenderingSubsystem shall produce only symbols of the voice model's own symbol table for
               every pronunciation of the dictionary, every phone in every neighborhood of two phones, every
               conversion of the letter-to-sound model for a large sample of spellings and the out-of-vocabulary
-              golden words, and for every weak-form word and punctuation mark in every renderer mode.
+              golden words, for every weak-form word and punctuation mark in every renderer mode, and for every host
+              IPA pronunciation, which it shall translate into the voice's symbols or, when the voice cannot
+              represent it completely, replace by the word's normal pronunciation.
             justification: |
               A symbol outside the model's table is dropped by the voice or fails at inference time. Context
               rules (flapping, linking r, reduced vowels) make the output of a phone depend on its
@@ -40,6 +42,8 @@ sections:
               - RenderingSubsystem_Coverage_EveryPhoneInEveryNeighborhood_UsesOnlySymbolsOfBothModels
               - RenderingSubsystem_Coverage_EveryOutOfVocabularyConversion_UsesOnlySymbolsOfBothModels
               - RenderingSubsystem_Coverage_WeakFormWordsAndPunctuation_UseOnlySymbolsOfBothModels
+              - RenderingSubsystem_IpaOverrides_CannotBeRepresentedCompletely_FallBackToTheNormalPronunciation
+              - RenderingSubsystem_IpaOverrides_AnySymbolOrPair_YieldsOnlySymbolsOfTheVoice
 
           - id: SpeechPhonemesEn-Rendering-ModelConventions
             title: >-
@@ -49,7 +53,10 @@ sections:
               hyphenated compounds per model (every part stressed for Piper, only the first for Kokoro), words
               separated by one space with a closing mark attached to the word before it, quotation marks and
               dashes as a pause for Piper (which has no symbol for them) and as the model's own marks for
-              Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro.
+              Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a pronunciation given
+              as ARPAbet or as IPA shall be rendered in the same conventions as the dictionary word with the same
+              sounds, and only the seven numbers thirteen to nineteen shall take the first-syllable number stress
+              in the Piper rendering.
             justification: |
               The two voices were trained on text with different conventions, and the same phones read in the
               wrong convention sound wrong even though every symbol is valid. The conventions are stated
@@ -64,6 +71,9 @@ sections:
               - RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel
               - RenderingSubsystem_Compounds_StressIsPerModel
               - RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions
+              - RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot
+              - RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones
+              - RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice
 
           - id: SpeechPhonemesEn-Rendering-WeakFormTable
             title: >-

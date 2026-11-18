@@ -25,31 +25,37 @@ The pronunciations asserted are well-known dictionary entries or the documented 
 
 The subsystem tests pass when: a text without annotations gives every word its first dictionary variant, a bare digit
 its digit word and nothing is normalized; a reading annotation selects the reading's pronunciation for the lemma, an
-inflected form and a possessive, an id that belongs to another word falls back visibly, and a host override beats the
-reading and the dictionary in ARPAbet and in IPA; replacements are spoken, spelled letters are letter names (an `A` and
-an `I` are letters), clause punctuation passes through and the audio-tag placeholder produces nothing; contractions,
-possessives, hyphenated compounds and derived forms are one word with the expected sounds; an unknown word is
-pronounced, flagged and listed once; an unsupported token is kept and listed; a diacritic is folded for the lookup; and
-an annotation outside the text is ignored.
+inflected form and a possessive (with a straight or a typographic apostrophe, also when the apostrophe is a
+normalization replacement), an id that belongs to another word falls back visibly, and a host override beats the reading
+and the dictionary in ARPAbet and in IPA and applies to the headword of a possessive or contraction; replacements are
+spoken, spelled letters are letter names (an `A` and an `I` are letters), clause punctuation passes through and the
+audio-tag placeholder produces nothing; contractions, possessives, hyphenated compounds and derived forms are one word
+with the expected sounds; an unknown word is pronounced, flagged and listed once; an unsupported token is kept and
+listed; a diacritic is folded for the lookup; and an annotation outside the text is ignored.
 
 ### Test Scenarios
 
 #### Source priority and defaults
 
 **Tests**: `PhonemizerSubsystem_Phonemize_NoAnnotations_UsesDefaultReadingsWithoutNormalization`,
-`PhonemizerSubsystem_Phonemize_PronunciationOverride_BeatsReadingAndLexicon`
+`PhonemizerSubsystem_Phonemize_PronunciationOverride_BeatsReadingAndLexicon`,
+`PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes`
 
 `record 5 cats` is spoken as written; an ARPAbet override (with and without stress digits) and an IPA override win over
-a reading on the same word.
+a reading on the same word; the override of `record` also applies to `record's` and `record'll` (and to `record’s` with
+the analysis' normalization annotation of the apostrophe), the IPA one with the ending added in IPA, and an override of
+the whole token wins.
 
 #### Reading selection
 
 **Tests**: `PhonemizerSubsystem_Phonemize_ReadingAnnotation_SelectsThatReading`,
-`PhonemizerSubsystem_Phonemize_ReadingThatDoesNotApply_FallsBackVisibly`
+`PhonemizerSubsystem_Phonemize_ReadingThatDoesNotApply_FallsBackVisibly`,
+`PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes`
 
 `record.noun` and `record.verb` give different stresses for the same spelling, `records` and `record's` follow the
 reading with their ending, and `record.noun` on the word `cat` leaves `cat` with its default, the requested id recorded
-and the applied flag false.
+and the applied flag false; `bass.fish` on the headword of `bass's` and of `bass’s` (the latter with the normalization
+annotation of the apostrophe, as the text analysis emits it) gives the fish reading with the possessive ending.
 
 #### Annotation-aware speech
 

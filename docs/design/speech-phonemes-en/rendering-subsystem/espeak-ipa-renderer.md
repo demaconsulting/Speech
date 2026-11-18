@@ -17,8 +17,9 @@ renderer of the package for that voice.
 
 - **Render(text)**: the phoneme string of a whole text: each word item is rendered (weak form first when enabled and the
   word is in the table, then the sound rules for the phones), a punctuation item as its mark, an unsupported item as
-  nothing and a host IPA override unchanged; the pieces are joined by the shared layout with the weak-form groups
-  written without a space
+  nothing and a host IPA override translated into Piper symbols (`ɝ` and the ligatures `ʧ ʤ` become their espeak form)
+  or, when a symbol is not in the Piper table, replaced by the word's normal pronunciation; the pieces are joined by the
+  shared layout with the weak-form groups written without a space
 - **RenderParts(text, maxSymbols)**: the parts of a long text (see *PhonemeStream*); each part is rendered exactly as
   `Render` would render that stretch
 - **Render(items)** and **RenderItems(items)** (internal): the same for a slice of items and one string per item, which

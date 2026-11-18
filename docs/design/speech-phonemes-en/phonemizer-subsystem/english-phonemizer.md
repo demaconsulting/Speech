@@ -20,10 +20,11 @@ pronouncer and applying the host overrides and the readings.
 
 - **Phonemize(text)**: the same as `Phonemize(text, null)`
 - **Phonemize(text, annotations)**: builds the spoken text and the annotation index, tokenizes, and adds the items of
-  each token (see *PhonemizerSubsystem Design*). A word token that is entirely original text takes a host override first
-  (ARPAbet parsed, or IPA carried), then a reading annotation (applied to the whole token, or to its start with a clitic
-  ending attached), then the pronouncer's answer. An item that could not be pronounced at all becomes an unsupported
-  item. An empty or null annotation list is the same as no annotations
+  each token (see *PhonemizerSubsystem Design*). A word token that starts with unchanged original text takes a host
+  override first (ARPAbet parsed, or IPA carried with the normal pronunciation as a fallback), then a reading
+  annotation, each applied to the whole token or to its headword with a clitic ending attached, then the pronouncer's
+  answer. An item that could not be pronounced at all becomes an unsupported item. An empty or null annotation list is
+  the same as no annotations
 
 **Error Handling**: a null text throws `ArgumentNullException`; every other input, including text of any content and
 malformed or out-of-range annotations, produces a result.

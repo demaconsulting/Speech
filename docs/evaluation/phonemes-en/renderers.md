@@ -40,8 +40,12 @@ the mapping tables.
 
 ## What Is Rendered
 
-Both renderers work on the ARPAbet phones of each item; a word with an IPA override passes through unchanged, an
-unsupported token renders to nothing, and a punctuation item is rendered as the model's own symbol or dropped.
+Both renderers work on the ARPAbet phones of each item. A word with an IPA override is translated into the voice's
+symbols (the diphthongs and affricates of the espeak-style IPA become Kokoro's single letters, `ɝ` becomes `ɜː` for
+Piper and `ɜɹ` for Kokoro) and checked against the voice's symbol table; an override with a symbol the voice does not
+have is not approximated, the word's normal pronunciation is rendered instead. An ARPAbet override renders exactly like
+the dictionary word with the same phones. An unsupported token renders to nothing, and a punctuation item is rendered as
+the model's own symbol or dropped.
 
 **Piper (`EspeakIpaRenderer`).** The basic table is the textbook correspondence between ARPAbet and General American IPA
 (`tʃ dʒ θ ð ʃ ʒ ŋ ɹ`, `oʊ aɪ aʊ eɪ ɔɪ`, `ɑː ɔː ɜː iː uː`, `ɛ ɪ ʊ ʌ æ`, `ɚ` for unstressed `ER`). The rules on top, each
@@ -49,7 +53,8 @@ a statement about phone classes and positions:
 
 - The stress mark (`ˈ`, `ˌ`) stands directly before the vowel.
 - A secondary stress next to the primary one is not realized (stress clash); a secondary stress on a final `-y` is not
-  realized; the numbers thirteen to nineteen are stressed on the first syllable.
+  realized; only the seven numbers thirteen to nineteen are stressed on the first syllable (words that merely end in the
+  sounds of `-teen`, such as `routine` and `canteen`, keep the stress of their dictionary pronunciation).
 - A `t` between a vowel (or the `r` after it) and an unstressed vowel is a flap `ɾ`; `n` before `k` or `g` is `ŋ`.
 - An `r`-colored vowel before another vowel gets a linking `ɹ` (also across a word boundary: `ɚ` or `ɜː` before a
   vowel-initial word); `ʊɹ` before a vowel is doubled.
@@ -130,7 +135,7 @@ All numbers are percent. The first pass of each pair is the corpus the rules wer
 | Piper, 450 sentences | 4,279 | 89.44 | 91.14 | 3.01 | 95.98 | 96.80 | 76.29 |
 | Piper, 60 held-out sentences | 636 | 91.82 | 92.61 | 2.47 | 98.10 | 98.11 | 75.56 |
 | Piper, 3,000 words | 3,000 | 78.63 | 81.20 | 4.49 | 95.39 | 93.80 | 62.56 |
-| Piper, 3,000 held-out words | 3,000 | 75.27 | 77.40 | 4.39 | 96.73 | 93.97 | 68.28 |
+| Piper, 3,000 held-out words | 3,000 | 75.30 | 77.40 | 4.39 | 96.76 | 94.00 | 68.28 |
 | Kokoro full, 450 sentences | 4,357 | 62.70 | 82.17 | 4.89 | 71.45 | 75.10 | 23.54 |
 | Kokoro full, 60 held-out sentences | 659 | 64.80 | 83.16 | 4.50 | 72.17 | 76.33 | 21.62 |
 | Kokoro full, 3,000 words | 2,990 | 81.20 | 85.95 | 2.93 | 94.81 | 91.27 | 48.47 |

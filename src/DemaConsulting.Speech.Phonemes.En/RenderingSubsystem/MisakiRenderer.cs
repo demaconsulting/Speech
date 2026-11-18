@@ -20,8 +20,10 @@ namespace DemaConsulting.Speech.Phonemes.En.RenderingSubsystem;
 ///     By default words are rendered in their full dictionary form, with the stress the dictionary gives them, as
 ///     the owner decided for Kokoro. With <c>useWeakForms: true</c> the small function words are rendered as in running
 ///     speech (unstressed, some with a reduced vowel; see <c>WeakForms</c>), which is closer to the text the reference
-///     phonemizer produced for the model. A word the host pronounced with an IPA override passes through
-///     unchanged. Instances are immutable and thread-safe.
+///     phonemizer produced for the model. A word the host pronounced with an IPA override is translated into
+///     Kokoro's symbols (see <c>IpaSymbols</c>); an override that cannot be represented completely in the model's
+///     vocabulary is not approximated, the word's normal pronunciation is spoken instead. Instances are immutable and
+///     thread-safe.
 ///     </para>
 /// </remarks>
 public sealed class MisakiRenderer
@@ -151,7 +153,7 @@ public sealed class MisakiRenderer
     }
 
     /// <summary>
-    ///     Renders a word item: an IPA override as given, a function word in its weak form when that is enabled, any other word from its phones.
+    ///     Renders a word item: an IPA override translated to Kokoro's symbols (or the normal pronunciation when it cannot be), a function word in its weak form when that is enabled, any other word from its phones.
     /// </summary>
     /// <param name="item">The word item.</param>
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
@@ -160,7 +162,18 @@ public sealed class MisakiRenderer
     {
         if (item.IpaOverride is not null)
         {
-            return item.IpaOverride;
+            // An override the voice cannot represent completely is not approximated: the word's normal pronunciation is spoken instead
+            var translated = IpaSymbols.ToKokoro(item.IpaOverride);
+            if (translated is not null)
+            {
+                return translated;
+            }
+
+            // A word with no normal pronunciation either keeps what can be represented of the override
+            if (item.Pronunciation.Count == 0)
+            {
+                return IpaSymbols.ToKokoroLossy(item.IpaOverride);
+            }
         }
 
         var demoted = false;

@@ -23,8 +23,9 @@ namespace DemaConsulting.Speech.Phonemes.En.RenderingSubsystem;
 ///     with <c>useWeakForms: false</c> to render every word in its dictionary form.
 ///     </para>
 ///     <para>
-///     A word the host pronounced with an IPA override passes through unchanged (the host owns its symbols).
-///     Instances are immutable and thread-safe.
+///     A word the host pronounced with an IPA override is checked against the voice's symbol table (see
+///     <c>IpaSymbols</c>); an override that cannot be represented completely is not approximated, the word's normal
+///     pronunciation is spoken instead. Instances are immutable and thread-safe.
 ///     </para>
 /// </remarks>
 public sealed class EspeakIpaRenderer
@@ -154,7 +155,7 @@ public sealed class EspeakIpaRenderer
     }
 
     /// <summary>
-    ///     Renders a word item: an IPA override as given, a function word in its weak form, any other word from its phones.
+    ///     Renders a word item: an IPA override checked against the voice (or the normal pronunciation when it cannot be represented), a function word in its weak form, any other word from its phones.
     /// </summary>
     /// <param name="item">The word item.</param>
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
@@ -164,7 +165,18 @@ public sealed class EspeakIpaRenderer
     {
         if (item.IpaOverride is not null)
         {
-            return item.IpaOverride;
+            // An override the voice cannot represent completely is not approximated: the word's normal pronunciation is spoken instead
+            var translated = IpaSymbols.ToPiper(item.IpaOverride);
+            if (translated is not null)
+            {
+                return translated;
+            }
+
+            // A word with no normal pronunciation either keeps what can be represented of the override
+            if (item.Pronunciation.Count == 0)
+            {
+                return IpaSymbols.ToPiperLossy(item.IpaOverride);
+            }
         }
 
         var demoted = false;

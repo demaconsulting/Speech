@@ -15,7 +15,10 @@ for that voice.
 **Key Methods**:
 
 - **Render(text)**: the phoneme string of a whole text, as for `EspeakIpaRenderer`, with the misaki rules; the later
-  primary stresses of a hyphenated compound are demoted to secondary (only the first part keeps its stress)
+  primary stresses of a hyphenated compound are demoted to secondary (only the first part keeps its stress) A host IPA
+  override is translated into Kokoro's symbols (`aɪ aʊ eɪ oʊ ɔɪ tʃ dʒ` to `I W A O Y ʧ ʤ`, `ɝ ɜː` to `ɜɹ`, `ɚ` to `əɹ`,
+  the length mark dropped) and checked against the vocabulary; an override with a symbol the vocabulary does not have is
+  replaced by the word's normal pronunciation
 - **RenderParts(text, maxSymbols)**: the parts of a long text for Kokoro's 510-token limit (see *PhonemeStream*)
 - **RenderItems(items)** and **RenderPronunciation(pronunciation)** (internal): the item-level and pronunciation-level
   renderings used by the splitter and the coverage tests

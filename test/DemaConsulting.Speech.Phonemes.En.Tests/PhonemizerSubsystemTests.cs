@@ -74,6 +74,45 @@ public sealed class PhonemizerSubsystemTests
         Assert.Equal("record's", possessive.Items[0].Text);
     }
 
+    /// <summary>Proves the headword annotations (reading and pronunciation override) apply to a possessive or contraction with a straight and with a typographic apostrophe alike.</summary>
+    [Theory]
+    [InlineData("'")]
+    [InlineData("\u2019")]
+    public void PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes(string apostrophe)
+    {
+        // Act: a forced reading on the headword of a possessive, a host override on the headword of a possessive and of a
+        // contraction; with the typographic apostrophe the text analysis also annotates the normalization of the apostrophe
+        PhonemizedText Run(string word, string ending, params SegmentAnnotation[] annotations)
+        {
+            var normalized = apostrophe == "\u2019" ? [.. annotations, Norm(word.Length, 1, "'")] : annotations;
+            return Phonemizer.Phonemize(word + apostrophe + ending, normalized);
+        }
+
+        var reading = Run("bass", "s", Reading(0, 4, "bass.music"));
+        var fish = Run("bass", "s", Reading(0, 4, "bass.fish"));
+        var possessive = Run("record", "s", Pronunciation(0, 6, "arpabet:R IY0 K AO1 R D"));
+        var contraction = Run("record", "ll", Pronunciation(0, 6, "arpabet:R IY0 K AO1 R D"));
+        var ipa = Run("record", "s", Pronunciation(0, 6, "ipa:ɹɪˈkɔɹd"));
+        var ipaVowel = Run("sea", "s", Pronunciation(0, 3, "ipa:sˈiː"));
+        var wholeToken = Run("record", "s", Pronunciation(0, 8, "arpabet:K AE1 T"));
+        // Assert: the reading of the headword selects the pronunciation and the possessive ending follows it
+        Assert.Equal("B EY1 S IH0 Z", reading.Items[0].Arpabet);
+        Assert.Equal("B AE1 S IH0 Z", fish.Items[0].Arpabet);
+        Assert.True(fish.Items[0].FromReading);
+        Assert.Equal("bass's", fish.Items[0].Text); // the spoken text has the normalized apostrophe
+
+        // Assert: the override of the headword wins and the ending follows it
+        Assert.Equal("R IY0 K AO1 R D Z", possessive.Items[0].Arpabet);
+        Assert.Equal(PronunciationSource.Override, possessive.Items[0].Source);
+        Assert.Equal("record's", possessive.Items[0].Text);
+        Assert.Equal("R IY0 K AO1 R D AH0 L", contraction.Items[0].Arpabet);
+        Assert.Equal("ɹɪˈkɔɹdz", ipa.Items[0].IpaOverride);
+        Assert.Equal("sˈiːz", ipaVowel.Items[0].IpaOverride);
+
+        // Assert: an override of the whole token still beats everything
+        Assert.Equal("K AE1 T", wholeToken.Items[0].Arpabet);
+    }
+
     /// <summary>Proves a reading id that cannot be applied to the word is visible: the word keeps its default and the request is reported.</summary>
     [Fact]
     public void PhonemizerSubsystem_Phonemize_ReadingThatDoesNotApply_FallsBackVisibly()
@@ -98,13 +137,13 @@ public sealed class PhonemizerSubsystemTests
         var unstressed = Phonemizer.Phonemize("record", [Pronunciation(0, 6, "arpabet:K AE T")]);
         var ipa = Phonemizer.Phonemize("record", [Pronunciation(0, 6, "ipa:ɹɪˈkɔɹd")]);
 
-        // Assert: the override wins; missing stress digits give the first vowel primary stress; IPA is carried for the renderer
+        // Assert: the override wins; missing stress digits give the first vowel primary stress; the IPA is carried for the renderer
         Assert.Equal("R IY0 K AO1 R D", arpabet.Items[0].Arpabet);
         Assert.Equal(PronunciationSource.Override, arpabet.Items[0].Source);
         Assert.Equal("K AE1 T", unstressed.Items[0].Arpabet);
         Assert.Equal(PronunciationSource.Override, ipa.Items[0].Source);
         Assert.Equal("ɹɪˈkɔɹd", ipa.Items[0].IpaOverride);
-        Assert.Empty(ipa.Items[0].Phones);
+        Assert.Equal("R AH0 K AO1 R D", ipa.Items[0].Arpabet); // the normal pronunciation travels with the IPA, for a voice that cannot represent it
     }
 
     /// <summary>Proves normalization and spell-out replacements are applied and the replacement text is what is pronounced.</summary>

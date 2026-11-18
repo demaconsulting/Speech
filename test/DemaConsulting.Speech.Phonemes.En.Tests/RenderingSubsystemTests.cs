@@ -60,6 +60,10 @@ public sealed class RenderingSubsystemTests
         Assert.True(Piper.Contains('ɹ') && Piper.Contains('ˈ') && Piper.Contains('ᵻ') && Piper.Contains(' '));
         Assert.Equal(115, Kokoro.Count);
         Assert.True(Kokoro.Contains('ʧ') && Kokoro.Contains('A') && Kokoro.Contains('ᵊ') && Kokoro.Contains(' '));
+
+        // Assert: the symbol strings the IPA translation validates against are those inventories
+        Assert.Equal(Piper.Symbols.Order(), IpaSymbols.PiperSymbols.Order());
+        Assert.Equal(Kokoro.Symbols.Order(), IpaSymbols.KokoroVocabulary.Order());
     }
 
     /// <summary>Proves every pronunciation of the dictionary (all variants of all words) renders to symbols of the Piper voice and of Kokoro.</summary>
@@ -289,7 +293,144 @@ public sealed class RenderingSubsystemTests
         Assert.Contains("ʌv", kokoroWeak, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a host IPA pronunciation passes through unchanged and an unsupported token produces no sound and no extra space.</summary>
+    /// <summary>Proves a host IPA pronunciation is translated into the symbols of each voice: the espeak-style diphthongs, affricates, r-colored vowels and length marks become Kokoro's own symbols (<c>I W A O Y ʧ ʤ ɜɹ əɹ</c>) and the Piper symbols, and every symbol emitted is in the voice's symbol table.</summary>
+    [Theory]
+    [InlineData("bɝd", "bɜːd", "bɜɹd")]
+    [InlineData("bˈɝd", "bˈɜːd", "bˈɜɹd")]
+    [InlineData("bˈɜːd", "bˈɜːd", "bˈɜɹd")]
+    [InlineData("ɹˈaɪt", "ɹˈaɪt", "ɹˈIt")]
+    [InlineData("kˈaʊ", "kˈaʊ", "kˈW")]
+    [InlineData("ɡˈeɪt", "ɡˈeɪt", "ɡˈAt")]
+    [InlineData("ɡˈoʊ", "ɡˈoʊ", "ɡˈO")]
+    [InlineData("bˈɔɪ", "bˈɔɪ", "bˈY")]
+    [InlineData("tʃˈɛk", "tʃˈɛk", "ʧˈɛk")]
+    [InlineData("dʒˈɛm", "dʒˈɛm", "ʤˈɛm")]
+    [InlineData("ʧˈɛk", "tʃˈɛk", "ʧˈɛk")]
+    [InlineData("ʤˈɛm", "dʒˈɛm", "ʤˈɛm")]
+    [InlineData("sˈiːt", "sˈiːt", "sˈit")]
+    [InlineData("fˈɑːðɚ", "fˈɑːðɚ", "fˈɑðəɹ")]
+    [InlineData("fˈɑːðɚɹ", "fˈɑːðɚɹ", "fˈɑðəɹ")]
+    [InlineData("gʊd", "gʊd", "ɡʊd")]
+    public void RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice(string ipa, string piper, string kokoro)
+    {
+        // Arrange
+        var overridden = Phonemizer.Phonemize("record", [new SegmentAnnotation(0, 6, TextEnAnnotations.Pronunciation, "ipa:" + ipa)]);
+
+        // Act
+        var piperText = new EspeakIpaRenderer().Render(overridden);
+        var kokoroText = new MisakiRenderer().Render(overridden);
+
+        // Assert: the translation, and nothing outside the voice's own symbol table
+        Assert.Equal(piper, piperText);
+        Assert.Equal(kokoro, kokoroText);
+        Assert.Empty(Piper.Missing(piperText));
+        Assert.Empty(Kokoro.Missing(kokoroText));
+    }
+
+    /// <summary>Proves an IPA override that a voice cannot represent completely is not approximated: that voice speaks the word's normal pronunciation, while a voice that can represent it keeps the override.</summary>
+    [Theory]
+    [InlineData("ɹɪˈkɔɹʘ", true, false)]
+    [InlineData("ˈA", false, false)]
+    [InlineData("ɹɪˈkɔɹ¿", false, false)]
+    public void RenderingSubsystem_IpaOverrides_CannotBeRepresentedCompletely_FallBackToTheNormalPronunciation(string ipa, bool piperRepresents, bool kokoroRepresents)
+    {
+        // Arrange: the click ʘ is in the Piper symbol table only, the capital A is Kokoro's diphthong letter and not IPA, ¿ is in neither
+        var overridden = Phonemizer.Phonemize("record", [new SegmentAnnotation(0, 6, TextEnAnnotations.Pronunciation, "ipa:" + ipa)]);
+        var normal = Phonemizer.Phonemize("record");
+
+        // Act
+        var piperText = new EspeakIpaRenderer().Render(overridden);
+        var kokoroText = new MisakiRenderer().Render(overridden);
+
+        // Assert: the override or the normal pronunciation of the word, never a partial rendering
+        Assert.Equal(piperRepresents ? ipa : new EspeakIpaRenderer().Render(normal), piperText);
+        Assert.Equal(kokoroRepresents ? ipa : new MisakiRenderer().Render(normal), kokoroText);
+        Assert.Empty(Piper.Missing(piperText));
+        Assert.Empty(Kokoro.Missing(kokoroText));
+    }
+
+    /// <summary>Proves that whatever IPA a host supplies, a symbol of either voice's table, a pair of them or a symbol of neither, each renderer emits only symbols of its own table.</summary>
+    [Fact]
+    public void RenderingSubsystem_IpaOverrides_AnySymbolOrPair_YieldsOnlySymbolsOfTheVoice()
+    {
+        // Arrange: every symbol of both tables, every pair that starts a diphthong, affricate or r-colored vowel rule, and symbols of neither
+        var symbols = Piper.Symbols.Union(Kokoro.Symbols).Concat(new[] { '¿', '‿', 'ʬ' }).Distinct().ToList();
+        var samples = symbols.Select(s => "ˈ" + s + "t")
+            .Concat(symbols.SelectMany(a => "aeoɔɜɚɝtdʃʒːɹ".Select(b => "ˈ" + a + b + "d")))
+            .ToList();
+
+        // Act
+        var failures = new List<string>();
+        foreach (var sample in samples)
+        {
+            var overridden = Phonemizer.Phonemize("record", [new SegmentAnnotation(0, 6, TextEnAnnotations.Pronunciation, "ipa:" + sample)]);
+            var piperText = new EspeakIpaRenderer().Render(overridden);
+            var kokoroText = new MisakiRenderer().Render(overridden);
+            if (piperText.Length == 0 || kokoroText.Length == 0 || Piper.Missing(piperText).Any() || Kokoro.Missing(kokoroText).Any())
+            {
+                failures.Add(sample);
+            }
+        }
+
+        // Assert
+        Assert.True(samples.Count > 1000);
+        Assert.Empty(failures);
+    }
+
+    /// <summary>Proves an ARPAbet pronunciation override renders exactly like the dictionary word that has the same phones, for the Piper IPA and the Kokoro symbols alike (diphthongs, affricates, r-colored vowels, stress).</summary>
+    [Theory]
+    [InlineData("K AE1 T", "cat", "kˈæt", "kˈæt")]
+    [InlineData("CH EY1 N JH", "change", "tʃˈeɪndʒ", "ʧˈAnʤ")]
+    [InlineData("B ER1 D", "bird", "bˈɜːd", "bˈɜɹd")]
+    [InlineData("K AW1", "cow", "kˈaʊ", "kˈW")]
+    [InlineData("B OY1", "boy", "bˈɔɪ", "bˈY")]
+    [InlineData("G OW1", "go", "ɡˈoʊ", "ɡˈO")]
+    [InlineData("R EH1 K ER0 D", "record", "ɹˈɛkɚd", "ɹˈɛkəɹd")]
+    public void RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones(string arpabet, string word, string piper, string kokoro)
+    {
+        // Arrange: the override on an unrelated word, and the dictionary word (a reading forces the noun phones of record)
+        var overridden = Phonemizer.Phonemize("record", [new SegmentAnnotation(0, 6, TextEnAnnotations.Pronunciation, "arpabet:" + arpabet)]);
+        var dictionary = word == "record"
+            ? Phonemizer.Phonemize("record", [new SegmentAnnotation(0, 6, TextEnAnnotations.Reading, "record.noun")])
+            : Phonemizer.Phonemize(word);
+
+        // Act
+        var piperText = new EspeakIpaRenderer(EspeakIpaProfile.EnUs, useWeakForms: false).Render(overridden);
+        var kokoroText = new MisakiRenderer().Render(overridden);
+
+        // Assert: the reviewed strings, the same as the dictionary word's, all in the voices' tables
+        Assert.Equal(piper, piperText);
+        Assert.Equal(kokoro, kokoroText);
+        Assert.Equal(new EspeakIpaRenderer(EspeakIpaProfile.EnUs, useWeakForms: false).Render(dictionary), piperText);
+        Assert.Equal(new MisakiRenderer().Render(dictionary), kokoroText);
+        Assert.Empty(Piper.Missing(piperText));
+        Assert.Empty(Kokoro.Missing(kokoroText));
+    }
+
+    /// <summary>Proves the thirteen to nineteen stress rule of the Piper rendering applies to the seven number words only: other words that end in <c>-teen</c> sounds (routine, canteen, velveteen) keep the stress of their dictionary pronunciation.</summary>
+    [Theory]
+    [InlineData("thirteen", "θˈɜːtiːn")]
+    [InlineData("fourteen", "fˈɔːɹtiːn")]
+    [InlineData("fifteen", "fˈᵻftiːn")]
+    [InlineData("sixteen", "sˈɪkstiːn")]
+    [InlineData("seventeen", "sˈɛvəntˌiːn")]
+    [InlineData("eighteen", "ˈeɪtiːn")]
+    [InlineData("nineteen", "nˈaɪntiːn")]
+    [InlineData("thirteenth", "θˈɜːtˈiːnθ")]
+    [InlineData("nineteenth", "nˈaɪntˈiːnθ")]
+    [InlineData("routine", "ɹuːtˈiːn")]
+    [InlineData("canteen", "kæntˈiːn")]
+    [InlineData("routines", "ɹuːtˈiːnz")]
+    public void RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot(string word, string piper)
+    {
+        // Act
+        var rendered = new EspeakIpaRenderer().Render(Phonemizer.Phonemize(word));
+
+        // Assert
+        Assert.Equal(piper, rendered);
+    }
+
+    /// <summary>Proves a host IPA pronunciation of a word whose symbols both voices know passes through, and an unsupported token produces no sound and no extra space.</summary>
     [Fact]
     public void EspeakIpaRenderer_Render_IpaOverrideAndUnsupportedToken_AreHandledPerItem()
     {

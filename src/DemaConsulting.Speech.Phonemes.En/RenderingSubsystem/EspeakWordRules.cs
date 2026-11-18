@@ -26,6 +26,12 @@ internal static class EspeakWordRules
     /// <summary>The secondary stress mark.</summary>
     private const string Secondary = "ˌ";
 
+    /// <summary>The base symbols of the stems of the numbers thirteen to nineteen (before <c>T IY N</c>).</summary>
+    private static readonly string[][] TeenStems =
+    [
+        ["TH", "ER"], ["F", "AO", "R"], ["F", "IH", "F"], ["S", "IH", "K", "S"], ["S", "EH", "V", "AH", "N"], ["EY"], ["N", "AY", "N"],
+    ];
+
     /// <summary>The consonants after which a reduced <c>i</c> in a prefix is the lax <c>ᵻ</c>.</summary>
     private static readonly string[] LaxPrefixFollowers = ["F", "L", "M", "P", "T", "JH", "B"];
 
@@ -39,7 +45,7 @@ internal static class EspeakWordRules
     {
         var tonic = TonicOrdinal(phones);
         var vowelCount = CountVowels(phones);
-        var teen = IsTeenNumber(phones, vowelCount);
+        var teen = IsTeenNumber(phones);
         var builder = new StringBuilder(phones.Length * 2);
         var ordinal = -1;
         for (var i = 0; i < phones.Length; i++)
@@ -92,17 +98,52 @@ internal static class EspeakWordRules
     }
 
     /// <summary>
-    ///     Tests whether a word is one of the numbers thirteen to nineteen: it ends in <c>t</c> and a stressed <c>IY</c> and <c>n</c>.
+    ///     Tests whether a word is one of the numbers thirteen to nineteen: one of the number stems (<c>thir</c>,
+    ///     <c>four</c>, <c>fif</c>, <c>six</c>, <c>seven</c>, <c>eigh</c>, <c>nine</c>) followed by <c>t</c>, a stressed <c>IY</c> and <c>n</c>.
     /// </summary>
     /// <param name="phones">The phones.</param>
-    /// <param name="vowelCount">The number of vowels of the word.</param>
-    /// <returns><see langword="true"/> for a word of two or more syllables that ends in <c>T IY1 N</c>.</returns>
-    private static bool IsTeenNumber(ReadOnlySpan<Phone> phones, int vowelCount) =>
-        vowelCount >= 2 && phones.Length >= 4
-        && SymbolAt(phones, phones.Length - 3) == "T"
-        && SymbolAt(phones, phones.Length - 2) == "IY" && phones[^2].Stress == 1
-        && SymbolAt(phones, phones.Length - 1) == "N";
+    /// <returns><see langword="true"/> for one of the seven numbers; other words that end in <c>T IY1 N</c> (<c>routine</c>, <c>canteen</c>) are not.</returns>
+    /// <remarks>The stress digit of the stem's vowel is not compared: the dictionary lists several (<c>EY0</c> and <c>EY1</c> of <c>eighteen</c>).</remarks>
+    private static bool IsTeenNumber(ReadOnlySpan<Phone> phones)
+    {
+        var length = phones.Length;
+        if (length < 4
+            || SymbolAt(phones, length - 3) != "T"
+            || SymbolAt(phones, length - 2) != "IY" || phones[^2].Stress != 1
+            || SymbolAt(phones, length - 1) != "N")
+        {
+            return false;
+        }
 
+        foreach (var stem in TeenStems)
+        {
+            if (stem.Length == length - 3 && StemMatches(phones, stem))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Tests whether the leading phones of a word are a stem, ignoring stress digits.
+    /// </summary>
+    /// <param name="phones">The phones.</param>
+    /// <param name="stem">The base symbols of the stem.</param>
+    /// <returns><see langword="true"/> when the first phones have exactly these base symbols.</returns>
+    private static bool StemMatches(ReadOnlySpan<Phone> phones, string[] stem)
+    {
+        for (var i = 0; i < stem.Length; i++)
+        {
+            if (SymbolAt(phones, i) != stem[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
     /// <summary>
     ///     Gets the stress mark of a vowel.
     /// </summary>

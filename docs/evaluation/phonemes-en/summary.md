@@ -20,7 +20,7 @@ the first one.
 | Piper symbols in the voice's map | 100% | 100% | Pass |
 | Kokoro symbols in the vocabulary | 100% | 100% | Pass |
 | Piper word match, sentences | 85% or more | 89.44% (held out 91.82%) | Pass |
-| Piper word match, isolated words | 85% or more | 78.63% (held out 75.27%) | Below |
+| Piper word match, isolated words | 85% or more | 78.63% (held out 75.30%) | Below |
 | Piper phoneme error rate | 8% or less | 3.01% (held out 2.47%) | Pass |
 | Piper primary stress agreement | 90% or more | 95.98% (held out 98.10%) | Pass |
 | Kokoro phoneme error rate | 6% or less | 2.00% weak, 4.89% full | Pass |
@@ -37,7 +37,7 @@ Notes on the gates:
   sentences plus the 300 own-written sentences of `data/phonemes-en/renderer-corpus.tsv` (450 sentences, 4,279 word
   pairs); the held-out figures use the 60 sentences of `data/phonemes-en/renderer-validation.tsv`, written after the
   rules were frozen. The word passes use the 3,000 most frequent words of the text-analysis training sentences (error
-  rate 4.49%, stress agreement 95.39%) and the next 3,000 words as the held-out pass (4.39% and 96.73%).
+  rate 4.49%, stress agreement 95.39%) and the next 3,000 words as the held-out pass (4.39% and 96.76%).
 - Kokoro against misaki US: the shipped default speaks function words in their weak forms (2.00% on the tuning
   sentences, 1.43% held out). With full forms the figures are 4.89% and 4.50%. On the word passes they are 2.93% and
   2.81%. Weak forms also raise primary stress agreement from 71.5% to 94.3%; owner listening decides the default.

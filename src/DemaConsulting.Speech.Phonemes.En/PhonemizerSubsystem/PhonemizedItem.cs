@@ -71,8 +71,10 @@ public sealed class PhonemizedItem
 
     /// <summary>
     ///     Gets the IPA pronunciation a host supplied for this word, or <see langword="null"/>. An IPA override
-    ///     cannot be turned into ARPAbet, so the item then has no <see cref="Phones"/> and
-    ///     <see cref="Source"/> is <see cref="PronunciationSource.Override"/>; a renderer passes the IPA through.
+    ///     cannot be turned into ARPAbet, so <see cref="Source"/> is <see cref="PronunciationSource.Override"/> and a
+    ///     renderer translates the IPA into its voice's symbols. When the voice cannot represent the IPA completely the
+    ///     renderer speaks the word's normal pronunciation instead, which is why <see cref="Phones"/> then holds the
+    ///     phones the word has without the override (empty only for a word the phonemizer cannot pronounce).
     /// </summary>
     public string? IpaOverride { get; }
 

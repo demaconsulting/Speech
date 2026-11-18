@@ -2,7 +2,7 @@ system	pass	units	words_compared	word_match_pct	word_match_excl_stress_pct	per_e
 piper	sentences-tuned	450	4279	89.44	91.14	3.01	95.98	96.80	76.29
 piper	sentences-validation	60	636	91.82	92.61	2.47	98.10	98.11	75.56
 piper	words-tuned	3000	3000	78.63	81.20	4.49	95.39	93.80	62.56
-piper	words-validation	3000	3000	75.27	77.40	4.39	96.73	93.97	68.28
+piper	words-validation	3000	3000	75.30	77.40	4.39	96.76	94.00	68.28
 kokoro-full	sentences-tuned	450	4357	62.70	82.17	4.89	71.45	75.10	23.54
 kokoro-full	sentences-validation	60	659	64.80	83.16	4.50	72.17	76.33	21.62
 kokoro-full	words-tuned	3000	2990	81.20	85.95	2.93	94.81	91.27	48.47

@@ -26,7 +26,9 @@ sections:
               The PhonemizerSubsystem shall pronounce each word from a host pronunciation override when one
               covers the word, otherwise from the reading the text analysis chose for it, otherwise from the
               dictionary's first variant, and shall report the source in the item; a host override shall beat
-              a reading, and a text without annotations shall give every word its dictionary default.
+              a reading, shall apply to the headword of a possessive or contraction (with a straight or a
+              typographic apostrophe) as it does to the word alone, and a text without annotations shall give
+              every word its dictionary default.
             justification: |
               The order is the contract that lets a host correct a word and lets the analysis disambiguate
               a heteronym; the reported source is how a test or a host can tell which rule decided. The
@@ -36,12 +38,14 @@ sections:
               - SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
             tests:
               - PhonemizerSubsystem_Phonemize_PronunciationOverride_BeatsReadingAndLexicon
+              - PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes
               - PhonemizerSubsystem_Phonemize_NoAnnotations_UsesDefaultReadingsWithoutNormalization
 
           - id: SpeechPhonemesEn-Phonemizer-ReadingSelection
             title: >-
               The PhonemizerSubsystem shall pronounce a word with the reading named by a reading annotation
-              for the lemma, an inflected form and a possessive of it, shall pronounce a word whose reading
+              for the lemma, an inflected form and a possessive of it (with a straight or a typographic apostrophe,
+              also when the text analysis normalized the apostrophe), shall pronounce a word whose reading
               does not apply to it (the id belongs to another word) with its dictionary default, and shall
               keep the requested reading id in the item with a flag that says the reading was not applied.
             justification: |
@@ -53,6 +57,7 @@ sections:
               - SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
             tests:
               - PhonemizerSubsystem_Phonemize_ReadingAnnotation_SelectsThatReading
+              - PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes
               - PhonemizerSubsystem_Phonemize_ReadingThatDoesNotApply_FallsBackVisibly
 
           - id: SpeechPhonemesEn-Phonemizer-AnnotationAwareSpeech
