@@ -7,19 +7,14 @@ using ProductionKokoroModel = DemaConsulting.Speech.Onnx.Kokoro.ModelManagementS
 namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.SynthesisSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="OnnxKokoroSynthesisEngine"/>, proving its constructor argument
-///     validation, <see cref="ISynthesisBackend.Generate"/>'s zero-token short-circuit and
-///     disposed-engine guard, and <see cref="OnnxKokoroSynthesisEngine.RunProbeInference"/>'s
-///     successful-probe path - all against a tiny, hand-built ONNX test fixture
-///     (<c>TestData/fake-kokoro-model.onnx</c>) whose single node forwards its <c>style</c> input
-///     straight through as the output, never the real ~88 MiB production model.
+///     Behavior tests for <see cref="OnnxKokoroSynthesisEngine"/>: constructor argument validation,
+///     the zero-token short-circuit, the disposed-engine guard, style-vector selection, the annotated
+///     path and the split of text that exceeds the model's token limit, and
+///     <see cref="OnnxKokoroSynthesisEngine.RunProbeInference"/>'s successful-probe path - all against a
+///     tiny, hand-built ONNX test fixture (<c>TestData/fake-kokoro-model.onnx</c>) whose single node
+///     forwards its <c>style</c> input straight through as the output, never the real ~88 MiB
+///     production model.
 /// </summary>
-/// <remarks>
-///     <c>OnnxKokoroEnglishSynthesisModelTests</c> already proves
-///     <see cref="OnnxKokoroSynthesisEngine.Generate"/>'s voice-style-vector selection and
-///     tensor-wiring end-to-end (via <c>CreateBackend</c>), so this class focuses on behavior
-///     specific to this engine class itself, reachable only through its own internal constructor.
-/// </remarks>
 public sealed class OnnxKokoroSynthesisEngineTests
 {
     private static readonly string FixtureModelPath = Path.Combine(AppContext.BaseDirectory, "TestData", "fake-kokoro-model.onnx");
@@ -34,17 +29,16 @@ public sealed class OnnxKokoroSynthesisEngineTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => new OnnxKokoroSynthesisEngine(
             null!,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
+            NewPipeline(),
             SingleVoiceStyles()));
     }
 
     /// <summary>
     ///     Proves that the constructor throws <see cref="ArgumentNullException"/> for a null
-    ///     vocabulary.
+    ///     phoneme pipeline.
     /// </summary>
     [Fact]
-    public void Constructor_NullVocabulary_ThrowsArgumentNullException()
+    public void Constructor_NullPipeline_ThrowsArgumentNullException()
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
@@ -52,25 +46,6 @@ public sealed class OnnxKokoroSynthesisEngineTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => new OnnxKokoroSynthesisEngine(
             session,
-            null!,
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles()));
-    }
-
-    /// <summary>
-    ///     Proves that the constructor throws <see cref="ArgumentNullException"/> for a null
-    ///     phonemizer.
-    /// </summary>
-    [Fact]
-    public void Constructor_NullPhonemizer_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var session = new InferenceSession(FixtureModelPath);
-
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
             null!,
             SingleVoiceStyles()));
     }
@@ -88,8 +63,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => new OnnxKokoroSynthesisEngine(
             session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
+            NewPipeline(),
             null!));
     }
 
@@ -107,8 +81,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
         // Act & Assert
         Assert.Throws<ArgumentException>(() => new OnnxKokoroSynthesisEngine(
             session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
+            NewPipeline(),
             new Dictionary<int, float[]>()));
     }
 
@@ -121,11 +94,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
-        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles());
+        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
 
         // Act & Assert
         Assert.Equal(24000, engine.SampleRate);
@@ -133,22 +102,17 @@ public sealed class OnnxKokoroSynthesisEngineTests
 
     /// <summary>
     ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> short-circuits to an empty
-    ///     <see cref="BackendAudio"/>, never running the ONNX graph at all, when every word of
-    ///     <paramref name="text"/> is absent from the embedded lexicon and so produces zero
-    ///     phoneme tokens.
+    ///     <see cref="BackendAudio"/>, never running the ONNX graph at all, when the text has nothing
+    ///     to say (empty, or only a character the voice has no sound for).
     /// </summary>
     [Theory]
     [InlineData("")]
-    [InlineData("notarealenglishwordxyz")]
+    [InlineData("\U0001F600")]
     public void Generate_ZeroTokenText_ReturnsEmptyAudio(string text)
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
-        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles());
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
 
         // Act
         var audio = engine.Generate(text, 1.0f, speakerId: 0);
@@ -156,6 +120,23 @@ public sealed class OnnxKokoroSynthesisEngineTests
         // Assert
         Assert.Empty(audio.Samples);
         Assert.Equal(24000, audio.SampleRate);
+    }
+
+    /// <summary>
+    ///     Proves that a word absent from the dictionary is still spoken (never silently dropped).
+    /// </summary>
+    [Fact]
+    public void Generate_UnknownWord_StillProducesAudio()
+    {
+        // Arrange
+        using var session = new InferenceSession(FixtureModelPath);
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
+
+        // Act
+        var audio = engine.Generate("notarealenglishwordxyz", 1.0f, speakerId: 0);
+
+        // Assert
+        Assert.NotEmpty(audio.Samples);
     }
 
     /// <summary>
@@ -168,11 +149,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
-        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles());
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => engine.Generate(null!, 1.0f, speakerId: 0));
@@ -188,11 +165,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     {
         // Arrange
         var session = new InferenceSession(FixtureModelPath);
-        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles());
+        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
         engine.Dispose();
 
         // Act & Assert
@@ -208,11 +181,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     {
         // Arrange
         var session = new InferenceSession(FixtureModelPath);
-        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles());
+        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
 
         // Act
         engine.Dispose();
@@ -250,15 +219,12 @@ public sealed class OnnxKokoroSynthesisEngineTests
     public void Generate_MultiRowVoice_SelectsRowByTokenCount()
     {
         // Arrange
-        var vocabulary = new KokoroPhonemeVocabulary();
-        var phonemizer = new KokoroLexiconPhonemizer();
-        var tokenCount = vocabulary.ToTokenIds(phonemizer.Phonemize("cat").Phonemes).Count;
-        Assert.True(tokenCount > 0);
+        var pipeline = NewPipeline();
+        var tokenCount = Assert.Single(pipeline.ToTokenIds("cat", null)).Count;
         using var session = new InferenceSession(FixtureModelPath);
         using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
             session,
-            vocabulary,
-            phonemizer,
+            pipeline,
             new Dictionary<int, float[]> { [0] = BuildRowIndexedVoice(rowCount: tokenCount + 3) });
 
         // Act
@@ -276,15 +242,12 @@ public sealed class OnnxKokoroSynthesisEngineTests
     public void Generate_ShortVoice_ClampsToLastRow()
     {
         // Arrange
-        var vocabulary = new KokoroPhonemeVocabulary();
-        var phonemizer = new KokoroLexiconPhonemizer();
-        var tokenCount = vocabulary.ToTokenIds(phonemizer.Phonemize("cat").Phonemes).Count;
-        Assert.True(tokenCount > 0);
+        var pipeline = NewPipeline();
+        var tokenCount = Assert.Single(pipeline.ToTokenIds("cat", null)).Count;
         using var session = new InferenceSession(FixtureModelPath);
         using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
             session,
-            vocabulary,
-            phonemizer,
+            pipeline,
             new Dictionary<int, float[]> { [0] = BuildRowIndexedVoice(rowCount: tokenCount) });
 
         // Act
@@ -305,8 +268,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
         using var session = new InferenceSession(FixtureModelPath);
         using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
             session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
+            NewPipeline(),
             new Dictionary<int, float[]> { [3] = Enumerable.Repeat(7.0f, 256).ToArray() });
 
         // Act
@@ -318,6 +280,51 @@ public sealed class OnnxKokoroSynthesisEngineTests
     }
 
     /// <summary>
+    ///     Proves that the annotated path speaks the text with the annotations: a replacement annotation changes
+    ///     what is phonemized, so the style row chosen by the token count differs from the plain call.
+    /// </summary>
+    [Fact]
+    public void GenerateAnnotated_Replacement_IsSpokenAsReplaced()
+    {
+        // Arrange
+        using var session = new InferenceSession(FixtureModelPath);
+        using var annotatedEngine = new OnnxKokoroSynthesisEngine(
+            session,
+            NewPipeline(),
+            new Dictionary<int, float[]> { [0] = BuildRowIndexedVoice(rowCount: 400) });
+        var annotations = new[] { new SegmentAnnotation(0, 4, "en.norm", "twenty twenty-six") };
+
+        // Act
+        var plain = annotatedEngine.Generate("2026", 1.0f, speakerId: 0);
+        var annotated = annotatedEngine.GenerateAnnotated("2026", annotations, 1.0f, speakerId: 0);
+
+        // Assert: the replacement is much longer than four digits spoken one by one
+        Assert.NotEmpty(plain.Samples);
+        Assert.NotEmpty(annotated.Samples);
+        Assert.True(annotated.Samples[0] > plain.Samples[0], "The annotated text should phonemize to more tokens.");
+    }
+
+    /// <summary>
+    ///     Proves that a segment that phonemizes to more tokens than the model accepts is spoken in parts rather
+    ///     than truncated: every part is one run of the graph (the fixture returns one style row per run).
+    /// </summary>
+    [Fact]
+    public void Generate_TextBeyondTokenLimit_IsSpokenInSeveralParts()
+    {
+        // Arrange
+        using var session = new InferenceSession(FixtureModelPath);
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
+        var text = string.Join(' ', Enumerable.Repeat("The cat sat on the mat, and the dog barked.", 40));
+
+        // Act
+        var audio = engine.Generate(text, 1.0f, speakerId: 0);
+
+        // Assert
+        Assert.Equal(0, audio.Samples.Length % 256);
+        Assert.True(audio.Samples.Length / 256 >= 3, "About 1,000 tokens need at least three runs of the graph.");
+    }
+
+    /// <summary>
     ///     Proves that disposing the engine releases its ONNX Runtime session, so the session can
     ///     no longer be used.
     /// </summary>
@@ -326,11 +333,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     {
         // Arrange
         var session = new InferenceSession(FixtureModelPath);
-        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            SingleVoiceStyles());
+        ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(session, NewPipeline(), SingleVoiceStyles());
 
         // Act
         engine.Dispose();
@@ -353,6 +356,9 @@ public sealed class OnnxKokoroSynthesisEngineTests
 
     /// <summary>Builds a single-voice style dictionary with one all-zero 256-float row.</summary>
     private static Dictionary<int, float[]> SingleVoiceStyles() => new() { [0] = new float[256] };
+
+    /// <summary>Builds the shipped phoneme pipeline.</summary>
+    private static KokoroPhonemePipeline NewPipeline() => new(new KokoroPhonemeVocabulary());
 
     /// <summary>
     ///     Resolves the real installed model directory using the same default store root
@@ -383,7 +389,8 @@ public sealed class OnnxKokoroSynthesisEngineTests
     ///     for the equivalent always-run synthetic-fixture test) synthesizes non-empty, real
     ///     24000 Hz audio for known English text through
     ///     <see cref="ProductionKokoroModel.CreateBackend"/> and
-    ///     <see cref="ISynthesisBackend.Generate"/> together. Skipped (not failed) when the
+    ///     <see cref="ISynthesisBackend.Generate"/> together, and that the two readings of a
+    ///     heteronym sound different. Skipped (not failed) when the
     ///     real model is not installed, matching this repository's established Sherpa
     ///     real-model-skip convention.
     /// </summary>
@@ -405,5 +412,6 @@ public sealed class OnnxKokoroSynthesisEngineTests
         // Assert
         Assert.NotEmpty(audio.Samples);
         Assert.Equal(24000, audio.SampleRate);
+        Assert.Contains(audio.Samples, sample => Math.Abs(sample) > 0.01f);
     }
 }

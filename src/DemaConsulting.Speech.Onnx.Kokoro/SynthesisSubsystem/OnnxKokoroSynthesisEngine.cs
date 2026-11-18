@@ -25,14 +25,15 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.SynthesisSubsystem;
 ///     (<c>24000</c>), confirmed the same way.
 ///     <para>
 ///     <b>Phonemization is owned entirely by this class's constructor-supplied
-///     <see cref="KokoroLexiconPhonemizer"/></b>, not by the ONNX graph itself (unlike sherpa-onnx,
-///     which bundles phonemization inside its own native library) - see that class's remarks for
-///     why a verified lexicon lookup is used instead of a hand-written grapheme-to-phoneme
-///     implementation, and for this package's honestly-documented Stage-1 out-of-vocabulary-word
-///     limitation.
+///     <see cref="KokoroPhonemePipeline"/></b>, not by the ONNX graph itself (unlike sherpa-onnx,
+///     which bundles phonemization inside its own native library): English phonemization from the
+///     CMU Pronouncing Dictionary, rendered as Kokoro's phoneme symbols. As an
+///     <see cref="IAnnotatedSynthesisBackend"/> the engine uses the annotations of the model's English text
+///     analysis (spoken forms of numbers and abbreviations, the chosen reading of each heteronym); without
+///     annotations the text is spoken as written, with default readings.
 ///     </para>
 /// </remarks>
-internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
+internal sealed class OnnxKokoroSynthesisEngine : IAnnotatedSynthesisBackend
 {
     /// <summary>This model's own fixed output sample rate, in Hz, confirmed from its own README and this package's validation spike.</summary>
     internal const int SampleRate = 24000;
@@ -59,8 +60,7 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
     private const string SpeedTensorName = "speed";
 
     private readonly InferenceSession _session;
-    private readonly KokoroPhonemeVocabulary _vocabulary;
-    private readonly KokoroLexiconPhonemizer _phonemizer;
+    private readonly KokoroPhonemePipeline _pipeline;
     private readonly IReadOnlyDictionary<int, float[]> _voiceStylesBySpeakerId;
     private bool _disposed;
 
@@ -70,8 +70,7 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
     ///     ownership of <paramref name="session"/> (disposed together with this engine).
     /// </summary>
     /// <param name="session">The loaded ONNX Runtime session for Kokoro v1.0's model graph. Must not be null.</param>
-    /// <param name="vocabulary">The phoneme character -&gt; token id vocabulary. Must not be null.</param>
-    /// <param name="phonemizer">The text -&gt; phoneme-string converter. Must not be null.</param>
+    /// <param name="pipeline">The text -&gt; phoneme token ids converter. Must not be null.</param>
     /// <param name="voiceStylesBySpeakerId">
     ///     Every installed voice's raw style-vector file contents (each a flattened
     ///     <c>(rows, 256)</c> float32 array, read directly from that voice's <c>.bin</c> file),
@@ -86,13 +85,11 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
     /// </exception>
     public OnnxKokoroSynthesisEngine(
         InferenceSession session,
-        KokoroPhonemeVocabulary vocabulary,
-        KokoroLexiconPhonemizer phonemizer,
+        KokoroPhonemePipeline pipeline,
         IReadOnlyDictionary<int, float[]> voiceStylesBySpeakerId)
     {
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(vocabulary);
-        ArgumentNullException.ThrowIfNull(phonemizer);
+        ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(voiceStylesBySpeakerId);
         if (voiceStylesBySpeakerId.Count == 0)
         {
@@ -102,8 +99,7 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
         }
 
         _session = session;
-        _vocabulary = vocabulary;
-        _phonemizer = phonemizer;
+        _pipeline = pipeline;
         _voiceStylesBySpeakerId = voiceStylesBySpeakerId;
     }
 
@@ -112,36 +108,59 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     An empty <paramref name="text"/>, or text whose every word is absent from the embedded
-    ///     lexicon (see <see cref="KokoroLexiconPhonemizer"/>'s remarks), produces no phoneme
-    ///     tokens at all; this method recognizes that case and returns an empty
-    ///     <see cref="BackendAudio"/> directly rather than running the ONNX graph on a
-    ///     content-free, all-padding input.
+    ///     Speaks <paramref name="text"/> as written: every word gets its default reading and nothing is
+    ///     normalized (numbers are only as good as the text). Text with nothing to say - empty, or only
+    ///     characters the voice has no sound for - returns an empty <see cref="BackendAudio"/> directly
+    ///     rather than running the ONNX graph on a content-free, all-padding input.
     /// </remarks>
     public BackendAudio Generate(string text, float speed, int speakerId)
     {
         ArgumentNullException.ThrowIfNull(text);
+        return Synthesize(text, null, speed, speakerId);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Uses the <c>en.norm</c>, <c>en.spell</c>, <c>en.reading</c> and <c>en.pron</c> annotations of
+    ///     <c>DemaConsulting.Speech.Text.En</c> (offsets relative to <paramref name="text"/>) and ignores
+    ///     every other kind. A segment whose phonemes exceed the model's token limit is synthesized in
+    ///     parts, split between words, and the parts' audio is joined.
+    /// </remarks>
+    public BackendAudio GenerateAnnotated(string text, IReadOnlyList<SegmentAnnotation> annotations, float speed, int speakerId)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(annotations);
+        return Synthesize(text, annotations, speed, speakerId);
+    }
+
+    /// <summary>
+    ///     Phonemizes <paramref name="text"/> and runs the graph once per part.
+    /// </summary>
+    private BackendAudio Synthesize(string text, IReadOnlyList<SegmentAnnotation>? annotations, float speed, int speakerId)
+    {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var (phonemes, _) = _phonemizer.Phonemize(text);
-        var ids = _vocabulary.ToTokenIds(phonemes);
-        if (ids.Count == 0)
+        var parts = _pipeline.ToTokenIds(text, annotations);
+        List<float[]> audio = [];
+        foreach (var ids in parts)
         {
-            return new BackendAudio([], SampleRate);
+            var paddedIds = new long[ids.Count + 2];
+            paddedIds[0] = KokoroPhonemeVocabulary.PadTokenId;
+            for (var i = 0; i < ids.Count; i++)
+            {
+                paddedIds[i + 1] = ids[i];
+            }
+
+            paddedIds[^1] = KokoroPhonemeVocabulary.PadTokenId;
+            audio.Add(RunInference(paddedIds, SelectStyleVector(speakerId, ids.Count), speed));
         }
 
-        var paddedIds = new long[ids.Count + 2];
-        paddedIds[0] = KokoroPhonemeVocabulary.PadTokenId;
-        for (var i = 0; i < ids.Count; i++)
+        return audio.Count switch
         {
-            paddedIds[i + 1] = ids[i];
-        }
-
-        paddedIds[^1] = KokoroPhonemeVocabulary.PadTokenId;
-
-        var samples = RunInference(paddedIds, SelectStyleVector(speakerId, ids.Count), speed);
-
-        return new BackendAudio(samples, SampleRate);
+            0 => new BackendAudio([], SampleRate),
+            1 => new BackendAudio(audio[0], SampleRate),
+            _ => new BackendAudio(audio.SelectMany(samples => samples).ToArray(), SampleRate),
+        };
     }
 
     private float[] RunInference(long[] paddedIds, float[] style, float speed)

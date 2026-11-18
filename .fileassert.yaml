@@ -38,13 +38,14 @@ tests:
               min: 1
               max: 1
               text:
-                - contains: "SPDX-License-Identifier: MIT AND Apache-2.0 AND BSD-2-Clause"
+                - contains: "SPDX-License-Identifier: MIT AND Apache-2.0\n"
                 - contains: "THIRD-PARTY-NOTICES.md"
             - pattern: "THIRD-PARTY-NOTICES.md"
               min: 1
               max: 1
               text:
-                - contains: "Carnegie Mellon University"
+                - contains: "Kokoro-82M"
+                - contains: "Apache License"
             - pattern: "DemaConsulting.Speech.Onnx.Kokoro.nuspec"
               min: 1
               max: 1

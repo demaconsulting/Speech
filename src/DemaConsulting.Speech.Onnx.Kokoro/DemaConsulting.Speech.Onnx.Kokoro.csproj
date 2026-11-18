@@ -16,8 +16,10 @@
     <Description>Kokoro-82M v1.0 ONNX text-to-speech model for DemaConsulting.Speech, run
       directly through ONNX Runtime with no bundled native inference engine (unlike
       DemaConsulting.Speech.Sherpa's sherpa-onnx-backed models). This package owns the full
-      text-to-speech pipeline for this one model family itself - phonemization (via an embedded,
-      verified word-to-phoneme lexicon), tokenization, and ONNX Runtime inference - installed into
+      text-to-speech pipeline for this one model family itself - English text analysis (numbers,
+      dates, abbreviations and heteronym readings, from DemaConsulting.Speech.Text.En), phonemization
+      (from the CMU Pronouncing Dictionary, through DemaConsulting.Speech.Phonemes.En), tokenization,
+      and ONNX Runtime inference - installed into
       a SpeechModelCatalog via the AddKokoroModels() extension method. Reference this package
       alongside DemaConsulting.Speech to get this model out of the box; core DemaConsulting.Speech
       itself ships with zero built-in models and has no dependency on ONNX Runtime.</Description>
@@ -55,6 +57,25 @@
     <SBOMPackageSupplier>Organization: $(Company)</SBOMPackageSupplier>
   </PropertyGroup>
 
+  <!-- Prerelease-only packing (TEMPORARY GUARD, the same as DemaConsulting.Speech.Text.En and
+       DemaConsulting.Speech.Phonemes.En). This package references both, and through DemaConsulting.Speech.Text.En
+       the DemaConsulting.PartOfSpeech package, which is published only as 0.1.0-beta.N; that dependency flows
+       through to this package's own dependency list. A stable package may not depend on a prerelease package
+       (NuGet NU5104), so this project is packable only when the package version carries a prerelease label. A
+       stable version skips this project (the other packages still pack); a prerelease such as 1.0.0-beta.1 packs
+       it. The effective version is PackageVersion when given (as the workflows do) and Version otherwise; SemVer
+       build metadata after '+' is ignored, so only a hyphen in the version proper counts. The local default
+       Version of 0.0.0 is stable, so a plain local pack skips this project unless a prerelease version is passed.
+       REMOVE this guard together with the Text.En and Phonemes.En guards once DemaConsulting.PartOfSpeech ships
+       a stable release. -->
+  <PropertyGroup>
+    <KokoroEffectiveVersion>$(Version)</KokoroEffectiveVersion>
+    <KokoroEffectiveVersion Condition="'$(PackageVersion)' != ''">$(PackageVersion)</KokoroEffectiveVersion>
+    <KokoroVersionCore>$(KokoroEffectiveVersion.Split('+')[0])</KokoroVersionCore>
+    <IsPackable>false</IsPackable>
+    <IsPackable Condition="$(KokoroVersionCore.Contains('-'))">true</IsPackable>
+  </PropertyGroup>
+
   <!-- Build Tool Dependencies -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
@@ -70,22 +91,20 @@
   <ItemGroup>
     <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx\DemaConsulting.Speech.Onnx.csproj" />
+    <!-- English text analysis (the model's ITextAnalyzer) and English phonemization with the renderer for
+         Kokoro's phoneme symbols. Phonemes.En already depends on Text.En; the direct reference states that this
+         package uses the analyzer itself. -->
+    <ProjectReference Include="..\DemaConsulting.Speech.Text.En\DemaConsulting.Speech.Text.En.csproj" />
+    <ProjectReference Include="..\DemaConsulting.Speech.Phonemes.En\DemaConsulting.Speech.Phonemes.En.csproj" />
   </ItemGroup>
 
   <!-- Embedded Resources -->
   <ItemGroup>
     <!-- Kokoro v1.0's own character-level IPA phoneme vocabulary (tokenizer.json), downloaded
          from onnx-community/Kokoro-82M-v1.0-ONNX (Apache-2.0) and re-embedded verbatim so this
-         package needs no separate download for the vocabulary at runtime. -->
+         package needs no separate download for the vocabulary at runtime. See
+         THIRD-PARTY-NOTICES.md for the notice its license requires. -->
     <EmbeddedResource Include="Resources\kokoro-v1.0-tokenizer.json" />
-    <!-- A verified word -> IPA-phoneme-string lexicon, precomputed offline by running the real
-         misaki.en.G2P tool (Apache-2.0; the same phonemizer Kokoro's own reference pipeline uses)
-         over every single-pronunciation, purely-alphabetic word in the CMUdict word list (BSD-style
-         license). Gzip-compressed (TSV compresses well) to keep the shipped package small;
-         decompressed once, lazily, at first use. See KokoroLexiconPhonemizer's remarks for why this
-         is looked up rather than computed from hand-written phoneme rules, and
-         THIRD-PARTY-NOTICES.md for the notices the licenses of this data require. -->
-    <EmbeddedResource Include="Resources\kokoro-en-lexicon.tsv.gz" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->

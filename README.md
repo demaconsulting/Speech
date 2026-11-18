@@ -52,7 +52,10 @@ dotnet add package DemaConsulting.Speech.Sherpa
 speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate, sibling package supplying the four
 sherpa-onnx-backed models used by this README's examples (and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies
 they require); calling `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
-`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via `.AddKokoroModels()`,
+`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via `.AddKokoroModels()`
+(it analyzes the English text with `DemaConsulting.Speech.Text.En` - numbers, dates, abbreviations and heteronyms such
+as the noun and the verb `record` - and phonemizes it with `DemaConsulting.Speech.Phonemes.En`; its British voices
+speak General American phonemes, so expect an American pronunciation in a British voice),
 and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime streaming NVIDIA Nemotron 3.5
 ASR recognition model via `.AddNemotronSttModels()`. The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package
 adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatterboxTurboModels(options)`. A host that
@@ -558,11 +561,16 @@ standards, and the pull request process.
 Copyright (c) DEMA Consulting. Licensed under the MIT License. See [LICENSE][link-license] for
 details.
 
-The `DemaConsulting.Speech.Onnx.Kokoro` package embeds data derived from the CMU Pronouncing Dictionary
-(a BSD-style license) and generated with misaki (Apache-2.0), and ships their license texts and attribution in
-its `THIRD-PARTY-NOTICES.md` file at the package root. misaki does not document the upstream provenance of its
-own dictionaries, which that file explains; the Kokoro lexicon is scheduled to be replaced by one generated solely
-from the CMU Pronouncing Dictionary.
+The `DemaConsulting.Speech.Onnx.Kokoro` package embeds the Kokoro v1.0 phoneme vocabulary (Apache-2.0) and ships its
+license text and attribution in its `THIRD-PARTY-NOTICES.md` file at the package root. Its pronunciations come from the
+`DemaConsulting.Speech.Phonemes.En` package (derived from the CMU Pronouncing Dictionary, a BSD-style license, with
+the notice in that package) and its English text analysis from `DemaConsulting.Speech.Text.En`; both packages carry
+their own license files. No pronunciation data of the misaki project is used.
+
+The `DemaConsulting.Speech.Phonemes.En` package (pre-release) declares `MIT AND LicenseRef-CMUdict` in its
+`PACKAGE-LICENSE.md`: its code is under the MIT License and its embedded pronunciation lexicon is derived from the CMU
+Pronouncing Dictionary, whose license text and the statement of the changes are in the package's
+`THIRD-PARTY-NOTICES.md`.
 
 The `DemaConsulting.Speech.Text.En` package (pre-release) declares `MIT AND CC-BY-3.0-US` in its `PACKAGE-LICENSE.md`.
 Its code and two small lexicon tables (abbreviations and acronyms) that DEMA Consulting wrote from scratch are under the

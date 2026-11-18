@@ -3,6 +3,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.SynthesisSubsystem;
 using DemaConsulting.Speech.Onnx.OnnxRuntimeSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 using Microsoft.ML.OnnxRuntime;
 
 namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
@@ -22,8 +23,9 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     phonemizer at all: the sherpa-onnx v0.19 archive bundles <c>espeak-ng-data</c> and performs
 ///     phonemization entirely inside its native library, whereas this v1.0 ONNX export performs
 ///     only the final waveform-generation forward pass, leaving text-to-phoneme conversion
-///     entirely to the caller. This class owns that responsibility itself, via the embedded
-///     <see cref="KokoroLexiconPhonemizer"/> - see that class's remarks for the full rationale.
+///     entirely to the caller. This class owns that responsibility itself: its text analysis
+///     (<see cref="TextAnalyzer"/>) and the <see cref="OnnxKokoroSynthesisEngine"/>'s English phonemization
+///     (from the CMU Pronouncing Dictionary, rendered as Kokoro's phoneme symbols).
 ///     <para>
 ///     <b>Download provenance</b>: real files are published at
 ///     <c>https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX</c> (resolved via its
@@ -46,12 +48,16 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     <para>
 ///     <b>Voice subset (Stage 2)</b>: this release ships 54 named voices across multiple
 ///     languages; this class declares only its 29 American/British <b>English</b> voices,
-///     because its embedded <see cref="KokoroLexiconPhonemizer"/> only converts English text
+///     because its English phonemization only converts English text
 ///     to phonemes - feeding, say, the model's Japanese or Mandarin voices through an
 ///     English-only phonemizer would mispronounce their own language's text, so those 25
 ///     non-English voices are deliberately left undeclared rather than silently mismatched to
 ///     a phonemizer that cannot serve them. A later class supporting another source language
 ///     would phonemize differently and could then declare its own matching voice subset.
+///     <b>Caveat for the British voices</b>: the phonemes are always General American, so a British voice
+///     speaks American pronunciations in its own voice quality (for example the <c>r</c> in <c>car</c> is
+///     pronounced). Their listening quality has not been evaluated separately; British English phonemes
+///     are deferred.
 ///     Adding a further English voice later is purely additive: download and verify its
 ///     <c>.bin</c> file, add one <see cref="VoiceOrder"/>/<see cref="VoiceLabels"/> entry and
 ///     one <see cref="DownloadDescriptor"/> file entry; no other code in this class needs to
@@ -103,7 +109,7 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     ///     This package's own verified voice subset, in <see cref="DownloadDescriptor"/>/speaker-id
     ///     order (index = the integer speaker id <see cref="ISynthesisModel.ResolveSpeakerId"/>
     ///     resolves a selection to). Limited to the model's American/British English voices,
-    ///     because this class's embedded <see cref="KokoroLexiconPhonemizer"/> only phonemizes
+    ///     because this class's English phonemization only handles
     ///     English text - see the type-level remarks for why the model's remaining
     ///     non-English-language voices are out of scope for this class.
     /// </summary>
@@ -131,6 +137,18 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
         "Daniel (British male)", "Fable (British male)", "George (British male)",
         "Lewis (British male)",
     ];
+
+    /// <summary>
+    ///     The shared English text analyzer: created on first use (the analyzer loads its data lazily) and then
+    ///     shared by every instance, because it is immutable and thread-safe. It selects the normalization and
+    ///     reading annotations the Kokoro phonemization uses (not the part-of-speech annotations, which only the
+    ///     classifier needs internally).
+    /// </summary>
+    private static readonly Lazy<EnglishTextAnalyzer> SharedAnalyzer = new(
+        () => new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions
+        {
+            Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading,
+        }));
 
     /// <summary>
     ///     The execution provider names this instance attempts, in order, before falling back to
@@ -181,6 +199,14 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
 
     /// <inheritdoc/>
     public Uri? LicenseUrl { get; } = new("https://www.apache.org/licenses/LICENSE-2.0");
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     The English text analysis of <c>DemaConsulting.Speech.Text.En</c>: it writes out numbers, dates,
+    ///     currency and abbreviations and chooses the reading of each heteronym (<c>record</c> the noun or the
+    ///     verb), which the synthesis engine uses when it phonemizes the text.
+    /// </remarks>
+    public ITextAnalyzer? TextAnalyzer => SharedAnalyzer.Value;
 
     /// <inheritdoc/>
     public SpeechModelRole Role => SpeechModelRole.Synthesis;
@@ -356,12 +382,12 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     ///     Runtime session for the downloaded model graph (via
     ///     <see cref="OnnxExecutionProviderSelector"/>, using this instance's own constructor
     ///     -supplied preferred provider names), loads this model's embedded phoneme vocabulary and
-    ///     lexicon phonemizer, and reads every declared voice's style-vector file into memory.
+    ///     English phonemization, and reads every declared voice's style-vector file into memory.
     /// </summary>
     /// <remarks>
     ///     The ONNX session is created before any voice-style file is read, so a missing or
     ///     unreadable voice file (or any other failure reading voices/constructing the vocabulary
-    ///     or phonemizer) can still occur after the session already exists. This method holds the
+    ///     or phonemization) can still occur after the session already exists. This method holds the
     ///     session in a local variable across that later work and disposes it itself in a
     ///     <see langword="catch"/> block before rethrowing if any of it fails, since the engine
     ///     that would otherwise own the session's lifetime is never constructed on that path -
@@ -392,13 +418,12 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
 
             return new OnnxKokoroSynthesisEngine(
                 session,
-                new KokoroPhonemeVocabulary(),
-                new KokoroLexiconPhonemizer(),
+                new KokoroPhonemePipeline(new KokoroPhonemeVocabulary()),
                 voiceStylesBySpeakerId);
         }
         catch
         {
-            // Voice-file loading (or vocabulary/phonemizer construction) failed after the ONNX
+            // Voice-file loading (or vocabulary/pipeline construction) failed after the ONNX
             // session was already created: ownership of the session never passed to the engine,
             // since the engine's constructor is never reached, so this method - not the
             // never-constructed engine - must dispose it here rather than leak the native
