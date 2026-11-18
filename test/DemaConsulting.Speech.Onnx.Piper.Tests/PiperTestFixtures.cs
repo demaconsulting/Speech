@@ -1,4 +1,5 @@
 using System.Text;
+using DemaConsulting.Speech.SynthesisSubsystem;
 using SharpCompress.Common;
 using SharpCompress.Common.Tar.Headers;
 using SharpCompress.Compressors;
@@ -40,6 +41,22 @@ internal static class PiperTestFixtures
         Directory.CreateDirectory(installedDirectory);
         File.WriteAllBytes(Path.Combine(installedDirectory, "en_US-libritts_r-medium.onnx"), BuildEchoModel());
         File.WriteAllText(Path.Combine(installedDirectory, "en_US-libritts_r-medium.onnx.json"), TrimmedConfigJson, Encoding.UTF8);
+    }
+
+    /// <summary>
+    ///     Decodes the output of the echo graph: <c>[ids (N), noise scale, length scale, noise width, speaker, N]</c>.
+    /// </summary>
+    /// <param name="audio">The audio an engine produced from one run of the echo graph.</param>
+    /// <returns>The phoneme ids the graph was fed, its three scales, the speaker and the length it was told.</returns>
+    public static (long[] Ids, float[] Scales, long Speaker, long Length) DecodeEcho(BackendAudio audio)
+    {
+        var samples = audio.Samples;
+        var idCount = samples.Length - 5;
+        return (
+            [.. samples.Take(idCount).Select(value => (long)value)],
+            [.. samples.Skip(idCount).Take(3)],
+            (long)samples[idCount + 3],
+            (long)samples[idCount + 4]);
     }
 
     /// <summary>

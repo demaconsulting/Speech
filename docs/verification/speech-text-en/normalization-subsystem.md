@@ -4,9 +4,10 @@
 
 The SpeechTextEn NormalizationSubsystem is verified through deterministic tests in
 `test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem` that need no network and no hardware. The
-subsystem-level tests in `NormalizationSubsystemTests.cs` exercise the six units together (the alignment
+subsystem-level tests in `NormalizationSubsystemTests.cs` exercise the eight units together (the alignment
 model, the text normalizer, the numeric expression recognizer, the number verbalizer, the abbreviation
-resolver and the acronym recognizer, with the real embedded lexicons) exactly as the analyzer drives them, but
+resolver, the acronym recognizer, the web address recognizer and the alphanumeric token recognizer, with the
+real embedded lexicons) exactly as the analyzer drives them, but
 without the analyzer, the tagger or the diagnostics reporter.
 
 **Test-only dependency on the real tokenizer.** The production normalization code takes plain token offsets and
@@ -36,7 +37,11 @@ they carry most of what the unit tests no longer enumerate:
   Journal` and the counted `Go see Jones St. Smith`), the credential rows (`cred-*`), Latin abbreviations, the
   abbreviation lexicon rows, the sentence-break rows (a sentence-final abbreviation ends its sentence and keeps its
   period, a title or `St.` before a name does not), operators, marks and adjacent marks, slash forms, ampersand and
-  dotted initialisms, case pairs such as `US` and `us`, the shouting rows (`acr-shouting-per-sentence`), dropped and
+  dotted initialisms, case pairs such as `US` and `us`, the shouting rows (`acr-shouting-per-sentence`), the web
+  address rows (`web-*`: a URL, an e-mail address, a `www` address, a bare domain, and file names that are not
+  domains), the identifier rows (`id-*`: `A4`, `B12`, `H2O`, `MP3`, `COVID-19`, `Catch-22`), the rows of a hyphenated
+  compound and a number with a glued letter (`num-hyphen-compound-and-k`), the square-feet row (`abbr-square-feet`),
+  dropped and
   invisible characters, clitic and elision apostrophes, plain text that must change nothing, an audio-tag
   placeholder, a surrogate pair, CRLF and the empty and blank texts;
 - the second file is authored from the documented reading policy (see *NumericExpressionRecognizer Design*), not
@@ -44,8 +49,9 @@ they carry most of what the unit tests no longer enumerate:
   and their invalid forms, decimals, ordinals, hash numbers, years with and without cues, decades, currency, units and
   their singular, plural and period forms, times, numeric and month-name dates, month and weekday abbreviations, ranges,
   phone numbers, dotted numbers, fractions), the limit rows at 15, 16, 64 and 65 digits, 32 and 33 fraction digits and
-  a 129-character token, every deferred form (Roman numerals, hyphenated compounds, `1e5`, `0x1F`, non-ASCII digits)
-  and the numeric sentence-break, adjacent-span, unit-period and invisible-character rows. The month-date rows pin the
+  a 129-character token, every deferred form (Roman numerals, `mid-1990s`, `1e5`, `0x1F`, non-ASCII digits), the
+  hyphenated-compound and glued-letter rows (`id-*` and `range-en-dash-bad-*`) and the numeric sentence-break,
+  adjacent-span, unit-period and invisible-character rows. The month-date rows pin the
   sentence-boundary rule (a period after `May` or a full month name ends the sentence and gives the next number no date
   reading) and the en-dash rows pin the both-endpoints-read rule.
 
@@ -92,6 +98,13 @@ row passes and the golden inputs contain every form of the abbreviation lexicon 
 tests cover), so adding a lexicon row without a test fails; the listed sentences break only where a sentence really
 ends; spelled spans are letter sequences and ampersand initialisms are decomposed with unchanged spoken text.
 
+**Web addresses and identifiers** (`AddressAndIdentifierReading`). Every golden row passes: a URL, an e-mail address, a
+`www` address and a bare domain are spoken as their pieces (the colon after the scheme stays, the slashes after it are
+dropped, a final sentence period stays the sentence's own), file names and dotted names with an unknown ending are
+unchanged, identifiers of letters and digits have their letters spelled and digits read, hyphenated names and
+compounds have their number read, a number with a glued letter is read and the letter spelled, and the random numeric
+texts, which contain these shapes, still satisfy every alignment invariant.
+
 **Numbers, currency, units, times and dates** (`NumberReading`, `CurrencyReading`, `TimeReading`). The spoken value of
 every numeric span contains only letters, spaces and the apostrophe of `o'clock`, from the closed vocabulary; the
 numeric sentence breaks fall only where the sentence ends (not inside `3.5`, `$1.25` or `Jan. 5, 2024`, but after
@@ -127,6 +140,21 @@ count, so one run reports them all. The third reads the embedded abbreviation le
 appears in some golden input (of either file, since the month and weekday forms are exercised by the numeric file),
 except a fixed list of forms (for example `Mrs`, `Rev.`, `Ste.`, `viz.`, `w/`) that the abbreviation-resolver unit tests
 cover.
+
+#### Web addresses and identifiers
+
+**Tests**: `NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity`,
+`NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts`,
+`NormalizationSubsystem_AlignmentContract_RandomNumericText_SatisfiesAllInvariants`
+
+The golden rows pin the readings: `Visit https://www.example.com/docs?id=7 today.` gives `Visit H T T P S:W W W dot
+example dot com slash docs question mark id equals 7 today.`, `Mail john.smith@example.com, now.` keeps its comma,
+`Visit example.com. Then relax.` keeps the sentence break after the domain, `Open report.pdf or Node.js now.` is
+unchanged, `Use paper A4 and vitamin B12 with H2O and MP3.` gives `A four`, `B twelve`, `H two O` and `M P three`,
+`COVID-19 and Catch-22 spread.` gives `COVID-nineteen and Catch-twenty two spread.`, and `Her 12-year-old ran 10K in
+24-hour heat.` gives `twelve-year-old` and `ten K`. The random numeric texts include addresses,
+identifiers, compounds and glued letters among their words, so a span of these rules that broke the alignment contract
+(whitespace, a colon, an overlap, a cut surrogate pair) fails there.
 
 #### Alignment contract on hostile and numeric text
 

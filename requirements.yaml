@@ -180,6 +180,14 @@ includes:
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.yaml
+  - docs/reqstream/speech-onnx-piper.yaml
+  - docs/reqstream/speech-onnx-piper/model-management-subsystem.yaml
+  - docs/reqstream/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.yaml
+  - docs/reqstream/speech-onnx-piper/model-management-subsystem/piper-voice-config.yaml
+  - docs/reqstream/speech-onnx-piper/synthesis-subsystem.yaml
+  - docs/reqstream/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml
@@ -224,6 +232,8 @@ includes:
   - docs/reqstream/speech-text-en/normalization-subsystem/number-verbalizer.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/abbreviation-resolver.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/acronym-recognizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/web-address-recognizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/tsv-table.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/text-en-data-set.yaml

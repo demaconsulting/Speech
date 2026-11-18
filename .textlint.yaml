@@ -238,12 +238,10 @@ ignorePaths:
   - data/text-en/external/**
 
 overrides:
-  # Kokoro lexicon phonemizer tests use deliberately unknown and misspelled words to prove the unknown-word handling
-  - filename: '**/{KokoroLexiconPhonemizerTests.cs,OnnxKokoroSynthesisEngineTests.cs,kokoro-lexicon-phonemizer.md,.textlint.yaml}'
+  # The Kokoro synthesis engine tests use a deliberately unknown word to prove that a word absent from the dictionary is still spoken
+  - filename: '**/{OnnxKokoroSynthesisEngineTests.cs,.textlint.yaml}'
     words:
-      - anothernotarealword
       - notarealenglishwordxyz
-      - recieve
   # The uppercase transcript restorer maps apostrophe-less recognizer tokens (for example 'THATS') to contractions
   - filename: >-
       **/{UppercaseTranscriptRestorer.cs,UppercaseTranscriptRestorerTests.cs,uppercase-transcript-restorer.md,recognizing-speech.md,.textlint.yaml}
@@ -428,6 +426,32 @@ overrides:
   - filename: '{src/DemaConsulting.Speech.Text.En/PACKAGE-LICENSE.md,src/DemaConsulting.Speech.Text.En/THIRD-PARTY-NOTICES.md,.textlint.yaml}'
     words:
       - tatoeba
+  # The Piper package, its tests and its documents: the voice's project and speaker names (the Rhasspy project's
+  # voice repository and the Lessac voice the libritts_r voice was fine-tuned from) and an invented word that proves
+  # an out-of-dictionary word is still spoken
+  - filename: >-
+      {src/DemaConsulting.Speech.Onnx.Piper/**,test/DemaConsulting.Speech.Onnx.Piper.Tests/**,docs/design/speech-onnx-piper.md,docs/design/speech-onnx-piper/**,docs/verification/speech-onnx-piper.md,docs/verification/speech-onnx-piper/**,docs/reqstream/speech-onnx-piper.yaml,docs/reqstream/speech-onnx-piper/**,.textlint.yaml}
+    words:
+      - lessac
+      - rhasspy
+      - zorblax
+  # The authors of the LibriTTS-R corpus, named in the Piper package notices because the voice's license (CC BY 4.0)
+  # requires the attribution and the corpus maintainers ask that the dataset paper is cited
+  - filename: '{src/DemaConsulting.Speech.Onnx.Piper/THIRD-PARTY-NOTICES.md,.textlint.yaml}'
+    words:
+      - ankur
+      - bacchiani
+      - bapna
+      - heiga
+      - karita
+      - kohei
+      - michiel
+      - morioka
+      - nobuyuki
+      - shigeki
+      - yatabe
+      - yifan
+      - zhang
   # The Phonemes.En package, its tests and tools, its documents and its data: terms of the pronunciation domain,
   # word-ending fragments of the sound rules (the suffix of a stem change, not prose), the magic number of the
   # lexicon image, invented and out-of-dictionary test words (a name, a brand, a spelling that proves the

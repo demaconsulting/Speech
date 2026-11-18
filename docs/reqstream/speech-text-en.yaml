@@ -181,6 +181,24 @@ sections:
           - SpeechTextEn_Analyze_OversizedNumbers_AreBoundedAndCounted
           - SpeechTextEn_SynthesisSession_NumbersAndSymbolsAtChunkCuts_AreNeverSplitOrLost
 
+      - id: SpeechTextEn-Normalization-AddressesAndIdentifiers
+        title: >-
+          The library shall annotate web addresses (URLs, e-mail addresses and bare domains with a known
+          top-level domain) with the spoken form of their pieces, and identifiers of capital letters and
+          digits and names joined to a number by a hyphen with their spelled letters and read numbers,
+          shall leave file names and other dotted names unchanged, and shall never rewrite the text.
+        tags: [system]
+        justification: |
+          A phoneme-driven model has no reading for "john.smith@example.com", "https://example.com/docs"
+          or "A4": its text front end would drop the punctuation or run the pieces together. The words of
+          an address stay words for the phonemizer, and only the separators and letters that are not
+          words are spoken, so the library, not each model package, owns the reading. A name such as
+          "report.pdf" or "Node.js" is not an address and must not be reworded.
+        children:
+          - SpeechTextEn-Normalization-AddressAndIdentifierReading
+        tests:
+          - SpeechTextEn_Analyze_WebAddressesAndIdentifiers_AreSpokenAsPiecesWithoutChangingText
+
       - id: SpeechTextEn-Normalization-SymbolsAndClitics
         title: >-
           The library shall give the spoken form of non-numeric symbols and of initialisms (spelled

@@ -37,7 +37,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
 
     /// <summary>Proves the catalog facts: id, role, no audio tags, CC BY 4.0 with its link, the shared English text analyzer.</summary>
     [Fact]
-    public void Model_CatalogFacts_AreDeclared()
+    public void OnnxPiperLibriTtsEnSynthesisModel_CatalogFacts_AreDeclared()
     {
         // Arrange
         ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -49,13 +49,14 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Equal("CC BY 4.0", model.LicenseName);
         Assert.Equal("https://creativecommons.org/licenses/by/4.0/", model.LicenseUrl?.ToString());
         Assert.Equal(22050, model.PreferredAudioFormat.SampleRate);
+        Assert.Equal(1, model.PreferredAudioFormat.ChannelCount);
         Assert.NotNull(model.TextAnalyzer);
         Assert.Same(model.TextAnalyzer, new OnnxPiperLibriTtsEnSynthesisModel().TextAnalyzer);
     }
 
     /// <summary>Proves the only parameter is an integer speaker selection from 0 to 903 whose default is 0.</summary>
     [Fact]
-    public void Model_Parameters_AreTheSpeakerSelectionOnly()
+    public void OnnxPiperLibriTtsEnSynthesisModel_Parameters_AreTheSpeakerSelectionOnly()
     {
         // Arrange
         var model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -83,7 +84,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
     [InlineData(double.NaN, 0)]
     [InlineData(double.PositiveInfinity, 0)]
     [InlineData("7", 0)]
-    public void ResolveSpeakerId_Value_ResolvesOrFallsBackToZero(object? value, int expected)
+    public void OnnxPiperLibriTtsEnSynthesisModel_ResolveSpeakerId_Value_ResolvesOrFallsBackToZero(object? value, int expected)
     {
         // Arrange
         ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -98,7 +99,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
 
     /// <summary>Proves the download descriptor names one pinned HTTPS file (a non-empty SHA-256) that the installer unpacks.</summary>
     [Fact]
-    public void Model_DownloadDescriptor_PinsOneHttpsArchive()
+    public void OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_PinsOneHttpsArchive()
     {
         // Arrange
         var model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -109,13 +110,12 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         // Assert
         Assert.Equal("https", file.Uri.Scheme);
         Assert.EndsWith(".tar.bz2", file.Uri.AbsolutePath, StringComparison.Ordinal);
-        Assert.Equal(64, file.Sha256Checksum.Length);
-        Assert.Matches("^[0-9a-f]{64}$", file.Sha256Checksum);
+        Assert.Equal("10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c", file.Sha256Checksum);
     }
 
     /// <summary>Proves the installer keeps only the graph and the configuration, flat in the installed directory, and removes the archive and everything else (the espeak-ng data, the token table).</summary>
     [Fact]
-    public async Task InstallAsync_ReleaseArchive_KeepsOnlyGraphAndConfiguration()
+    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ReleaseArchive_KeepsOnlyGraphAndConfiguration()
     {
         // Arrange
         var model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -140,7 +140,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
 
     /// <summary>Proves an entry path that tries to leave the installed directory still lands inside it, under its bare file name.</summary>
     [Fact]
-    public async Task InstallAsync_HostileEntryPath_StaysInsideInstalledDirectory()
+    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_HostileEntryPath_StaysInsideInstalledDirectory()
     {
         // Arrange
         var staging = Path.Combine(_root, "staging");
@@ -165,7 +165,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
     [InlineData("en_US-libritts_r-medium.onnx")]
     [InlineData("en_US-libritts_r-medium.onnx.json")]
     [InlineData("tokens.txt")]
-    public async Task InstallAsync_ArchiveMissingAFile_Throws(string onlyEntry)
+    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ArchiveMissingAFile_Throws(string onlyEntry)
     {
         // Arrange
         var model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -179,7 +179,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
 
     /// <summary>Proves a backend is created from an installed directory (with a stand-in graph) at the voice's 22,050 Hz.</summary>
     [Fact]
-    public void CreateBackend_InstalledDirectory_ReturnsBackendAtVoiceRate()
+    public void OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_InstalledDirectory_ReturnsBackendAtVoiceRate()
     {
         // Arrange
         PiperTestFixtures.WriteInstalledEchoVoice(_root);
@@ -193,9 +193,26 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.IsAssignableFrom<IAnnotatedSynthesisBackend>(backend);
     }
 
+    /// <summary>Proves a preferred execution provider that is not available is skipped and the backend is created on the CPU provider.</summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnavailablePreferredProvider_FallsBackToCpu()
+    {
+        // Arrange
+        PiperTestFixtures.WriteInstalledEchoVoice(_root);
+        ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel(["NotARealExecutionProvider"]);
+
+        // Act
+        using var backend = model.CreateBackend(_root);
+        var echo = PiperTestFixtures.DecodeEcho(backend.Generate("Hello there.", 1.0f, 0));
+
+        // Assert
+        Assert.Equal(22050, backend.SampleRate);
+        Assert.NotEmpty(echo.Ids);
+    }
+
     /// <summary>Proves loading fails clearly for an unusable installation: a missing directory argument, a configuration for another voice, a configuration that is not usable, and a missing graph.</summary>
     [Fact]
-    public void CreateBackend_UnusableInstallation_Throws()
+    public void OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnusableInstallation_Throws()
     {
         // Arrange
         ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel();

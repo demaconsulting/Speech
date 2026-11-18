@@ -37,6 +37,8 @@ public sealed class AbbreviationResolverTests
     [InlineData("Read Vol. 2 now.", "Vol", "Volume")]
     [InlineData("E.g. apples are good.", "E.g.", "For example")]
     [InlineData("Price n/a today.", "n/a", "not applicable")]
+    [InlineData("The 200 sq. ft. room is big.", "sq", "square")]
+    [InlineData("The 200 sq. ft. room is big.", "ft", "feet")]
     public void AbbreviationResolver_TryResolve_ListedForm_ReturnsSpokenForm(string text, string word, string spoken)
     {
         // Act

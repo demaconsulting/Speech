@@ -41,6 +41,11 @@ needs-review:
   - "data/phonemes-en/**/*.md"                                      # Phonemes.En data README (provenance, pins and rules)
   - "data/phonemes-en/*.tsv"                                        # Phonemes.En data manifest, reading tables, gap list and renderer corpora
   - "tools/DemaConsulting.Speech.Phonemes.En.Tools/README.md"       # Phonemes.En tools commands, gates and the local-only oracle rule
+  - "src/DemaConsulting.Speech.Onnx.Piper/PACKAGE-LICENSE.md"       # Piper package license file
+  - "src/DemaConsulting.Speech.Onnx.Piper/THIRD-PARTY-NOTICES.md"   # Piper third-party notices (voice attribution)
+  - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/*.tsv"    # Piper golden test data
+  - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/*.json"   # Piper voice configuration test data (trimmed real configuration)
+  - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/TestData/*.tsv"   # Kokoro golden test data
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
@@ -2656,6 +2661,7 @@ reviews:
       - "docs/verification/speech-onnx-kokoro.md"                # system verification
       - "src/DemaConsulting.Speech.Onnx.Kokoro/PACKAGE-LICENSE.md"       # package license file
       - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"   # third-party notices
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechOnnxKokoroTests.cs"  # system tests
 
   # SpeechOnnxKokoro-Design Review (one per system)
   - id: SpeechOnnxKokoro-Design
@@ -2737,23 +2743,191 @@ reviews:
 
   # SpeechOnnxKokoro-SynthesisSubsystem Review (one per subsystem)
   - id: SpeechOnnxKokoro-SynthesisSubsystem
-    title: >-
-      Review that SpeechOnnxKokoro SynthesisSubsystem Satisfies Subsystem Requirements
-      (note: this subsystem has exactly one unit, OnnxKokoroSynthesisEngine; its
-      requirements/design/verification/source/tests are intentionally folded into this
-      subsystem-level set rather than split into a redundant single-unit review-set)
+    title: Review that SpeechOnnxKokoro SynthesisSubsystem Satisfies Subsystem Requirements
     context:
       - "docs/design/speech-onnx-kokoro.md"
       - "docs/reqstream/speech-onnx-kokoro.yaml"
     paths:
-      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml"
-      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml"    # subsystem requirements
+      - "docs/design/speech-onnx-kokoro/synthesis-subsystem.md"         # subsystem design
+      - "docs/verification/speech-onnx-kokoro/synthesis-subsystem.md"   # subsystem verification
+      # The subsystem-level tests (SynthesisSubsystem_*) live in the engine's test file, which also holds its unit tests.
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
+
+  # SpeechOnnxKokoro-SynthesisSubsystem-OnnxKokoroSynthesisEngine Review (one per unit)
+  - id: SpeechOnnxKokoro-SynthesisSubsystem-OnnxKokoroSynthesisEngine
+    title: >-
+      Review that SpeechOnnxKokoro SynthesisSubsystem OnnxKokoroSynthesisEngine Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
       - "docs/design/speech-onnx-kokoro/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml"
       - "docs/design/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
-      - "docs/verification/speech-onnx-kokoro/synthesis-subsystem.md"
       - "docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
+
+  # SpeechOnnxKokoro-SynthesisSubsystem-KokoroPhonemePipeline Review (one per unit)
+  - id: SpeechOnnxKokoro-SynthesisSubsystem-KokoroPhonemePipeline
+    title: >-
+      Review that SpeechOnnxKokoro SynthesisSubsystem KokoroPhonemePipeline Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/design/speech-onnx-kokoro/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.yaml"
+      - "docs/design/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.md"
+      - "docs/verification/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.md"
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/KokoroPhonemePipeline.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/KokoroPhonemePipelineTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/TestData/kokoro-pipeline-golden.tsv"  # golden sentences
+
+  # SpeechOnnxPiper-Architecture Review (one per system)
+  - id: SpeechOnnxPiper-Architecture
+    title: Review that SpeechOnnxPiper Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-onnx-piper.yaml"                 # system requirements
+      - "docs/design/speech-onnx-piper.md"                      # system design
+      - "docs/verification/speech-onnx-piper.md"                # system verification
+      - "src/DemaConsulting.Speech.Onnx.Piper/PACKAGE-LICENSE.md"       # package license file
+      - "src/DemaConsulting.Speech.Onnx.Piper/THIRD-PARTY-NOTICES.md"   # third-party notices (voice attribution)
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SpeechOnnxPiperTests.cs"  # system tests
+
+  # SpeechOnnxPiper-Design Review (one per system)
+  - id: SpeechOnnxPiper-Design
+    title: Review that SpeechOnnxPiper Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-piper.yaml"
+    paths:
+      - "docs/design/speech-onnx-piper.md"                      # system design
+      - "docs/design/speech-onnx-piper/**/*.md"                 # all system design documents
+
+  # SpeechOnnxPiper-Verification Review (one per system)
+  - id: SpeechOnnxPiper-Verification
+    title: Review that SpeechOnnxPiper Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-piper.yaml"
+    paths:
+      - "docs/verification/speech-onnx-piper.md"                # system verification
+      - "docs/verification/speech-onnx-piper/**/*.md"           # all verification documents
+
+  # SpeechOnnxPiper-AllRequirements Review (one per system)
+  - id: SpeechOnnxPiper-AllRequirements
+    title: Review that All SpeechOnnxPiper Requirements are Complete
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/**/*.yaml"            # SpeechOnnxPiper subsystem/unit requirements files
+
+  # SpeechOnnxPiper-ModelManagementSubsystem Review (one per subsystem)
+  - id: SpeechOnnxPiper-ModelManagementSubsystem
+    title: >-
+      Review that SpeechOnnxPiper ModelManagementSubsystem Satisfies Subsystem Requirements
+      (covers also SpeechModelCatalogPiperExtensions, documented as a subsystem unit per the
+      SpeechOnnxKokoro convention)
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/model-management-subsystem.yaml"          # subsystem requirements
+      - "docs/design/speech-onnx-piper/model-management-subsystem.md"               # subsystem design
+      - "docs/verification/speech-onnx-piper/model-management-subsystem.md"         # subsystem verification
+      - "src/DemaConsulting.Speech.Onnx.Piper/SpeechModelCatalogPiperExtensions.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SpeechModelCatalogPiperExtensionsTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/ModelManagementSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/PiperTestFixtures.cs"          # stand-in graph and voice files
+
+  # SpeechOnnxPiper-ModelManagementSubsystem-OnnxPiperLibriTtsEnSynthesisModel Review (one per unit)
+  - id: SpeechOnnxPiper-ModelManagementSubsystem-OnnxPiperLibriTtsEnSynthesisModel
+    title: >-
+      Review that SpeechOnnxPiper ModelManagementSubsystem
+      OnnxPiperLibriTtsEnSynthesisModel Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/design/speech-onnx-piper/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+      - "docs/reqstream/speech-onnx-piper/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.yaml"
+      - "docs/design/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md"
+      - "docs/verification/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md"
+      - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModel.cs"
+      - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/PiperArchiveExtractor.cs"  # install helper of the same unit
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/PiperTestFixtures.cs"
+
+  # SpeechOnnxPiper-ModelManagementSubsystem-PiperVoiceConfig Review (one per unit)
+  - id: SpeechOnnxPiper-ModelManagementSubsystem-PiperVoiceConfig
+    title: >-
+      Review that SpeechOnnxPiper ModelManagementSubsystem PiperVoiceConfig Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/design/speech-onnx-piper/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+      - "docs/reqstream/speech-onnx-piper/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/model-management-subsystem/piper-voice-config.yaml"
+      - "docs/design/speech-onnx-piper/model-management-subsystem/piper-voice-config.md"
+      - "docs/verification/speech-onnx-piper/model-management-subsystem/piper-voice-config.md"
+      - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/PiperVoiceConfig.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/PiperVoiceConfigTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/en_US-libritts_r-medium.onnx.trimmed.json"  # real voice configuration, trimmed
+
+  # SpeechOnnxPiper-SynthesisSubsystem Review (one per subsystem)
+  - id: SpeechOnnxPiper-SynthesisSubsystem
+    title: Review that SpeechOnnxPiper SynthesisSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/synthesis-subsystem.yaml"       # subsystem requirements
+      - "docs/design/speech-onnx-piper/synthesis-subsystem.md"            # subsystem design
+      - "docs/verification/speech-onnx-piper/synthesis-subsystem.md"      # subsystem verification
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/SynthesisSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/PiperTestFixtures.cs"
+
+  # SpeechOnnxPiper-SynthesisSubsystem-OnnxPiperSynthesisEngine Review (one per unit)
+  - id: SpeechOnnxPiper-SynthesisSubsystem-OnnxPiperSynthesisEngine
+    title: >-
+      Review that SpeechOnnxPiper SynthesisSubsystem OnnxPiperSynthesisEngine Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/design/speech-onnx-piper/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+      - "docs/reqstream/speech-onnx-piper/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.yaml"
+      - "docs/design/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.md"
+      - "docs/verification/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.md"
+      - "src/DemaConsulting.Speech.Onnx.Piper/SynthesisSubsystem/OnnxPiperSynthesisEngine.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/OnnxPiperSynthesisEngineTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/DisposalTrackingInferenceSession.cs"
+
+  # SpeechOnnxPiper-SynthesisSubsystem-PiperPhonemePipeline Review (one per unit)
+  - id: SpeechOnnxPiper-SynthesisSubsystem-PiperPhonemePipeline
+    title: >-
+      Review that SpeechOnnxPiper SynthesisSubsystem PiperPhonemePipeline Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-piper.md"
+      - "docs/design/speech-onnx-piper/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-piper.yaml"
+      - "docs/reqstream/speech-onnx-piper/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.yaml"
+      - "docs/design/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.md"
+      - "docs/verification/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.md"
+      - "src/DemaConsulting.Speech.Onnx.Piper/SynthesisSubsystem/PiperPhonemePipeline.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/PiperPhonemePipelineTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/piper-pipeline-golden.tsv"  # golden sentences
 
   # SpeechOnnxChatterboxTurbo-Architecture Review (one per system)
   - id: SpeechOnnxChatterboxTurbo-Architecture
@@ -3578,6 +3752,38 @@ reviews:
       - "src/DemaConsulting.Speech.Text.En/Resources/acronyms.tsv"  # embedded acronym lexicon
       - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AcronymRecognizerTests.cs"
 
+  # SpeechTextEn-NormalizationSubsystem-WebAddressRecognizer Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-WebAddressRecognizer
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem WebAddressRecognizer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/web-address-recognizer.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/web-address-recognizer.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/web-address-recognizer.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/WebAddressRecognizer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/WebAddressRecognizerTests.cs"
+
+  # SpeechTextEn-NormalizationSubsystem-AlphanumericTokenRecognizer Review (one per unit)
+  - id: SpeechTextEn-NormalizationSubsystem-AlphanumericTokenRecognizer
+    title: >-
+      Review that SpeechTextEn NormalizationSubsystem AlphanumericTokenRecognizer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/normalization-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/normalization-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.yaml"
+      - "docs/design/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.md"
+      - "docs/verification/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.md"
+      - "src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AlphanumericTokenRecognizer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AlphanumericTokenRecognizerTests.cs"
+
   # SpeechTextEn-TrainingDataProvenance Review (one per system data set)
   # The large tables of data/text-en are not review files (see the needs-review note above); the reviewed
   # MANIFEST.tsv pins every one of them, so a change to any data file changes this review set's fingerprint.
@@ -3746,6 +3952,7 @@ reviews:
       - "docs/verification/speech-text-en/training-data-subsystem/leakage-checker.md"
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/LeakageChecker.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/LeakageCheckerTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/DirectoryLink.cs"  # directory link helper of the link tests
 
   # SpeechTextEn-TrainingDataSubsystem-CheckDataCommand Review (one per unit)
   - id: SpeechTextEn-TrainingDataSubsystem-CheckDataCommand
@@ -4059,6 +4266,7 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
       - "tools/DemaConsulting.Speech.Text.En.Trainer/ExternalEvaluationSubsystem/EvaluateExternalCommand.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/EvaluateExternalCommandTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/DirectoryLink.cs"  # directory link helper of the link tests
 
   # SpeechPhonemesEn-Architecture Review (one per system)
   - id: SpeechPhonemesEn-Architecture

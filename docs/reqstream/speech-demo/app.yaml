@@ -27,12 +27,13 @@ sections:
 
           - id: SpeechDemo-App-CatalogRegistration
             title: >-
-              When the demo starts, the model catalog panel shall list a model from each of the four
-              model families the demo offers (Sherpa, Kokoro, Nemotron speech-to-text and Chatterbox
-              Turbo).
+              When the demo starts, the model catalog panel shall list a model from each of the five
+              model families the demo offers (Sherpa, Kokoro, Piper, Nemotron speech-to-text and
+              Chatterbox Turbo).
             justification: |
               A composition root that forgot a family would present an apparently empty or
-              partial catalog.
+              partial catalog. The tests assert the literal model identifier of each family,
+              including the Piper model `piper-onnx-libritts-r-en-us-medium`.
             tests:
               - App_Compose_IsolatedLaunchOptions_CatalogListsEveryRegisteredModel
               - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels

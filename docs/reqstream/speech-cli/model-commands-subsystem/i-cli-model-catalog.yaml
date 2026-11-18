@@ -64,7 +64,9 @@ sections:
                   The model catalog shall enumerate every known model with its id, role, and
                   install state.
                 justification: |
-                  Every model command starts from the list of models the catalog offers.
+                  Every model command starts from the list of models the catalog offers: the
+                  Sherpa, Kokoro, Piper, Nemotron STT and Chatterbox Turbo model families the tool
+                  registers, which the test asserts by model id.
                 tests:
                   - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
 

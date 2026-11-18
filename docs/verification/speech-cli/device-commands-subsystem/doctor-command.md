@@ -22,13 +22,17 @@ runs the built tool against an isolated `--models-dir`.
   depends on the environment rather than on a fake: it passes because the `org.k2fsa.sherpa.onnx`
   package unconditionally depends on every platform's runtime package, so the real native asset is
   transitively copied into the test project's output on every supported runner. If the asset is
-  not packaged for the runner's platform, the test is skipped rather than failed.
+  not packaged for the runner's platform, the test is skipped rather than failed. The test
+  `DoctorCommand_Run_RawOnnxRuntimeInitializedFirst_SherpaNativeStillResolvable` additionally depends on the test
+  project carrying the managed `Microsoft.ML.OnnxRuntime` API transitively (through the CLI project and the raw ONNX
+  model packages) with Microsoft's native library, not sherpa's older one, deployed beside it.
 
 #### Acceptance Criteria
 
 The unit passes when a writable model store yields `HEALTHY` with exit code `0`; the store path,
 disk space, model counts and device counts appear in the output; the SherpaOnnx native library is
-reported resolvable through the real load path and its path resolution is correct; an unavailable
+reported resolvable through the real load path, also after the managed ONNX Runtime has been initialized, and its
+path resolution is correct; an unavailable
 PortAudio backend is an informational note that leaves the run healthy; an unwritable store is the
 sole `[FAIL]` and yields a non-zero exit code; throwing probes or catalogs degrade to
 "(could not be determined)" without changing the result; and a missing context, probe, catalog or
@@ -72,6 +76,18 @@ store path, an empty store path and an extra argument are rejected.
 
 **Expected**: The `[ OK ]` SherpaOnnx line is present (see the native-library coupling above). The test is
 skipped, not failed, on a runner where the native asset for the platform is not packaged.
+
+##### DoctorCommand_Run_RawOnnxRuntimeInitializedFirst_SherpaNativeStillResolvable
+
+**Scenario**: The managed Microsoft ONNX Runtime (the one the Kokoro, Piper, Nemotron and Chatterbox models use) is
+initialized in the test process first, which throws if the native library deployed with the host is older than the
+managed API; then the real doctor native-library check runs.
+
+**Expected**: The runtime reports a version string and the `[ OK ]` SherpaOnnx line is present, so the host's single
+native ONNX Runtime file serves both families. The test is skipped, not failed, on a runner where the sherpa native
+asset is not packaged for the platform. It is evidence for the platform it runs on only: it has been run on
+`win-x64`, while Linux and macOS use the same deployment mechanism and are checked by the continuous integration
+runs.
 
 ##### DoctorCommand_Run_NullCaptureProbe_ThrowsArgumentNullException
 

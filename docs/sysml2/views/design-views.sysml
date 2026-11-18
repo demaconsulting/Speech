@@ -11,6 +11,7 @@ package Speech {
         expose SpeechSherpa;
         expose SpeechOnnx;
         expose SpeechOnnxKokoro;
+        expose SpeechOnnxPiper;
         expose SpeechOnnxChatterboxTurbo;
         expose SpeechOnnxNemotronStt;
         expose SpeechTextEn;
@@ -154,6 +155,23 @@ package SpeechOnnxKokoro {
     }
 
     view KokoroSynthesisSubsystemView {
+        expose SynthesisSubsystem;
+    }
+}
+
+// SpeechOnnxPiper views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly. The subsystem views carry a 'Piper' prefix because rendered SVG
+// filenames are keyed by bare view name.
+package SpeechOnnxPiper {
+    view SpeechOnnxPiperView {
+        expose SpeechOnnxPiperSystem;
+    }
+
+    view PiperModelManagementSubsystemView {
+        expose ModelManagementSubsystem;
+    }
+
+    view PiperSynthesisSubsystemView {
         expose SynthesisSubsystem;
     }
 }

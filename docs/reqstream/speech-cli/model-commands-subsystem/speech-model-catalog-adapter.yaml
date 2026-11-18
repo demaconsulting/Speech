@@ -22,7 +22,8 @@ sections:
                 justification: |
                   Chatterbox Turbo is a voice-cloning model that a command-line user must be able
                   to find and use like any other model. The test asserts the Chatterbox model
-                  ids specifically, together with the other model families.
+                  ids specifically, together with a model of every other registered family
+                  (Sherpa, Kokoro, Piper and Nemotron STT).
                 tests:
                   - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
 

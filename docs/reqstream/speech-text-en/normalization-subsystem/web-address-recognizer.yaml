@@ -1,0 +1,56 @@
+---
+# Software Unit Requirements for WebAddressRecognizer
+#
+# These requirements describe the design-level behavior of the WebAddressRecognizer unit, the
+# stateless recognizer of URLs, e-mail addresses and bare domain names inside one token, with the
+# spoken form of each piece, decomposing the parent SpeechTextEn NormalizationSubsystem
+# requirements. It looks at one token only. Each requirement states one observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/WebAddressRecognizerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: WebAddressRecognizer Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-WebAddressRecognizer-Pieces
+                title: >-
+                  The WebAddressRecognizer class shall recognize a URL with an http, https or ftp
+                  scheme in any letter case, a leading www, an e-mail address and a bare domain
+                  whose last label is a known top-level domain, and shall give the scheme letters
+                  and a leading www as spelled letters, the two slashes after the scheme as a
+                  dropped replacement and each separator (dot, slash, at sign, dash, underscore,
+                  question mark, equals sign, ampersand, hash, plus, percent and tilde) as its own
+                  word, leaving the words between the separators to the caller, with spans that
+                  index the text through the token's offset, are in order, and never contain a
+                  colon, whitespace or a digit.
+                justification: |
+                  A phoneme model cannot say "https://www.example.com/docs?id=7" or
+                  "john.smith@example.com" from its characters. Speaking only the pieces that are not
+                  words keeps the words of the address pronounceable, the colon before a port stays
+                  a pause mark, and spans without whitespace or a colon can never be cut by the
+                  sentence chunker.
+                tests:
+                  - WebAddressRecognizer_Recognize_UrlWithScheme_SpellsSchemeAndDropsSlashes
+                  - WebAddressRecognizer_Recognize_LeadingWww_IsSpelledAndSeparatorsAreSpoken
+                  - WebAddressRecognizer_Recognize_EmailAddress_SpeaksDotsAndAtSign
+                  - WebAddressRecognizer_Recognize_BareDomainWithKnownTopLevelDomain_SpeaksEverySeparator
+                  - WebAddressRecognizer_Recognize_UrlWithPort_SpansAreOrderedAndNeverCoverColonOrDigits
+
+              - id: SpeechTextEn-Normalization-WebAddressRecognizer-Boundaries
+                title: >-
+                  The WebAddressRecognizer class shall not recognize a file name or a dotted name
+                  whose last label is not a known top-level domain, a number, a word, an e-mail
+                  address with an empty or malformed local part or domain, a domain label that
+                  starts with a hyphen or contains a space, a token shorter than six or longer than
+                  512 characters, and shall accept a token of exactly 512 characters.
+                justification: |
+                  "report.pdf", "Node.js" and "1.5.2.3" are everyday text that reads correctly as it
+                  is, so an address must be recognized only by its documented shape. A bound on the
+                  length keeps the work per token constant for hostile input.
+                tests:
+                  - WebAddressRecognizer_Recognize_NotAnAddress_ReturnsNull
+                  - WebAddressRecognizer_Recognize_TokenLengthLimits_AreEnforced

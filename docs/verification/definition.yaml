@@ -174,6 +174,14 @@ input-files:
   - docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md
   - docs/verification/speech-onnx-kokoro/synthesis-subsystem.md
   - docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md
+  - docs/verification/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.md
+  - docs/verification/speech-onnx-piper.md
+  - docs/verification/speech-onnx-piper/model-management-subsystem.md
+  - docs/verification/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md
+  - docs/verification/speech-onnx-piper/model-management-subsystem/piper-voice-config.md
+  - docs/verification/speech-onnx-piper/synthesis-subsystem.md
+  - docs/verification/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.md
+  - docs/verification/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.md
   - docs/verification/speech-onnx-nemotron-stt.md
   - docs/verification/speech-onnx-nemotron-stt/model-management-subsystem.md
   - docs/verification/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.md
@@ -206,6 +214,8 @@ input-files:
   - docs/verification/speech-text-en/normalization-subsystem/number-verbalizer.md
   - docs/verification/speech-text-en/normalization-subsystem/abbreviation-resolver.md
   - docs/verification/speech-text-en/normalization-subsystem/acronym-recognizer.md
+  - docs/verification/speech-text-en/normalization-subsystem/web-address-recognizer.md
+  - docs/verification/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.md
   - docs/verification/speech-text-en/training-data-subsystem.md
   - docs/verification/speech-text-en/training-data-subsystem/tsv-table.md
   - docs/verification/speech-text-en/training-data-subsystem/text-en-data-set.md

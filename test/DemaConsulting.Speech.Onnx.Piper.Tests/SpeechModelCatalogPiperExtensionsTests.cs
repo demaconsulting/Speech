@@ -30,26 +30,41 @@ public sealed class SpeechModelCatalogPiperExtensionsTests : IDisposable
         }
     }
 
-    /// <summary>Proves the extension registers exactly the Piper synthesis model and returns the same catalog.</summary>
+    /// <summary>Proves the extension registers exactly the Piper synthesis model.</summary>
     [Fact]
-    public void AddPiperModels_Called_RegistersTheSingleSynthesisModelAndReturnsSameCatalog()
+    public void AddPiperModels_Called_RegistersExpectedSingleSynthesisModel()
     {
         // Arrange
         using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
 
         // Act
-        var result = catalog.AddPiperModels();
+        catalog.AddPiperModels();
         var descriptor = Assert.Single(catalog.Enumerate());
 
         // Assert
-        Assert.Same(catalog, result);
         Assert.Equal(OnnxPiperLibriTtsEnSynthesisModel.ModelId, descriptor.Id);
         Assert.Equal(SpeechModelRole.Synthesis, descriptor.Role);
+        Assert.IsType<OnnxPiperLibriTtsEnSynthesisModel>(descriptor.Model);
+    }
+
+    /// <summary>Proves the extension returns the catalog it was called on, so registrations can be chained.</summary>
+    [Fact]
+    public void AddPiperModels_Called_ReturnsSameCatalogInstance()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
+
+        // Act
+        var result = catalog.AddPiperModels(["NotARealExecutionProvider"]);
+
+        // Assert
+        Assert.Same(catalog, result);
+        Assert.Single(catalog.Enumerate());
     }
 
     /// <summary>Proves a null catalog is rejected with an argument exception.</summary>
     [Fact]
-    public void AddPiperModels_NullCatalog_Throws()
+    public void AddPiperModels_NullCatalog_ThrowsArgumentNullException()
     {
         // Arrange
         SpeechModelCatalog catalog = null!;

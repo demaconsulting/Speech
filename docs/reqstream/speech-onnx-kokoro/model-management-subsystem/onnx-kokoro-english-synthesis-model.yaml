@@ -37,6 +37,21 @@ sections:
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_License_DeclaresApache2
 
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-TextAnalysis
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall supply, through the
+                  ISynthesisModel text-analyzer seam, one English text analysis shared by all
+                  instances, whose result gives a different reading annotation to the noun and the
+                  verb of a heteronym such as record.
+                justification: |
+                  The session hands the analysis result to the annotated engine; the reading
+                  annotations are what makes "record" the noun and "record" the verb different
+                  phonemes. The analysis keeps the normalization and reading annotations the engine
+                  uses and leaves out the part-of-speech annotations that only the classifier needs
+                  internally.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_TextAnalyzer_IsSharedAndClassifiesHeteronyms
+
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-VoiceOptions
                 title: >-
                   The OnnxKokoroEnglishSynthesisModel class shall declare a single voice
@@ -44,8 +59,10 @@ sections:
                   with "af_heart" as the default.
                 justification: |
                   A host needs the real, enumerable voice list to offer voice selection, and the
-                  model must declare only the voices its embedded English-only phonemizer can
-                  correctly serve.
+                  model must declare only the voices its English-only phonemization can correctly
+                  serve. The British voices speak the American phonemes of that phonemization in
+                  their own voice quality; this is documented and their listening quality has not
+                  been evaluated separately.
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_VoiceParameter_Declares29VoicesWithDefault
 

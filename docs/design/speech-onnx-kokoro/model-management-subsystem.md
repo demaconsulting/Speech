@@ -6,23 +6,17 @@
 
 The SpeechOnnxKokoro ModelManagementSubsystem supplies this package's one concrete,
 ONNX-Runtime-backed speech model as an implementation of the Speech library's `ISynthesisModel`
-extension point (see *Speech ModelManagementSubsystem Design*), together with the three supporting
-units that give this model its own complete text-to-phoneme-to-token pipeline - a responsibility
-the sibling SpeechSherpa system does not need, because sherpa-onnx's native library bundles
-phonemization itself. It contains the following units:
+extension point (see *Speech ModelManagementSubsystem Design*), together with the supporting unit that holds
+Kokoro's own phoneme vocabulary. The conversion of text to phonemes is not done here: the model supplies the
+shared English text analysis, and the SynthesisSubsystem's `KokoroPhonemePipeline` does the phonemization
+(see *SpeechOnnxKokoro SynthesisSubsystem Design*). It contains the following units:
 
 - **SpeechModelCatalogKokoroExtensions**: the public `AddKokoroModels()` extension method on the
   Speech library's `SpeechModelCatalog`, registering this subsystem's one model in one call
 - **OnnxKokoroEnglishSynthesisModel**: a real, concrete `ISynthesisModel`, backing the bare ONNX
   export `onnx-community/Kokoro-82M-v1.0-ONNX` (Apache-2.0), declaring 29 American/British
-  English voices as a `ChoiceParameter` and owning the download descriptor for the ONNX model
-  graph and every voice's style-vector file
-- **KokoroTextNormalizer**: the internal static helper that rewrites numbers, currency, times,
-  abbreviations, URLs, markdown and diacritics into speakable text before lexicon lookup;
-  documented with, and verified through, `KokoroLexiconPhonemizer`
-- **KokoroLexiconPhonemizer**: converts English text into Kokoro v1.0's own IPA phoneme string by
-  looking each word up in an embedded, precomputed word-to-phoneme lexicon, rather than
-  reimplementing grapheme-to-phoneme (G2P) linguistics by hand
+  English voices as a `ChoiceParameter`, supplying the shared English text analysis (`TextAnalyzer`) and
+  owning the download descriptor for the ONNX model graph and every voice's style-vector file
 - **KokoroPhonemeVocabulary**: loads Kokoro v1.0's own character-level IPA phoneme vocabulary from
   an embedded copy of its `tokenizer.json`, and converts a phoneme string into the integer token
   id sequence the ONNX model expects
@@ -30,16 +24,14 @@ phonemization itself. It contains the following units:
 ### Interfaces
 
 The subsystem exposes `SpeechModelCatalogKokoroExtensions` and `OnnxKokoroEnglishSynthesisModel`
-as its public API (`KokoroTextNormalizer`, `KokoroLexiconPhonemizer` and `KokoroPhonemeVocabulary`
-are internal). It
-consumes the Speech library's `SpeechModelCatalog`, `ISpeechModel`, `ISynthesisModel`,
+as its public API (`KokoroPhonemeVocabulary` is internal). It
+consumes the Speech library's `SpeechModelCatalog`, `ISpeechModel`, `ISynthesisModel`, `ITextAnalyzer`,
 `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the *Speech
-ModelManagementSubsystem Design*, `AudioFormat` from Speech's AudioSubsystem, and the sibling
-SpeechOnnx system's `OnnxExecutionProviderSelector` (see *SpeechOnnx OnnxRuntimeSubsystem
-Design*). `OnnxKokoroEnglishSynthesisModel`'s public `CreateBackend` implementation constructs
-this system's own `OnnxKokoroSynthesisEngine` (see *SpeechOnnxKokoro SynthesisSubsystem Design*),
-returned to the Speech library only as its engine-neutral, equally public `ISynthesisBackend`
-seam.
+ModelManagementSubsystem Design*, `AudioFormat` from Speech's AudioSubsystem, the Text.En
+`EnglishTextAnalyzer`, and the sibling SpeechOnnx system's `OnnxExecutionProviderSelector` (see *SpeechOnnx
+OnnxRuntimeSubsystem Design*). `OnnxKokoroEnglishSynthesisModel`'s public `CreateBackend` implementation
+constructs this system's own `OnnxKokoroSynthesisEngine` (see *SpeechOnnxKokoro SynthesisSubsystem Design*),
+returned to the Speech library only as its engine-neutral, equally public `ISynthesisBackend` seam.
 
 ### Design
 
@@ -63,35 +55,28 @@ sysml2 file of its own; it is documented inline here, as a subsystem unit.
 library's default capability profile already provides generically correct behavior with no
 bespoke override). It declares exactly one tunable parameter - a `voice` `ChoiceParameter` with 29
 options spanning its verified American and British English voices, deliberately excluding the
-model's remaining 25 non-English voices because this class's embedded `KokoroLexiconPhonemizer`
-only phonemizes English text. Its `DownloadDescriptor` names 30 individual HTTPS files (the ONNX
+model's remaining 25 non-English voices because this package's phonemization only handles English text.
+The British voices speak American phonemes in their own voice quality (see *SpeechOnnxKokoro System Design*).
+Its `DownloadDescriptor` names 30 individual HTTPS files (the ONNX
 model graph plus 29 voice style-vector `.bin` files), each with an independently-computed SHA-256
 checksum and its own relative install path - unlike SpeechSherpa's archive-based models, none of
 these files needs post-download extraction, so this class needs no `InstallAsync` override at all
 (the interface's no-op default applies). `CreateBackend(installedModelDirectory)` builds the ONNX
 Runtime session via `OnnxExecutionProviderSelector.Create`, reads every declared voice's
 style-vector file into memory keyed by its resolved integer speaker id, and constructs
-`OnnxKokoroSynthesisEngine` from the session, a fresh `KokoroPhonemeVocabulary`, a fresh
-`KokoroLexiconPhonemizer`, and the loaded voice styles. `ResolveSpeakerId` maps the selected
+`OnnxKokoroSynthesisEngine` from the session, a `KokoroPhonemePipeline` over a fresh
+`KokoroPhonemeVocabulary`, and the loaded voice styles. `ResolveSpeakerId` maps the selected
 `voice` parameter value to its index in the model's own declared voice order, falling back to the
 default voice's index for a null bag, a missing key, or an unrecognized value - never throwing.
 See `onnx-kokoro-english-synthesis-model.md` for the full confirmed voice ordering and download
 provenance.
 
-`KokoroLexiconPhonemizer` loads an embedded, gzip-compressed TSV lexicon (precomputed offline by
-running the real `misaki.en.G2P` tool - the same phonemizer Kokoro's own reference pipeline uses -
-over every single-pronunciation, purely-alphabetic word in the CMUdict word list, which is
-licensed under a BSD-style license - see the package's `THIRD-PARTY-NOTICES.md`)
-once at construction, into an in-memory dictionary. Its `Phonemize(text)` method tokenizes input
-text, after the internal `KokoroTextNormalizer` helper has spoken numbers, currency, times,
-markdown, URLs and abbreviations, into words, whitespace runs, and other single characters;
-resolves each word by lexicon hit or a spelling correction, appending its phoneme string; records
-a word with no near match as an unknown word and omits it; collapses whitespace to a single
-vocabulary space character; and passes through a closed set of punctuation characters Kokoro's own
-vocabulary declares. It never guesses a pronunciation for a word with no near match - those words
-are omitted and reported, while corrected or near-match words are spoken and not reported. This
-is an honest, documented Stage-1 limitation, as is its single, no-context pronunciation per
-spelling (affecting homographs such as "read"/"lead").
+**Text analysis.** The model's `TextAnalyzer` is one `EnglishTextAnalyzer` of Text.En, created on first use and
+shared by every instance (the analysis loads trained data, so one instance keeps every model instance cheap).
+It is configured with the normalization and reading annotations only: the spoken forms of numbers, currency,
+dates and abbreviations, and the reading of each heteronym (`record` the noun or the verb), which the session
+hands to the annotated engine. The part-of-speech annotations stay inside the analysis, where only the classifier
+needs them.
 
 `KokoroPhonemeVocabulary` loads an embedded copy of Kokoro v1.0's own `tokenizer.json`, parses its
 `model.vocab` JSON object into a `char`-to-integer-id dictionary (confirmed to contain no
@@ -100,4 +85,5 @@ per-character vocabulary), and exposes `MaxPhonemeTokens` (510, leaving room for
 leading/trailing pad token within its 512-token context window) and `PadTokenId` (0). Its
 `ToTokenIds(phonemes)` method converts a phoneme string into the model's token id sequence,
 dropping any character not present in the vocabulary (matching the proven Python reference
-pipeline's own behavior exactly) and truncating to `MaxPhonemeTokens` entries.
+pipeline's own behavior exactly) and truncating to `MaxPhonemeTokens` entries; the `KokoroPhonemePipeline`
+never hands it more than the limit, because it splits long text into parts first.

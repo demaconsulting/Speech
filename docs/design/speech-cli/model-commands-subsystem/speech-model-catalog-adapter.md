@@ -16,7 +16,7 @@ keeping any model state of its own.
 
 - **Constructor(options, downloaderOptions, voicesDir)**: Builds the catalog from the storage options and the
   downloader options (which carry the download mirror), then, inside the guarded region, registers the model
-  packages with `AddSherpaModels().AddKokoroModels().AddNemotronSttModels()`, because core
+  packages with `AddSherpaModels().AddKokoroModels().AddPiperModels().AddNemotronSttModels()`, because core
   `DemaConsulting.Speech` ships no built-in models. It then creates one `ReferenceVoiceLibrary` over the catalog's store
   and the same downloader
   options, and registers the voice-cloning model with `AddChatterboxTurboModels`, passing that library and
@@ -50,7 +50,7 @@ through unchanged. A construction failure propagates the original exception afte
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelStore`, `SpeechModelStoreOptions`,
 `SpeechModelDownloaderOptions`, `ReferenceVoiceLibrary`, `SpeechSynthesizerFactory`, `SpeechRecognizerFactory`
-and the `AddSherpaModels`, `AddKokoroModels`, `AddNemotronSttModels` and `AddChatterboxTurboModels`
+and the `AddSherpaModels`, `AddKokoroModels`, `AddPiperModels`, `AddNemotronSttModels` and `AddChatterboxTurboModels`
 registration extensions.
 
 **Callers**: `CliModelCatalogFactory`, which creates one adapter per command invocation, and the unit tests,

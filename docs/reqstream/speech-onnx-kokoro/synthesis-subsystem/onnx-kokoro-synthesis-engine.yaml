@@ -2,14 +2,17 @@
 # Software Unit Requirements for OnnxKokoroSynthesisEngine
 #
 # These requirements describe the design-level behavior of the OnnxKokoroSynthesisEngine unit,
-# the real raw-ONNX implementation of the Speech library's public ISynthesisBackend seam,
-# decomposing the parent SpeechOnnxKokoro SynthesisSubsystem requirements. Each requirement
-# states one observable behavior.
+# the real raw-ONNX implementation of the Speech library's public ISynthesisBackend seam and of its
+# annotated derivative IAnnotatedSynthesisBackend, decomposing the parent SpeechOnnxKokoro
+# SynthesisSubsystem requirements. The engine gets its token ids from the KokoroPhonemePipeline unit
+# and runs the graph once per part. Each requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/
 # OnnxKokoroSynthesisEngineTests.cs, against a tiny hand-built ONNX test fixture, plus
 # OnnxKokoroEnglishSynthesisModelTests' end-to-end CreateBackend test for Generate/voice
-# selection evidence. OnnxKokoroSynthesisEngineTests also contains
+# selection evidence. The SynthesisSubsystem_* tests of OnnxKokoroSynthesisEngineTests drive the engine
+# together with the real pipeline and are cited here where they are the evidence of the engine's own
+# behavior (empty audio, annotated and part-wise generation). OnnxKokoroSynthesisEngineTests also contains
 # Generate_RealInstalledModel_ProducesNonEmptyAudio, a skip-conditional test against the genuine
 # production model that is NOT linked to any requirement below: the CI model-download bootstrap
 # (tools/ModelDownloader) does not provision this package's model, so this test would always skip
@@ -38,23 +41,22 @@ sections:
                   voices) for its own architecture; the engine must work with exactly that
                   configuration so that adding a synthesis model never requires changing the
                   synthesis backend. (The design constructs the engine from a loaded inference
-                  session, a phoneme vocabulary, a lexicon phonemizer, and per-speaker voice style
-                  data; see the OnnxKokoroSynthesisEngine design.)
+                  session, the phoneme pipeline, and per-speaker voice style data; see the
+                  OnnxKokoroSynthesisEngine design.)
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ConstructionNullArguments
                 title: >-
                   The OnnxKokoroSynthesisEngine class's constructor shall throw
-                  ArgumentNullException for a null session, vocabulary, phonemizer, or
-                  voice-styles argument.
+                  ArgumentNullException for a null session, phoneme pipeline, or voice-styles
+                  argument.
                 justification: |
                   A programming error should surface immediately with a clear exception rather
                   than a null-reference failure at first use.
                 tests:
                   - Constructor_NullSession_ThrowsArgumentNullException
-                  - Constructor_NullVocabulary_ThrowsArgumentNullException
-                  - Constructor_NullPhonemizer_ThrowsArgumentNullException
+                  - Constructor_NullPipeline_ThrowsArgumentNullException
                   - Constructor_NullVoiceStyles_ThrowsArgumentNullException
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ConstructionEmptyVoiceStyles
@@ -94,14 +96,52 @@ sections:
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
                 title: >-
                   The OnnxKokoroSynthesisEngine class's Generate method shall return an empty
-                  BackendAudio, without failing, when phonemization produces zero tokens.
+                  BackendAudio, without failing, when the text has no sound in this voice and so
+                  produces zero tokens.
                 justification: |
                   A content-free, all-padding input has nothing to speak; returning empty audio
                   avoids wasted inference cost and meaningless noise. (The design achieves this by
                   skipping the ONNX graph; see the OnnxKokoroSynthesisEngine design.)
                 tests:
-                  - Generate_ZeroTokenText_ReturnsEmptyAudio
+                  - SynthesisSubsystem_TextWithoutSounds_ReturnsEmptyAudio
 
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-PlainGeneration
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's Generate method shall speak the text as
+                  written: every word with its default reading and no normalization, and a word
+                  that is not in the pronunciation dictionary pronounced from its spelling.
+                justification: |
+                  The plain generation call has no text analysis; its documented behavior is the
+                  default reading of every word and no normalization. A word the dictionary does
+                  not have must still be spoken, never dropped.
+                tests:
+                  - SynthesisSubsystem_UnknownWord_IsStillSpoken
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-AnnotatedGeneration
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall implement the annotated backend seam:
+                  its GenerateAnnotated method shall speak the text with the replacement
+                  annotation of a span instead of its written text and with the reading annotation
+                  of a heteronym.
+                justification: |
+                  The session calls the annotated generation for a segment that carries annotations,
+                  which is how the spoken form of a number and the chosen reading of a heteronym
+                  reach the phonemes.
+                tests:
+                  - SynthesisSubsystem_AnnotatedReplacement_IsSpokenAsReplaced
+                  - SynthesisSubsystem_AnnotatedHeteronym_IsSpokenWithTheChosenReading
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-GenerationInParts
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall run the graph once for every part the
+                  phoneme pipeline returns for a segment, select the voice's style row for each
+                  part by that part's own token count, and join the audio of the parts in order.
+                justification: |
+                  A segment with more tokens than the graph accepts is spoken in parts; each part
+                  is its own utterance, and Kokoro's style rows are indexed by the length of the
+                  utterance, so the style row cannot be chosen once for the whole segment.
+                tests:
+                  - SynthesisSubsystem_TextBeyondTokenLimit_IsSpokenInSeveralParts
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-VoiceSelection
                 title: >-
                   The OnnxKokoroSynthesisEngine class's Generate method shall synthesize with the

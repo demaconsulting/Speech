@@ -1,10 +1,9 @@
 ### KokoroPhonemeVocabulary
 
 **Purpose**: Load Kokoro v1.0's own character-level IPA phoneme vocabulary from this package's
-embedded copy of its `tokenizer.json`, and convert a phoneme string (produced by
-`KokoroLexiconPhonemizer`) into the integer token id sequence the ONNX model expects. This is the
-second and final stage of this package's self-owned text-to-token pipeline, feeding
-`OnnxKokoroSynthesisEngine.Generate`'s `input_ids` tensor.
+embedded copy of its `tokenizer.json`, and convert a phoneme string (rendered by the Phonemes.En
+`MisakiRenderer` inside `KokoroPhonemePipeline`) into the integer token id sequence the ONNX model expects. This
+is the last stage of this package's self-owned text-to-token path, feeding the engine's `input_ids` tensor.
 
 **Data Model**: An in-memory `IReadOnlyDictionary<char, int>` vocabulary (`_vocab`), loaded once at
 construction from the embedded resource
@@ -25,7 +24,9 @@ caller, not this class, adds those two tokens).
 - **ToTokenIds(phonemes)**: converts a phoneme string into the model's token id sequence in order,
   dropping any character not present in the vocabulary - matching the proven Python reference
   pipeline's own `[vocab[c] for c in phonemes if c in vocab]` behavior exactly - and truncating the
-  result to `MaxPhonemeTokens` entries if it would otherwise exceed that length. Never pads with
+  result to `MaxPhonemeTokens` entries if it would otherwise exceed that length (the pipeline splits long text
+  into parts of at most 500 symbols first, so this cap is the last guard and not the way long text is
+  handled). Never pads with
   `PadTokenId`; the caller adds the leading/trailing pad token itself.
 
 **Error Handling**: `ToTokenIds` throws `ArgumentNullException` for a null `phonemes` argument. The
@@ -38,9 +39,9 @@ verbatim) - the model consumes a simple per-character vocabulary under `model.vo
 byte-pair-encoding or sub-word merging, unlike a typical text LLM tokenizer.
 
 **Dependencies**: `System.Reflection` (embedded resource access), `System.Text.Json` (vocabulary
-parsing). No dependency on `KokoroLexiconPhonemizer` or any other unit in this subsystem - this
+parsing). No dependency on any other unit of this package - this
 class is a pure, stateless-after-construction converter.
 
-**Callers**: `OnnxKokoroSynthesisEngine.Generate` (converts each segment's phoneme string into
-token ids before padding and running ONNX Runtime inference);
-`OnnxKokoroEnglishSynthesisModel.CreateBackend` (constructs the instance passed to the engine).
+**Callers**: `KokoroPhonemePipeline` (converts each part's phoneme string into token ids); the engine's
+`RunProbeInference` (tokenizes the probe character) and its padding (`PadTokenId`);
+`OnnxKokoroEnglishSynthesisModel.CreateBackend` (constructs the instance handed to the pipeline).

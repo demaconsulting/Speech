@@ -1,0 +1,83 @@
+---
+# Software Unit Requirements for OnnxPiperLibriTtsEnSynthesisModel
+#
+# These requirements describe the behavior of the OnnxPiperLibriTtsEnSynthesisModel unit: the production synthesis model
+# for the Piper English (US) voice en_US-libritts_r-medium, with the internal archive installer (PiperArchiveExtractor)
+# that it owns and documents. They decompose the parent SpeechOnnxPiper ModelManagementSubsystem requirements. Covered by
+# the OnnxPiperLibriTtsEnSynthesisModel_* tests in
+# test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs, which
+# build archives and a stand-in ONNX graph with PiperTestFixtures and never touch the network or the real voice.
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: OnnxPiperLibriTtsEnSynthesisModel Requirements
+            requirements:
+              - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-Declaration
+                title: >-
+                  The OnnxPiperLibriTtsEnSynthesisModel class shall declare the stable identifier
+                  piper-onnx-libritts-r-en-us-medium, the Synthesis role, the license CC BY 4.0 with its canonical
+                  link, a preferred audio format of mono 22,050 Hz, no audio-tag support, and the shared English
+                  text analyzer (the same instance for every model instance).
+                justification: |
+                  The identifier is what a host stores and a catalog lists; the license is an attribution license
+                  that a host must be able to read before it offers the voice; the audio format is the voice's own
+                  rate; and the text analyzer is what the engine's reading-aware phonemization depends on. A voice
+                  of this kind has no inline audio tags.
+                tests:
+                  - OnnxPiperLibriTtsEnSynthesisModel_CatalogFacts_AreDeclared
+
+              - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-SpeakerSelection
+                title: >-
+                  The OnnxPiperLibriTtsEnSynthesisModel class shall declare exactly one parameter, an integer
+                  speaker number from 0 to 903 with the default 0, and shall resolve a host's parameter values to the
+                  nearest whole speaker number within 0 to 903 (accepting a boxed double, int or float), selecting
+                  speaker 0 for a missing bag, a missing value, a value that is not a finite number and a value
+                  outside the range, without ever throwing.
+                justification: |
+                  The voice has 904 speakers that are identified only by number. A host user interface supplies
+                  doubles, a stale or malformed value must not fail synthesis, and the default speaker is the
+                  documented fallback.
+                tests:
+                  - OnnxPiperLibriTtsEnSynthesisModel_Parameters_AreTheSpeakerSelectionOnly
+                  - OnnxPiperLibriTtsEnSynthesisModel_ResolveSpeakerId_Value_ResolvesOrFallsBackToZero
+
+              - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-DownloadAndInstall
+                title: >-
+                  The OnnxPiperLibriTtsEnSynthesisModel class shall declare a download of one HTTPS .tar.bz2 archive
+                  pinned by the SHA-256 10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c, and its
+                  installation shall write only the ONNX graph and the voice configuration of that archive, directly
+                  into the installed directory under their bare file names (so that an entry path cannot leave the
+                  directory), write no other entry of the archive, delete the archive, and fail with an invalid-data
+                  error, leaving the archive in place, when the archive lacks the graph or the configuration.
+                justification: |
+                  The hash is the integrity check of the only file the voice comes from. The archive of the
+                  sherpa-onnx project also holds the espeak-ng data, which has a license of its own and which this
+                  package never uses, so it must not be written; an archive entry is untrusted, so its path must not
+                  decide where a file lands; and a voice missing either file cannot be loaded, so the failure must
+                  be reported at installation. The archive is left in place on failure because the downloader
+                  discards the whole staging directory.
+                tests:
+                  - OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_PinsOneHttpsArchive
+                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ReleaseArchive_KeepsOnlyGraphAndConfiguration
+                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_HostileEntryPath_StaysInsideInstalledDirectory
+                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ArchiveMissingAFile_Throws
+
+              - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-BackendCreation
+                title: >-
+                  The OnnxPiperLibriTtsEnSynthesisModel class shall create a synthesis backend from an installed
+                  directory that runs at 22,050 Hz, shall fail with an invalid-data error when the voice
+                  configuration is unusable or describes a voice other than the 904-speaker, 22,050 Hz voice, shall
+                  reject an empty directory argument, shall fail when the graph is missing, and shall create the
+                  inference session with the model's preferred execution providers in order and the CPU provider as
+                  the fallback when a preferred provider is unavailable.
+                justification: |
+                  Creating the backend is the only way a host gets speech out of the model, and it has to fail
+                  clearly for an installation that cannot speak. A preferred provider is an opportunity, not a
+                  requirement, so its absence must not fail the voice.
+                tests:
+                  - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_InstalledDirectory_ReturnsBackendAtVoiceRate
+                  - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnusableInstallation_Throws
+                  - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnavailablePreferredProvider_FallsBackToCpu

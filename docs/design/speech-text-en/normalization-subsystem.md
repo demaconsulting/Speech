@@ -7,7 +7,9 @@
 The SpeechTextEn NormalizationSubsystem decides which spans of an English text are spoken differently from
 how they are written (abbreviations, symbols, apostrophes, acronyms and initialisms, invisible characters,
 and numbers, ordinals, years, currency, percent, units, times and dates) and records those decisions as spans
-with their spoken replacements, together with the sentence-break edits that follow from them. It never
+with their spoken replacements, together with the sentence-break edits that follow from them. Web addresses
+(URLs, e-mail addresses and bare domains) and identifiers that mix letters and digits (`A4`, `H2O`, `COVID-19`)
+are covered too, so that a model hears their pieces instead of run-together letters. It never
 rewrites the text and never consults the part-of-speech tagger. Host-supplied pronunciation overrides arrive
 as token directives that the normalizer applies before any built-in rule. It contains the following units:
 
@@ -15,12 +17,18 @@ as token directives that the normalizer applies before any built-in rule. It con
   enumerations, the internal token, span, pronunciation-mark and directive values, the
   `AlignedTextBuilder` that enforces the alignment contract and the immutable `AlignedText` result
 - **TextNormalizer**: the internal orchestrator; one linear pass applies the host's token directives first
-  and then the ordered rules (invisible characters, clitics, numeric expressions, abbreviations, acronyms and
-  initialisms, symbols and marks, elision apostrophes) and the period and sentence rules
+  and then the ordered rules (invisible characters, web addresses, clitics, numeric expressions, abbreviations,
+  acronyms and initialisms, mixed letter and digit identifiers, symbols and marks, elision apostrophes) and
+  the period and sentence rules
 - **NumericExpressionRecognizer**: the internal, stateless recognizer of numeric expressions: token-local
   scanners with bounded look-behind and look-ahead that decide whether a token starts a number, currency
   amount, percent, unit, time, date or digit group, how each token of it is spoken and whether the reading
-  was a counted default or a numeric fallback
+  was a counted default or a numeric fallback; it also reads the number of a hyphenated compound
+  (`12-year-old`) and a number with a capital letter glued to it (`10K`)
+- **WebAddressRecognizer**: the internal, stateless recognizer of URLs, e-mail addresses and bare domains
+  inside one token; it says how the scheme, a leading `www` and each separator are spoken
+- **AlphanumericTokenRecognizer**: the internal, stateless recognizer of identifiers of capital letters and
+  digits (`A4`, `H2O`, `MP3`) and of a name joined to a number by a hyphen (`COVID-19`)
 - **NumberVerbalizer**: the internal, stateless builder of the English words of a number (cardinals,
   ordinals, years, decades, decimals, digit sequences, fractions, clock times and dates) over a bounded stack
   buffer
@@ -58,6 +66,9 @@ Design* for the rule order and every table):
    and 4 are still made for the token (decision-only, nothing emitted or counted); a directive whose token an
    earlier multi-token match has consumed is ignored and counted;
 1. invisible characters and bullets are dropped explicitly;
+1b. a URL, an e-mail address or a bare domain with a known top-level domain is recognized by
+   `WebAddressRecognizer`, which gives the spelled scheme and `www`, the dropped slashes and a spoken word for
+   each separator, before a clitic, an abbreviation or an acronym can claim the token;
 2. clitic tokens have their typographic apostrophe canonicalized and, on request, their role recorded;
 2a. numeric expressions are recognized by `NumericExpressionRecognizer`, which says how each token of the
    expression is spoken; `NumberVerbalizer` builds the words; a unit that may carry an abbreviation period
@@ -67,6 +78,9 @@ Design* for the rule order and every table):
    extent and the break edits;
 4. acronyms and initialisms are recognized by `AcronymRecognizer` with the same period and sentence rules
    for dotted forms; an ampersand initialism is emitted as spelled letter-group spans and `and` spans;
+4b. an identifier of capital letters and digits or a name joined to a number by a hyphen is recognized by
+   `AlphanumericTokenRecognizer` (letters spelled, digits read), after the lexicons so that an entry of either
+   wins;
 5. symbols, marks and the slash and ampersand inside a word are spoken as words;
 6. typographic apostrophes inside a word (elisions) are canonicalized;
 7. everything else is identity, including every number the recognizer does not read.
@@ -80,8 +94,10 @@ adjacent word-producing replacements (`50%` gives `fifty` and `" percent"`, `5â€
 **spelled** (single capital letters separated by single spaces: `F B I`), so the analyzer annotates it
 `en.spell` rather than `en.norm`; a pronunciation directive adds a mark that replaces nothing.
 
-**Unit collaboration.** `NumericExpressionRecognizer`, `AbbreviationResolver` and `AcronymRecognizer` are
-pure lookups over their tables and a few neighbor tokens; they know nothing of builders or breaks.
+**Unit collaboration.** `NumericExpressionRecognizer`, `AbbreviationResolver`, `AcronymRecognizer`,
+`WebAddressRecognizer` and `AlphanumericTokenRecognizer` are pure lookups over their tables and one token or a
+few neighbor tokens; they know nothing of builders or breaks. `AlphanumericTokenRecognizer` reads its digits
+through `NumberVerbalizer`.
 `TextNormalizer` owns every decision about what the recognizer's spans cover when they are applied, whether a
 period is consumed or kept and which sentence breaks change. `NumberVerbalizer` knows nothing of tokens: it
 turns validated ASCII digits into words and is called only by the recognizer. `NormalizationAlignment` is the
@@ -108,8 +124,10 @@ mutable static state. The per-request state of a pass lives in a `ref struct` on
 token consumed by a numeric expression still counts as visited). Each rule looks at a constant number of
 neighboring tokens and each character of a token is visited a constant number of times; the numeric scanners
 refuse a token longer than 128 characters before scanning it, cap the digit groups and digits at the documented
-limits, and use no regular expression, so there is no backtracking to exploit. The pass is therefore linear in
-the text length.
+limits, and use no regular expression, so there is no backtracking to exploit. The web address recognizer
+examines a token of at most 512 characters and the identifier recognizer one of at most 12 (16 with a hyphen
+and digits), reading each character a constant number of times. The pass is therefore linear in the text
+length.
 
 **Culture invariance.** The numeric units use `char` arithmetic only: no culture-sensitive parsing,
 formatting, casing or comparison, so the result never depends on the current culture. Only the ASCII digits

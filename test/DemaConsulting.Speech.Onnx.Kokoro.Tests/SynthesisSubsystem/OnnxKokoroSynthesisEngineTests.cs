@@ -108,7 +108,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     [Theory]
     [InlineData("")]
     [InlineData("\U0001F600")]
-    public void Generate_ZeroTokenText_ReturnsEmptyAudio(string text)
+    public void SynthesisSubsystem_TextWithoutSounds_ReturnsEmptyAudio(string text)
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
@@ -126,7 +126,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     ///     Proves that a word absent from the dictionary is still spoken (never silently dropped).
     /// </summary>
     [Fact]
-    public void Generate_UnknownWord_StillProducesAudio()
+    public void SynthesisSubsystem_UnknownWord_IsStillSpoken()
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
@@ -284,7 +284,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
     ///     what is phonemized, so the style row chosen by the token count differs from the plain call.
     /// </summary>
     [Fact]
-    public void GenerateAnnotated_Replacement_IsSpokenAsReplaced()
+    public void SynthesisSubsystem_AnnotatedReplacement_IsSpokenAsReplaced()
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);
@@ -305,11 +305,36 @@ public sealed class OnnxKokoroSynthesisEngineTests
     }
 
     /// <summary>
+    ///     Proves that the annotated path speaks the reading the model's text analysis chose for a heteronym:
+    ///     the adjective <c>separate</c> has fewer sounds than the verb reading the plain call uses, so the
+    ///     style row chosen by the token count differs.
+    /// </summary>
+    [Fact]
+    public void SynthesisSubsystem_AnnotatedHeteronym_IsSpokenWithTheChosenReading()
+    {
+        // Arrange
+        const string text = "A separate room.";
+        var analysis = new ProductionKokoroModel().TextAnalyzer!.Analyze(text, CancellationToken.None);
+        using var session = new InferenceSession(FixtureModelPath);
+        using var engine = new OnnxKokoroSynthesisEngine(
+            session,
+            NewPipeline(),
+            new Dictionary<int, float[]> { [0] = BuildRowIndexedVoice(rowCount: 400) });
+
+        // Act
+        var plain = engine.Generate(text, 1.0f, speakerId: 0);
+        var annotated = engine.GenerateAnnotated(text, analysis.Annotations, 1.0f, speakerId: 0);
+
+        // Assert
+        Assert.True(annotated.Samples[0] < plain.Samples[0], "The adjective reading has fewer sounds than the verb reading.");
+    }
+
+    /// <summary>
     ///     Proves that a segment that phonemizes to more tokens than the model accepts is spoken in parts rather
     ///     than truncated: every part is one run of the graph (the fixture returns one style row per run).
     /// </summary>
     [Fact]
-    public void Generate_TextBeyondTokenLimit_IsSpokenInSeveralParts()
+    public void SynthesisSubsystem_TextBeyondTokenLimit_IsSpokenInSeveralParts()
     {
         // Arrange
         using var session = new InferenceSession(FixtureModelPath);

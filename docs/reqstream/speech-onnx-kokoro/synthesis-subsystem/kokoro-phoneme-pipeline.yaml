@@ -1,0 +1,88 @@
+---
+# Software Unit Requirements for KokoroPhonemePipeline
+#
+# These requirements describe the behavior of the KokoroPhonemePipeline unit: the converter that turns
+# the text of one speech segment, with the annotations of the English text analysis when there are any,
+# into the phoneme token ids Kokoro v1.0 expects (the shared English phonemizer, the misaki-symbol
+# renderer for the US profile with weak forms on, and Kokoro's own vocabulary), splitting a segment that
+# has more tokens than the model accepts into parts. It decomposes the parent SpeechOnnxKokoro
+# SynthesisSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by the KokoroPhonemePipeline_* tests in test/DemaConsulting.Speech.Onnx.Kokoro.Tests/
+# SynthesisSubsystem/KokoroPhonemePipelineTests.cs, which run the model's real text analysis, the
+# session's own sentence chunking, the real phonemizer and renderer and Kokoro's real vocabulary
+# (no ONNX model involved), with the golden corpus TestData/kokoro-pipeline-golden.tsv (40 sentences
+# written for this repository).
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: KokoroPhonemePipeline Requirements
+            requirements:
+              - id: SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-PhonemeTokenIds
+                title: >-
+                  The KokoroPhonemePipeline class shall convert each of the 40 sentences of the golden
+                  corpus, analyzed and chunked the way a session does, to exactly its reviewed phoneme
+                  string and token ids, covering numbers, dates, currency, abbreviations, unknown names
+                  and heteronyms.
+                justification: |
+                  The golden is the regression baseline of what the model hears: a change in a phoneme
+                  string or a token id is a change in the audio, so each line is generated, reviewed and
+                  frozen, and a changed line is reviewed by listening and not only by reading. The
+                  corpus is run through the real analysis and the real phonemizer so that the test
+                  proves the whole path from text to token ids.
+                tests:
+                  - KokoroPhonemePipeline_GoldenSentence_ProducesPinnedPhonemesAndTokenIds
+
+              - id: SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-ReadingSelection
+                title: >-
+                  The KokoroPhonemePipeline class shall speak a heteronym with the reading that the
+                  annotations carry, so that the token ids of each of the twelve golden heteronym
+                  sentences differ from the ids of the same text spoken with default readings.
+                justification: |
+                  The text analysis decides which reading a word has in its sentence ("record" as a
+                  noun or a verb); that decision only matters if it reaches the model. The twelve
+                  sentences each carry both readings of a heteronym, so default readings cannot give
+                  the same tokens.
+                tests:
+                  - KokoroPhonemePipeline_HeteronymSentence_UsesTheChosenReadings
+
+              - id: SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-WeakForms
+                title: >-
+                  The KokoroPhonemePipeline class shall render the small function words (the, of, to,
+                  and, ...) in their weak forms, as in running speech.
+                justification: |
+                  Kokoro was trained on phonemes in which function words are reduced. Rendering them
+                  that way measured closer to the phonemes of Kokoro's reference phonemizer (phone
+                  error rate 1.99 percent against 4.88 percent with full forms on the tuning sentences
+                  and 1.43 against 4.50 on the validation sentences), so weak forms are the default.
+                  The choice is one switch of the pipeline and is pinned by a test, so it is observable.
+                tests:
+                  - KokoroPhonemePipeline_FunctionWords_AreSpokenInTheirWeakForms
+
+              - id: SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-LongText
+                title: >-
+                  The KokoroPhonemePipeline class shall split a segment with more tokens than the model
+                  accepts into parts that each have at most that many token ids, are cut between words
+                  and end after a clause mark where the text has one, and together carry every sound of
+                  the segment.
+                justification: |
+                  The graph accepts at most 510 phoneme tokens per run. Truncating a longer segment
+                  would drop the end of the text silently, and cutting inside a word would be audible,
+                  so the cut is made between words, preferably after a clause mark.
+                tests:
+                  - KokoroPhonemePipeline_TextBeyondTokenLimit_IsSplitAtClauseBoundariesWithoutLoss
+
+              - id: SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-ArgumentValidation
+                title: >-
+                  The KokoroPhonemePipeline class shall produce no token ids for text that has no sound
+                  in this voice (empty text, an emoji) and shall throw ArgumentNullException for a null
+                  text.
+                justification: |
+                  A segment with nothing to say must not reach the graph as an all-padding input, and a
+                  null text is a programming error that should surface immediately with a clear
+                  exception.
+                tests:
+                  - KokoroPhonemePipeline_EmptyOrSoundlessText_ProducesNoPartsAndNullIsRejected

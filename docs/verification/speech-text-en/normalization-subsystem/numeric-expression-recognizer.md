@@ -47,6 +47,12 @@ normalizer keeps (the period after `May` or a full month name), not at the perio
 when they could be a date), mixed numbers and vulgar fractions are read as documented, and the en dash is read as `to`
 only between two numbers that are both read.
 
+**Compounds and glued letters.** The number of a hyphenated compound (`12-year-old`, `2.5-inch`, `3-D`) is one span
+over the digits with the hyphen and the word left as written, a four-digit integer in the year range reads like a
+year, and a number with one capital letter or `k` glued to it (`10K`, `5G`, `3D`) is read as the number and the
+spelled letter in two adjacent spans; other shapes are left to the other rules and a number with a glued letter is
+not a range endpoint.
+
 **Limits.** Every produced span has one of the documented shapes (no whitespace, a comma or colon only between two
 digits, at most two spans); oversized tokens, digit runs, fraction digits and group counts beyond the caps are left as
 written and flagged as fallbacks; hostile token ranges throw without overflow; non-numeric and deferred shapes are
@@ -116,8 +122,22 @@ leading-zero and size rules; dotted groups read versions and addresses (`3.2.1`,
 digit-by-digit group rules and the eight-group cap; slash forms read fractions (`7/16` ambiguous, `3/32` not), dates,
 and leave `24/7` and `9/11` alone; vulgar fractions are read alone, glued (`5½`) and after a whole number (`3 ½`,
 `3 1/2`). The en dash is read as `to` only when both neighbors are read as numbers (`5–10`, `1,234–5,678`, `5:30–6:30`,
-`5–10kg`, every dash of `1–2–3`); `1–2D`, `1,23–5`, `5–25:99` and `5–10x` keep the dash and every token follows its own
+`5–10kg`, every dash of `1–2–3`); `1–2D` (its `2D` is a number with a glued letter, not a complete number), `1,23–5`,
+`5–25:99` and `5–10x` keep the dash and every token follows its own
 rule.
+
+##### Hyphenated compounds and glued letters
+
+**Tests**: `NumericExpressionRecognizer_HyphenatedCompound_ReadsOnlyTheNumber` (a nine-row theory),
+`NumericExpressionRecognizer_CapitalLetterGlued_ReadsTheNumberAndSpellsTheLetter` (a six-row theory),
+`NumericExpressionRecognizer_CapitalLetterGlued_LeavesOtherShapesAlone`
+
+`12-year-old`, `24-hour`, `2.5-inch`, `1,500-seat` and `3-D` give one `Number` span over the digits (`twelve`,
+`twenty four`, `two point five`, `one thousand five hundred`, `three`) with the hyphen as the next character, and
+`1500-word` and `2000-seat` read like years (`fifteen hundred`, `two thousand`). `10K`, `10k`, `5G`, `3D`, `12B` and
+`401K` give a `Number` span and a one-character `Initialism` span (`ten` and `K`); `10x`, `5a`, `10KB2`, `1.5M`,
+`1,000K`, `-5K` and `10Kx` are not read by this rule, and `5MB` stays the unit `five megabytes`. The range test above
+shows `2D` of `1–2D` read as `two` and `D` while the en dash stays.
 
 ##### Span shapes
 
@@ -127,7 +147,8 @@ Seeded generated token sequences from the numeric alphabet are recognized at eve
 is checked: inside the text, non-empty, ascending and disjoint, no whitespace, no `;`, a `,` or `:` only between two
 ASCII digits, a spoken text that matches `[A-Za-z' ]+` with no digit, at most two spans and at least one consumed token,
 and a two-token span only for a currency symbol or apostrophe token with its adjacent number or decade token (or the two
-halves of a glued meridiem token).
+halves of a glued meridiem token, the digits of a hyphenated compound, or the number and the glued capital letter,
+which is an `Initialism` span).
 
 ##### Limits, hostile tokens and non-numeric shapes
 
@@ -138,8 +159,8 @@ halves of a glued meridiem token).
 Tokens of 128 and 129 characters, digit runs of 15, 16, 64 and 65 digits, 32 and 33 fraction digits and 8 and 9 groups
 behave as documented; a 129-character numeric token returns a fallback match without a scan. Token arrays with an empty
 token, a negative start, a start or length near `int.MaxValue` and a token beyond the text throw `ArgumentException`
-without an arithmetic overflow. `3D`, `101A`, `1e5`, `0x1F`, `1_000`, `Q3`, `3-D`, `VIII`, a full-width digit and a
-digit followed by a combining mark produce no match, no span and no fallback.
+without an arithmetic overflow. `101a`, `1e5`, `0x1F`, `1_000`, `Q3`, `F-16`, `COVID-19`, `mid-1990s`, `1.5M`, `VIII`, a
+full-width digit and a digit followed by a combining mark produce no match, no span and no fallback.
 
 Concurrent recognition of the same tokens gives identical results; that is verified at subsystem level by
 `NormalizationSubsystem_Normalize_ConcurrentRequests_ReturnIdenticalResults`.

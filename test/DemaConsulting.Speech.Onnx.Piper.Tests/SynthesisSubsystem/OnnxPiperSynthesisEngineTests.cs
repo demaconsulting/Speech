@@ -40,7 +40,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
 
     /// <summary>Proves null constructor arguments are rejected.</summary>
     [Fact]
-    public void Constructor_NullArgument_Throws()
+    public void OnnxPiperSynthesisEngine_Constructor_NullArgument_Throws()
     {
         // Arrange
         using var session = new InferenceSession(_echoModelPath);
@@ -57,7 +57,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
     ///     renderer's golden corpus the input ids are the begin id, each pinned id followed by the pad id, and the end id.
     /// </summary>
     [Fact]
-    public void Generate_Sentence_FeedsFramedIdsVoiceScalesAndSpeaker()
+    public void OnnxPiperSynthesisEngine_Generate_Sentence_FeedsFramedIdsVoiceScalesAndSpeaker()
     {
         // Arrange
         var row = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "TestData", "piper-ipa-golden.tsv"))[1].Split('\t');
@@ -93,7 +93,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
     [InlineData(-1.0f, 1.0f)]
     [InlineData(float.NaN, 1.0f)]
     [InlineData(float.PositiveInfinity, 1.0f)]
-    public void Generate_Speed_ScalesTheLengthScale(float speed, float expectedLengthScale)
+    public void OnnxPiperSynthesisEngine_Generate_Speed_ScalesTheLengthScale(float speed, float expectedLengthScale)
     {
         // Arrange
         using var engine = NewEngine();
@@ -114,7 +114,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
     [InlineData(903, 903)]
     [InlineData(5000, 903)]
     [InlineData(-3, 0)]
-    public void Generate_Speaker_ReachesTheModelWithinRange(int speakerId, long expected)
+    public void OnnxPiperSynthesisEngine_Generate_Speaker_ReachesTheModelWithinRange(int speakerId, long expected)
     {
         // Arrange
         using var engine = NewEngine();
@@ -131,7 +131,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\U0001F600")]
-    public void Generate_TextWithNothingToSay_ReturnsEmptyAudio(string text)
+    public void OnnxPiperSynthesisEngine_Generate_TextWithNothingToSay_ReturnsEmptyAudio(string text)
     {
         // Arrange
         using var engine = NewEngine();
@@ -149,7 +149,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
 
     /// <summary>Proves the annotations of the text analysis reach the phonemes: a heteronym sentence run with its annotations feeds different ids than the same text run without.</summary>
     [Fact]
-    public void GenerateAnnotated_HeteronymSentence_FeedsTheChosenReadings()
+    public void OnnxPiperSynthesisEngine_GenerateAnnotated_HeteronymSentence_FeedsTheChosenReadings()
     {
         // Arrange
         const string sentence = "They plan to record the song, and then everyone will play the record.";
@@ -166,7 +166,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
 
     /// <summary>Proves a segment too long for one utterance is spoken in several runs of the graph and the audio is joined.</summary>
     [Fact]
-    public void Generate_VeryLongText_IsSpokenInPartsAndJoined()
+    public void OnnxPiperSynthesisEngine_Generate_VeryLongText_IsSpokenInPartsAndJoined()
     {
         // Arrange
         var pipeline = new PiperPhonemePipeline(_config);
@@ -184,7 +184,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
 
     /// <summary>Proves a symbol that the voice's table lacks is counted and listed rather than dropped silently, while the rest of the text is still spoken.</summary>
     [Fact]
-    public void Generate_SymbolOutsideTheTable_IsCountedAndReported()
+    public void OnnxPiperSynthesisEngine_Generate_SymbolOutsideTheTable_IsCountedAndReported()
     {
         // Arrange
         var document = System.Text.Json.Nodes.JsonNode.Parse(PiperTestFixtures.TrimmedConfigJson)!;
@@ -206,22 +206,35 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
         Assert.Equal(["ɑ"], engine.UnknownSymbols);
     }
 
-    /// <summary>Proves the provider probe runs the graph with a sentence-sized input and that disposing the engine releases the session, is idempotent, and ends use.</summary>
+    /// <summary>Proves the provider probe runs the graph with a sentence-sized input and succeeds on a runnable session.</summary>
     [Fact]
-    public void ProbeAndDispose_Engine_RunsTheProbeAndReleasesTheSession()
+    public void OnnxPiperSynthesisEngine_RunProbeInference_RunnableSession_DoesNotThrow()
     {
         // Arrange
-        var session = new DisposalTrackingInferenceSession(_echoModelPath);
+        using var session = new InferenceSession(_echoModelPath);
         var pipeline = new PiperPhonemePipeline(_config);
-        var engine = new OnnxPiperSynthesisEngine(session, _config, pipeline);
 
         // Act
         var probeException = Record.Exception(() => OnnxPiperSynthesisEngine.RunProbeInference(session, _config, pipeline));
-        engine.Dispose();
-        engine.Dispose();
 
         // Assert
         Assert.Null(probeException);
+    }
+
+    /// <summary>Proves disposing the engine releases the session, is idempotent, and ends use.</summary>
+    [Fact]
+    public void OnnxPiperSynthesisEngine_Dispose_Engine_ReleasesTheSessionOnceAndEndsUse()
+    {
+        // Arrange
+        var session = new DisposalTrackingInferenceSession(_echoModelPath);
+        var engine = new OnnxPiperSynthesisEngine(session, _config, new PiperPhonemePipeline(_config));
+
+        // Act
+        engine.Dispose();
+        var secondDispose = Record.Exception(engine.Dispose);
+
+        // Assert
+        Assert.Null(secondDispose);
         Assert.True(session.WasDisposed);
         Assert.Throws<ObjectDisposedException>(() => engine.Generate("Hello.", 1.0f, 0));
     }
@@ -232,7 +245,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
     ///     output never needs a symbol the voice lacks, and that a faster speed is shorter.
     /// </summary>
     [Fact]
-    public void Generate_RealInstalledVoice_ProducesAudibleAudio()
+    public void OnnxPiperSynthesisEngine_Generate_RealInstalledVoice_ProducesAudibleAudio()
     {
         // Arrange
         var directory = InstalledVoiceDirectory;
@@ -282,14 +295,6 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
         new(new InferenceSession(_echoModelPath), _config, new PiperPhonemePipeline(_config));
 
     /// <summary>Decodes the echo graph's output: <c>[ids (N), noise scale, length scale, noise width, speaker, N]</c>.</summary>
-    private static (long[] Ids, float[] Scales, long Speaker, long Length) Decode(BackendAudio audio)
-    {
-        var samples = audio.Samples;
-        var idCount = samples.Length - 5;
-        return (
-            [.. samples.Take(idCount).Select(value => (long)value)],
-            [.. samples.Skip(idCount).Take(3)],
-            (long)samples[idCount + 3],
-            (long)samples[idCount + 4]);
-    }
+    private static (long[] Ids, float[] Scales, long Speaker, long Length) Decode(BackendAudio audio) =>
+        PiperTestFixtures.DecodeEcho(audio);
 }

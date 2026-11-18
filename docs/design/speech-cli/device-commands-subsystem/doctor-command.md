@@ -51,6 +51,16 @@ for the current platform is present and loadable; it does not prove a recognizer
 be constructed or run inference. It is a necessary-but-not-sufficient signal and is documented as
 such in the class remarks. Any exception during the probe is reported as "could not be loaded".
 
+**Shared native ONNX Runtime file.** The sherpa-onnx native runtime package ships its own ONNX Runtime library
+(1.28.2 for sherpa-onnx 1.13.8) under the same file name as Microsoft's (1.31.1), which the raw ONNX model packages
+bring in through the managed `Microsoft.ML.OnnxRuntime` API. The tool deploys Microsoft's newer file (see
+*SpeechCli Design*, *Dependencies*), which is backward compatible with sherpa's use. Whether that arrangement holds
+on the machine is visible in this check: the sherpa library is loaded by path, and the regression test initializes
+the managed runtime first (which fails if the deployed native file is older than the managed API) and then runs
+the same check. A deployment where sherpa's older file won would show up as that initialization failing, not as a
+`doctor` line, because `doctor` does not initialize the managed runtime itself. This is unverified on Linux and
+macOS, where the continuous integration runs are the check, and there is no native Microsoft runtime for `win-x86`.
+
 **Hard failure versus informational note.** Only the model store's writability affects the exit
 code. The PortAudio and SherpaOnnx runtime checks and the audio device counts are informational
 (`[INFO]`) and never cause a non-zero exit, for two reasons:

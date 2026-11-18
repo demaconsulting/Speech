@@ -1,0 +1,102 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxPiper ModelManagementSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxPiper ModelManagementSubsystem,
+# decomposing the system-level requirements in docs/reqstream/speech-onnx-piper.yaml. The subsystem supplies the one
+# concrete synthesis model that implements the Speech library's ISynthesisModel contract
+# (OnnxPiperLibriTtsEnSynthesisModel, with the install helper PiperArchiveExtractor that is documented inside it), the
+# reader of the voice configuration (PiperVoiceConfig) and the AddPiperModels() catalog-registration extension method
+# (SpeechModelCatalogPiperExtensions). Each requirement states one observable behavior.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-onnx-piper/model-management-subsystem/. The
+# AddPiperModels() extension method has no separate unit file; its requirements are consolidated here at subsystem
+# level, following the convention of the sibling SpeechSherpa and SpeechOnnxKokoro systems for their catalog extension
+# methods.
+#
+# Covered by the AddPiperModels_* tests in test/DemaConsulting.Speech.Onnx.Piper.Tests/SpeechModelCatalogPiperExtensionsTests.cs
+# and the ModelManagementSubsystem_* tests in
+# test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/ModelManagementSubsystemTests.cs, which run the
+# units together over a tiny stand-in ONNX graph and never need the real voice.
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxPiper-Models-CatalogRegistration
+            title: >-
+              The ModelManagementSubsystem shall provide a public AddPiperModels() extension method on the Speech
+              library's SpeechModelCatalog that registers exactly its one synthesis model (of the Synthesis role),
+              accepts an optional list of preferred execution provider names, returns the catalog it was called on
+              and throws ArgumentNullException for a null catalog.
+            justification: |
+              The Speech library's catalog has no compiled-in model registry; a host registers the models it wants
+              through SpeechModelCatalog.AddModels. One discoverable entry point lets a host opt into this package's
+              voice with one call, returning the same catalog keeps it composable with other model packages in one
+              fluent expression, and a null catalog is a programming error that must surface at once.
+            children:
+              - SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-Declaration
+            tests:
+              - AddPiperModels_Called_RegistersExpectedSingleSynthesisModel
+              - AddPiperModels_Called_ReturnsSameCatalogInstance
+              - AddPiperModels_NullCatalog_ThrowsArgumentNullException
+
+          - id: SpeechOnnxPiper-Models-DownloadAndInstall
+            title: >-
+              The ModelManagementSubsystem shall declare the voice's download as one HTTPS archive pinned by its
+              SHA-256 and shall turn the downloaded archive into an installed voice that a backend can be created
+              from, keeping only the ONNX graph and the voice configuration.
+            justification: |
+              The download is the only way the voice reaches a machine, so its integrity is pinned, and the
+              installation has to produce exactly the two files the rest of the subsystem reads. The units that do
+              it (the model and the archive extraction it owns) are verified together, from archive to a voice that
+              speaks.
+            children:
+              - SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-DownloadAndInstall
+            tests:
+              - ModelManagementSubsystem_InstallThenCreateBackend_ArchiveBecomesAWorkingVoice
+
+          - id: SpeechOnnxPiper-Models-SpeakerSelection
+            title: >-
+              The ModelManagementSubsystem shall declare the choice of one of the voice's 904 speakers as one integer
+              parameter from 0 to 903 with the default 0, and shall resolve the host's parameter values to the
+              speaker that the loaded voice is run with, selecting speaker 0 when the value is missing, not a
+              number or outside the voice's speakers.
+            justification: |
+              Speakers are identified only by number, and a stale or malformed value must not make synthesis fail.
+              The resolved number has to be the one the voice is actually run with, which only the model and the
+              engine it builds show together.
+            children:
+              - SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-SpeakerSelection
+            tests:
+              - ModelManagementSubsystem_ResolvedSpeaker_ReachesTheLoadedVoice
+
+          - id: SpeechOnnxPiper-Models-ConfigurationValidation
+            title: >-
+              The ModelManagementSubsystem shall read the voice configuration before it creates an inference
+              session, shall reject an unusable configuration, a voice with a number of speakers or a sample rate
+              other than 904 and 22,050 Hz, with an invalid-data error, and shall build the voice's phoneme
+              pipeline and synthesis engine only from a configuration that passed.
+            justification: |
+              The configuration holds the symbol table without which phoneme ids cannot be made, and a voice of
+              another shape would be run with wrong ids or at a wrong rate. Checking before the session exists
+              means a rejected voice never leaves a native session behind.
+            children:
+              - SpeechOnnxPiper-Models-PiperVoiceConfig-Parsing
+              - SpeechOnnxPiper-Models-PiperVoiceConfig-Rejection
+              - SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-BackendCreation
+            tests:
+              - ModelManagementSubsystem_CreateBackend_VoiceOfAnotherShapeOrBrokenConfiguration_FailsBeforeTheGraphIsLoaded
+
+          - id: SpeechOnnxPiper-Models-ProviderSelection
+            title: >-
+              The ModelManagementSubsystem shall create the voice's inference session with the preferred execution
+              providers that a host registered the model with, in order, and shall fall back to the CPU provider when
+              a preferred provider is unavailable.
+            justification: |
+              A host's accelerated runtime is optional, and an unavailable provider must degrade to the CPU instead
+              of making the voice unavailable.
+            children:
+              - SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-BackendCreation
+            tests:
+              - ModelManagementSubsystem_CreateBackend_UnavailablePreferredProvider_FallsBackToCpuAndSynthesizes

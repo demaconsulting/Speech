@@ -4,7 +4,8 @@ package SpeechTextEn {
              * abbreviations lexicon with strict validation, looks a token up case-sensitively,
              * and picks between alternative readings of one form (for example St. as Saint or
              * Street) from the neighboring tokens alone, counting the choices that fell back to
-             * the default reading. It also holds the month and weekday abbreviations, read as a
+             * the default reading. It also holds the area-unit words sq. and ft. (read where the
+             * numeric rule does not take them), the month and weekday abbreviations, read as a
              * prefix before a date and as a suffix elsewhere, and recognizes the name suffixes and
              * credentials (Jr., Ph.D., III) that continue a name. */
 

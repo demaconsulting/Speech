@@ -175,9 +175,9 @@ consumes.
 ## Dependencies
 
 SpeechCli has these project dependencies - the Speech library, and the model-package libraries whose
-registration extension methods (`AddSherpaModels()`, `AddKokoroModels()`, `AddNemotronSttModels()`,
-`AddChatterboxTurboModels()`) populate the catalog the CLI composes (see *SpeechSherpa Design* and the
-other model-package designs) - and the following NuGet dependencies:
+registration extension methods (`AddSherpaModels()`, `AddKokoroModels()`, `AddPiperModels()`,
+`AddNemotronSttModels()`, `AddChatterboxTurboModels()`) populate the catalog the CLI composes (see *SpeechSherpa
+Design* and the other model-package designs) - and the following NuGet dependencies:
 
 - **`DemaConsulting.TestResults`** supplies the `.trx`/JUnit `.xml` self-validation result
   serialization used by `--validate --results <file>`, mirroring the reference
@@ -192,6 +192,25 @@ other model-package designs) - and the following NuGet dependencies:
   library project reference separately carries `PortAudioSharp2`'s native runtime packages
   transitively, which the self-test's `AudioDeviceFactory` probe (and `speak`'s real playback
   path) needs
+- **Microsoft ONNX Runtime**: the raw ONNX model packages (Kokoro, Piper, Nemotron STT and Chatterbox Turbo)
+  use the managed `Microsoft.ML.OnnxRuntime` API (1.31.1), which they bring in transitively; this project
+  declares no direct `Microsoft.ML.OnnxRuntime` reference and, in particular, no `ExcludeAssets="native"`
+  on one. Sherpa's native runtime packages ship their own ONNX Runtime library (1.28.2 for sherpa-onnx
+  1.13.8) under the same file name as Microsoft's, so a host that carries both has one `onnxruntime` file
+  in `runtimes/<rid>/native/` and only one copy can be loaded. Microsoft's managed API requires a native
+  library at least as new as itself, so Microsoft's native library has to be the one that is deployed; an
+  older native file fails with an unavailable-API-version error. Earlier revisions of this tool excluded
+  Microsoft's native asset so that sherpa's would stay, and pinned the managed API to match, which cannot
+  work once the managed API is newer than sherpa's native library. The newer native library is backward
+  compatible, so sherpa-onnx runs on it too. `DoctorCommand` still probes only the
+  `sherpa-onnx-c-api` asset, so the test that initializes the managed runtime first and then runs the
+  doctor (see *DoctorCommand Verification*) is the evidence that the sherpa library remains loadable in
+  this host
+
+  The deployment is verified on `win-x64`, where NuGet places Microsoft's 1.31.1 copy in the output when
+  both are restored. Linux and macOS use the same mechanism but have not been verified on a local
+  machine; the continuous integration runs are the check there. Microsoft publishes no `win-x86` native
+  runtime, so the raw ONNX models are not available on that RID.
 
 The OTS items this tool consumes are documented in their own OTS design documents:
 `docs/design/ots/sherpa-onnx.md` (native inference runtime, via the SpeechSherpa project

@@ -1,0 +1,65 @@
+---
+# Software Unit Requirements for PiperPhonemePipeline
+#
+# These requirements describe the behavior of the PiperPhonemePipeline unit (with its result type PiperUtterance): the
+# converter that turns the text of one speech segment, with the annotations of the English text analysis when there are
+# any, into the framed phoneme-id sequences the Piper graph takes, through the phonemizer and the espeak-style IPA
+# renderer of SpeechPhonemesEn and the symbol table of the voice. They decompose the parent SpeechOnnxPiper
+# SynthesisSubsystem requirements. Covered by the PiperPhonemePipeline_* tests in
+# test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/PiperPhonemePipelineTests.cs, with the golden files
+# TestData/piper-pipeline-golden.tsv (pinned here), the linked renderer golden piper-ipa-golden.tsv and the linked
+# renderer corpora, and a trimmed copy of the real voice configuration; no graph is involved.
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: PiperPhonemePipeline Requirements
+            requirements:
+              - id: SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-Encoding
+                title: >-
+                  The PiperPhonemePipeline class shall encode a phoneme string as the begin id, then each symbol's ids
+                  followed by the pad id, then the end id; shall encode every symbol the renderer emits for its
+                  golden corpus and for the 360 sentences of the renderer's corpora with the pinned ids and no
+                  unknown symbol; and shall skip a symbol that the voice's table lacks while listing each distinct
+                  skipped symbol, in first-seen order, in the utterance.
+                justification: |
+                  This is Piper's own encoding, so the framing must be exactly it. The renderer is documented to emit
+                  only symbols of this voice's table, and the corpora prove it over every sentence that was
+                  measured. A symbol that cannot be encoded is skipped as Piper does, but never without a trace.
+                tests:
+                  - PiperPhonemePipeline_Encode_Phonemes_AreFramedWithBeginPadAndEnd
+                  - PiperPhonemePipeline_Encode_RendererGoldenSentence_CoversEverySymbolWithThePinnedIds
+                  - PiperPhonemePipeline_ToUtterances_RendererCorpusAndValidationSentences_MatchTheRendererPathWithNoUnknownSymbol
+                  - PiperPhonemePipeline_Encode_SymbolsOutsideTheTable_AreReportedAndSkipped
+
+              - id: SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-Readings
+                title: >-
+                  The PiperPhonemePipeline class shall produce for each sentence of the pipeline golden corpus,
+                  analyzed and chunked the way a session does, exactly its pinned phoneme string and framed ids;
+                  shall speak the reading that the annotations choose for a heteronym (the ids differ from the
+                  default readings in each of the twelve heteronym sentences); and shall pronounce a word that is
+                  in no dictionary, so that its sounds are added to the utterance.
+                justification: |
+                  The golden is the regression baseline of the audio: a changed line means the speech changes and
+                  is reviewed by listening. The reading of a heteronym is the main reason the text analysis exists,
+                  and a word that were skipped would change the meaning of a sentence.
+                tests:
+                  - PiperPhonemePipeline_ToUtterances_GoldenSentence_ProducesPinnedPhonemesAndIds
+                  - PiperPhonemePipeline_ToUtterances_HeteronymSentence_UsesTheChosenReadings
+                  - PiperPhonemePipeline_ToUtterances_UnknownWord_IsStillSpoken
+
+              - id: SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-LongText
+                title: >-
+                  The PiperPhonemePipeline class shall split a text that phonemizes to more than 256 symbols into
+                  utterances of at most 256 symbols each, cut between words and after a clause mark where one fits,
+                  losing no word, shall return no utterance for an empty text or a text with no sound in the voice,
+                  and shall reject a null text or a null configuration with an argument error.
+                justification: |
+                  VITS is trained on sentence-sized input, so a very long run of words is cut, and cutting inside
+                  a word or dropping a part would be audible. A text with no sound must not produce an utterance
+                  for the graph.
+                tests:
+                  - PiperPhonemePipeline_ToUtterances_TextBeyondOneUtterance_IsSplitAtClauseBoundariesWithoutLoss
+                  - PiperPhonemePipeline_ToUtterances_EmptyOrSoundlessText_ProducesNoUtterancesAndNullIsRejected

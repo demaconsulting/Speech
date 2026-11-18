@@ -13,7 +13,7 @@ public sealed class PiperVoiceConfigTests
 {
     /// <summary>Proves the real configuration's settings are read: rate, speakers, the voice's own scales, the espeak voice and the symbol table with its framing symbols.</summary>
     [Fact]
-    public void Parse_RealVoiceConfiguration_ReadsSettingsAndSymbolTable()
+    public void PiperVoiceConfig_Parse_RealVoiceConfiguration_ReadsSettingsAndSymbolTable()
     {
         // Act
         var config = PiperVoiceConfig.Parse(PiperTestFixtures.TrimmedConfigJson);
@@ -33,7 +33,7 @@ public sealed class PiperVoiceConfigTests
 
     /// <summary>Proves symbols are looked up ordinally and case-sensitively, including the stress marks, and an unknown symbol is reported as absent.</summary>
     [Fact]
-    public void TryGetIds_Symbols_AreOrdinalAndCaseSensitive()
+    public void PiperVoiceConfig_TryGetIds_Symbols_AreOrdinalAndCaseSensitive()
     {
         // Arrange
         var config = PiperVoiceConfig.Parse(PiperTestFixtures.TrimmedConfigJson);
@@ -56,7 +56,7 @@ public sealed class PiperVoiceConfigTests
 
     /// <summary>Proves a configuration without an <c>inference</c> block or speaker count gets Piper's own defaults.</summary>
     [Fact]
-    public void Parse_MinimalConfiguration_UsesDefaults()
+    public void PiperVoiceConfig_Parse_MinimalConfiguration_UsesDefaults()
     {
         // Arrange
         const string json = """
@@ -80,7 +80,7 @@ public sealed class PiperVoiceConfigTests
     [InlineData("^")]
     [InlineData("_")]
     [InlineData("$")]
-    public void Parse_MissingFramingSymbol_ThrowsNamingTheSymbol(string symbol)
+    public void PiperVoiceConfig_Parse_MissingFramingSymbol_ThrowsNamingTheSymbol(string symbol)
     {
         // Arrange
         var document = JsonNode.Parse(PiperTestFixtures.TrimmedConfigJson)!;
@@ -102,19 +102,30 @@ public sealed class PiperVoiceConfigTests
     [InlineData("""{ "audio": { "sample_rate": 0 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2] } }""")]
     [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_type": "text", "phoneme_id_map": { "^": [1], "_": [0], "$": [2] } }""")]
     [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": ["x"] } }""")]
-    public void Parse_UnusableConfiguration_ThrowsInvalidData(string json)
+    public void PiperVoiceConfig_Parse_UnusableConfiguration_ThrowsInvalidData(string json)
     {
         // Act & Assert
         Assert.Throws<InvalidDataException>(() => PiperVoiceConfig.Parse(json));
     }
 
-    /// <summary>Proves null arguments are rejected.</summary>
+    /// <summary>Proves a configuration file is read from its path.</summary>
     [Fact]
-    public void ParseAndLoad_InvalidArguments_Throw()
+    public void PiperVoiceConfig_Load_ConfigurationFile_ReadsIt()
+    {
+        // Act
+        var config = PiperVoiceConfig.Load(PiperTestFixtures.TrimmedConfigPath);
+
+        // Assert
+        Assert.Equal(22050, config.SampleRate);
+        Assert.Equal(904, config.NumSpeakers);
+    }
+
+    /// <summary>Proves null or empty arguments are rejected.</summary>
+    [Fact]
+    public void PiperVoiceConfig_ParseAndLoad_InvalidArguments_Throw()
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => PiperVoiceConfig.Parse(null!));
         Assert.Throws<ArgumentException>(() => PiperVoiceConfig.Load(string.Empty));
-        Assert.Equal(22050, PiperVoiceConfig.Load(PiperTestFixtures.TrimmedConfigPath).SampleRate);
     }
 }

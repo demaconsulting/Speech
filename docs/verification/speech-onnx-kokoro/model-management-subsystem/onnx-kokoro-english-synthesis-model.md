@@ -28,7 +28,9 @@ declares exactly 29 options in the confirmed order with `"af_heart"` as the defa
 `DownloadDescriptor` declares exactly 30 files (the ONNX model graph plus 29 voice style-vector
 files), each with a well-formed 64-character hexadecimal SHA-256 checksum and a unique relative
 install path, including `onnx/model_quantized.onnx` and a `voices/{voice}.bin` entry for every declared
-voice; `PreferredAudioFormat` reports mono 24000 Hz; `CreateBackend` throws `ArgumentException`
+voice; `PreferredAudioFormat` reports mono 24000 Hz; the model's text analysis is one analyzer shared by all
+instances whose
+reading annotations differ for the noun and the verb of `record`; `CreateBackend` throws `ArgumentException`
 for an empty installed directory; `ResolveSpeakerId` resolves every one of the 29 declared voices
 to its declaration-order index, and falls back to the default voice's index (`0`) for an unknown
 value, a missing key, or a `null` bag; and `CreateBackend`, given a valid installed directory
@@ -63,6 +65,13 @@ styled audio is produced.
 ##### PreferredAudioFormat reports the model's best-effort mono 24000 Hz hint
 
 **Test**: `OnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000`
+
+##### The model supplies one shared English text analysis that chooses the reading of a heteronym
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_TextAnalyzer_IsSharedAndClassifiesHeteronyms`
+
+Two model instances return the same analyzer; analyzing `They record the song. The record broke.` gives two reading
+annotations, one for each use of `record`, with different values (the verb and the noun).
 
 ##### ResolveSpeakerId resolves every one of the 29 declared voices to its declaration-order index
 

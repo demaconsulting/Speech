@@ -45,7 +45,7 @@ public sealed class PiperPhonemePipelineTests
     /// <param name="ids">The unframed ids pinned by the renderer's golden.</param>
     [Theory]
     [MemberData(nameof(RendererGoldenRows))]
-    public void Encode_RendererGoldenSentence_CoversEverySymbolWithThePinnedIds(string id, string sentence, string phonemes, string ids)
+    public void PiperPhonemePipeline_Encode_RendererGoldenSentence_CoversEverySymbolWithThePinnedIds(string id, string sentence, string phonemes, string ids)
     {
         // Act
         var utterance = Pipeline.Encode(phonemes);
@@ -66,7 +66,7 @@ public sealed class PiperPhonemePipelineTests
     ///     the phonemes and ids of every chunk that fits one utterance are exactly what the renderer produces for it.
     /// </summary>
     [Fact]
-    public void Pipeline_RendererCorpusAndValidationSentences_MatchTheRendererPathWithNoUnknownSymbol()
+    public void PiperPhonemePipeline_ToUtterances_RendererCorpusAndValidationSentences_MatchTheRendererPathWithNoUnknownSymbol()
     {
         // Arrange
         var sentences = new[] { "renderer-corpus.tsv", "renderer-validation.tsv" }
@@ -104,7 +104,7 @@ public sealed class PiperPhonemePipelineTests
     ///     Proves the framing: the begin id, each symbol's id followed by the pad id, the end id.
     /// </summary>
     [Fact]
-    public void Encode_Phonemes_AreFramedWithBeginPadAndEnd()
+    public void PiperPhonemePipeline_Encode_Phonemes_AreFramedWithBeginPadAndEnd()
     {
         // Arrange
         Config.TryGetIds("h", out var h);
@@ -123,7 +123,7 @@ public sealed class PiperPhonemePipelineTests
     ///     silently.
     /// </summary>
     [Fact]
-    public void Encode_SymbolsOutsideTheTable_AreReportedAndSkipped()
+    public void PiperPhonemePipeline_Encode_SymbolsOutsideTheTable_AreReportedAndSkipped()
     {
         // Act
         var utterance = Pipeline.Encode("h\u4E2D\u4E2Dh\u00FF");
@@ -144,7 +144,7 @@ public sealed class PiperPhonemePipelineTests
     /// <param name="ids">The pinned framed ids, chunks separated by <c>|</c>.</param>
     [Theory]
     [MemberData(nameof(PipelineGoldenRows))]
-    public void Pipeline_GoldenSentence_ProducesPinnedPhonemesAndIds(string id, string sentence, string phonemes, string ids)
+    public void PiperPhonemePipeline_ToUtterances_GoldenSentence_ProducesPinnedPhonemesAndIds(string id, string sentence, string phonemes, string ids)
     {
         // Arrange
         var utterances = AnalyzeAndChunk(sentence)
@@ -181,7 +181,7 @@ public sealed class PiperPhonemePipelineTests
     [InlineData("s10")]
     [InlineData("s11")]
     [InlineData("s12")]
-    public void Pipeline_HeteronymSentence_UsesTheChosenReadings(string id)
+    public void PiperPhonemePipeline_ToUtterances_HeteronymSentence_UsesTheChosenReadings(string id)
     {
         // Arrange
         var sentence = GoldenSentence(id);
@@ -200,7 +200,7 @@ public sealed class PiperPhonemePipelineTests
     ///     is dropped, and that the utterances end after a clause mark when the text has them.
     /// </summary>
     [Fact]
-    public void Pipeline_TextBeyondOneUtterance_IsSplitAtClauseBoundariesWithoutLoss()
+    public void PiperPhonemePipeline_ToUtterances_TextBeyondOneUtterance_IsSplitAtClauseBoundariesWithoutLoss()
     {
         // Arrange
         const string sentence = "The cat sat on the mat, and the dog barked.";
@@ -222,10 +222,26 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
+    ///     Proves that a word that is in no dictionary is still spoken: it is pronounced by the letter-to-sound model, so
+    ///     the text with the unknown word has more symbols than the text without it and nothing is reported as unknown.
+    /// </summary>
+    [Fact]
+    public void PiperPhonemePipeline_ToUtterances_UnknownWord_IsStillSpoken()
+    {
+        // Act
+        var without = Assert.Single(Pipeline.ToUtterances("Welcome", null));
+        var with = Assert.Single(Pipeline.ToUtterances("Welcome Zorblax", null));
+
+        // Assert
+        Assert.True(with.SymbolCount >= without.SymbolCount + 5, "The unknown word must add its own sounds.");
+        Assert.Empty(with.UnknownSymbols);
+    }
+
+    /// <summary>
     ///     Proves that text without a sound in this voice produces no utterance and that a null text is rejected.
     /// </summary>
     [Fact]
-    public void Pipeline_EmptyOrSoundlessText_ProducesNoUtterancesAndNullIsRejected()
+    public void PiperPhonemePipeline_ToUtterances_EmptyOrSoundlessText_ProducesNoUtterancesAndNullIsRejected()
     {
         // Act & Assert
         Assert.Empty(Pipeline.ToUtterances(string.Empty, null));

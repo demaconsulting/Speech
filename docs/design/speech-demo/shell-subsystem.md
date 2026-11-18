@@ -41,7 +41,7 @@ Design*), is the single place the demo's object graph is built:
 1. Construct the library's `AudioDeviceFactory`
 2. Resolve the store and downloader options from `AppLaunchOptions` (when present)
 3. Define a `CatalogFactory` that builds a `ModelCatalogComposition`: a `SpeechModelCatalog`
-   (populated through `AddSherpaModels()`, `AddKokoroModels()` and `AddNemotronSttModels()`)
+   (populated through `AddSherpaModels()`, `AddKokoroModels()`, `AddPiperModels()` and `AddNemotronSttModels()`)
    paired with one shared `ReferenceVoiceLibrary` over the catalog's store, then registers the
    Chatterbox Turbo model through `AddChatterboxTurboModels()` over that same library (and the
    optional `--voices-dir` folder), since core `DemaConsulting.Speech` ships zero built-in models

@@ -177,6 +177,14 @@ input-files:
   - docs/design/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md
   - docs/design/speech-onnx-kokoro/synthesis-subsystem.md
   - docs/design/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md
+  - docs/design/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.md
+  - docs/design/speech-onnx-piper.md
+  - docs/design/speech-onnx-piper/model-management-subsystem.md
+  - docs/design/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md
+  - docs/design/speech-onnx-piper/model-management-subsystem/piper-voice-config.md
+  - docs/design/speech-onnx-piper/synthesis-subsystem.md
+  - docs/design/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.md
+  - docs/design/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.md
   - docs/design/speech-onnx-nemotron-stt.md
   - docs/design/speech-onnx-nemotron-stt/model-management-subsystem.md
   - docs/design/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.md
@@ -209,6 +217,8 @@ input-files:
   - docs/design/speech-text-en/normalization-subsystem/number-verbalizer.md
   - docs/design/speech-text-en/normalization-subsystem/abbreviation-resolver.md
   - docs/design/speech-text-en/normalization-subsystem/acronym-recognizer.md
+  - docs/design/speech-text-en/normalization-subsystem/web-address-recognizer.md
+  - docs/design/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.md
   - docs/design/speech-text-en/training-data-subsystem.md
   - docs/design/speech-text-en/training-data-subsystem/tsv-table.md
   - docs/design/speech-text-en/training-data-subsystem/text-en-data-set.md

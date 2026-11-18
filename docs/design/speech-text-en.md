@@ -12,7 +12,8 @@ returns an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`; the Speech
 speech request over the whole request text and delivers the result to an annotation-aware synthesis backend as
 language-neutral annotations on each speech segment. The system is a preview. It provides part-of-speech annotation,
 authoritative sentence boundaries, alignment-preserving normalization of English text (abbreviations, symbols,
-apostrophes, acronyms and initialisms, and en-US numbers, ordinals, years, currency, percent, units, times and dates), a
+apostrophes, acronyms and initialisms, web addresses and identifiers that mix letters and digits, and en-US numbers,
+ordinals, years, currency, percent, units, times and dates), a
 spell-out annotation for letter sequences, host-supplied pronunciation overrides (whole words spoken as written,
 replaced by plain words, spelled, given a phoneme string or given a fixed heteronym reading), and heteronym readings: a
 choice of which reading a word such as `record` has, reported as a reading id with a confidence, supplied by a trained
@@ -35,7 +36,8 @@ The library consists of three runtime subsystems:
   internal sparse model with its strict file loader, and the internal classifier with its lazy model provider
 - **NormalizationSubsystem**: the alignment model (which also declares the public `NormalizationKind` and `CliticKind`),
   the `TextNormalizer` that decides which spans are spoken differently, the `AbbreviationResolver` and
-  `AcronymRecognizer` with their embedded lexicons, the `NumericExpressionRecognizer` and the `NumberVerbalizer`
+  `AcronymRecognizer` with their embedded lexicons, the `NumericExpressionRecognizer` and the `NumberVerbalizer`, the
+  `WebAddressRecognizer` and the `AlphanumericTokenRecognizer`
 
 The dependencies between the subsystems are one way: AnalysisSubsystem uses the other two, and neither knows anything of
 the analyzer, the tagger or the diagnostics sink. NormalizationSubsystem and HeteronymSubsystem do not use the
@@ -292,8 +294,8 @@ This section is normative for consumers. Every `en.norm` value produced for a nu
   digits and `percent` for the sign); a backend applies the values as they are
 - **The word `and`** appears only in a currency amount with cents (`five dollars and fifty cents`) and in a mixed number
   (`three and one half`); there is no `and` inside a cardinal
-- **Unrecognized numeric text stays as written**: a number the library does not read (a Roman numeral, a hyphenated
-  compound such as `5-year-old`, a number beyond the limits) is left unannotated, and a backend must be prepared to
+- **Unrecognized numeric text stays as written**: a number the library does not read (a Roman numeral, a name before a
+  number such as `mid-1990s`, a number beyond the limits) is left unannotated, and a backend must be prepared to
   receive digits for it. Numeric-looking text that cannot be read is counted as a numeric fallback
 
 A numeric span covers the digits, separators and symbols of one token (or a currency symbol or apostrophe with its
@@ -570,13 +572,17 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
 Everything below is passed through unchanged (never annotated) or not provided, so a host does not assume it; the
 pass-through items are asserted by golden rows, so a later increment changes them knowingly:
 
-- URLs, e-mail addresses, markup and the hyphen and dash policy (a URL contains `:`, which the core chunker treats as a
-  clause boundary, so annotation loss needs evidence first)
-- Roman numerals and hyphenated compounds that contain digits (`5-year-old`, `F-16`): no safe lexical rule exists
-  without a name and part-of-speech lexicon
+- Markup and the hyphen and dash policy; web addresses other than a URL with an `http`, `https` or `ftp` scheme or a
+  leading `www`, an e-mail address, or a bare domain with one of a short list of top-level domains (`report.pdf` and
+  `Node.js` stay as written, and so does a domain such as `example.xyz`); a colon is never inside a span, so the
+  colon of a URL stays a pause mark for the core chunker (the pieces that are read are described in
+  *WebAddressRecognizer Design*)
+- Roman numerals and names before a number (`mid-1990s`): no safe lexical rule exists without a name and
+  part-of-speech lexicon (the number of a hyphenated compound such as `12-year-old`, identifiers such as `A4` and
+  names joined to a number such as `COVID-19` are read, see *AlphanumericTokenRecognizer Design*)
 - Prefix currency codes (`USD 5`); `h:mm:ss` times, ratios, non-ASCII digits, `1e5`, `0x1F`, bare magnitude letters
-  (`10k`), feet and inches, decimal-comma locales, and single-letter or word-like units (`m`, `g`, `in`), which are too
-  ambiguous after a number
+  after a decimal (`1.5M`), feet and inches, decimal-comma locales, and single-letter or word-like units (`m`, `g`,
+  `in`), which are too ambiguous after a number
 - Heteronyms outside the inventory, and context beyond the word's own sentence. The model depends on the tagger (its
   features use the tag and its confidence), so another tagger version needs a retrained model (the build reports a
   feature-set mismatch as incompatible and `train --check` reports a drift of the feature stream). The model's accuracy

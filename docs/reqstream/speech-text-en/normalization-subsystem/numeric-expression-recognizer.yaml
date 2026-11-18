@@ -6,7 +6,8 @@
 # fractions, years and decades, currency, percent, units, times, dates and digit groups) with its
 # token-local scanners, decomposing the parent SpeechTextEn NormalizationSubsystem requirements. It
 # classifies whole tokens by shape, looks at a bounded number of neighbor tokens, uses no regular
-# expression, and builds its words with NumberVerbalizer. Each requirement states one observable
+# expression, and builds its words with NumberVerbalizer. It also reads the number of a hyphenated
+# compound and a number with a capital letter glued to it. Each requirement states one observable
 # behavior.
 #
 # Covered by
@@ -150,8 +151,9 @@ sections:
                   numeric fallback; shall validate token ranges without overflow, throwing
                   ArgumentException for an empty or out-of-text token; and shall report no
                   expression and no fallback for a token that contains letters mixed into digits
-                  (3D, 101A, 1e5, 0x1F, 1_000, Q3), a digit that is not an ASCII digit, a compound
-                  with a digit, a Roman numeral or any other deferred shape.
+                  other than the shapes of the preceding requirement (1e5, 0x1F, 1_000, 101a, Q3), a
+                  digit that is not an ASCII digit, a name before a number (mid-1990s), a Roman
+                  numeral or any other deferred shape.
                 justification: |
                   The documented span shapes are what make every numeric annotation survive the
                   Speech library's chunking: no span can contain a place where a chunk is cut, and
@@ -160,10 +162,35 @@ sections:
                   reading or scanning them without a bound would make the work grow with the token;
                   the caps make the work per token constant, the fallback flag makes the loss
                   visible, and range validation protects against token arrays that do not describe
-                  the text. A reading the library cannot make safely ("3-D", "COVID-19", a Roman
+                  the text. A reading the library cannot make safely ("1e5", "mid-1990s", a Roman
                   numeral) must not be guessed or counted as a failure.
                 tests:
                   - NumericExpressionRecognizer_Spans_AreOnlyTheDocumentedShapes_OverGeneratedTokens
                   - NumericExpressionRecognizer_Caps_LeaveOversizedTokensAsWrittenAndFlagFallback
                   - NumericExpressionRecognizer_HostileTokenRanges_AreRejectedWithoutOverflow
                   - NumericExpressionRecognizer_DeferredAndNonNumericShapes_AreIdentityWithoutFallback
+
+              - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-CompoundsAndLetters
+                title: >-
+                  The NumericExpressionRecognizer class shall read the number at the start of a
+                  hyphenated compound (12-year-old, 24-hour, 2.5-inch, 3-D) as one span over the
+                  digits only, leaving the hyphen and the word as written, reading a four-digit
+                  integer in the year range like a year (1500-word is fifteen hundred), shall read a
+                  number with one capital letter or a lower-case k glued to it (10K, 5G, 3D, 401K) as
+                  the number and the spelled letter in two adjacent spans, shall leave a lower-case
+                  letter other than k, a second letter, a fraction, thousands separators and a sign
+                  with a glued letter to the other rules, shall keep a two-letter unit such as MB
+                  as a unit, and shall not take a number with a glued letter as the endpoint of a
+                  range.
+                justification: |
+                  "12-year-old" and "10K" are common in running text, and a model that sees the digits
+                  cannot read them. The number is read and the rest is left to the phonemizer: the
+                  hyphenated word stays one word ("twelve-year-old") and the letter is spelled, which
+                  is how the written form is read aloud whatever the letter stands for (thousand,
+                  generation, dimensions). A glued letter is not a complete number, so "1-2D" keeps
+                  its dash instead of being read as a range.
+                tests:
+                  - NumericExpressionRecognizer_HyphenatedCompound_ReadsOnlyTheNumber
+                  - NumericExpressionRecognizer_CapitalLetterGlued_ReadsTheNumberAndSpellsTheLetter
+                  - NumericExpressionRecognizer_CapitalLetterGlued_LeavesOtherShapesAlone
+                  - NumericExpressionRecognizer_EnDashRange_RequiresBothEndpointsRead

@@ -54,7 +54,7 @@ public sealed class KokoroPhonemePipelineTests
     /// <param name="tokenIds">The pinned token ids, chunks separated by <c>|</c>.</param>
     [Theory]
     [MemberData(nameof(GoldenRows))]
-    public void Pipeline_GoldenSentence_ProducesPinnedPhonemesAndTokenIds(string id, string sentence, string phonemes, string tokenIds)
+    public void KokoroPhonemePipeline_GoldenSentence_ProducesPinnedPhonemesAndTokenIds(string id, string sentence, string phonemes, string tokenIds)
     {
         // Arrange
         var chunks = AnalyzeAndChunk(sentence);
@@ -92,7 +92,7 @@ public sealed class KokoroPhonemePipelineTests
     [InlineData("s10")]
     [InlineData("s11")]
     [InlineData("s12")]
-    public void Pipeline_HeteronymSentence_UsesTheChosenReadings(string id)
+    public void KokoroPhonemePipeline_HeteronymSentence_UsesTheChosenReadings(string id)
     {
         // Arrange
         var sentence = GoldenSentence(id);
@@ -111,7 +111,7 @@ public sealed class KokoroPhonemePipelineTests
     ///     that no text is dropped, and that the parts end after a clause mark when the text has them.
     /// </summary>
     [Fact]
-    public void Pipeline_TextBeyondTokenLimit_IsSplitAtClauseBoundariesWithoutLoss()
+    public void KokoroPhonemePipeline_TextBeyondTokenLimit_IsSplitAtClauseBoundariesWithoutLoss()
     {
         // Arrange
         const string sentence = "The cat sat on the mat, and the dog barked.";
@@ -130,10 +130,31 @@ public sealed class KokoroPhonemePipelineTests
     }
 
     /// <summary>
+    ///     Proves that the small function words are spoken in their weak forms: the pipeline gives the token ids
+    ///     of the renderer with weak forms switched on, which differ from the ids of the full forms.
+    /// </summary>
+    [Fact]
+    public void KokoroPhonemePipeline_FunctionWords_AreSpokenInTheirWeakForms()
+    {
+        // Arrange
+        const string sentence = "A cup of the tea and a bowl of the soup.";
+        var text = Phonemizer.Phonemize(sentence);
+        var weak = Vocabulary.ToTokenIds(new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(text));
+        var full = Vocabulary.ToTokenIds(new MisakiRenderer(MisakiProfile.Us, useWeakForms: false).Render(text));
+
+        // Act
+        var actual = Assert.Single(Pipeline.ToTokenIds(sentence, null));
+
+        // Assert
+        Assert.NotEqual(full, weak);
+        Assert.Equal(weak, actual);
+    }
+
+    /// <summary>
     ///     Proves that text without a sound in this voice produces no token ids and that a null text is rejected.
     /// </summary>
     [Fact]
-    public void Pipeline_EmptyOrSoundlessText_ProducesNoPartsAndNullIsRejected()
+    public void KokoroPhonemePipeline_EmptyOrSoundlessText_ProducesNoPartsAndNullIsRejected()
     {
         // Act & Assert
         Assert.Empty(Pipeline.ToTokenIds(string.Empty, null));

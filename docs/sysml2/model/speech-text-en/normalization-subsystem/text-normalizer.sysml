@@ -6,7 +6,8 @@ package SpeechTextEn {
              * rules' sentence-break edits are still made for the directive's token), numeric
              * expressions (through the NumericExpressionRecognizer), abbreviations, initialisms
              * (marked as spelled letter sequences, with ampersand initialisms decomposed into
-             * letter and "and" spans), symbols and
+             * letter and "and" spans), web addresses (through the WebAddressRecognizer), identifiers
+             * of letters and digits (through the AlphanumericTokenRecognizer), symbols and
              * marks, typographic apostrophes and invisible format characters, optionally
              * classifying clitics. It decides which sentence breaks a consumed period forces or
              * suppresses (including keeping a name suffix together with its credentials and a
