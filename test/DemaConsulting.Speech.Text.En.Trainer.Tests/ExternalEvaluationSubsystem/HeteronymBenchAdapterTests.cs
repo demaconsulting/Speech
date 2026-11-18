@@ -100,6 +100,44 @@ public sealed class HeteronymBenchAdapterTests
         Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Proves a document that is not valid UTF-8 stops the read with an error that names the file, whichever field holds the bad bytes.</summary>
+    [Fact]
+    public void HeteronymBenchAdapter_Read_InvalidUtf8_Throws()
+    {
+        // Arrange: the text of an item holds a byte that is never valid in UTF-8
+        var content = ExternalContent.Standard();
+        var prefix = System.Text.Encoding.UTF8.GetBytes("{\"lang\":\"en\",\"items\":{\"item-bad\":{\"text\":\"lead ");
+        var suffix = System.Text.Encoding.UTF8.GetBytes("\",\"word\":\"lead\",\"pos\":[0,4],\"answer\":\"a\",\"src\":\"v1\"}}}");
+        content.BenchDocumentBytes = [.. prefix, 0xFF, .. suffix];
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => Read(content));
+
+        // Assert
+        Assert.Contains("data/readset_en_v2.json", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("UTF-8", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a document that repeats an item id is refused, so one id never stands for two rows.</summary>
+    [Fact]
+    public void HeteronymBenchAdapter_Read_RepeatedItemId_Throws()
+    {
+        // Arrange
+        var content = ExternalContent.Standard();
+        content.BenchDocument = """
+            {"lang":"en","items":{
+              "item-1":{"text":"The lead pipe.","word":"lead","pos":[4,8],"answer":"a","src":"v1"},
+              "item-1":{"text":"The lead roof.","word":"lead","pos":[4,8],"answer":"b","src":"v1"}}}
+            """;
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => Read(content));
+
+        // Assert
+        Assert.Contains("item 'item-1'", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("more than once", exception.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>
     ///     Reads fake content through a verified cache.
     /// </summary>

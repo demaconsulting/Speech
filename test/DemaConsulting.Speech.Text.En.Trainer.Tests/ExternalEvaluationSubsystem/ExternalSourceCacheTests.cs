@@ -84,6 +84,71 @@ public sealed class ExternalSourceCacheTests
         Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>Proves per-file pins that are not valid UTF-8 are refused with an error that names the per-file pins, not an unwrapped decoder exception.</summary>
+    [Fact]
+    public void ExternalSourcePins_Load_InvalidUtf8InFilesTsv_ThrowsNamingFilesTsv()
+    {
+        // Arrange: valid per-file pins followed by an invalid UTF-8 byte sequence
+        using var training = new TrainingFixture();
+        using var external = new ExternalSourceFixture(training);
+        var path = CopyPins(external, "bad-utf8-tsv", static json => json, static tsv => tsv);
+        var tsvPath = Path.Combine(Path.GetDirectoryName(path)!, "external-files.tsv");
+        File.WriteAllBytes(tsvPath, [.. File.ReadAllBytes(tsvPath), 0xC3, 0x28]);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => ExternalSourcePins.Load(path));
+
+        // Assert
+        Assert.StartsWith("external-files.tsv", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("UTF-8", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a JSON pins document that is not valid UTF-8 is refused with an error that names the JSON document.</summary>
+    [Fact]
+    public void ExternalSourcePins_Load_InvalidUtf8InJson_ThrowsNamingJson()
+    {
+        // Arrange: a license string that holds a lone continuation byte
+        using var training = new TrainingFixture();
+        using var external = new ExternalSourceFixture(training);
+        var path = CopyPins(external, "bad-utf8-json", static json => json.Replace("Fake", "F\u0001ke", StringComparison.Ordinal), static tsv => tsv);
+        var bytes = File.ReadAllBytes(path);
+        var index = Array.IndexOf(bytes, (byte)0x01);
+        Assert.True(index >= 0, "the fixture document has a license string to damage");
+        bytes[index] = 0xFF;
+        File.WriteAllBytes(path, bytes);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => ExternalSourcePins.Load(path));
+
+        // Assert
+        Assert.StartsWith("external-sources.json", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a byte count that is negative, signed, not a number, beyond a 64-bit integer or beyond the largest accepted file is refused at parse time.</summary>
+    [Theory]
+    [InlineData("-1", "malformed")]
+    [InlineData("-9223372036854775808", "malformed")]
+    [InlineData("+5", "malformed")]
+    [InlineData("12abc", "malformed")]
+    [InlineData("", "malformed")]
+    [InlineData("99999999999999999999", "malformed")]
+    [InlineData("16777217", "larger than")]
+    [InlineData("9223372036854775807", "larger than")]
+    public void ExternalSourcePins_Load_InvalidByteCount_Throws(string bytes, string expected)
+    {
+        // Arrange: the byte count of the first bench row is replaced
+        using var training = new TrainingFixture();
+        using var external = new ExternalSourceFixture(training);
+        var path = CopyPins(external, "bad-bytes", static json => json, tsv => EditRow(tsv, "bench", cells => [cells[0], cells[1], cells[2], bytes]));
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => ExternalSourcePins.Load(path));
+
+        // Assert: the error names the per-file pins and the row, before any consistency check against the JSON document
+        Assert.Contains("external-files.tsv:", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves a missing pins file is refused.</summary>
     [Fact]
     public void ExternalSourcePins_Load_MissingFile_Throws()

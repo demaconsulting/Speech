@@ -64,6 +64,9 @@ internal sealed class ExternalContent
     /// <summary>Gets or sets a document that replaces the rendered benchmark document.</summary>
     public string? BenchDocument { get; set; }
 
+    /// <summary>Gets or sets the exact bytes that replace the benchmark document, for content that is not valid UTF-8.</summary>
+    public byte[]? BenchDocumentBytes { get; set; }
+
     /// <summary>Gets the rows of <c>whd-mapping.tsv</c> as label and reading id.</summary>
     public List<string[]> WhdMapping { get; } = [];
 
@@ -212,7 +215,7 @@ internal sealed class ExternalContent
         {
             ["LICENSE"] = Utf8.GetBytes("Fake code license for the test fixture.\n"),
             ["LICENSE-DATA"] = Utf8.GetBytes("Fake data license for the test fixture.\n"),
-            [BenchPath] = Utf8.GetBytes(BenchDocument ?? RenderBenchDocument()),
+            [BenchPath] = BenchDocumentBytes ?? Utf8.GetBytes(BenchDocument ?? RenderBenchDocument()),
         };
 
     /// <summary>

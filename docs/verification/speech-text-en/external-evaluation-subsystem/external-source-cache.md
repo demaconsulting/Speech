@@ -41,7 +41,10 @@ permission is replaced by a verified download.
 **Tests**: `ExternalSourcePins_Load_CommittedConfig_IsConsistent`,
 `ExternalSourcePins_Load_EditedFilesTsv_FailsConsistencyCheck`, `ExternalSourcePins_Load_MalformedPins_Throws` (a
 theory over eight defects: short commit, parent, absolute and backslash paths, HTTP archive address, unsorted rows,
-wrong schema and wrong header), `ExternalSourcePins_Load_MissingFile_Throws`
+wrong schema and wrong header), `ExternalSourcePins_Load_InvalidUtf8InFilesTsv_ThrowsNamingFilesTsv`,
+`ExternalSourcePins_Load_InvalidUtf8InJson_ThrowsNamingJson`, `ExternalSourcePins_Load_InvalidByteCount_Throws` (a
+theory over eight byte counts: negative, signed, not a number, beyond 64 bits and beyond 16 MiB),
+`ExternalSourcePins_Load_MissingFile_Throws`
 
 Each edit of one pins file, and each malformed pin, throws `InvalidDataException` with a message that contains the
 expected text.

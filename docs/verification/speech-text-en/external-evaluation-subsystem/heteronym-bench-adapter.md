@@ -40,7 +40,8 @@ counted as repaired, while two items whose span is not the word either way are s
 
 ##### Strict format
 
-**Test**: `HeteronymBenchAdapter_Read_MalformedDocument_Throws` (a theory over eight defects)
+**Tests**: `HeteronymBenchAdapter_Read_MalformedDocument_Throws` (a theory over eight defects),
+`HeteronymBenchAdapter_Read_InvalidUtf8_Throws` and `HeteronymBenchAdapter_Read_RepeatedItemId_Throws`
 
 Each document, such as one that is not valid JSON, is not a document of English items, has no items object or has an
 item without a usable text, span, answer or source, throws `InvalidDataException` with a message that contains the

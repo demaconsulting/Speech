@@ -43,6 +43,9 @@ internal sealed class ExternalSourcePins
     /// <summary>The name of the per-file pins file, next to the JSON document.</summary>
     public const string FilesFileName = "external-files.tsv";
 
+    /// <summary>The largest size accepted for one pinned file, in bytes (the real files are far smaller).</summary>
+    public const long MaximumFileBytes = 16 * 1024 * 1024;
+
     /// <summary>The header of the per-file pins file.</summary>
     private const string FilesHeader = "source\tpath\tsha256\tbytes";
 
@@ -61,7 +64,8 @@ internal sealed class ExternalSourcePins
     /// <param name="jsonPath">The full path of the JSON document; the per-file pins are the sibling <c>external-files.tsv</c>.</param>
     /// <returns>The pins.</returns>
     /// <exception cref="InvalidDataException">
-    ///     A file is missing or malformed, a commit is not 40 lowercase hexadecimal characters, an archive is not an HTTPS
+    ///     A file is missing or malformed (including per-file pins that are not valid UTF-8 or that give a size that is not
+    ///     a non-negative number of at most <see cref="MaximumFileBytes"/>), a commit is not 40 lowercase hexadecimal characters, an archive is not an HTTPS
     ///     URL of that commit, a path is not a safe relative path or the rows are not unique and sorted, or a source's
     ///     file count, byte total or listing hash differs between the two files.
     /// </exception>
@@ -79,10 +83,27 @@ internal sealed class ExternalSourcePins
             throw new InvalidDataException($"the per-file pins file {tsvPath} was not found");
         }
 
-        var files = ReadFiles(File.ReadAllText(tsvPath, new UTF8Encoding(false, true)));
+        // Decode strictly: a byte sequence that is not UTF-8 is a defect of the pins, not text to be repaired.
+        string tsvText;
         try
         {
-            using var document = JsonDocument.Parse(File.ReadAllBytes(jsonPath));
+            tsvText = new UTF8Encoding(false, true).GetString(File.ReadAllBytes(tsvPath));
+        }
+        catch (DecoderFallbackException)
+        {
+            throw new InvalidDataException($"{FilesFileName}: the file is not valid UTF-8");
+        }
+
+        var files = ReadFiles(tsvText);
+        var jsonBytes = File.ReadAllBytes(jsonPath);
+        try
+        {
+            if (!System.Text.Unicode.Utf8.IsValid(jsonBytes))
+            {
+                throw new InvalidDataException("external-sources.json: the file is not valid UTF-8");
+            }
+
+            using var document = JsonDocument.Parse(jsonBytes);
             return Build(document.RootElement, files);
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException or KeyNotFoundException or FormatException or UriFormatException)
@@ -135,9 +156,16 @@ internal sealed class ExternalSourcePins
                 throw new InvalidDataException($"{FilesFileName}:{i + 1}: the path is not a safe relative path");
             }
 
-            if (!IsHex(cells[2], 64) || !long.TryParse(cells[3], NumberStyles.None, CultureInfo.InvariantCulture, out var bytes))
+            // NumberStyles.None accepts digits only, so a sign (a negative size) is malformed; the upper bound keeps an
+            // absurd size from reaching the buffer a fetch allocates for the file or overflowing the byte total.
+            if (!IsHex(cells[2], 64) || !long.TryParse(cells[3], NumberStyles.None, CultureInfo.InvariantCulture, out var bytes) || bytes < 0)
             {
                 throw new InvalidDataException($"{FilesFileName}:{i + 1}: the SHA-256 or the byte count is malformed");
+            }
+
+            if (bytes > MaximumFileBytes)
+            {
+                throw new InvalidDataException($"{FilesFileName}:{i + 1}: the byte count is larger than {MaximumFileBytes} bytes");
             }
 
             if (previousSource is not null && (string.CompareOrdinal(previousSource, cells[0]) > 0

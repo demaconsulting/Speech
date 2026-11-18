@@ -41,8 +41,10 @@ bytes per row. When the Deflate flag is clear the stored bytes are the payload a
 
 *In memory*: an occupancy bitmap of `2^hashBits` bits in 64-bit words (at most 2 MiB at 24 bits), the number of weights
 stored before each word (the rank base) and the packed weights. A lookup is one bit test plus one population count over
-the bits below it, with no hashing and no allocation. The header values (hash bits, temperature, scale, versions,
-trainer version, row count and the manifest digest) are exposed as properties.
+the bits below it, with no hashing and no allocation. The header values the lookup and the callers use (hash bits,
+temperature, scale, feature-set and inventory versions, trainer version and row count) are exposed as properties. The
+data manifest digest is only an informational field of the on-disk header: the loader reads past it, the model does
+not store or expose it, and the writer records whatever digest the trainer supplies.
 
 **Loading rules** (`Load(byte[])` and `Load(Stream)`; the checks run in this order and each failure is an
 `InvalidDataException` with a fixed message that names the defect and never the data):

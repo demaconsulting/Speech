@@ -38,7 +38,7 @@ internal static class HeteronymBenchAdapter
     /// <param name="cache">The verified cache.</param>
     /// <param name="source">The pinned source.</param>
     /// <returns>The records and the adapter's accounting.</returns>
-    /// <exception cref="InvalidDataException">The file is too large, is not the expected JSON, or an item is malformed.</exception>
+    /// <exception cref="InvalidDataException">The file is too large, is not valid UTF-8, is not the expected JSON, or an item is malformed or repeated.</exception>
     public static ExternalReadResult Read(ExternalSourceCache cache, ExternalSourcePin source)
     {
         ArgumentNullException.ThrowIfNull(cache);
@@ -47,6 +47,13 @@ internal static class HeteronymBenchAdapter
         if (bytes.Length > MaximumBytes)
         {
             throw new InvalidDataException($"{ReadSetPath}: the file is larger than {MaximumBytes} bytes");
+        }
+
+        // Validate the encoding up front: the JSON reader checks the structure, but a string with invalid UTF-8 is only
+        // found when the string is read, as an exception that is not a JsonException.
+        if (!System.Text.Unicode.Utf8.IsValid(bytes))
+        {
+            throw new InvalidDataException($"{ReadSetPath}: the file is not valid UTF-8");
         }
 
         try
@@ -88,9 +95,14 @@ internal static class HeteronymBenchAdapter
         };
         var nonAscii = 0;
         var repaired = 0;
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in items.EnumerateObject())
         {
             var id = property.Name;
+            if (!seen.Add(id))
+            {
+                throw new InvalidDataException($"{ReadSetPath}: item '{id}' appears more than once");
+            }
             var item = property.Value;
             var text = StringField(item, id, "text");
             var word = StringField(item, id, "word");

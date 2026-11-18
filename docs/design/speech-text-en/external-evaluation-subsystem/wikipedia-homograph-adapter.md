@@ -17,14 +17,16 @@ reads the bytes through `ExternalSourceCache.ReadAllBytes` (which verifies them)
 small record reader splits the text into records of fields: a field that starts with a quote is read to its closing
 quote with a doubled quote standing for one quote and may hold tabs and line breaks; the closing quote must be followed
 by a tab, a line break or the end; a line feed (with an optional carriage return before it) ends a record; blank lines
-are skipped. The first record of a file must be exactly the five header fields. Every other record must have five fields
+are skipped. The first record of a file must be exactly the five header fields; a file with no record at all (an empty
+file or only blank lines) is rejected because it lacks that header. Every other record must have five fields
 whose last two are non-negative integers. The byte span is converted with `ByteOffsets.TryToCharOffsets`; the row is
 skipped as `bad-offsets` when the conversion fails or when the converted span, compared ignoring case, is not the row's
 `homograph` column. Otherwise an `ExternalRecord` is added. The result counts the rows that have a character outside
 ASCII and the rows whose converted span differs from the byte span; it reports no repaired row.
 
 **Error Handling**: null arguments throw `ArgumentNullException`. A file that is not UTF-8, a quote that is not closed
-or is followed by an unexpected character, a header that is not the five fields, or a record without five fields and
+or is followed by an unexpected character, a header that is not the five fields (or that is missing because the file is
+empty), or a record without five fields and
 integer offsets is an `InvalidDataException` that names the pinned path and the record number and never quotes content.
 A cache failure from `ExternalSourceCache` propagates. A row whose span is not its homograph is a counted skip, not an
 error.

@@ -32,7 +32,7 @@ internal static class WikipediaHomographAdapter
     /// <param name="source">The pinned source.</param>
     /// <param name="split">The split: <c>train</c> or <c>eval</c>.</param>
     /// <returns>The records and the adapter's accounting.</returns>
-    /// <exception cref="InvalidDataException">A file is malformed.</exception>
+    /// <exception cref="InvalidDataException">A file is malformed, including an empty file that lacks the header.</exception>
     public static ExternalReadResult ReadSplit(ExternalSourceCache cache, ExternalSourcePin source, string split)
     {
         ArgumentNullException.ThrowIfNull(cache);
@@ -48,6 +48,7 @@ internal static class WikipediaHomographAdapter
         {
             var text = Decode(cache.ReadAllBytes(source, path), path);
             var recordNumber = 0;
+            var sawHeader = false;
             foreach (var fields in ParseRecords(text, path))
             {
                 if (recordNumber++ == 0)
@@ -57,6 +58,7 @@ internal static class WikipediaHomographAdapter
                         throw new InvalidDataException($"{path}: the header is not the expected five fields");
                     }
 
+                    sawHeader = true;
                     continue;
                 }
 
@@ -78,6 +80,12 @@ internal static class WikipediaHomographAdapter
 
                 converted += start != byteStart || end != byteEnd ? 1 : 0;
                 records.Add(new ExternalRecord($"{stratum}:{path}:{recordNumber}", fields[1], sentence, start, end, stratum));
+            }
+
+            // An empty file (or one of blank lines) has no records at all, so the header check above never ran.
+            if (!sawHeader)
+            {
+                throw new InvalidDataException($"{path}: the file is empty; the expected five-field header is missing");
             }
         }
 

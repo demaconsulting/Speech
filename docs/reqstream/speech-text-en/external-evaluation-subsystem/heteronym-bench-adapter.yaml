@@ -45,3 +45,5 @@ sections:
                   damaged. The read stops with a message and does not evaluate a part of it.
                 tests:
                   - HeteronymBenchAdapter_Read_MalformedDocument_Throws
+                  - HeteronymBenchAdapter_Read_InvalidUtf8_Throws
+                  - HeteronymBenchAdapter_Read_RepeatedItemId_Throws

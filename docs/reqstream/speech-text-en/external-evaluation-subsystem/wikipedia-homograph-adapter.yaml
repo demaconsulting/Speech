@@ -42,7 +42,7 @@ sections:
                 title: >-
                   The WikipediaHomographAdapter unit shall throw InvalidDataException that names the file
                   and the record, and quotes no content, for a file whose header is not the expected five
-                  fields, whose row does not have five fields with integer offsets, or that has a quoted
+                  fields or that is empty, whose row does not have five fields with integer offsets, or that has a quoted
                   field that is not closed.
                 justification: |
                   A file in an unexpected format means that the dataset changed or the copy is damaged.

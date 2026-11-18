@@ -28,10 +28,11 @@ The result counts the items whose text has a character outside ASCII and the rep
 two known defects of the file are in `whd` items, which are skipped first, so no evaluated item is repaired and the
 repair rule is a defense for a later revision of the file.
 
-**Error Handling**: null arguments throw `ArgumentNullException`. A file that is too large, is not valid JSON (the
-message names the file and the exception kind, not the content), is not a document of English items, has no `items`
-object, or has an item with a missing or unusable field is an `InvalidDataException` that names the item and never
-quotes content. A cache failure from `ExternalSourceCache` propagates. An item that is skipped is a count, not an error.
+**Error Handling**: null arguments throw `ArgumentNullException`. A file that is too large, is not valid UTF-8, is not
+valid JSON (the message names the file and the exception kind, not the content), is not a document of English items, has
+no `items` object, repeats an item id, or has an item with a missing or unusable field is an `InvalidDataException` that
+names the item and never quotes content. A cache failure from `ExternalSourceCache` propagates. An item that is skipped
+is a count, not an error.
 
 **Dependencies**: `ExternalSourceCache` (the verified bytes) and `ExternalRowConversion` (`ByteOffsets`,
 `ExternalRecord`, `ExternalReadResult` and `SkipReasons`); the framework's JSON reader.

@@ -74,6 +74,11 @@ public sealed class WikipediaHomographAdapterTests
     /// <summary>Proves a file that is not exactly the expected format stops the read with an error that names the file.</summary>
     [Theory]
     [InlineData("\"homograph\"\t\"wordid\"\t\"sentence\"\t\"begin\"\t\"end\"\n", "header")]
+    [InlineData("", "header")]
+    [InlineData("\n\r\n\n", "header")]
+    [InlineData("\"homograph\"\t\"wordid\"\t\"sentence\"\t\"start\"\n", "header")]
+    [InlineData("\"homograph\"\t\"wordid\"\t\"sentence\"\t\"start\"\t\"end\"\t\"extra\"\n", "header")]
+    [InlineData("\"lead\"\t\"lead_guide\"\t\"Someone will lead the hikers home.\"\t13\t17\n", "header")]
     [InlineData(Header + "\"lead\"\t\"lead_guide\"\t\"Someone will lead.\"\t13\n", "five fields")]
     [InlineData(Header + "\"lead\"\t\"lead_guide\"\t\"Someone will lead.\"\tfive\t17\n", "integer offsets")]
     [InlineData(Header + "\"lead\"\t\"lead_guide\"\t\"never closed\t13\t17\n", "not closed")]
@@ -90,6 +95,21 @@ public sealed class WikipediaHomographAdapterTests
         // Assert
         Assert.Contains("data/eval/lead.tsv", exception.Message, StringComparison.Ordinal);
         Assert.Contains(expected, exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a file that holds only the expected header is valid and adds no rows, unlike an empty file.</summary>
+    [Fact]
+    public void WikipediaHomographAdapter_ReadSplit_HeaderOnlyFile_IsReadWithoutRows()
+    {
+        // Arrange: lead.tsv keeps only its header
+        var content = ExternalContent.Standard();
+        content.WhdFiles["data/eval/lead.tsv"] = Header;
+
+        // Act
+        var result = Read(content, "eval");
+
+        // Assert: only the one row of wind.tsv remains
+        Assert.Equal(["wind_air"], result.Records.Select(static record => record.Label));
     }
 
     /// <summary>Proves a file with CRLF line endings is read like one with LF.</summary>

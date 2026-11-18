@@ -48,6 +48,8 @@ no sentence.
 
 ##### Strict format
 
-**Test**: `WikipediaHomographAdapter_ReadSplit_MalformedFile_Throws` (a theory over five defects)
+**Tests**: `WikipediaHomographAdapter_ReadSplit_MalformedFile_Throws` (a theory over ten defects, including an empty
+file, a file of blank lines and headers with four and six fields) and
+`WikipediaHomographAdapter_ReadSplit_HeaderOnlyFile_IsReadWithoutRows`
 
 Each defect throws `InvalidDataException` whose message contains the pinned path and the expected text.

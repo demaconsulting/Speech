@@ -36,6 +36,9 @@ sections:
                   - ExternalSourcePins_Load_CommittedConfig_IsConsistent
                   - ExternalSourcePins_Load_EditedFilesTsv_FailsConsistencyCheck
                   - ExternalSourcePins_Load_MalformedPins_Throws
+                  - ExternalSourcePins_Load_InvalidUtf8InFilesTsv_ThrowsNamingFilesTsv
+                  - ExternalSourcePins_Load_InvalidUtf8InJson_ThrowsNamingJson
+                  - ExternalSourcePins_Load_InvalidByteCount_Throws
                   - ExternalSourcePins_Load_MissingFile_Throws
 
               - id: SpeechTextEn-ExternalEvaluation-ExternalSourceCache-VerifiedFetch

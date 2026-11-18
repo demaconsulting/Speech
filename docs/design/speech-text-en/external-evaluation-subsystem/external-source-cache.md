@@ -26,8 +26,9 @@ sorted by source and then path in ordinal order. The canonical listing of a sour
 are unique, every commit is 40 lowercase hexadecimal characters, every archive address is an HTTPS address that contains
 its commit, every path is a safe relative path (letters, digits, dot, underscore, hyphen and slash; no empty, `.` or
 `..` segment; no leading or trailing slash), every hash is 64 lowercase hexadecimal characters, the rows are unique and
-sorted, and for every source the file count, the total size and the recomputed hash of the listing equal the values of
-the pins file. Editing either file alone is therefore detected when the pins are loaded.
+sorted, every byte count is a non-negative integer of at most 16 MiB, the files are valid UTF-8, and for every source
+the file count, the total size and the recomputed hash of the listing equal the values of the pins file. Editing either
+file alone is therefore detected when the pins are loaded.
 
 **The cache layout.** A source lives in `<cache>/<source id>/<commit>/<pinned path>`.
 
@@ -50,8 +51,8 @@ the pins file. Editing either file alone is therefore detected when the pins are
 
 **Error Handling**: null arguments throw `ArgumentNullException`. A malformed or inconsistent pin, a missing cache that
 may not be fetched, a missing or different pinned file, an archive entry that is larger than its pin and a download that
-lacks a pinned file are `InvalidDataException`; a failed download is an `IOException`. The command reports each as an
-error with exit code 2.
+lacks a pinned file are `InvalidDataException` (so is a pins file that is not valid UTF-8, which names that file); a
+failed download is an `IOException`. The command reports each as an error with exit code 2.
 
 **Dependencies**: the .NET base class library only (file system, hashing, JSON reading, compression and the archive
 reader).
