@@ -8,7 +8,8 @@ reserve kept free in every part (10 symbols) and the clause marks after which a 
 (`, ; : . ! ? — …`). The cost of an item is its number of Unicode scalar values plus one for the space that separates
 it. `WordShape` holds the helpers over a span of phones that the sound rules of both renderers share: the ordinal of the
 vowel with the primary stress, the vowel count, the symbol and the vowel test at an index, the flap test (a `t` between
-a vowel or `r` and an unstressed vowel) and the test for an inflection ending. `IpaSymbols` holds the two symbol tables
+a vowel or `r` and an unstressed vowel, or a final `y` that the dictionary stresses secondarily, as in *ability*) and
+the test for an inflection ending. `IpaSymbols` holds the two symbol tables
 (the character vocabulary of Kokoro's tokenizer and the Piper voice's `phoneme_id_map`) and translates a host IPA string
 into the symbols of one voice, or reports that it cannot be represented completely.
 

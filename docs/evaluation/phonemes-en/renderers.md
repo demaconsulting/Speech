@@ -21,13 +21,13 @@ the mapping tables.
   `phoneme_id_map` (159 symbols) and Kokoro's vocabulary (115 symbols): `RenderingSubsystemTests` proves it on every
   target framework.
 - **D5 gates (provisional, report then ratchet).** Piper against espeak-ng en-us on the 450-sentence tuning corpus:
-  **word match 89.4 percent (gate 85), phoneme error rate 3.0 percent excluding stress (gate 8), primary stress
+  **word match 86.1 percent (gate 85), phoneme error rate 3.0 percent excluding stress (gate 8), primary stress
   agreement 95.9 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
   6)**, 2.0 percent with the opt-in weak forms. On text nobody tuned the rules on (60 fresh sentences, 3,000 further
-  frequent words) the figures hold: Piper 91.8 percent word match, 2.5 percent PER, 98.1 percent primary stress
+  frequent words) the figures hold: Piper 89.3 percent word match, 2.5 percent PER, 98.1 percent primary stress
   agreement on the sentences, and 4.4 percent PER on isolated words; Kokoro 4.5 percent PER on the sentences and 2.8
-  percent on the words. The one figure below its provisional gate is the **word match of isolated words** (78.6 percent
-  tuned, 75.3 percent held out): it is not the gate's corpus (sentences) and its residual is the engine's
+  percent on the words. The one figure below its provisional gate is the **word match of isolated words** (78.7 percent
+  tuned, 75.4 percent held out): it is not the gate's corpus (sentences) and its residual is the engine's
   spelling-driven vowel choice (see "Residual classes").
 - **The gates are ratcheted, never loosened:** the figures above are the new floor (the first authored mapping scored
   61.6 percent word match and 9.7 percent PER for Piper, 6.6 percent PER for Kokoro; see "What the measurement
@@ -37,7 +37,10 @@ the mapping tables.
   held-out figures did not move, and its tuned-sentence PER moved by +0.01 point (4.88 to 4.89 with full forms, 1.99 to
   2.00 with weak forms) because three sentences of the corpus now reach the misaki engine as different spoken text (a
   URL, `10K`, `A1`). The later listening fixes (see "Listening Fixes") brought the Piper figures to 89.4 word match and
-  95.9 primary stress, and the Kokoro full-form PER back to 4.88.
+  95.9 primary stress, and the Kokoro full-form PER back to 4.88. The second round of listening fixes (see "Listening
+  Fixes 2") lowered the Piper sentence word match to 86.1 (89.3 held out) by design, because the first word of every
+  utterance now carries a secondary stress that espeak-ng does not write; the error rate, the primary stress agreement
+  and every other figure are unchanged or slightly better.
 
 ## What Is Rendered
 
@@ -133,25 +136,27 @@ All numbers are percent. The first pass of each pair is the corpus the rules wer
 
 | System and corpus | Words | Match | No stress | PER | Primary | Signature | Secondary |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Piper, 450 sentences | 4,279 | 89.39 | 91.14 | 3.01 | 95.90 | 96.75 | 76.29 |
-| Piper, 60 held-out sentences | 636 | 91.82 | 92.61 | 2.47 | 98.10 | 98.11 | 75.56 |
-| Piper, 3,000 words | 3,000 | 78.63 | 81.20 | 4.49 | 95.39 | 93.80 | 62.56 |
-| Piper, 3,000 held-out words | 3,000 | 75.30 | 77.40 | 4.39 | 96.76 | 94.00 | 68.28 |
+| Piper, 450 sentences | 4,279 | 86.12 | 91.14 | 3.01 | 95.90 | 93.48 | 54.49 |
+| Piper, 60 held-out sentences | 636 | 89.31 | 92.61 | 2.47 | 98.10 | 95.60 | 55.74 |
+| Piper, 3,000 words | 3,000 | 78.70 | 81.27 | 4.47 | 95.39 | 93.80 | 62.56 |
+| Piper, 3,000 held-out words | 3,000 | 75.37 | 77.47 | 4.38 | 96.76 | 94.00 | 68.28 |
 | Kokoro full, 450 sentences | 4,357 | 62.73 | 82.19 | 4.88 | 71.45 | 75.10 | 23.54 |
 | Kokoro full, 60 held-out sentences | 659 | 64.80 | 83.16 | 4.50 | 72.17 | 76.33 | 21.62 |
-| Kokoro full, 3,000 words | 2,990 | 81.20 | 85.95 | 2.93 | 94.81 | 91.27 | 48.47 |
-| Kokoro full, 3,000 held-out words | 2,955 | 80.61 | 83.76 | 2.81 | 97.39 | 93.81 | 69.02 |
+| Kokoro full, 3,000 words | 2,990 | 81.34 | 86.09 | 2.91 | 94.81 | 91.27 | 48.47 |
+| Kokoro full, 3,000 held-out words | 2,955 | 80.68 | 83.82 | 2.80 | 97.39 | 93.81 | 69.02 |
 | Kokoro weak, 450 sentences | 4,357 | 86.21 | 93.09 | 2.00 | 94.14 | 91.53 | 45.34 |
-| Kokoro weak, 60 held-out sentences | 659 | 88.92 | 94.84 | 1.43 | 96.59 | 93.17 | 45.78 |
+| Kokoro weak, 60 held-out sentences | 659 | 89.23 | 94.84 | 1.43 | 96.59 | 93.47 | 48.19 |
 
 Columns: words compared, word match (stress marks included), word match ignoring stress, phoneme error rate (PER)
 excluding stress, primary stress agreement, stress signature agreement, secondary stress agreement.
 
-**Gates.** Piper word match 89.4 (gate 85), PER 3.0 (gate 8), primary stress 95.9 (gate 90): met on the tuned corpus and
-on the held-out sentences. Kokoro PER 4.9 with full forms and 2.0 with weak forms (gate 6): met. Not met: Piper word
-match on isolated words (78.6 and 75.3 against 85); that metric is not the gate's corpus and is dominated by the class
-"unstressed short vowel chosen by spelling" below. The stress agreement of Kokoro with full forms (71 percent) is low
-only because of function words: with the weak forms it is 94 percent.
+**Gates.** Piper word match 86.1 (gate 85), PER 3.0 (gate 8), primary stress 95.9 (gate 90): met on the tuned corpus and
+on the held-out sentences (89.3, 2.5, 98.1). Kokoro PER 4.9 with full forms and 2.0 with weak forms (gate 6): met. Not
+met: Piper word match on isolated words (78.7 and 75.4 against 85); that metric is not the gate's corpus and is
+dominated by the class "unstressed short vowel chosen by spelling" below. The stress agreement of Kokoro with full forms
+(71 percent) is low only because of function words: with the weak forms it is 94 percent. The Piper word match on
+sentences fell from 89.4 to 86.1 and its stress signature and secondary stress agreement fell with it, on purpose: see
+"Listening Fixes 2".
 
 ## What the Measurement Changed
 
@@ -235,6 +240,93 @@ tuning-sentence figures only slightly (the held-out and word passes did not move
    compound joint. Espeak-ng has no pause there, so one tuning sentence of 450 has a different word count (same word
    count 94.89 to 94.67 percent of the sentences) with no change in the error rate.
 
+### Listening Fixes 2
+
+The second round of owner listening (Piper pack, sentences 14 to 30) found that the new path had fixed the old failures
+and reported four more: `He` almost silent at the start of `He whispered, "We should leave ...`, `coffee` with a clipped
+last vowel in `tea, coffee, or something stronger`, `recommends` with its first sound missing in `The committee's
+report, released on Tuesday, recommends sweeping changes`, and in general the words right after a comma. A speech
+recognizer (the library's
+Zipformer, a weak streaming model, so every number below counts as errors of a proxy, not as listening) was run over
+many renderings of each variant, because the voice draws noise and one rendering proves nothing. All sets use several
+speakers and three draws per speaker; the words and counts are of the proxy's output.
+
+**What the strings are.** For all three sentences the phoneme strings equal espeak-ng's for the same words
+(`hiː wˈɪspɚd,`, `kˈɑːfi,` against `kˈɔfi,`, `ɹˌɛkəmˈɛndz` in both), so the cause is not a wrong phoneme but how the
+voice speaks the start of an utterance. The session speaks every segment as its own text and the core chunker makes one
+segment per clause, so the first word of each clause piece is the first word of an utterance; the phonemizer sees each
+segment as a text start.
+
+1. **The first word of an utterance (Piper).** Over 90 sentences that start with 50 different words (1,080 renderings, 4
+   speakers) the proxy recognized the first word in 73.1 percent of the renderings with the weak forms as they were. An
+   unmarked full-vowel weak form is often swallowed or heard as another word: `should` and `could` were recognized in
+   none of 24 renderings each and `my` in none, `these` in 4, `can` in 9, `if` in 12, `it` in 15, `was` in 15, `will`
+   in 17. The rule now: the first word of the rendered text (and of each part of a long text) keeps its full-vowel weak
+   form but with a secondary stress mark before the vowel (`hˌiː`, `ʃˌʊd`, `ˌaɪ`; `AtTextStart`), the reduced forms
+   (`ðə`, `ɐ`, `tə`), forms that have a mark already and `the` are unchanged, and a word after a comma inside the text
+   is not first. With it the first word was recognized in 86.1 percent (`should` 21 of 24, `my` 17, `could` 14, `these`
+   16, `if` 21, `was` 24, `will` 24) and the first word was lost (the transcript starts at the second word) in 39
+   renderings instead of 56. One exception was measured and kept: `for` with any stress mark is heard as `war` or `or`
+   (21 of 24 unmarked, 7 of 24 with `ˌ`; in a second set 31 of 48 unmarked against 6, 11 and 14 of 48 for `fˌɔːɹ`,
+   `fˈɔːɹ` and `fɚ`), so it keeps `fɔːɹ`. The Kokoro model does not have the problem: over the same 90 sentences with
+   three voices the first word was recognized in 97.8, 87.8 and 98.9 percent without the mark and in 98.9, 87.8 and 100
+   percent with a secondary stress on it, so Kokoro's rendering is unchanged (its earlier `ˌI` rule stays; for the
+   pronoun `I` it gives the same result as the new rule gives Piper). The words that start a text and have no stress
+   mark at all in the Piper rendering are exactly the weak-form table's, so no other class is left unmarked. Cost
+   against espeak-ng (which writes no mark there): 59 of the 150 golden sentences and about 140 of the 4,279 word pairs
+   of the tuning sentences have a differing first word, so the word match fell from 89.39 to 86.12 percent (91.82 to
+   89.31 held out), the stress signature agreement from 96.75 to 93.48 and the secondary stress agreement from 76.29 to
+   54.49; the error rate excluding stress (3.01), the match excluding stress (91.14) and the primary stress agreement
+   (95.90) did not move. The gate of 85 percent word match is still met, and the loss is the intended price of a first
+   word that is heard.
+2. **Final vowels and `coffee`.** The final unstressed vowel of the words in the two 3,000-word passes whose final vowel
+   is `i` or `iː` agreed with espeak-ng in 93.1 percent of 175 words (95.4 percent of 194 held out) before this round
+   and 95.3 percent of 171 (95.9 percent of 193) after it. The convention is espeak's own: `i` after the spellings `-y`,
+   `-ey` and `-ie` (1,205 of 1,380, 405 of 439 and 143 of 157 words of a 2,932-word sample of the dictionary's `IY0`
+   endings) and `iː` after most `-ee` (46 of the 49 whose final vowel is unstressed) but `kəmˈɪɾi` for `committee` and
+   `kˈɔfi` for `coffee`; for Kokoro the misaki final `i` agrees in 1,099 of 1,120 comparable words. The differences that
+   remained in the frequent words were the flap of `-ty` after an unstressed vowel (`ability`, `identity`, `reality`:
+   the dictionary stresses the final `-y` secondarily, which the renderer already drops, but the flap test did not know
+   it; now `ɐbˈɪlᵻɾi`, 12 of 175 to 8 of 171 and 9 of 194 to 8 of 193 differences, Kokoro likewise) and the weekday
+   names (espeak-ng and misaki end them in `eɪ`, the dictionary lists that variant second: not changed, listed as a
+   residual). `kˈɑːfi` against espeak's `kˈɔfi`: in a rendering of the clause piece `coffee,` on its own the proxy
+   recognized our `kˈɑːfi` 23 of 24 times and espeak's string 0 of 24 (it lost the first sound), and `kˈɑːfiː`
+   6 of 24; inside the sentence all variants were recognized 24 of 24. So the final vowel was not the cause and its
+   convention was not changed; the cause was a one-word utterance (item 4).
+3. **`recommends` and `released`.** The strings are espeak's. As clause pieces the proxy heard `recommends` as
+   `a commends`, `I commence` or `at the men` in 11 of 15 renderings (and `released` as `the least`), inside the
+   sentence in 2 of 15: the voice loses the first consonant of an utterance when the first syllable is unstressed or
+   carries a secondary stress (34 words that start with a consonant and a secondary stress, 6 renderings each: 77.9
+   percent recognized as written, 61.3 percent without the mark and 87.3 percent with a primary mark in its place). The
+   primary mark is not espeak's convention and was not adopted; the cure is not to make such a word start an utterance
+   (item 4).
+4. **Clause pieces as utterances (the pattern).** Controlled experiment: 63 sentences with commas (60 of the renderer
+   corpus plus the three listening sentences), 5 speakers, 3 draws, so 945 renderings and 11,475 words per variant; (a)
+   the current chunking, each clause piece its own utterance, and (b) one utterance per sentence, the clause pieces
+   joined, the comma passed through as a symbol (how the voice was trained). With the final renderer: word error rate of
+   the proxy 6.78 percent for (a) and 6.63 for (b) (no significant difference: the paired difference over sentences is
+   18 errors with a 95 percent bootstrap interval of -91 to +129); the first word of a clause after a comma was
+   recognized in 90.6 percent of the renderings for (a) and 97.5 percent for (b) (87 fewer misses in (b), interval 39 to
+   146), in every one of the five speakers (88.5 to 92.9 against 94.4 to 99.6); the first word of the sentence in 89.6
+   and 86.9 percent (26 more misses in (b), interval -80 to +25, not significant: it is the cost of a longer utterance,
+   mostly `the` and `a`). The clause pieces that variant (a) lost are the short ones and those that start with a
+   consonant or a weak word: `clocks` (0 of 15 recognized against 15), `strawberries` (3 against 15), `small` (5 against
+   15), `recommends` (4 against 13), `grilled` (4 against 12), `a` (54 of 75 against 74). Before the first-word rule the
+   figures were 7.15 and 6.75 percent errors and 88.9 and 98.1 percent for the first word of a clause.
+
+   **Decision: implemented for Piper.** The owner's three complaints are all in the class (b) fixes, the effect on the
+   clause-initial word is large and significant in every speaker, and the effect on the total error rate is neutral to
+   slightly positive, with a small possible cost for the first word of long sentences. The seam needed no change of the
+   core: the model's `CapabilityProfile` (a public member of `ISynthesisModel`) wraps the library's default profile and
+   joins the clause pieces (`PiperCapabilityProfile`, see *SpeechOnnxPiper Design*), within the core chunker's own
+   200-character budget and with the engine's 256-symbol limit still cutting what is longer. The change is one line (the
+   profile property) to revert. Kokoro's chunking is unchanged; it was not part of this experiment.
+
+Evidence is in the experiment sets kept outside the repository; none of the recognizer output or audio is committed. The
+Phonemes.En goldens changed in 59 lines of the Piper golden (the first word of the sentence, in every case); the Piper
+pipeline golden changed in 23 rows (the same first-word marks, and the sentences with commas now one utterance each).
+The Kokoro goldens did not change.
+
 ## Residual Classes
 
 The largest disagreements that remain are idiosyncrasies of the two engines, not renderer faults, and no phone-only rule
@@ -255,6 +347,10 @@ reaches them (shares are of all character edits of the pass):
   of the stress disagreement of the word pass.
 - **Joined word pairs (Piper, sentences):** the engine joins some short word pairs (`there are`, `did not`) into one
   unit beyond the groups the renderer knows.
+- **Final `-y` details (both):** the weekday names end in `eɪ` in espeak-ng and misaki (`tˈuːzdeɪ`; the dictionary lists
+  that variant second, so the renderers say `tˈuːzdi`), a final `-ty` after `l` is flapped in some words (`loyalty`,
+  `penalty`) and not in others, and espeak-ng says `ɔ` for 26 of the 187 dictionary words with `AA` before `f` (among
+  them `coffee` and `cough`) where the dictionary vowel gives `ɑː`.
 - **Syllabic mark `ᵊ` (Kokoro, 17 to 23 percent of the edits of the word pass):** the reference dictionary writes `ᵊ`
   after some consonants and `ə` after others with no phone-determined pattern; the rule covers roughly three quarters of
   the syllabic `l`/`n` cases, the rest swap in both directions.

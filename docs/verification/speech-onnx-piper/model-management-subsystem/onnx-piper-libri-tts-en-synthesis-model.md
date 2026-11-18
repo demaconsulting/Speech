@@ -20,21 +20,36 @@ that has the four inputs of the Piper graph, written beside the trimmed copy of 
 
 The model declares the identifier `piper-onnx-libritts-r-en-us-medium`, the Synthesis role, no audio-tag support, the
 license `CC BY 4.0` with `https://creativecommons.org/licenses/by/4.0/`, a preferred format of 22,050 Hz mono and a text
-analyzer that is the same instance for every model instance; its only parameter is an integer from 0 to 903 with the
-default 0; the speaker values `7`, `7.0`, `7.4f` and `903` resolve to 7, 7, 7 and 903 and `null`, 904, -1, NaN, infinity
-and the text `"7"` resolve to 0; the download descriptor has one HTTPS `.tar.bz2` file with the SHA-256
-`10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c`; an installed archive leaves only the graph and the
-configuration and no archive; a hostile entry path stays inside the staging directory; an archive without the graph,
-without the configuration or with neither throws `InvalidDataException` and stays in place; a backend is created at
-22,050 Hz and is an `IAnnotatedSynthesisBackend`; an empty directory argument, a configuration of one speaker, an empty
-configuration and a missing graph fail; and a model with an unavailable preferred provider falls back to the CPU and
-synthesizes.
+analyzer that is the same instance for every model instance and a capability profile that speaks the clauses of a
+sentence as one segment (and keeps a sentence end, a pause and the 200-character budget as boundaries); its only
+parameter is an integer from 0 to 903 with the default 0; the speaker values `7`, `7.0`, `7.4f` and `903` resolve to 7,
+7, 7 and 903 and `null`, 904, -1, NaN, infinity and the text `"7"` resolve to 0; the download descriptor has one HTTPS
+`.tar.bz2` file with the SHA-256 `10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c`; an installed
+archive leaves only the graph and the configuration and no archive; a hostile entry path stays inside the staging
+directory; an archive without the graph, without the configuration or with neither throws `InvalidDataException` and
+stays in place; a backend is created at 22,050 Hz and is an `IAnnotatedSynthesisBackend`; an empty directory argument, a
+configuration of one speaker, an empty configuration and a missing graph fail; and a model with an unavailable preferred
+provider falls back to the CPU and synthesizes.
 
 #### Test Scenarios
 
 ##### Catalog facts
 
 **Test**: `OnnxPiperLibriTtsEnSynthesisModel_CatalogFacts_AreDeclared`
+
+##### Capability profile
+
+**Tests**: `OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_SentenceClauses_AreOneSegmentWithTheirAnnotations`,
+`OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_JoinsOnlyWhereNothingSetsTheClausesApart`,
+`OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_PauseTag_StaysABoundary`
+
+`Wait for 5 minutes, then ask Dr. Smith; he will know. It was late, so we left.` becomes two segments (one per sentence,
+commas kept, the words and their order as in the default plan, which has one segment per clause), and every annotation
+covers the very text it covered in its clause piece. The join function keeps segments apart for a different set of
+parameter overrides, silence on either side, text that does not end in a clause mark, an empty text and a joined text
+beyond 200 characters, and joins four pieces ending in `,`, `;`, `:` into one with the first one's leading silence, the
+last one's trailing silence and the shared overrides. A pause tag stays its own segment with the clauses on each side
+joined within themselves only; a null argument is rejected.
 
 ##### Speaker parameter
 

@@ -33,6 +33,9 @@ internal static class WeakForms
     /// <summary>The forms by lower-case word; a word that is only demoted has no explicit form.</summary>
     private static readonly Dictionary<string, (string BeforeConsonant, string BeforeVowel)> Forms = BuildForms();
 
+    /// <summary>The full (not reduced) vowel symbols of the voice's table that open a weak form: a secondary stress mark goes before the first of them.</summary>
+    private static readonly char[] FullVowelSymbols = ['a', 'e', 'i', 'o', 'u', 'æ', 'ɑ', 'ɒ', 'ɔ', 'ɛ', 'ɜ', 'ɪ', 'ʊ', 'ʌ'];
+
     /// <summary>The words that keep their dictionary vowels but carry a secondary instead of a primary stress.</summary>
     private static readonly HashSet<string> Demoted = new(
         ["but", "not", "so", "how", "up", "us", "him", "me", "our", "over", "under", "down", "been", "about", "above", "before", "who", "why", "where", "while", "near", "them"],
@@ -92,6 +95,35 @@ internal static class WeakForms
         }
 
         return grouped;
+    }
+
+    /// <summary>
+    ///     Gives a weak form the secondary stress it needs as the first word of a text: the mark goes before its first full vowel.
+    /// </summary>
+    /// <param name="word">The word as spoken (any case).</param>
+    /// <param name="form">The weak form the table gave for it.</param>
+    /// <returns>
+    ///     The form with a secondary stress mark before its first full vowel (<c>hiː</c> becomes <c>hˌiː</c>, <c>ʃʊd</c> becomes
+    ///     <c>ʃˌʊd</c>); the form itself when it has a stress mark already, when its vowels are all reduced (<c>ðə</c>, <c>ɐ</c>, <c>ɐn</c>)
+    ///     or when the word is <i>the</i> or <i>for</i>.
+    /// </returns>
+    /// <remarks>
+    ///     Each text the renderer sees is one utterance of the voice, and at the start of an utterance an unmarked full-vowel
+    ///     weak form is often swallowed or heard as another word (the recognizer proxy hears <i>should</i>, <i>could</i> and <i>my</i> in
+    ///     none of 24 renderings each; with the mark in 24, 19 and 16). The reduced forms stay as they are: they sound the same
+    ///     either way and the reference engine says them so. <i>for</i> is the exception among the full forms: with any stress mark its
+    ///     vowel is heard as <i>war</i> or <i>or</i>, so it keeps <c>fɔːɹ</c>. A form that already has a mark (<i>on</i>, <i>because</i>) is not touched.
+    /// </remarks>
+    public static string AtTextStart(string word, string form)
+    {
+        if (word.Equals("for", StringComparison.OrdinalIgnoreCase) || word.Equals("the", StringComparison.OrdinalIgnoreCase)
+            || form.Contains('ˈ', StringComparison.Ordinal) || form.Contains('ˌ', StringComparison.Ordinal))
+        {
+            return form;
+        }
+
+        var index = form.IndexOfAny(FullVowelSymbols);
+        return index < 0 ? form : form.Insert(index, "ˌ");
     }
 
     /// <summary>

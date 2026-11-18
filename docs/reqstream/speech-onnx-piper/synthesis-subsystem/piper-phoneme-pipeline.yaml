@@ -55,11 +55,15 @@ sections:
                   The PiperPhonemePipeline class shall split a text that phonemizes to more than 256 symbols into
                   utterances of at most 256 symbols each, cut between words and after a clause mark where one fits,
                   losing no word, shall return no utterance for an empty text or a text with no sound in the voice,
-                  and shall reject a null text or a null configuration with an argument error.
+                  and shall reject a null text or a null configuration with an argument error; and shall speak a
+                  segment that holds the several clauses of a sentence as one utterance with the clause marks in
+                  place when it fits.
                 justification: |
                   VITS is trained on sentence-sized input, so a very long run of words is cut, and cutting inside
                   a word or dropping a part would be audible. A text with no sound must not produce an utterance
-                  for the graph.
+                  for the graph. The voice was trained on whole sentences with the comma as a symbol, so a
+                  sentence of several clauses is one utterance, not one per clause.
                 tests:
                   - PiperPhonemePipeline_ToUtterances_TextBeyondOneUtterance_IsSplitAtClauseBoundariesWithoutLoss
                   - PiperPhonemePipeline_ToUtterances_EmptyOrSoundlessText_ProducesNoUtterancesAndNullIsRejected
+                  - PiperPhonemePipeline_ToUtterances_SentenceWithClauses_IsOneUtteranceWithItsCommasInPlace

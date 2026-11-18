@@ -41,13 +41,14 @@ the tests are the real ones: a trimmed copy of the voice's configuration (CC BY 
 Kokoro's own tokenizer file.
 
 **Piper (espeak-style) rules.** The textbook ARPAbet to IPA mapping, with the stress mark before the vowel it belongs
-to, one symbol per sound (`tʃ`, `oʊ`, `ɜː`), the flap `ɾ` for a `t` between a vowel or `r` and an unstressed vowel, `ŋ`
-before `k` or `g`, a linking `ɹ` after a word-final `ɚ` or `ɜː` before a vowel-initial word, the unstressed `AH0`, `IH0`
-and `IY0` by environment (`ᵻ` for `-ed` after `t` or `d` and `-es` after a sibilant, `ɐ` word-initially, `ɛ` for `ex-`
-and `en-`, `ɪ` for `-ing`, `-ic`, `-age`), `ɔ` before `ŋ f θ s`, the secondary stress dropped next to the primary and on
-a final `-y`, and the numbers thirteen to nineteen (and only those) stressed on the first syllable. Quotation marks,
-brackets and dashes become a comma (a pause) because the voice has no symbol for them, an ellipsis stays three dots, and
-the clause marks `, ; : . ! ?` pass through. Every part of a hyphenated compound keeps its stress.
+to, one symbol per sound (`tʃ`, `oʊ`, `ɜː`), the flap `ɾ` for a `t` between a vowel or `r` and an unstressed vowel (a
+final `-y` that the dictionary stresses secondarily counts as unstressed: *ability*, *identity*), `ŋ` before `k` or `g`,
+a linking `ɹ` after a word-final `ɚ` or `ɜː` before a vowel-initial word, the unstressed `AH0`, `IH0` and `IY0` by
+environment (`ᵻ` for `-ed` after `t` or `d` and `-es` after a sibilant, `ɐ` word-initially, `ɛ` for `ex-` and `en-`, `ɪ`
+for `-ing`, `-ic`, `-age`), `ɔ` before `ŋ f θ s`, the secondary stress dropped next to the primary and on a final `-y`,
+and the numbers thirteen to nineteen (and only those) stressed on the first syllable. Quotation marks, brackets and
+dashes become a comma (a pause) because the voice has no symbol for them, an ellipsis stays three dots, and the clause
+marks `, ; : . ! ?` pass through. Every part of a hyphenated compound keeps its stress.
 
 **Kokoro (misaki) rules.** The same textbook table in the misaki symbols (`A I O W Y ʧ ʤ ɜɹ əɹ`), the flap, `ᵻ`, `ᵊ` for
 a final syllabic `l` after a consonant or `m` and `n` after `t d s z p f`, an unstressed `IH0` as a schwa except in
@@ -72,7 +73,14 @@ the one Kokoro speech uses). A word with a reduced form keeps its full dictionar
 differ only by the voicing of the final consonant (`close to`, `a house to`, `the use of`; the set is derived from the
 reading table and the lexicon, see *WeakForms*), because the reduced vowel blurs the `s` or `z` that tells the readings
 apart. In the Kokoro rendering a weak form that is a single bare full vowel (`I`) carries a secondary stress mark (`ˌI`,
-as misaki writes it), because the model drops a lone unmarked diphthong symbol after a pause.
+as misaki writes it), because the model drops a lone unmarked diphthong symbol after a pause. In the Piper rendering the
+first word of the rendered text, which is the first word of an utterance of the voice (the session speaks every segment
+as its own text, and a part of a long text is another), keeps an unmarked full-vowel weak form but with a secondary
+stress mark before its vowel (`He whispered` is `hˌiː wˈɪspɚd`), because the voice swallows an unmarked weak form at the
+start of an utterance (`should`, `could`, `my` were recognized in none of 24 renderings and in 24, 19 and 16 with the
+mark); a reduced form, `the` and `for` are unchanged, and a word after a comma inside the text is not first. The
+Kokoro model does not have this problem (its first words were recognized as often with and without the mark), so its
+rendering is unchanged.
 
 **Layout and parts.** Both renderers join the rendered pieces of the items with one space between words, a closing mark
 attached to the word before and an opening mark attached to the word after (`PhonemeStream.Join`). `RenderParts` renders

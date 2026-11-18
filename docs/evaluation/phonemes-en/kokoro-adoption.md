@@ -41,10 +41,14 @@ from `renderers.md`):
 
 On the 60 validation sentences the same ordering holds (4.50 against 1.43 percent). Over the isolated words of the old
 lexicon the two settings are identical to within 0.02 percentage points, because only function words differ. Decision
-D11 gave the Piper profile the weak forms and left the Kokoro profile on full forms pending listening; the
-measurement is the reason to turn them on, and the blinded listening pack for the owner contained both variants. The
-owner's listening kept the weak forms on for Kokoro, and found the new pipeline preferable overall.
-**This is a judgment from measurement, not from listening: the owner's blinded listening is the final check.**
+D11 gave the Piper profile the weak forms and left the Kokoro profile on full forms pending listening; the measurement
+is the reason to turn them on, and the blinded listening pack for the owner contained both variants. The owner's
+listening kept the weak forms on for Kokoro, and found the new pipeline preferable overall. A later round of Piper fixes
+(the first word of an utterance, see *Listening Fixes 2* in [renderers.md](renderers.md)) was checked for Kokoro too:
+over 90 sentences that start with 50 different function words and pronouns and three voices, the recognizer proxy heard
+the first word in 97.8, 87.8 and 98.9 percent of the renderings as shipped and in 98.9, 87.8 and 100 percent with a
+secondary stress on it, so Kokoro's rendering and its chunking were left as they are. **This is a judgment from
+measurement, not from listening: the owner's blinded listening is the final check.**
 
 ## Old Lexicon Against the New Pipeline
 

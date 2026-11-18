@@ -32,6 +32,10 @@ into the framed phoneme-id sequences that the Piper graph takes.
   a heteronym is the one spoken; the text spoken without annotations uses the default reading of each word
 - **Unknown words**: a word that is in no dictionary is pronounced by the letter-to-sound model of the phonemization
   package, not skipped
+- **Sentence segments**: the session speaks the segments of the model's capability profile, which joins the clause
+  pieces of a sentence (see *OnnxPiperLibriTtsEnSynthesisModel*), so a segment is normally a whole sentence with its
+  commas, and its phoneme string keeps the `,` where the sentence has a comma; the first word of each segment, the
+  start of an utterance, gets the renderer's start-of-text mark (*SpeechPhonemesEn WeakForms*)
 - **Long text**: a segment that phonemizes to more than 256 symbols is cut between words, preferably after a clause
   mark, by the renderer's `RenderParts`, which is why the limit is applied there and not here
 

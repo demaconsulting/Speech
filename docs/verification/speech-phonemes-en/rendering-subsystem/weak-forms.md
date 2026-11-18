@@ -21,7 +21,9 @@ Piper and plain `ɪt` and `æt` for Kokoro with weak forms; `on the table for th
 the group `fɚðə` for Piper; `made between` has the secondary stress for Piper and the primary stress for Kokoro. The
 reduced form of `to` has no form right after `close` (a voicing-alternating word) and still has `tə` after `go`, and
 `but` stays demoted after `close`; the voicing-alternating words are derived from the data
-(`close use house excuse abuse diffuse misuse reuse versus` are in; `with the to cat record read refuse` are not).
+(`close use house excuse abuse diffuse misuse reuse versus` are in; `with the to cat record read refuse` are not). The
+form of the first word of a text gets a secondary stress mark before its first full vowel only when it is an unmarked
+full-vowel form (not `the`, `for`, a reduced form or a form that has a mark).
 
 #### Test Scenarios
 
@@ -36,3 +38,10 @@ reduced form of `to` has no form right after `close` (a voicing-alternating word
 ##### Espeak-style details
 
 **Test**: `WeakForms_TryGet_EspeakStyleDetails_AreForPiperOnly`
+
+##### Form at the start of a text
+
+**Test**: `WeakForms_AtTextStart_MarksOnlyAnUnmarkedFullVowelForm`
+
+`he` `hiː` becomes `hˌiː`, `should` `ʃʊd` becomes `ʃˌʊd`, `I` `aɪ` becomes `ˌaɪ`, `and` `ænd` becomes `ˌænd`; the
+reduced `ðə`, `ðɪ`, `ɐn` and `tə`, the marked `ˌɔn` and `bɪkˈʌz`, and the words `the` and `for` are unchanged.

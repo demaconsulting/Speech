@@ -151,7 +151,8 @@ supplies a speech-synthesis model and backend with no clinical or safety role.
 
 **Synthesis path (text to audio):**
 
-1. **Input**: Speech's `SynthesisSession` passes one rendered text segment, with the annotations of the model's text
+1. **Input**: Speech's `SynthesisSession` passes one rendered text segment (a sentence: the model's capability profile
+   joined its clause pieces), with the annotations of the model's text
    analysis, the speed and the model-resolved speaker to the engine
 2. **Phonemization**: the pipeline phonemizes the text with the annotations (the normalized replacements, the chosen
    readings), renders it as espeak-style IPA in parts of at most 256 symbols and encodes each part with the voice's
@@ -188,10 +189,14 @@ because the sherpa-onnx conversion adds metadata and its hash differs from the H
   voice's table, so a non-zero count is a defect to investigate, for example a host pronunciation that uses a symbol the
   voice does not know. A word that is in no dictionary is not skipped either: the phonemization package pronounces it
   with a letter-to-sound model trained on the dictionary alone.
-- **Long text.** VITS is trained on sentence-sized input, and the Speech library already splits a request into
-  sentence-sized segments. A segment that still phonemizes to more than 256 symbols (a long number written out, a long
-  run of words without a break) is cut by `EspeakIpaRenderer.RenderParts` between words, preferably after a clause mark,
-  and spoken as several utterances whose audio is joined; no text is dropped.
+- **Long text.** VITS is trained on sentence-sized input with the commas in the text. The Speech library splits a
+  request at every sentence end and also at every comma, semicolon and colon; the model's capability profile joins the
+  clause pieces of a sentence again (up to the core chunker's 200-character budget), so a sentence of several clauses is
+  one segment and one utterance with its commas as symbols (the clause pieces alone were often swallowed by the voice,
+  see *Listening Fixes 2* in `docs/evaluation/phonemes-en/renderers.md`). A segment that still phonemizes to more than
+  256 symbols (a long number written out, a long run of words without a break) is cut by `EspeakIpaRenderer.RenderParts`
+  between words, preferably after a clause mark, and spoken as several utterances whose audio is joined; no text is
+  dropped.
 
 ## Design Constraints
 

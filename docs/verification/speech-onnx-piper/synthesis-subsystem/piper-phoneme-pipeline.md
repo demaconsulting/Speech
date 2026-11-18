@@ -53,4 +53,10 @@ rejected.
 ##### Long and soundless text
 
 **Tests**: `PiperPhonemePipeline_ToUtterances_TextBeyondOneUtterance_IsSplitAtClauseBoundariesWithoutLoss`,
-`PiperPhonemePipeline_ToUtterances_EmptyOrSoundlessText_ProducesNoUtterancesAndNullIsRejected`
+`PiperPhonemePipeline_ToUtterances_EmptyOrSoundlessText_ProducesNoUtterancesAndNullIsRejected`,
+`PiperPhonemePipeline_ToUtterances_SentenceWithClauses_IsOneUtteranceWithItsCommasInPlace`
+
+`Would you like tea, coffee, or something stronger?` is three pieces for the core chunker and one segment through the
+model's capability profile, which the pipeline speaks as one utterance with two commas in its phonemes and in its ids; a
+sentence of twelve clauses is several segments of at most 200 characters, every utterance within 256 symbols, and the
+sounds of all of them together are the sounds of the whole sentence.

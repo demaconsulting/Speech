@@ -337,6 +337,28 @@ public sealed class SpeechPhonemesEnTests
     }
 
     /// <summary>
+    ///     Proves what a session does with a sentence: every chunk is spoken as a text of its own, so the first word of each chunk gets the
+    ///     Piper rendering's secondary stress on a full-vowel weak form (the voice swallows an unmarked one at the start of an utterance),
+    ///     while the same sentence rendered as one text marks only its first word.
+    /// </summary>
+    [Theory]
+    [InlineData("He whispered, \"We should leave before it gets dark.\"", "hˌiː wˈɪspɚd,", "wˌiː ʃʊd lˈiːv", "hˌiː wˈɪspɚd, wiː ʃʊd lˈiːv")]
+    [InlineData("Honestly, I couldn't believe it.", "ˈɑːnɪstli,", "ˌaɪ kˈʊdənt", "ˈɑːnɪstli, aɪ kˈʊdənt")]
+    public void SpeechPhonemesEn_Render_FirstWordOfEveryChunk_HasASecondaryStressForPiper(string sentence, string firstChunk, string secondChunk, string wholeText)
+    {
+        // Act: the chunks as the session makes them, each phonemized on its own, and the sentence as one text
+        var chunks = DemaConsulting.Speech.SynthesisSubsystem.SentenceChunker.Chunk(sentence);
+        var piper = chunks.Select(chunk => new EspeakIpaRenderer().Render(GoldenCorpus.RunEndToEnd(chunk))).ToList();
+        var piperWhole = new EspeakIpaRenderer().Render(GoldenCorpus.RunEndToEnd(sentence));
+
+        // Assert
+        Assert.Equal(2, chunks.Count);
+        Assert.StartsWith(firstChunk, piper[0], StringComparison.Ordinal);
+        Assert.StartsWith(secondChunk, piper[1], StringComparison.Ordinal);
+        Assert.StartsWith(wholeText, piperWhole, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Proves the velar stop of the adjectives that end in <c>ng</c>: the comparative and the superlative of
     ///     <i>long</i>, <i>strong</i> and <i>young</i> speak the <c>g</c> (the dictionary's own <i>stronger</i> variant without it is not
     ///     the one used), the agentive and <c>-ing</c> forms (<i>singer</i>, <i>hanger</i>, <i>singing</i>, <i>longing</i>) do not, and a

@@ -206,16 +206,16 @@ public sealed class RenderingSubsystemTests
     public void WeakForms_TryGet_EspeakStyleDetails_AreForPiperOnly()
     {
         // Arrange
-        var flap = Phonemizer.Phonemize("it is at all");
-        var groups = Phonemizer.Phonemize("on the table for the road");
+        var flap = Phonemizer.Phonemize("well it is at all");
+        var groups = Phonemizer.Phonemize("look on the table for the road");
         var demoted = Phonemizer.Phonemize("made between");
 
         // Assert: Piper flaps the t of it and at before a vowel; Kokoro keeps the t
-        Assert.Equal("ɪɾ ɪz æɾ ˈɔːl", new EspeakIpaRenderer().Render(flap));
-        Assert.Equal("ɪt ɪz æt ˈɔl", new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(flap));
+        Assert.Equal("wˈɛl ɪɾ ɪz æɾ ˈɔːl", new EspeakIpaRenderer().Render(flap));
+        Assert.Equal("wˈɛl ɪt ɪz æt ˈɔl", new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(flap));
 
         // Assert: on the has no mark on on, for the is one group with the reduced vowel
-        Assert.Equal("ɔnðə tˈeɪbəl fɚðə ɹˈoʊd", new EspeakIpaRenderer().Render(groups));
+        Assert.Equal("lˈʊk ɔnðə tˈeɪbəl fɚðə ɹˈoʊd", new EspeakIpaRenderer().Render(groups));
 
         // Assert: made and between have the secondary stress in the espeak-style text, the primary in misaki's
         Assert.Equal("mˌeɪd bᵻtwˌiːn", new EspeakIpaRenderer().Render(demoted));
@@ -291,6 +291,83 @@ public sealed class RenderingSubsystemTests
         Assert.Contains("ˈʌv", kokoroFull, StringComparison.Ordinal);
         Assert.DoesNotContain("ˈʌv", kokoroWeak, StringComparison.Ordinal);
         Assert.Contains("ʌv", kokoroWeak, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves the first word of a text, which the Piper voice speaks as the start of an utterance, keeps a full-vowel weak form but
+    ///     with a secondary stress mark (an unmarked <i>he</i> or <i>should</i> is swallowed there), also after an opening quote; the
+    ///     reduced forms (<i>the</i>, <i>a</i>), <i>for</i> (whose vowel any mark changes) and the words that are not first are unchanged.
+    /// </summary>
+    [Theory]
+    [InlineData("He whispered", "hˌiː wˈɪspɚd")]
+    [InlineData("I know", "ˌaɪ nˈoʊ")]
+    [InlineData("They said", "ðˌeɪ sˈɛd")]
+    [InlineData("Should we go", "ʃˌʊd wiː ɡˈoʊ")]
+    [InlineData("\"We should leave", "wˌiː ʃʊd lˈiːv")]
+    [InlineData("and then", "ˌænd ðˈɛn")]
+    [InlineData("It is at all", "ˌɪɾ ɪz æɾ ˈɔːl")]
+    [InlineData("The cat", "ðə kˈæt")]
+    [InlineData("A cat", "ɐ kˈæt")]
+    [InlineData("An apple", "ɐn ˈæpəl")]
+    [InlineData("For years", "fɔːɹ jˈɪɹz")]
+    [InlineData("Because of this", "bɪkˈʌz ʌv ðɪs")]
+    [InlineData("Well, he said that he left", "wˈɛl, hiː sˈɛd ðæt hiː lˈɛft")]
+    public void RenderingSubsystem_WeakForms_FirstWordOfTheText_HasASecondaryStressOnItsFullVowel(string text, string piper) =>
+        Assert.Equal(piper, new EspeakIpaRenderer().Render(Phonemizer.Phonemize(text)));
+
+    /// <summary>
+    ///     Proves the first word of every part of a long text gets the secondary stress too (each part is an utterance of the voice),
+    ///     that the rule is off with the weak forms, and that Kokoro's rendering (which has no such problem) is not changed by it.
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt()
+    {
+        // Arrange: the second part starts with "and"
+        var text = Phonemizer.Phonemize("The cat sat on the mat, and the dog barked at the cat.");
+        var piper = new EspeakIpaRenderer();
+
+        // Act
+        var parts = piper.RenderParts(text, 28);
+
+        // Assert: every part that starts with a weak word has the mark on its first full vowel
+        Assert.True(parts.Count >= 2);
+        Assert.Contains(parts, part => part.StartsWith("ˌænd", StringComparison.Ordinal));
+        Assert.Equal("hˈiː lˈɛft", new EspeakIpaRenderer(EspeakIpaProfile.EnUs, useWeakForms: false).Render(Phonemizer.Phonemize("He left")));
+        Assert.Equal("hi lˈɛft", new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(Phonemizer.Phonemize("He left")));
+    }
+
+    /// <summary>Proves the table's text-start form: a secondary stress before the first full vowel of an unmarked weak form, and nothing for a reduced form, a marked form, <i>the</i> and <i>for</i>.</summary>
+    [Theory]
+    [InlineData("he", "hiː", "hˌiː")]
+    [InlineData("should", "ʃʊd", "ʃˌʊd")]
+    [InlineData("I", "aɪ", "ˌaɪ")]
+    [InlineData("and", "ænd", "ˌænd")]
+    [InlineData("the", "ðə", "ðə")]
+    [InlineData("the", "ðɪ", "ðɪ")]
+    [InlineData("an", "ɐn", "ɐn")]
+    [InlineData("to", "tə", "tə")]
+    [InlineData("on", "ˌɔn", "ˌɔn")]
+    [InlineData("because", "bɪkˈʌz", "bɪkˈʌz")]
+    [InlineData("for", "fɔːɹ", "fɔːɹ")]
+    public void WeakForms_AtTextStart_MarksOnlyAnUnmarkedFullVowelForm(string word, string form, string expected) =>
+        Assert.Equal(expected, WeakForms.AtTextStart(word, form));
+
+    /// <summary>Proves the t before a final -y that the dictionary stresses secondarily (<i>-ity</i>) is flapped like the t before an unstressed vowel, as the espeak-style text has it, for both voices.</summary>
+    [Theory]
+    [InlineData("ability", "ɐbˈɪlᵻɾi")]
+    [InlineData("identity", "aɪdˈɛntɪɾi")]
+    [InlineData("reality", "ɹɪˈælᵻɾi")]
+    [InlineData("city", "sˈɪɾi")]
+    [InlineData("party", "pˈɑːɹɾi")]
+    [InlineData("cheesy", "tʃˈiːzi")]
+    public void RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped(string word, string piper)
+    {
+        // Act
+        var result = Phonemizer.Phonemize(word);
+
+        // Assert: Piper has the flap, Kokoro has it too
+        Assert.Equal(piper, new EspeakIpaRenderer().Render(result));
+        Assert.EndsWith(piper.EndsWith("ɾi", StringComparison.Ordinal) ? "ɾi" : "i", new MisakiRenderer().Render(result), StringComparison.Ordinal);
     }
 
     /// <summary>Proves a host IPA pronunciation is translated into the symbols of each voice: the espeak-style diphthongs, affricates, r-colored vowels and length marks become Kokoro's own symbols (<c>I W A O Y ʧ ʤ ɜɹ əɹ</c>) and the Piper symbols, and every symbol emitted is in the voice's symbol table.</summary>
@@ -463,10 +540,11 @@ public sealed class RenderingSubsystemTests
         foreach (var (parts, whole) in new[] { (piper.RenderParts(text, limit), piper.Render(text)), (kokoro.RenderParts(text, limit), kokoro.Render(text)) })
         {
             // Assert: several parts, each within the limit and ending at a clause mark, and together all the sounds of the whole
+            // (a part is the start of a new utterance, so its first weak word may carry a secondary stress the whole does not)
             Assert.True(parts.Count >= 10);
             Assert.All(parts, part => Assert.InRange(part.EnumerateRunes().Count(), 1, limit));
             Assert.All(parts.Take(parts.Count - 1), part => Assert.Contains(part[^1], ",."));
-            Assert.Equal(whole.Replace(" ", string.Empty, StringComparison.Ordinal), string.Concat(parts).Replace(" ", string.Empty, StringComparison.Ordinal));
+            Assert.Equal(WithoutSpacesAndSecondaryStress(whole), WithoutSpacesAndSecondaryStress(string.Concat(parts)));
         }
 
         // Assert: a short text is one part equal to the plain rendering, and a soundless text has no part
@@ -662,6 +740,15 @@ public sealed class RenderingSubsystemTests
     /// <param name="name">The file name.</param>
     /// <returns>The full path.</returns>
     private static string TestFile(string name) => Path.Combine(AppContext.BaseDirectory, "TestData", name);
+
+    /// <summary>
+    ///     Removes the spaces and the secondary stress marks of a phoneme string, so a long text and its parts can be compared
+    ///     (the first weak word of a part, the start of a new utterance, carries a mark the whole text does not have).
+    /// </summary>
+    /// <param name="phonemes">The phoneme string.</param>
+    /// <returns>The string without spaces and secondary stress marks.</returns>
+    private static string WithoutSpacesAndSecondaryStress(string phonemes) =>
+        phonemes.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("ˌ", string.Empty, StringComparison.Ordinal);
 
     /// <summary>
     ///     Asserts that a renderer golden corpus holds exactly what the pipeline and the renderer produce for its sentences.

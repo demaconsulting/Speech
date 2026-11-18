@@ -35,6 +35,13 @@ The table holds only words whose unstressed use is by far the most common; it do
 - **GroupedWithPrevious(items)**: marks the word items that form one group with the word before them (`in the`,
   `of the`, `on the`, `with the`, `from the`, `for the`, `that the`, `was the`, `was a`, `of a`), written without a
   space, except where the first word of the group keeps its full form after a voicing-alternating word
+- **AtTextStart(word, form)**: the form of a word that is the first word of a text, which is the first word of an
+  utterance of the voice: an unmarked weak form with a full vowel gets a secondary stress mark before its first full
+  vowel (`hiː` becomes `hˌiː`, `ʃʊd` becomes `ʃˌʊd`, `aɪ` becomes `ˌaɪ`), because at the start of an utterance the voice
+  swallows an unmarked weak form (a recognizer hears `should`, `could` and `my` in none of 24 renderings each and in
+  24, 19 and 16 with the mark); a reduced form (`ðə`, `ɐ`, `ɐn`, `tə`), a form that has a mark already (`ˌɔn`,
+  `bɪkˈʌz`), `the` and `for` (whose vowel any stress mark makes the voice say as `war` or `or`) are returned unchanged.
+  The renderer calls it for the first word of the rendered text only, never for a word after a comma inside the text
 - **Words**, **AllForms**, **Count**: the contents of the table, so a test can prove every form is in the voice's symbol
   table
 
@@ -43,5 +50,6 @@ The table holds only words whose unstressed use is by far the most common; it do
 **Dependencies**: the result types of the PhonemizerSubsystem (for the grouping), and `CmuLexicon` and
 `ReadingPronunciations` (for the voicing-alternating words).
 
-**Callers**: `EspeakIpaRenderer` (by default) and `MisakiRenderer` (when weak forms are switched on, without the
-espeak-style details).
+**Callers**: `EspeakIpaRenderer` (by default, with `AtTextStart` for the first word of a text) and `MisakiRenderer`
+(when weak forms are switched on, without the espeak-style details and without `AtTextStart`: the Kokoro model does not
+swallow the first word, measured by the same recognizer proxy).

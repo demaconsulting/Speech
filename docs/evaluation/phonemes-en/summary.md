@@ -19,8 +19,8 @@ the first one.
 | Reading ids with a pronunciation | 100% | 853 of 853 | Pass |
 | Piper symbols in the voice's map | 100% | 100% | Pass |
 | Kokoro symbols in the vocabulary | 100% | 100% | Pass |
-| Piper word match, sentences | 85% or more | 89.39% (held out 91.82%) | Pass |
-| Piper word match, isolated words | 85% or more | 78.63% (held out 75.30%) | Below |
+| Piper word match, sentences | 85% or more | 86.12% (held out 89.31%) | Pass |
+| Piper word match, isolated words | 85% or more | 78.70% (held out 75.37%) | Below |
 | Piper phoneme error rate | 8% or less | 3.01% (held out 2.47%) | Pass |
 | Piper primary stress agreement | 90% or more | 95.90% (held out 98.10%) | Pass |
 | Kokoro phoneme error rate | 6% or less | 2.00% weak, 4.88% full | Pass |
@@ -37,10 +37,10 @@ Notes on the gates:
   sentences plus the 300 own-written sentences of `data/phonemes-en/renderer-corpus.tsv` (450 sentences, 4,279 word
   pairs); the held-out figures use the 60 sentences of `data/phonemes-en/renderer-validation.tsv`, written after the
   rules were frozen. The word passes use the 3,000 most frequent words of the text-analysis training sentences (error
-  rate 4.49%, stress agreement 95.39%) and the next 3,000 words as the held-out pass (4.39% and 96.76%).
+  rate 4.47%, stress agreement 95.39%) and the next 3,000 words as the held-out pass (4.38% and 96.76%).
 - Kokoro against misaki US: the shipped default speaks function words in their weak forms (2.00% on the tuning
-  sentences, 1.43% held out). With full forms the figures are 4.88% and 4.50%. On the word passes they are 2.93% and
-  2.81%. Weak forms also raise primary stress agreement from 71.5% to 94.1%; the owner's listening kept them on.
+  sentences, 1.43% held out). With full forms the figures are 4.88% and 4.50%. On the word passes they are 2.91% and
+  2.80%. Weak forms also raise primary stress agreement from 71.5% to 94.1%; the owner's listening kept them on.
 - Against the first end-to-end figures (Piper 88.05% word match, 3.14% error rate, 94.34% stress agreement; held out
   90.09%, 2.58%, 97.05%) the refinement pass improved every Piper sentence figure. Kokoro's held-out figures are
   unchanged; its tuning-sentence error rate moved by +0.01 point (1.99% to 2.00% weak, 4.88% to 4.89% full) because
@@ -50,6 +50,15 @@ Notes on the gates:
   (4.89% before the `stronger` fix) and moved the Piper tuning-sentence figures by -0.05 point word match (89.44% to
   89.39%) and -0.08 point primary stress agreement (95.98% to 95.90%): the full form of a function word after
   `use`, `house` or `close` is a deliberate departure from espeak-ng's weak form in three of the 450 sentences.
+- The second round of listening fixes (see "Listening Fixes 2" in `renderers.md`) gives the first word of every Piper
+  utterance a secondary stress on a full-vowel weak form (the voice swallows an unmarked one there: the recognizer proxy
+  heard the first word in 73.1% of 1,080 renderings before and 86.1% after) and flaps the `t` before a final `-y` that
+  the dictionary stresses secondarily (`ability`). Piper tuning-sentence word match moved from 89.39% to 86.12% (held
+  out 91.82% to 89.31%), the stress signature agreement from 96.75% to 93.48% and the secondary stress agreement from
+  76.29% to 54.49%, all on purpose (espeak-ng writes no mark on that first word); the error rate (3.01%), the match
+  without stress (91.14%) and the primary stress agreement (95.90%) did not change, the isolated-word match rose from
+  78.63% to 78.70% (75.30% to 75.37% held out; the baseline re-measured at the start of the round was 75.33%) and
+  Kokoro's word passes by 0.1 point (the same flap). The Kokoro sentence figures and goldens did not change.
 
 ## Supporting Measurements
 
@@ -131,10 +140,14 @@ homophones, so the figures show only that the new path is not less intelligible 
   differences that change from run to run. Kokoro's recognition of the numbers and dates sentences is exact for both
   voices (March 14th as a date, a price, a percent, a time, a year). The speech-recognition figures are a cheap
   proxy only: they say nothing about prosody, naturalness or voice quality.
-- **Comma pauses.** The core sentence chunker always splits at `,`, `;` and `:`, so each clause is its own utterance
-  for every model (the same for the old path). VITS was trained with the comma inside the sentence, so a clause may
-  sound a little more separated than in the engine's own output. A model-specific chunking policy would change the
-  library's chunking contract and was not attempted; it is an owner decision (see below).
+- **Comma pauses.** The core sentence chunker always splits at `,`, `;` and `:`, so each clause is its own utterance for
+  every model (the same for the old path). VITS was trained with the comma inside the sentence. The owner's second
+  listening round found the clause pieces of Piper swallowed (`coffee,`, `recommends` after a comma), and a controlled
+  experiment (63 sentences, 5 speakers, 3 draws) confirmed it: the first word of a clause after a comma was recognized
+  in 90.6 percent of the renderings as its own utterance and 97.5 percent inside its sentence, with no significant
+  change of the total word error rate (6.78 and 6.63 percent). The Piper model therefore speaks a sentence as one
+  utterance (its capability profile joins the clause pieces; no change of the core contract was needed), see "Listening
+  Fixes 2" in [renderers.md](renderers.md). Kokoro's chunking is unchanged.
 
 ## Known Gaps
 
@@ -144,7 +157,7 @@ homophones, so the figures show only that the new path is not less intelligible 
   addresses and Roman numerals are not read.
 - The classifier sometimes labels both occurrences of a same-part-of-speech heteronym alike (`read ... read`,
   `lead ... lead`, `content ... content`); the 10 forced rows of the readings golden record the other misses.
-- Piper isolated-word agreement with espeak-ng (78.63%) is below the 85% target. The difference is the
+- Piper isolated-word agreement with espeak-ng (78.70%) is below the 85% target. The difference is the
   spelling-driven choice of the unstressed vowel, which cannot be derived from the phones alone; the sentence gate is
   met.
 - Kokoro British voices speak US phonemes, so they have an American pronunciation.

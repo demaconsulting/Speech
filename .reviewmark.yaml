@@ -2862,6 +2862,7 @@ reviews:
       - "docs/verification/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md"
       - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModel.cs"
       - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/PiperArchiveExtractor.cs"  # install helper of the same unit
+      - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/PiperCapabilityProfile.cs"  # capability profile (sentence segments) of the same unit
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs"
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/PiperTestFixtures.cs"
 

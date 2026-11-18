@@ -83,7 +83,10 @@ internal static class WordShape
         }
 
         var next = phones[index + 1];
-        if (!next.IsVowel || next.Stress != 0)
+
+        // A secondary stress on the final -y is not realized (see EspeakWordRules), so the t before it is flapped as before an unstressed vowel (ability, identity)
+        var finalY = next.Stress == 2 && next.BaseSymbol == "IY" && index + 2 == phones.Length;
+        if (!next.IsVowel || (next.Stress != 0 && !finalY))
         {
             return false;
         }

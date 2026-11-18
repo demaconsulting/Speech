@@ -54,6 +54,106 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Same(model.TextAnalyzer, new OnnxPiperLibriTtsEnSynthesisModel().TextAnalyzer);
     }
 
+    /// <summary>
+    ///     Proves the model's capability profile speaks a sentence as one segment: the clause pieces the core chunker makes (one per
+    ///     comma, semicolon and colon) are joined with one space, the text-analysis annotations move with their clause and still
+    ///     cover the same words, and a sentence end, a pause, an ellipsis and the chunk budget stay boundaries; the library's default
+    ///     profile on the same spans gives the clause pieces separately.
+    /// </summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_SentenceClauses_AreOneSegmentWithTheirAnnotations()
+    {
+        // Arrange
+        var model = new OnnxPiperLibriTtsEnSynthesisModel();
+        var profile = ((ISynthesisModel)model).CapabilityProfile;
+        var analyzer = model.TextAnalyzer!;
+
+        // Act: clauses, a number and an abbreviation inside the clauses, then a second sentence
+        const string text = "Wait for 5 minutes, then ask Dr. Smith; he will know. It was late, so we left.";
+        var analysis = analyzer.Analyze(text, CancellationToken.None);
+        IReadOnlyList<TaggedTextSpan> spans = [TaggedTextSpan.PlainText(text, analysis.Annotations, analysis.SentenceBreaks)];
+        var plan = profile.Render(spans, model);
+        var defaultPlan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert: two sentence segments (the default profile has one per clause), commas kept in place, the same words in the same order
+        Assert.Equal(["Wait for 5 minutes, then ask Dr. Smith; he will know.", "It was late, so we left."], plan.Segments.Select(s => s.Text));
+        Assert.True(defaultPlan.Segments.Count >= 4);
+        Assert.Equal(string.Join(' ', defaultPlan.Segments.Select(s => s.Text)), string.Join(' ', plan.Segments.Select(s => s.Text)));
+
+        // Assert: every annotation of the joined segments covers the very text the same annotation covered in its clause piece
+        var covered = defaultPlan.Segments.SelectMany(s => s.Annotations.Select(a => (a.Kind, a.Value, Text: s.Text.Substring(a.Start, a.Length))));
+        var joinedCovered = plan.Segments.SelectMany(s => s.Annotations.Select(a => (a.Kind, a.Value, Text: s.Text.Substring(a.Start, a.Length))));
+        Assert.NotEmpty(covered);
+        Assert.Equal(covered, joinedCovered);
+    }
+
+    /// <summary>
+    ///     Proves what keeps two clause pieces apart: a pause between them, a different set of parameter overrides, silence after the
+    ///     first, text that ends in something other than a clause mark, a joined text beyond the chunk budget, and nothing at all to join.
+    /// </summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_JoinsOnlyWhereNothingSetsTheClausesApart()
+    {
+        // Arrange
+        var slow = new Dictionary<string, object> { ["speed"] = 0.8 };
+        var slowToo = new Dictionary<string, object> { ["speed"] = 0.8 };
+        var fast = new Dictionary<string, object> { ["speed"] = 1.2 };
+        var longClause = new string('a', SentenceChunker.DefaultMaxChunkLength - 20);
+
+        // Act and assert: joined, with the silences and overrides of the pair
+        var joined = Assert.Single(PiperCapabilityProfile.JoinClauses([
+            new SpeechSegment("One,", 7, 0, slow),
+            new SpeechSegment("two;", 0, 0, slowToo),
+            new SpeechSegment("three:", 0, 0, slow),
+            new SpeechSegment("four.", 0, 9, slow),
+        ]));
+        Assert.Equal("One, two; three: four.", joined.Text);
+        Assert.Equal(7, joined.PreSilenceMs);
+        Assert.Equal(9, joined.PostSilenceMs);
+        Assert.Same(slow, joined.ParameterOverrides);
+
+        // Assert: kept apart
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, slow), new SpeechSegment("two.", 0, 0, fast)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, slow), new SpeechSegment("two.", 0, 0, null)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 300, null), new SpeechSegment("two.", 0, 0, null)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, null), new SpeechSegment("two.", 300, 0, null)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One.", 0, 0, null), new SpeechSegment("Two.", 0, 0, null)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, null), new SpeechSegment(string.Empty, 0, 300, null)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment(longClause + ",", 0, 0, null), new SpeechSegment(longClause + ".", 0, 0, null)]).Count);
+        Assert.Empty(PiperCapabilityProfile.JoinClauses([]));
+        Assert.Throws<ArgumentNullException>(() => PiperCapabilityProfile.JoinClauses(null!));
+    }
+
+    /// <summary>
+    ///     Proves a pause tag stays a boundary through the whole profile (the silence is its own segment, the clause before and after
+    ///     it are not joined across it) and that invalid arguments are rejected.
+    /// </summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_PauseTag_StaysABoundary()
+    {
+        // Arrange
+        var model = new OnnxPiperLibriTtsEnSynthesisModel();
+        var profile = ((ISynthesisModel)model).CapabilityProfile;
+        IReadOnlyList<TaggedTextSpan> spans =
+        [
+            TaggedTextSpan.PlainText("Wait here, please,"),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.ShortPause),
+            TaggedTextSpan.PlainText("then go, quickly."),
+        ];
+
+        // Act
+        var plan = profile.Render(spans, model);
+
+        // Assert: text, silence, text; the clauses on either side are joined within themselves only
+        Assert.Equal(3, plan.Segments.Count);
+        Assert.Equal("Wait here, please,", plan.Segments[0].Text);
+        Assert.Equal(string.Empty, plan.Segments[1].Text);
+        Assert.Equal(DefaultModelCapabilityProfile.ShortPauseMilliseconds, plan.Segments[1].PostSilenceMs);
+        Assert.Equal("then go, quickly.", plan.Segments[2].Text);
+        Assert.Throws<ArgumentNullException>(() => profile.Render(null!, model));
+        Assert.Throws<ArgumentNullException>(() => profile.Render(spans, null!));
+    }
+
     /// <summary>Proves the only parameter is an integer speaker selection from 0 to 903 whose default is 0.</summary>
     [Fact]
     public void OnnxPiperLibriTtsEnSynthesisModel_Parameters_AreTheSpeakerSelectionOnly()

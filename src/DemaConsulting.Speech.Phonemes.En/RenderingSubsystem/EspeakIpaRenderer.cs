@@ -121,14 +121,16 @@ public sealed class EspeakIpaRenderer
         ArgumentNullException.ThrowIfNull(items);
         var pieces = new string[items.Count];
         var previousMark = false;
+        var textStart = true;
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
             switch (item.Kind)
             {
                 case PhonemizedItemKind.Word:
-                    pieces[i] = RenderWord(item, PhonemeStream.StartsWithVowel(items, i + 1), PhonemeStream.NextWordText(items, i + 1), PhonemeStream.PreviousWordText(items, i - 1));
+                    pieces[i] = RenderWord(item, PhonemeStream.StartsWithVowel(items, i + 1), PhonemeStream.NextWordText(items, i + 1), PhonemeStream.PreviousWordText(items, i - 1), textStart);
                     previousMark = false;
+                    textStart = false;
                     break;
                 case PhonemizedItemKind.Punctuation:
                     pieces[i] = RenderMark(item.Text, previousMark);
@@ -161,8 +163,9 @@ public sealed class EspeakIpaRenderer
     /// <param name="nextStartsWithVowel">Whether the next word starts with a vowel.</param>
     /// <param name="nextWord">The text of the next word, or <see langword="null"/>.</param>
     /// <param name="previousWord">The text of the word immediately before it, or <see langword="null"/>.</param>
+    /// <param name="textStart">Whether the word is the first word of the text (the first word of an utterance of the voice).</param>
     /// <returns>The IPA symbols.</returns>
-    private string RenderWord(PhonemizedItem item, bool nextStartsWithVowel, string? nextWord, string? previousWord)
+    private string RenderWord(PhonemizedItem item, bool nextStartsWithVowel, string? nextWord, string? previousWord, bool textStart)
     {
         if (item.IpaOverride is not null)
         {
@@ -183,6 +186,13 @@ public sealed class EspeakIpaRenderer
         var demoted = false;
         var weak = string.Empty;
         var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord, previousWord, espeakStyle: true, out weak, out demoted);
+
+        // The first word of the text (of an utterance) gets a secondary stress on a full-vowel weak form: the voice swallows an unmarked one there
+        if (known && weak.Length > 0 && textStart)
+        {
+            weak = WeakForms.AtTextStart(item.Text, weak);
+        }
+
         var text = known && weak.Length > 0 ? weak : EspeakWordRules.Render(item.Pronunciation.Phones, demoted);
 
         // An r-colored vowel at the end of a word is joined to a vowel-initial word by a linking r

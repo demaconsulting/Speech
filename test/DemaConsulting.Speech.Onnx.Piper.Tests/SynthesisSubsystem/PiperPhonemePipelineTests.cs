@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Piper.SynthesisSubsystem;
 using DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
@@ -222,6 +223,51 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
+    ///     Proves that a sentence with several clauses, joined into one segment by the model's capability profile, is spoken as one
+    ///     utterance that keeps its commas in place (the voice was trained on whole sentences with the comma as a symbol), that the
+    ///     clause pieces the core chunker made would be several short utterances instead, and that a long sentence is still cut at
+    ///     its clause marks into utterances within the engine's own limit with no word lost.
+    /// </summary>
+    [Fact]
+    public void PiperPhonemePipeline_ToUtterances_SentenceWithClauses_IsOneUtteranceWithItsCommasInPlace()
+    {
+        // Arrange
+        const string sentence = "Would you like tea, coffee, or something stronger?";
+        var analysis = Model.TextAnalyzer!.Analyze(sentence, CancellationToken.None);
+        var pieces = SentenceChunker.ChunkAligned(sentence, analysis.Annotations, analysis.SentenceBreaks);
+        Config.TryGetIds(",", out var comma);
+
+        // Act
+        var segment = Assert.Single(AnalyzeAndChunk(sentence));
+        var utterance = Assert.Single(Pipeline.ToUtterances(segment.Text, NullIfEmpty(segment.Annotations)));
+
+        // Assert: the core chunker alone would speak three utterances; the segment is one, with a comma between the clauses
+        Assert.Equal(3, pieces.Count);
+        Assert.Equal(2, utterance.Phonemes.Count(c => c == ','));
+        Assert.Contains(", ", utterance.Phonemes, StringComparison.Ordinal);
+        Assert.Equal(2, utterance.Ids.Count(id => comma.Contains(id)));
+        Assert.Empty(utterance.UnknownSymbols);
+
+        // Arrange: a long sentence of many clauses, well over the engine's limit
+        var longSentence = string.Join(", ", Enumerable.Repeat("the quick brown fox jumps over the lazy dog", 12)) + ".";
+
+        // Act
+        var segments = AnalyzeAndChunk(longSentence);
+        var utterances = segments.SelectMany(s => Pipeline.ToUtterances(s.Text, NullIfEmpty(s.Annotations))).ToList();
+
+        // Assert: segments within the core chunker's budget, utterances within the engine's limit, no sound lost
+        var whole = Renderer.Render(Phonemizer.Phonemize(longSentence));
+        Assert.True(segments.Count >= 2);
+        Assert.All(segments, s => Assert.InRange(s.Text.Length, 1, SentenceChunker.DefaultMaxChunkLength));
+        Assert.All(utterances, u => Assert.InRange(u.SymbolCount, 1, PiperPhonemePipeline.MaxPartSymbols));
+        Assert.Equal(SoundsOnly(whole), SoundsOnly(string.Concat(utterances.Select(u => u.Phonemes))));
+    }
+
+    /// <summary>Removes the spaces, the clause marks and the secondary stress marks of a phoneme string (the first word of an utterance carries a mark the same word inside a sentence does not).</summary>
+    private static string SoundsOnly(string phonemes) =>
+        new([.. phonemes.Where(c => c is not (' ' or ',' or '.' or 'ˌ'))]);
+
+    /// <summary>
     ///     Proves that a word that is in no dictionary is still spoken: it is pronounced by the letter-to-sound model, so
     ///     the text with the unknown word has more symbols than the text without it and nothing is reported as unknown.
     /// </summary>
@@ -264,11 +310,15 @@ public sealed class PiperPhonemePipelineTests
         return rows;
     }
 
-    /// <summary>Runs the model's analysis over a text and chunks it with the annotations, as the session does.</summary>
-    private static IReadOnlyList<SentenceChunk> AnalyzeAndChunk(string text)
+    /// <summary>
+    ///     Runs the model's analysis over a text and renders the segments through the model's own capability profile, as the
+    ///     session does (the core chunker's clause pieces of a sentence come back joined).
+    /// </summary>
+    private static IReadOnlyList<SpeechSegment> AnalyzeAndChunk(string text)
     {
         var analysis = Model.TextAnalyzer!.Analyze(text, CancellationToken.None);
-        return SentenceChunker.ChunkAligned(text, analysis.Annotations, analysis.SentenceBreaks);
+        var spans = new[] { TaggedTextSpan.PlainText(text, analysis.Annotations, analysis.SentenceBreaks) };
+        return ((ISynthesisModel)Model).CapabilityProfile.Render(spans, Model).Segments;
     }
 
     /// <summary>Returns the annotations, or null when there are none (the session then calls the plain generation).</summary>

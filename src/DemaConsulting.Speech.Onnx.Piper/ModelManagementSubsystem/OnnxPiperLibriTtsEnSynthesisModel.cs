@@ -154,10 +154,18 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     A plain VITS voice has no inline audio-tag support: the library's default capability profile strips tags to
-    ///     plain narration and renders pauses as inserted silence.
+    ///     A plain VITS voice has no inline audio-tag support: the profile (see <see cref="ISynthesisModel.CapabilityProfile"/>)
+    ///     strips tags to plain narration and renders pauses as inserted silence.
     /// </remarks>
     public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     The library's default profile followed by one change: the clause pieces of a sentence (the core chunker splits
+    ///     at every comma, semicolon and colon) are joined again, so the voice speaks a sentence as one utterance with its
+    ///     commas, as it was trained to; see <see cref="PiperCapabilityProfile"/> for the reasons and the limits.
+    /// </remarks>
+    IModelCapabilityProfile ISynthesisModel.CapabilityProfile => PiperCapabilityProfile.Instance;
 
     /// <inheritdoc/>
     /// <remarks>

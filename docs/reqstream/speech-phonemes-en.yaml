@@ -183,21 +183,26 @@ sections:
           The library shall render the small function words of the Piper rendering in their unstressed or
           reduced forms by default, shall let a caller switch that off, and shall keep the full forms for
           Kokoro unless the caller asks for the reduced ones; a function word shall keep its full form right
-          after a word whose readings differ only by the voicing of the final consonant (close to), and
-          the pronoun I shall stay audible in the Kokoro rendering after a pause.
+          after a word whose readings differ only by the voicing of the final consonant (close to), the
+          pronoun I shall stay audible in the Kokoro rendering after a pause, and the first word of a text
+          (every chunk a session speaks is one) shall keep its full-vowel weak form with a secondary stress in
+          the Piper rendering.
         tags: [system]
         justification: |
           The Piper voice was trained on speech in which function words ("the", "of", "and") are unstressed,
           so stressed dictionary forms make it sound like a list of words. Kokoro's own phonemizer renders
           full forms, and the owner decided to leave that default alone, so the profile is a choice of the
           caller and the choice must be observable. A reduced "to" blurs the s of "close", and the Kokoro
-          model drops a bare unstressed I after a comma, as the blinded listening showed.
+          model drops a bare unstressed I after a comma, as the blinded listening showed. The Piper voice
+          swallows an unmarked weak form at the start of an utterance (the owner heard "He" almost vanish),
+          and every chunk of a session is an utterance, so its first word keeps an audible secondary stress.
         children:
           - SpeechPhonemesEn-Rendering-WeakFormTable
         tests:
           - SpeechPhonemesEn_Render_FunctionWords_AreWeakForPiperAndFullForKokoroByDefault
           - SpeechPhonemesEn_Render_FunctionWordAfterAVoicingAlternatingWord_KeepsItsFullForm
           - SpeechPhonemesEn_Render_PronounIAfterAComma_KeepsAnAudibleVowelInTheKokoroRendering
+          - SpeechPhonemesEn_Render_FirstWordOfEveryChunk_HasASecondaryStressForPiper
 
       - id: SpeechPhonemesEn-Rendering-LongText
         title: >-

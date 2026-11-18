@@ -16,12 +16,13 @@ renderer of the package for that voice.
 **Key Methods**:
 
 - **Render(text)**: the phoneme string of a whole text: each word item is rendered (weak form first when enabled and the
-  word is in the table, then the sound rules for the phones), a punctuation item as its mark, an unsupported item as
-  nothing and a host IPA override translated into Piper symbols (`ɝ` and the ligatures `ʧ ʤ` become their espeak form)
-  or, when a symbol is not in the Piper table, replaced by the word's normal pronunciation; the pieces are joined by the
-  shared layout with the weak-form groups written without a space
+  word is in the table, then the sound rules for the phones; the first word of the text, which is the first word of an
+  utterance of the voice, gets its full-vowel weak form with a secondary stress, see *WeakForms*), a punctuation item
+  as its mark, an unsupported item as nothing and a host IPA override translated into Piper symbols (`ɝ` and the
+  ligatures `ʧ ʤ` become their espeak form) or, when a symbol is not in the Piper table, replaced by the word's normal
+  pronunciation; the pieces are joined by the shared layout with the weak-form groups written without a space
 - **RenderParts(text, maxSymbols)**: the parts of a long text (see *PhonemeStream*); each part is rendered exactly as
-  `Render` would render that stretch
+  `Render` would render that stretch, so the first word of each part is the first word of an utterance too
 - **Render(items)** and **RenderItems(items)** (internal): the same for a slice of items and one string per item, which
   the coverage tests and the splitter use; **RenderPronunciation(pronunciation)** (internal) renders one pronunciation
 

@@ -13,14 +13,16 @@ units:
   `SpeechModelCatalog`, registering this subsystem's one model in one call
 - **OnnxPiperLibriTtsEnSynthesisModel**: the concrete `ISynthesisModel` for the Piper voice `en_US-libritts_r-medium`
   (CC BY 4.0, 904 speakers, 22,050 Hz), with the internal `PiperArchiveExtractor` that installs the downloaded archive
+  and the internal `PiperCapabilityProfile` that joins the clause pieces of a sentence into one segment
 - **PiperVoiceConfig**: the internal reader of the voice's `.onnx.json` file (symbol table, sample rate, speaker count,
   inference scales)
 
 ### Interfaces
 
 The subsystem exposes `SpeechModelCatalogPiperExtensions` and `OnnxPiperLibriTtsEnSynthesisModel` as its public API
-(`PiperVoiceConfig` and `PiperArchiveExtractor` are internal). It consumes the Speech library's `SpeechModelCatalog`,
-`ISynthesisModel`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile` and parameter types, `AudioFormat` from
+(`PiperVoiceConfig`, `PiperArchiveExtractor` and `PiperCapabilityProfile` are internal). It consumes the Speech
+library's `SpeechModelCatalog`, `ISynthesisModel`, `IModelCapabilityProfile` with `DefaultModelCapabilityProfile` and
+`SentenceChunker`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile` and parameter types, `AudioFormat` from
 Speech's AudioSubsystem, `EnglishTextAnalyzer` of SpeechTextEn and the sibling SpeechOnnx system's
 `OnnxExecutionProviderSelector`. The model's `CreateBackend` constructs this system's `PiperPhonemePipeline` and
 `OnnxPiperSynthesisEngine` (see *SpeechOnnxPiper SynthesisSubsystem Design*) and returns the engine to Speech only as

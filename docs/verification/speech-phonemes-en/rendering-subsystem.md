@@ -68,11 +68,13 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices`,
 `RenderingSubsystem_Compounds_StressIsPerModel`,
 `RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`,
+`RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped`,
 `RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
 `RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones`,
 `RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice`
 
 Short texts are rendered by both renderers and compared with the documented strings: `city` and `water` (flap),
+`ability`, `identity` and `reality` (the flap before a final `-y` that the dictionary stresses secondarily),
 `number is` (linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
 `a well-known author`; the numbers `thirteen` to `nineteen` and their neighbors `routine`, `canteen`, `thirteenth`;
 ARPAbet and IPA overrides of `record` against the dictionary words with the same phones; the groups of `555-0147`, each
@@ -82,17 +84,25 @@ Kokoro) while the hyphen of `COVID-19` stays inside its word.
 #### Weak forms
 
 **Tests**: `RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled`,
-`RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices`
+`RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices`,
+`RenderingSubsystem_WeakForms_FirstWordOfTheText_HasASecondaryStressOnItsFullVowel`,
+`RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt`
 
 `a cup of the tea` renders `ɐ kˈʌp ʌvðə tˈiː` for Piper with weak forms and `ɐ kˈʌp ˈʌv ðə tˈiː` without; the stress of
 `of` stays for Kokoro by default and goes when weak forms are enabled. Every word of the table, alone, before a
 consonant and before a vowel, renders to a string with a vowel symbol in both voices, and a Kokoro form with no
-consonant is either the reduced `ɐ` or carries a stress mark (`I` is `ˌI`).
+consonant is either the reduced `ɐ` or carries a stress mark (`I` is `ˌI`). The first word of a text, which is the
+first word of an utterance of the Piper voice, keeps a full-vowel weak form with a secondary stress mark (`He whispered`
+is `hˌiː wˈɪspɚd`, `Should we go` is `ʃˌʊd wiː ɡˈoʊ`, a word after an opening quote is first too), while `The cat`,
+`A cat`, `An apple`, `For years`, `Because of this` and every word after the first (`Well, he said that he left`) keep
+their forms; the first word of each part of a long text is treated the same way, the rule is off with the weak forms
+switched off, and Kokoro's rendering of `He left` is unchanged.
 
 #### Parts
 
 **Test**: `RenderingSubsystem_Parts_LongText_StayWithinTheLimitAtClauseBoundariesWithoutLoss`
 
 Forty sentences with a limit of 100 symbols give at least ten parts per renderer, each within the limit and ending at a
-comma or a period except the last, together carrying every sound; a short text is one part equal to its plain rendering;
+comma or a period except the last, together carrying every sound (compared without the secondary stress marks that the
+first weak word of each Piper part gets); a short text is one part equal to its plain rendering;
 a text that is only an emoji has no part.

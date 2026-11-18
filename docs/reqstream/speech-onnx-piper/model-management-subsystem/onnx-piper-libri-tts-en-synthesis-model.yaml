@@ -19,15 +19,25 @@ sections:
                 title: >-
                   The OnnxPiperLibriTtsEnSynthesisModel class shall declare the stable identifier
                   piper-onnx-libritts-r-en-us-medium, the Synthesis role, the license CC BY 4.0 with its canonical
-                  link, a preferred audio format of mono 22,050 Hz, no audio-tag support, and the shared English
-                  text analyzer (the same instance for every model instance).
+                  link, a preferred audio format of mono 22,050 Hz, no audio-tag support, the shared English
+                  text analyzer (the same instance for every model instance), and a capability profile that joins
+                  the clause pieces of a sentence (the core chunker splits at every comma, semicolon and colon)
+                  into one segment, with their annotations moved to their place, so that the voice speaks a
+                  sentence as one utterance, while a sentence end, a pause, silence, different parameter
+                  overrides and a joined text beyond the core chunker's 200-character budget remain boundaries.
                 justification: |
                   The identifier is what a host stores and a catalog lists; the license is an attribution license
                   that a host must be able to read before it offers the voice; the audio format is the voice's own
                   rate; and the text analyzer is what the engine's reading-aware phonemization depends on. A voice
-                  of this kind has no inline audio tags.
+                  of this kind has no inline audio tags. The voice was trained on whole sentences with their commas
+                  and swallows the first sound of a clause that is its own utterance (the recognizer proxy hears
+                  the first word of a clause 90.6 percent of the time as its own utterance and 97.5 percent inside
+                  its sentence), so the clause pieces are joined with no change to the core library.
                 tests:
                   - OnnxPiperLibriTtsEnSynthesisModel_CatalogFacts_AreDeclared
+                  - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_SentenceClauses_AreOneSegmentWithTheirAnnotations
+                  - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_JoinsOnlyWhereNothingSetsTheClausesApart
+                  - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_PauseTag_StaysABoundary
 
               - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-SpeakerSelection
                 title: >-
