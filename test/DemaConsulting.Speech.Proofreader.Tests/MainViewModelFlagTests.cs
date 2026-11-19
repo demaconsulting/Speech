@@ -1,0 +1,204 @@
+using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.Proofreader.Diagnostics;
+using DemaConsulting.Speech.Proofreader.Playback;
+using DemaConsulting.Speech.Proofreader.Session;
+using DemaConsulting.Speech.Proofreader.Synthesis;
+using DemaConsulting.Speech.Proofreader.Text;
+
+namespace DemaConsulting.Speech.Proofreader.Tests;
+
+/// <summary>
+///     Tests for the flag snapshot and the stale-flag handling of <see cref="MainViewModel"/>.
+/// </summary>
+public class MainViewModelFlagTests
+{
+    /// <summary>The text used by the tests: two sentences, the first with a heteronym.</summary>
+    private const string TwoSentences = "I will read the book. The second sentence ends here.";
+
+    /// <summary>
+    ///     Validates that a flag raised after the voice was changed carries the model, settings, slot, and
+    ///     diagnostics that were heard, not the slot's current controls.
+    /// </summary>
+    /// <returns>A task that completes when the check is done.</returns>
+    [Fact]
+    public async Task MainViewModel_BeginFlag_AfterSelectionChanged_UsesHeardSnapshot()
+    {
+        using var context = new ViewModelContext();
+        var viewModel = context.ViewModel;
+        viewModel.SourceText = TwoSentences;
+        await viewModel.LoadPastedTextAsync();
+
+        // Arrange: sentence 1 was heard through a model and settings that differ from the slot's controls
+        var model = viewModel.SlotA.Models[0].Model;
+        var heardSelection = new ModelSelection(
+            "heard-model",
+            "Heard model",
+            new Dictionary<string, object> { ["speed"] = 1.5 });
+        var audio = new SentenceAudio([], []);
+        ((IPlaybackHost)viewModel).OnSentenceStarted(0, "B");
+        ((IPlaybackHost)viewModel).OnAudioReady(0, new PlaybackTarget("B", model, heardSelection, null), audio);
+        await viewModel.DiagnosticsTask;
+
+        // Act: the user then changes slot A's model and the active slot, and flags
+        viewModel.SlotA.SelectedModel = viewModel.SlotA.Models[^1];
+        viewModel.ActiveSlotName = "A";
+        viewModel.BeginFlag(0, 0);
+        viewModel.SaveFlag();
+
+        // Assert: the flag describes the heard configuration and its matching diagnostics
+        var expected = context.Diagnostics.Build(model, viewModel.Sentences[0].Sentence.Text, audio);
+        var flag = Assert.Single(viewModel.Flags).Flag;
+        Assert.Equal("B", flag.Slot);
+        Assert.Equal("heard-model", flag.Model.ModelId);
+        Assert.Equal(1.5, Assert.IsType<double>(flag.Model.Parameters["speed"]));
+        Assert.Equal(0, flag.SentenceIndex);
+        Assert.Equal(expected.ReadingsFor(0, 0), flag.Readings);
+        Assert.Equal(expected.Phonemes.Summary, flag.Phonemes);
+    }
+
+    /// <summary>
+    ///     Validates that a sentence that was never heard is flagged with the current model and no
+    ///     diagnostics from another sentence.
+    /// </summary>
+    /// <returns>A task that completes when the check is done.</returns>
+    [Fact]
+    public async Task MainViewModel_BeginFlag_SentenceNotHeard_HasNoStaleDiagnostics()
+    {
+        using var context = new ViewModelContext();
+        var viewModel = context.ViewModel;
+        viewModel.SourceText = TwoSentences;
+        await viewModel.LoadPastedTextAsync();
+
+        // Arrange: only sentence 1 was heard; the user then selects sentence 2
+        var model = viewModel.SlotA.Models[0].Model;
+        var heardSelection = new ModelSelection("heard-model", "Heard model", new Dictionary<string, object>());
+        ((IPlaybackHost)viewModel).OnAudioReady(0, new PlaybackTarget("A", model, heardSelection, null), new SentenceAudio([], []));
+        await viewModel.DiagnosticsTask;
+        viewModel.JumpTo(1, play: false);
+
+        // Act
+        viewModel.BeginFlag(0, 0);
+        viewModel.SaveFlag();
+
+        // Assert: nothing heard for sentence 2 is claimed
+        var flag = Assert.Single(viewModel.Flags).Flag;
+        Assert.Equal(1, flag.SentenceIndex);
+        Assert.NotEqual("heard-model", flag.Model.ModelId);
+        Assert.Equal(string.Empty, flag.Readings);
+        Assert.Equal(string.Empty, flag.Phonemes);
+    }
+
+    /// <summary>
+    ///     Validates that a loaded flag whose sentence no longer matches is untrusted: listed, but neither
+    ///     jumpable nor exported.
+    /// </summary>
+    /// <returns>A task that completes when the check is done.</returns>
+    [Fact]
+    public async Task MainViewModel_LoadSessionAsync_MismatchedFlag_IsUntrustedAndNotExported()
+    {
+        using var context = new ViewModelContext();
+        var viewModel = context.ViewModel;
+        var sessionPath = Path.Combine(context.Directory, "stale.json");
+        SessionFile.Save(
+            new ProofreadSession
+            {
+                SourceName = "stale.txt",
+                SourceSha256 = SessionFile.ComputeHash(TwoSentences),
+                Text = TwoSentences,
+                CurrentSentence = 0,
+                Flags =
+                [
+                    new ProofreadFlag { Id = 1, SentenceIndex = 1, SentenceText = "The second sentence ends here." },
+                    new ProofreadFlag { Id = 2, SentenceIndex = 0, SentenceText = "An older sentence that was edited." },
+                ],
+            },
+            sessionPath);
+
+        // Act
+        await viewModel.LoadSessionAsync(sessionPath);
+
+        // Assert: both are listed, only the mismatched one is untrusted
+        Assert.Equal(2, viewModel.Flags.Count);
+        Assert.False(viewModel.Flags[0].IsUntrusted);
+        var stale = viewModel.Flags[1];
+        Assert.True(stale.IsUntrusted);
+        Assert.Contains("STALE", stale.Title, StringComparison.Ordinal);
+        Assert.Contains("An older sentence that was edited.", stale.Subtitle, StringComparison.Ordinal);
+        Assert.False(viewModel.Sentences[0].IsFlagged);
+        Assert.True(viewModel.Sentences[1].IsFlagged);
+
+        // A trusted flag jumps; the untrusted one does not
+        viewModel.SelectedFlag = viewModel.Flags[0];
+        Assert.Equal(1, viewModel.CurrentIndex);
+        viewModel.SelectedFlag = null;
+        viewModel.SelectedFlag = stale;
+        Assert.Equal(1, viewModel.CurrentIndex);
+        Assert.True(viewModel.StatusIsError);
+
+        // The export leaves the untrusted flag out and says so
+        var tsvPath = Path.Combine(context.Directory, "flags.tsv");
+        viewModel.ExportTsv(tsvPath);
+        var rows = await File.ReadAllLinesAsync(tsvPath, TestContext.Current.CancellationToken);
+        Assert.Equal(2, rows.Length);
+        Assert.Contains("The second sentence ends here.", rows[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("older sentence", string.Join('\n', rows), StringComparison.Ordinal);
+        Assert.Contains("1 stale flag", viewModel.StatusMessage, StringComparison.Ordinal);
+
+        // The stale flag is kept when the session is saved again, so nothing is lost
+        var secondSave = Path.Combine(context.Directory, "second-save.json");
+        viewModel.SaveSession(secondSave);
+        Assert.Equal(2, SessionFile.Load(secondSave).Flags.Count);
+
+        // Deleting it resolves the problem
+        viewModel.DeleteFlag();
+        Assert.Single(viewModel.Flags);
+    }
+
+    /// <summary>
+    ///     A view model over a real (possibly empty) catalog in a temporary directory.
+    /// </summary>
+    private sealed class ViewModelContext : IDisposable
+    {
+        /// <summary>The synthesis engine host.</summary>
+        private readonly SynthesisEngineHost _host;
+
+        /// <summary>The catalog.</summary>
+        private readonly ProofreaderCatalog _catalog;
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="ViewModelContext"/> class.
+        /// </summary>
+        public ViewModelContext()
+        {
+            Directory = Path.Combine(Path.GetTempPath(), "proofreader-" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(Directory);
+            _catalog = ProofreaderCatalog.Create(Path.Combine(Directory, "models"), null);
+            _host = new SynthesisEngineHost(_catalog.Catalog);
+            Diagnostics = new DiagnosticsBuilder(SentenceSplitter.CreateAnalyzer());
+            ViewModel = new MainViewModel(
+                _catalog,
+                _host,
+                new SentenceAudioCache(_host),
+                new SentencePlayer(new AudioDeviceFactory()),
+                new SentenceSplitter(),
+                Diagnostics);
+        }
+
+        /// <summary>Gets the temporary directory.</summary>
+        public string Directory { get; }
+
+        /// <summary>Gets the diagnostics builder shared with the view model.</summary>
+        public DiagnosticsBuilder Diagnostics { get; }
+
+        /// <summary>Gets the view model.</summary>
+        public MainViewModel ViewModel { get; }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            // Disposing the view model releases the host and the catalog.
+            ViewModel.Dispose();
+            System.IO.Directory.Delete(Directory, recursive: true);
+        }
+    }
+}

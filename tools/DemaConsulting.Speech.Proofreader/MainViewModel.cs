@@ -58,8 +58,17 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     /// <summary>Incremented per diagnostics request so a slow, stale result is dropped.</summary>
     private int _diagnosticsVersion;
 
-    /// <summary>The diagnostics currently shown, with the sentence they belong to.</summary>
-    private (int Index, SentenceDiagnostics Diagnostics)? _shownDiagnostics;
+    /// <summary>Gets the most recently started diagnostics request (it never faults); tests await it.</summary>
+    internal Task DiagnosticsTask { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    ///     The last audio that was actually heard, or <see langword="null"/> before any (and after a new text is loaded).
+    /// </summary>
+    /// <remarks>
+    ///     Captured from the <see cref="PlaybackTarget"/> the audio was synthesized for, never from the
+    ///     slot's current user-interface state, so a flag always describes what the listener heard.
+    /// </remarks>
+    private HeardSnapshot? _heard;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="MainViewModel"/> class.
@@ -212,8 +221,22 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     }
 
     /// <inheritdoc/>
-    void IPlaybackHost.OnAudioReady(int index, PlaybackTarget target, SentenceAudio audio) =>
-        RefreshDiagnostics(index, target.Name, audio);
+    void IPlaybackHost.OnAudioReady(int index, PlaybackTarget target, SentenceAudio audio)
+    {
+        if (target.Model is null || target.Selection is null || index < 0 || index >= _sentences.Count)
+        {
+            return;
+        }
+
+        // The model, settings, and slot of the target are what will be heard; later changes to the
+        // slot's controls must not leak into a flag raised for this audio.
+        var text = _sentences[index].Text;
+        var heard = new HeardSnapshot(index, text, target.Name, target.Selection, null);
+        _heard = heard;
+
+        var version = ++_diagnosticsVersion;
+        DiagnosticsTask = ApplyDiagnosticsAsync(target.Model, text, audio, version, heard);
+    }
 
     /// <inheritdoc/>
     void IPlaybackHost.OnMessage(string? message, bool isError) => SetMessage(message, isError);
@@ -487,7 +510,7 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         CurrentSentenceText = sentences.Count > 0 ? sentences[0].Text : string.Empty;
         OnPropertyChanged(nameof(HasSentences));
         OnPropertyChanged(nameof(PositionText));
-        _shownDiagnostics = null;
+        _heard = null;
         if (sentences.Count > 0)
         {
             RefreshDiagnostics(0, ActiveSlotName, null);
@@ -576,34 +599,43 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         audio ??= selection is null ? null : _cache.TryGetCompleted(selection, text);
 
         var version = ++_diagnosticsVersion;
-        _ = ApplyDiagnosticsAsync(choice.Model, index, text, audio, version);
+        DiagnosticsTask = ApplyDiagnosticsAsync(choice.Model, text, audio, version, null);
     }
 
     /// <summary>
     ///     Builds diagnostics off the UI thread and shows them unless a newer request has superseded them.
     /// </summary>
     /// <param name="model">The real model.</param>
-    /// <param name="index">The sentence index.</param>
     /// <param name="text">The sentence text.</param>
     /// <param name="audio">The sentence audio, or <see langword="null"/>.</param>
     /// <param name="version">The request number.</param>
+    /// <param name="heard">
+    ///     The heard snapshot these diagnostics complete, or <see langword="null"/> when they are only shown.
+    /// </param>
     /// <returns>A task that never faults.</returns>
     private async Task ApplyDiagnosticsAsync(
         ISynthesisModel model,
-        int index,
         string text,
         SentenceAudio? audio,
-        int version)
+        int version,
+        HeardSnapshot? heard)
     {
         try
         {
             var result = await Task.Run(() => _diagnostics.Build(model, text, audio));
+
+            // The heard snapshot is completed even when the panes have since moved on, but only
+            // while it is still the last audio heard.
+            if (heard is not null && ReferenceEquals(_heard, heard))
+            {
+                _heard = heard with { Diagnostics = result };
+            }
+
             if (version != _diagnosticsVersion)
             {
                 return;
             }
 
-            _shownDiagnostics = (index, result);
             AnalysisText = result.FormatAnalysis();
             PhonemeText = result.FormatPhonemes();
         }

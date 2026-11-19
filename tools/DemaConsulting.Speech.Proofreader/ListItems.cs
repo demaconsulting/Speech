@@ -51,19 +51,28 @@ internal sealed partial class FlagItemViewModel : ObservableObject
     ///     Initializes a new instance of the <see cref="FlagItemViewModel"/> class.
     /// </summary>
     /// <param name="flag">The flag the row shows. Must not be <see langword="null"/>.</param>
+    /// <param name="isUntrusted">
+    ///     Whether the flag's stored sentence no longer matches the loaded text: it is shown with its
+    ///     stored text but cannot be jumped to or exported.
+    /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="flag"/> is <see langword="null"/>.</exception>
-    public FlagItemViewModel(ProofreadFlag flag)
+    public FlagItemViewModel(ProofreadFlag flag, bool isUntrusted = false)
     {
         ArgumentNullException.ThrowIfNull(flag);
         Flag = flag;
+        IsUntrusted = isUntrusted;
     }
 
     /// <summary>Gets the flag.</summary>
     public ProofreadFlag Flag { get; }
 
+    /// <summary>Gets a value indicating whether the flag's sentence no longer matches the loaded text.</summary>
+    public bool IsUntrusted { get; }
+
     /// <summary>Gets the first line: flag number, sentence, and category.</summary>
-    public string Title =>
-        $"#{Flag.Id}  sentence {Flag.SentenceIndex + 1}  [{Flag.Slot}]  {FlagCategories.Label(Flag.Category)}";
+    public string Title => IsUntrusted
+        ? $"\u26A0 STALE #{Flag.Id}  was sentence {Flag.SentenceIndex + 1}  [{Flag.Slot}]  {FlagCategories.Label(Flag.Category)}"
+        : $"#{Flag.Id}  sentence {Flag.SentenceIndex + 1}  [{Flag.Slot}]  {FlagCategories.Label(Flag.Category)}";
 
     /// <summary>Gets the second line: the flagged word, or the sentence start when no span was selected.</summary>
     public string Subtitle
@@ -71,6 +80,11 @@ internal sealed partial class FlagItemViewModel : ObservableObject
         get
         {
             var subject = Flag.HasSpan ? $"\"{Flag.Word}\"" : Flag.SentenceText.ReplaceLineEndings(" ");
+            if (IsUntrusted)
+            {
+                subject = $"Text no longer matches (not jumpable or exported). Stored: {Flag.SentenceText.ReplaceLineEndings(" ")}";
+            }
+
             return string.IsNullOrWhiteSpace(Flag.Note) ? subject : $"{subject} - {Flag.Note}";
         }
     }

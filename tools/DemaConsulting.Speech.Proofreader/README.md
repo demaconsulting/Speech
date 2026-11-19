@@ -80,8 +80,18 @@ A session is indented JSON (version 1): the source name, the SHA-256 and the ful
 the A/B setting, the model id and parameter values of each slot, the playback device, and the flags. Each flag holds
 the flag number, sentence index and text, the word span and word, the category, the note, the time, the slot and
 model settings that were audible, and a snapshot of the readings and phonemes, so the export never depends on
-re-synthesis. Loading verifies the text hash and reports every flag whose sentence no longer matches the re-split text
-instead of attaching it to a different sentence.
+re-synthesis. A flag describes the audio that was last *heard*: the model, settings, slot, readings, and phonemes are
+captured when the sentence's audio becomes ready, so changing a voice, speaker, or slot after listening and then
+pressing `F` still records what was heard. (A sentence that was selected but never played is flagged with the active
+slot's current model and no readings or phonemes.)
+
+### Stale flags
+
+Loading verifies the text hash and re-splits the text. A flag whose stored sentence text no longer equals the re-split
+sentence at its index is *untrusted*: it stays in the flag list (so nothing is lost, and it is saved back unchanged)
+with a `STALE` marker and its stored text, but it is never attached to a different sentence. Clicking it does not jump,
+it does not mark a sentence in the list, and it is left out of the TSV export (the status line reports how many were
+skipped). Delete it (`Del`) to resolve it, or reopen the original text.
 
 ## TSV export
 

@@ -80,8 +80,14 @@ internal sealed partial class MainViewModel
     {
         try
         {
-            File.WriteAllText(path, TsvExporter.Export(Flags.Select(item => item.Flag)), new UTF8Encoding(false));
-            SetMessage($"Exported {Flags.Count} flag(s) to {path}.", false);
+            var trusted = Flags.Where(item => !item.IsUntrusted).Select(item => item.Flag).ToList();
+            File.WriteAllText(path, TsvExporter.Export(trusted), new UTF8Encoding(false));
+            var skipped = Flags.Count - trusted.Count;
+            SetMessage(
+                skipped == 0
+                    ? $"Exported {trusted.Count} flag(s) to {path}."
+                    : $"Exported {trusted.Count} flag(s) to {path}; {skipped} stale flag(s) that no longer match the text were not exported.",
+                skipped > 0);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -141,16 +147,19 @@ internal sealed partial class MainViewModel
             }
         }
 
-        // A flag whose stored sentence no longer equals the re-split sentence is kept but reported.
+        // A flag whose stored sentence no longer equals the re-split sentence is untrusted: it stays
+        // in the list (with its stored text, and in the saved session) so nothing is lost silently,
+        // but it cannot be jumped to or exported until the user deletes it.
         Flags.Clear();
+        var mismatched = session.FindMismatchedFlags(sentenceTexts).ToHashSet();
         foreach (var flag in session.Flags)
         {
-            Flags.Add(new FlagItemViewModel(flag));
+            Flags.Add(new FlagItemViewModel(flag, mismatched.Contains(flag)));
         }
 
-        foreach (var flag in session.FindMismatchedFlags(sentenceTexts))
+        foreach (var flag in mismatched)
         {
-            problems.Add($"flag #{flag.Id} no longer matches sentence {flag.SentenceIndex + 1} of the text");
+            problems.Add($"flag #{flag.Id} no longer matches sentence {flag.SentenceIndex + 1} of the text (marked stale; it is not exported)");
         }
 
         MarkFlaggedSentences();

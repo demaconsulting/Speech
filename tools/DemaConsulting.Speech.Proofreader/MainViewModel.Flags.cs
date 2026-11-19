@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DemaConsulting.Speech.Proofreader.Diagnostics;
 using DemaConsulting.Speech.Proofreader.Session;
+using DemaConsulting.Speech.Proofreader.Synthesis;
 
 namespace DemaConsulting.Speech.Proofreader;
 
@@ -11,9 +13,12 @@ namespace DemaConsulting.Speech.Proofreader;
 /// <remarks>
 ///     A flag is raised with one key: playback pauses, the flag editor opens for the current
 ///     sentence (and the word span the listener selected), and the model, settings, readings, and
-///     phonemes that were audible are snapshotted into a draft when the flag is raised, so the export
-///     never depends on re-synthesis and navigating while the editor is open does not change what is
-///     saved. Saving the editor keeps playback paused; Space resumes.
+///     phonemes of the audio that was last heard (a snapshot taken when the audio became ready, not
+///     the slot's current controls) are copied into a draft when the flag is raised, so the export
+///     never depends on re-synthesis, changing a voice after listening does not change what is
+///     saved, and navigating while the editor is open does not either. A flag on a loaded session
+///     whose sentence no longer matches is untrusted: it is listed but cannot be jumped to or exported.
+///     Saving the editor keeps playback paused; Space resumes.
 /// </remarks>
 internal sealed partial class MainViewModel
 {
@@ -79,8 +84,14 @@ internal sealed partial class MainViewModel
         var slot = ActiveSlotName;
         var selection = SlotNamed(slot).CurrentSelection;
 
-        // The diagnostics are used only when they belong to the sentence being flagged.
-        var diagnostics = _shownDiagnostics is { } shown && shown.Index == index ? shown.Diagnostics : null;
+        // The flag is built from what was actually heard for this sentence. Only when it was never
+        // heard (it was selected but not played) is the active slot's current model recorded, with no
+        // readings or phonemes, so old diagnostics are never mixed with a newer model or settings.
+        var heard = _heard is { } last && last.Index == index && last.SentenceText == sentence.Text ? last : null;
+        var heardSelection = heard?.Selection ?? selection;
+        var model = heardSelection is null ? new SessionModel { ModelId = "(none)" } : SessionModel.From(heardSelection);
+        slot = heard?.Slot ?? slot;
+        var diagnostics = heard?.Diagnostics;
 
         _draft = new FlagDraft(
             index,
@@ -88,7 +99,7 @@ internal sealed partial class MainViewModel
             start,
             length,
             slot,
-            selection is null ? new SessionModel { ModelId = "(none)" } : SessionModel.From(selection),
+            model,
             diagnostics?.ReadingsFor(start, length) ?? string.Empty,
             diagnostics?.Phonemes.Summary ?? string.Empty);
 
@@ -115,7 +126,9 @@ internal sealed partial class MainViewModel
         _editedFlag = item;
         EditorCategory = FlagCategoryChoices.First(choice => choice.Value == item.Flag.Category);
         EditorNote = item.Flag.Note;
-        EditorHeader = $"Edit flag #{item.Flag.Id} (sentence {item.Flag.SentenceIndex + 1})";
+        EditorHeader = item.IsUntrusted
+            ? $"Edit stale flag #{item.Flag.Id} (its sentence {item.Flag.SentenceIndex + 1} no longer matches the text)"
+            : $"Edit flag #{item.Flag.Id} (sentence {item.Flag.SentenceIndex + 1})";
         IsEditingFlag = true;
     }
 
@@ -190,10 +203,21 @@ internal sealed partial class MainViewModel
     /// <param name="value">The newly selected flag.</param>
     partial void OnSelectedFlagChanged(FlagItemViewModel? value)
     {
-        if (value is not null && !_suppressFlagJump)
+        if (value is null || _suppressFlagJump)
         {
-            JumpTo(value.Flag.SentenceIndex, play: false);
+            return;
         }
+
+        // An untrusted flag points at a sentence it was not raised on; never navigate there.
+        if (value.IsUntrusted)
+        {
+            SetMessage(
+                $"Flag #{value.Flag.Id} no longer matches sentence {value.Flag.SentenceIndex + 1} of the text, so it cannot be jumped to or exported. Delete it, or reload the original text.",
+                true);
+            return;
+        }
+
+        JumpTo(value.Flag.SentenceIndex, play: false);
     }
 
     /// <summary>
@@ -240,6 +264,21 @@ internal sealed partial class MainViewModel
         string Phonemes);
 
     /// <summary>
+    ///     An immutable record of the audio that was last heard: what a flag raised now must describe.
+    /// </summary>
+    /// <param name="Index">The sentence index.</param>
+    /// <param name="SentenceText">The sentence text.</param>
+    /// <param name="Slot">The name of the slot the audio was synthesized for.</param>
+    /// <param name="Selection">The model and settings the audio was synthesized with.</param>
+    /// <param name="Diagnostics">The diagnostics of that audio, or <see langword="null"/> until they are built.</param>
+    private sealed record HeardSnapshot(
+        int Index,
+        string SentenceText,
+        string Slot,
+        ModelSelection Selection,
+        SentenceDiagnostics? Diagnostics);
+
+    /// <summary>
     ///     Numbers a flag, inserts it in sentence order, and selects it.
     /// </summary>
     /// <param name="flag">The flag to add.</param>
@@ -282,7 +321,7 @@ internal sealed partial class MainViewModel
     /// </summary>
     private void MarkFlaggedSentences()
     {
-        var flagged = Flags.Select(item => item.Flag.SentenceIndex).ToHashSet();
+        var flagged = Flags.Where(item => !item.IsUntrusted).Select(item => item.Flag.SentenceIndex).ToHashSet();
         foreach (var row in Sentences)
         {
             row.IsFlagged = flagged.Contains(row.Sentence.Index);
