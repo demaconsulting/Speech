@@ -104,7 +104,8 @@ homophones, so the figures show only that the new path is not less intelligible 
 - **Piper phoneme strings against espeak-ng.** For a pack of 133 sentences the whole phoneme string (words, separators,
   stress marks, punctuation) was compared with the engine's. Punctuation passes through at the same positions in all
   133, the word separators agree in 130 and no problem with framing, pauses or the model inputs was found: the engine
-  inputs, the symbol framing and the scale triple (noise 0.667, length 1.0, noise width 0.8) are the voice's own. The
+  inputs, the symbol framing and the scale triple (noise 0.333, length 1.0, noise width 0.333, the values the voice's
+  installed configuration declares; an earlier version of this text wrongly said 0.667 and 0.8) are the voice's own. The
   heteronym sentence of the real-CLI check phonemizes identically to espeak-ng's string, so the garbled recognition
   (`rid the late`) is not a phoneme problem. The same phoneme string synthesized by seven speakers gave 6.1
   (speaker 0, the default), 6.2 (17), 6.3 (250), 6.9 (400), 7.1 (100), 7.6 (600) and 8.6 (speaker 5, the one used in
@@ -148,6 +149,63 @@ homophones, so the figures show only that the new path is not less intelligible 
   change of the total word error rate (6.78 and 6.63 percent). The Piper model therefore speaks a sentence as one
   utterance (its capability profile joins the clause pieces; no change of the core contract was needed), see "Listening
   Fixes 2" in [renderers.md](renderers.md). Kokoro's chunking is unchanged.
+
+## Piper Sampling Noise
+
+The owner's `live` listening finding (the phonemes are right, about a third of the renderings say `lɪv`) raised the
+question whether the engine samples more noise than the old Sherpa path. It does not: the installed voice's
+configuration (the Sherpa archive's `.onnx.json`) declares `noise_scale` 0.333, `length_scale` 1.0 and `noise_w`
+0.333, the engine passes exactly these as the graph's `scales` input (speed divides the length scale), and the Sherpa
+model class sets the same `NoiseScale` 0.333 and `NoiseScaleW` 0.333 (its length scale is 1 divided by the speed). The
+values 0.667, 1.0 and 0.8 are only Piper's own defaults, used when a configuration has no `inference` block, and the
+text of the refinement pass above wrongly called them the voice's values.
+
+The grid below measured pronunciation stability for six settings plus a zero-noise anchor, through the real analyzer,
+profile, pipeline and engine (only the noise values come from a modified copy of the voice's configuration) and the
+repository's Zipformer recognizer. Sentences: 232 (the 133 sentences of the refinement pack, which contain the 12
+heteronym-pair sentences, and 99 of the 395 heteronym reading sentences, every fourth); speakers 0, 17 and 400; 12 draws
+of every sentence and speaker (50,112 renderings; the anchor 2 draws; the `live` sentence 36 draws). Word error is the
+share of reference words missed; "exact" is the share of renderings recognized word for word; "agreement" is the share
+of draws of one sentence and speaker whose recognized text equals the most frequent one (a stability measure, 100 where
+the output is deterministic); "target" is the share of renderings in which the heteronym (or the word the reading
+sentence is about) was recognized; these four columns are percent. The 95 percent bounds resample sentences. "Duration"
+is the mean duration relative to the file's values, "spread" the standard deviation of the duration between draws
+(percent of the mean), and "pitch" the standard deviation of the pitch in semitones.
+
+| Noise / width | Word error | Exact | Agreement | Target | Duration | Spread | Pitch |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.667 / 0.8 (Piper defaults) | 11.07 | 43.6 | 52.8 | 77.0 | 1.129 | 5.95 | 3.64 |
+| 0.333 / 0.333 (file, Sherpa) | 7.74 | 57.3 | 71.8 | 81.2 | 1.000 | 2.98 | 3.32 |
+| 0.5 / 0.5 | 8.64 | 52.5 | 64.1 | 80.1 | 1.035 | 3.93 | 3.48 |
+| 0.333 / 0.8 | 8.88 | 51.0 | 61.9 | 80.5 | 1.129 | 6.00 | 3.39 |
+| 0.667 / 0.333 | 9.93 | 48.7 | 60.0 | 78.2 | 1.000 | 2.99 | 3.54 |
+| 0.2 / 0.2 | 7.43 | 58.8 | 76.5 | 81.7 | 0.981 | 2.22 | 3.28 |
+| 0 / 0 (no noise) | 7.67 | 57.5 | 100 | 83.2 | 0.971 | 0.00 | 3.30 |
+
+Differences against the file's values (paired by sentence, 95 percent bounds): Piper's defaults are clearly worse,
+word error +3.32 points (+2.94 to +3.71), agreement -19.0 points (-20.4 to -17.6), target word -4.2 points (-5.8 to
+-2.7), and 13 percent slower (a larger noise width lengthens the speech); every setting with more noise than the file
+is worse in the same way. The setting 0.2 / 0.2 is a little better than the file (word error -0.32 points, -0.56 to
+-0.08; agreement +4.6 points, +3.5 to +5.8; target word +0.5, -0.5 to +1.6, not significant), and no noise at all gives
+the same word error as the file (-0.07, -0.50 to +0.38) with a deterministic output. The pitch spread of lower noise
+is not flatter (the anchor differs from the file by -0.03 semitones, -0.10 to +0.04; only raised noise adds pitch
+spread, +0.3 for noise 0.667), the harmonics-to-noise ratio varies by under 1 dB across the settings and the spectral
+flatness does not move; the proxies cannot hear prosody, so they only fail to show a loss.
+
+The `live` sentence (`I live near a theater that hosts live music every night.`, 36 draws for each of 3 speakers, 108
+per setting): the second `live` (before `music`) was recognized as `live` in 63 percent of the renderings with the
+file's values (53.6 to 71.5), 72 percent with Piper's defaults, 49 percent with 0.2 / 0.2 and 53 percent with
+0.667 / 0.333; with no noise the same input gives the same output, and speakers 0 and 400 said it as something else
+both times. So the sampling noise is not the cause: the voice's most likely rendering of this phoneme string is the
+ambiguous one for some speakers, and a lower noise setting makes that worse, not better.
+
+Decision: the values stay (0.333 / 1.0 / 0.333, read from the voice's file). The only setting measured as better,
+0.2 / 0.2, gains 0.3 word error points and 4.6 agreement points, loses on the `live` sentence and shrinks the duration
+spread, and no listener has judged it. The graph has no seed: the exported VITS graph takes `input`, `input_lengths`,
+`scales` and `sid` only, its two `RandomNormalLike` nodes (duration predictor and latent) carry no `seed` attribute,
+and ONNX Runtime has no session-wide seed, so the engine cannot make the output repeatable except by setting both noise
+scales to 0, which gives the same output every time at the same word error rate. The experiment's scratch code and
+outputs are outside the repository.
 
 ## Known Gaps
 

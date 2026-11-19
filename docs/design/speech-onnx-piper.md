@@ -90,7 +90,11 @@ inputs.
 - **Phoneme type**: `espeak`; the symbol table (159 symbols in the voice's configuration) is read from the configuration
   at load time
 - **Inference defaults**: the noise scale, length scale and noise width come from the configuration's `inference` block
-  (Piper's own defaults when it has none); the host's speed divides the length scale
+  (Piper's own defaults when it has none); the host's speed divides the length scale. The installed voice's file
+  declares 0.333, 1.0 and 0.333, the same values the Sherpa model class sets; they measured clearly more stable than
+  Piper's own defaults (0.667, 1.0 and 0.8) and no value tried measured clearly better (see *Piper Sampling Noise* in
+  `docs/evaluation/phonemes-en/summary.md`), so a voice file that declares other scales must be overridden to these
+  values
 - **Parameters**: exactly one, the `speaker` numeric parameter (integer, 0 to 903, default 0); speed is the library's
   own speed argument. The audio-tag support is `None`
 
