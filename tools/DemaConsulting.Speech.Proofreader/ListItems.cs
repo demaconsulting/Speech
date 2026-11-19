@@ -107,6 +107,12 @@ internal sealed record FlagCategoryChoice(FlagCategory Value)
 {
     /// <summary>Gets the label shown in the dropdown.</summary>
     public string Label => FlagCategories.Label(Value);
+
+    /// <summary>
+    ///     Returns the label, so the dropdown's accessibility value reads as the text shown.
+    /// </summary>
+    /// <returns>The label.</returns>
+    public override string ToString() => Label;
 }
 
 /// <summary>
@@ -117,4 +123,10 @@ internal sealed record DeviceChoice(string? Name)
 {
     /// <summary>Gets the label shown in the dropdown.</summary>
     public string Label => Name ?? "System default";
+
+    /// <summary>
+    ///     Returns the label, so the dropdown's accessibility value reads as the text shown.
+    /// </summary>
+    /// <returns>The label.</returns>
+    public override string ToString() => Label;
 }

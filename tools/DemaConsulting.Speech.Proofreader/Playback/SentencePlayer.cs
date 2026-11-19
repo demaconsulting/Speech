@@ -291,6 +291,24 @@ internal sealed class SentencePlayer
     }
 
     /// <summary>
+    ///     Completes at once when playback is not paused, otherwise when it is resumed or halted.
+    /// </summary>
+    /// <remarks>
+    ///     Lets a run hold at a sentence boundary while paused, so the current sentence does not
+    ///     advance to one that has not been heard.
+    /// </remarks>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <returns>A task that completes when playback is no longer paused.</returns>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    public async Task WaitWhilePausedAsync(CancellationToken cancellationToken)
+    {
+        while (IsPaused)
+        {
+            await _resume.Task.WaitAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>
     ///     Resumes a paused playback.
     /// </summary>
     public void Resume()

@@ -164,10 +164,27 @@ internal static class SessionFile
     public static ProofreadSession Load(string path) => FromJson(File.ReadAllText(path, Encoding.UTF8));
 
     /// <summary>
+    ///     Serializes any value with the session's JSON conventions (used by the user settings file).
+    /// </summary>
+    /// <typeparam name="T">The value type.</typeparam>
+    /// <param name="value">The value to serialize.</param>
+    /// <returns>The indented JSON text.</returns>
+    public static string SerializeValue<T>(T value) => JsonSerializer.Serialize(value, Options);
+
+    /// <summary>
+    ///     Deserializes a value written by <see cref="SerializeValue{T}"/>.
+    /// </summary>
+    /// <typeparam name="T">The value type.</typeparam>
+    /// <param name="json">The JSON text.</param>
+    /// <returns>The value, or <see langword="null"/> for JSON <c>null</c>.</returns>
+    /// <exception cref="JsonException">Thrown when the text is not valid JSON of the expected shape.</exception>
+    public static T? DeserializeValue<T>(string json) => JsonSerializer.Deserialize<T>(json, Options);
+
+    /// <summary>
     ///     Replaces <see cref="JsonElement"/> parameter values with string, double, or bool values.
     /// </summary>
     /// <param name="model">The model whose parameters are converted; <see langword="null"/> is ignored.</param>
-    private static void NormalizeParameters(SessionModel? model)
+    public static void NormalizeParameters(SessionModel? model)
     {
         if (model is null)
         {

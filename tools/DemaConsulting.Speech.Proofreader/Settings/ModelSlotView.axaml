@@ -10,7 +10,7 @@
       <TextBlock Text="{Binding Name, StringFormat='Model {0}'}" FontWeight="SemiBold" />
       <ComboBox ItemsSource="{Binding Models}"
                 SelectedItem="{Binding SelectedModel}"
-                DisplayMemberBinding="{Binding Label}"
+                AutomationProperties.Name="{Binding Name, StringFormat='Model {0}'}"
                 HorizontalAlignment="Stretch" />
       <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75" />
       <local:ModelSettingsView DataContext="{Binding Settings}" />

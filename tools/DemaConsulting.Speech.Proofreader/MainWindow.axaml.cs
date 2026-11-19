@@ -105,6 +105,17 @@ internal sealed partial class MainWindow : Window
             return;
         }
 
+        // While a new flag is being created, the arrow keys move its target sentence.
+        if (ViewModel.IsCreatingFlag
+            && e.KeyModifiers == KeyModifiers.None
+            && e.Key is Key.Left or Key.Right or Key.Up or Key.Down
+            && CanRedirectFromFocus(e.Key))
+        {
+            ViewModel.RedirectFlag(e.Key is Key.Left or Key.Up ? -1 : 1);
+            e.Handled = true;
+            return;
+        }
+
         // Plain keys are left to the focused control when it needs them.
         if (IsFocusedControlConsumingKeys() || e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift))
         {
@@ -118,7 +129,15 @@ internal sealed partial class MainWindow : Window
                 ViewModel.PlayPause();
                 break;
             case Key.F:
-                BeginFlagFromSelection();
+                if (shift)
+                {
+                    ViewModel.BeginFlagPrevious();
+                }
+                else
+                {
+                    BeginFlagFromSelection();
+                }
+
                 break;
             case Key.Left or Key.Up or Key.K:
                 ViewModel.Previous();
@@ -176,7 +195,24 @@ internal sealed partial class MainWindow : Window
     /// </summary>
     /// <returns><see langword="true"/> for text boxes, dropdowns, and sliders.</returns>
     private bool IsFocusedControlConsumingKeys() =>
-        TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox or ComboBox or ComboBoxItem or Slider;
+        TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement()
+            is TextBox or ComboBox or ComboBoxItem or NumericUpDown or ButtonSpinner or Slider or TabItem;
+
+    /// <summary>
+    ///     Tests whether an arrow key may move the flag target, rather than belong to the focused control.
+    /// </summary>
+    /// <param name="key">The arrow key.</param>
+    /// <returns>
+    ///     <see langword="true"/> unless a dropdown, slider, or number box has focus, or (for Left and Right)
+    ///     a note that has text to move through.
+    /// </returns>
+    private bool CanRedirectFromFocus(Key key) =>
+        TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() switch
+        {
+            ComboBox or ComboBoxItem or NumericUpDown or ButtonSpinner or Slider or TabItem => false,
+            TextBox box => key is Key.Up or Key.Down || string.IsNullOrEmpty(box.Text),
+            _ => true,
+        };
 
     /// <summary>
     ///     Starts a flag for the word span selected in the current-sentence block (or the whole sentence).
@@ -290,7 +326,7 @@ internal sealed partial class MainWindow : Window
     /// <returns>A task that completes when the flags have been exported or the dialog canceled.</returns>
     private async Task ExportTsvAsync()
     {
-        var path = await PickSavePathAsync("Export flags as TSV", "flags.tsv", "tsv", "Tab-separated values");
+        var path = await PickSavePathAsync("Export flags as TSV", ViewModel.SuggestedExportFileName, "tsv", "Tab-separated values", ViewModel.SourceFolder);
         if (path is not null)
         {
             ViewModel.ExportTsv(path);
@@ -304,15 +340,18 @@ internal sealed partial class MainWindow : Window
     /// <param name="suggestedName">The suggested file name.</param>
     /// <param name="extension">The default extension without a dot.</param>
     /// <param name="typeName">The file type description.</param>
+    /// <param name="folder">The folder the dialog starts in, or <see langword="null"/> for the platform default.</param>
     /// <returns>The chosen local path, or <see langword="null"/> when the dialog was canceled.</returns>
-    private async Task<string?> PickSavePathAsync(string title, string suggestedName, string extension, string typeName)
+    private async Task<string?> PickSavePathAsync(string title, string suggestedName, string extension, string typeName, string? folder = null)
     {
+        var startFolder = folder is null ? null : await StorageProvider.TryGetFolderFromPathAsync(folder);
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = title,
             SuggestedFileName = suggestedName,
             DefaultExtension = extension,
             FileTypeChoices = [new FilePickerFileType(typeName) { Patterns = [$"*.{extension}"] }],
+            SuggestedStartLocation = startFolder,
         });
 
         return file?.TryGetLocalPath();

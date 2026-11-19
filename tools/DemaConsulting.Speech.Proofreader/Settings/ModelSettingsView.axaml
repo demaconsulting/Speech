@@ -13,12 +13,14 @@
         <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Slider IsVisible="{Binding !IsInteger}"
+                  AutomationProperties.Name="{Binding DisplayName}"
                   Minimum="{Binding Minimum}"
                   Maximum="{Binding Maximum}"
                   TickFrequency="{Binding Step}"
                   Value="{Binding Value}"
                   Width="200" />
           <NumericUpDown IsVisible="{Binding IsInteger}"
+                         AutomationProperties.Name="{Binding DisplayName}"
                          Minimum="{Binding Minimum}"
                          Maximum="{Binding Maximum}"
                          Increment="{Binding Step}"
@@ -36,9 +38,9 @@
       <StackPanel Spacing="2" Margin="0,4">
         <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
-        <ComboBox ItemsSource="{Binding Options}"
-                  SelectedItem="{Binding SelectedOption}"
-                  DisplayMemberBinding="{Binding Label}"
+        <ComboBox ItemsSource="{Binding Choices}"
+                  SelectedItem="{Binding SelectedChoice}"
+                  AutomationProperties.Name="{Binding DisplayName}"
                   Width="200" />
       </StackPanel>
     </DataTemplate>

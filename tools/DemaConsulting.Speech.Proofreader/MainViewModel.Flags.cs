@@ -12,7 +12,8 @@ namespace DemaConsulting.Speech.Proofreader;
 /// </summary>
 /// <remarks>
 ///     A flag is raised with one key: playback pauses, the flag editor opens for the current
-///     sentence (and the word span the listener selected), and the model, settings, readings, and
+///     sentence (and the word span the listener selected; Shift+F flags the previous sentence
+///     instead), and the model, settings, readings, and
 ///     phonemes of the audio that was last heard (a snapshot taken when the audio became ready, not
 ///     the slot's current controls) are copied into a draft when the flag is raised, so the export
 ///     never depends on re-synthesis, changing a voice after listening does not change what is
@@ -58,9 +59,32 @@ internal sealed partial class MainViewModel
     [ObservableProperty]
     public partial string EditorHeader { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets the text of the sentence the flag editor is targeting (one line).</summary>
+    [ObservableProperty]
+    public partial string EditorTargetText { get; set; } = string.Empty;
+
     /// <summary>
-    ///     Starts a flag for the current sentence: pauses playback and opens the editor.
+    ///     Gets or sets a value indicating whether the editor creates a new flag, whose target sentence
+    ///     can still be moved (an existing flag's sentence is fixed).
     /// </summary>
+    [ObservableProperty]
+    public partial bool IsCreatingFlag { get; set; }
+
+    /// <summary>How long after a sentence ended a flag still means that sentence (the time to react and press the key).</summary>
+    internal static readonly TimeSpan ReactionWindow = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>How long the next sentence may have been sounding for a flag to still mean the one before it.</summary>
+    internal static readonly TimeSpan FreshAudibleGrace = TimeSpan.FromMilliseconds(750);
+
+    /// <summary>
+    ///     Starts a flag: pauses playback and opens the editor on the sentence the listener just heard.
+    /// </summary>
+    /// <remarks>
+    ///     The target is the sentence that was sounding when the key was pressed, or that finished
+    ///     within <see cref="ReactionWindow"/> before it (playback often moves on before the key is
+    ///     handled), otherwise the current sentence; see <see cref="ResolveFlagTarget"/>. The word span
+    ///     only applies when the target is the current sentence, which the span was selected in.
+    /// </remarks>
     /// <param name="spanStart">The start of the selected word span within the sentence.</param>
     /// <param name="spanLength">The length of the selected span, or 0 to flag the whole sentence.</param>
     internal void BeginFlag(int spanStart, int spanLength)
@@ -71,9 +95,126 @@ internal sealed partial class MainViewModel
             return;
         }
 
+        var (index, slot) = ResolveFlagTarget();
         _controller.Pause();
+        if (index != CurrentIndex)
+        {
+            (spanStart, spanLength) = (0, 0);
+        }
 
-        var index = CurrentIndex;
+        OpenNewFlag(index, slot, spanStart, spanLength);
+    }
+
+    /// <summary>
+    ///     Starts a flag for the sentence before the current one: for when the problem is noticed just
+    ///     after playback moved on. The whole sentence is flagged, using what was heard for it.
+    /// </summary>
+    [RelayCommand]
+    internal void BeginFlagPrevious()
+    {
+        if (CurrentIndex < 0 || CurrentIndex >= _sentences.Count)
+        {
+            SetMessage("Load a text and select a sentence before flagging.", true);
+            return;
+        }
+
+        if (CurrentIndex == 0)
+        {
+            SetMessage("There is no previous sentence to flag.", true);
+            return;
+        }
+
+        _controller.Pause();
+        OpenNewFlag(CurrentIndex - 1, null, 0, 0);
+    }
+
+    /// <summary>
+    ///     While a new flag is being created, moves its target to the previous sentence.
+    /// </summary>
+    [RelayCommand]
+    internal void RedirectPrevious() => RedirectFlag(-1);
+
+    /// <summary>
+    ///     While a new flag is being created, moves its target to the next sentence.
+    /// </summary>
+    [RelayCommand]
+    internal void RedirectNext() => RedirectFlag(1);
+
+    /// <summary>
+    ///     While a new flag is being created, moves its target by whole sentences, keeping the chosen
+    ///     category and the typed note; the flag then describes what was heard for the new target.
+    /// </summary>
+    /// <param name="delta">How many sentences to move (negative for earlier ones).</param>
+    internal void RedirectFlag(int delta)
+    {
+        if (!IsEditingFlag || _editedFlag is not null || _draft is not { } draft)
+        {
+            return;
+        }
+
+        var index = draft.Index + delta;
+        if (index < 0 || index >= _sentences.Count)
+        {
+            return;
+        }
+
+        PrepareDraft(index, null, 0, 0);
+    }
+
+    /// <summary>
+    ///     Decides which sentence a flag raised right now is about.
+    /// </summary>
+    /// <remarks>
+    ///     A sentence that finished within <see cref="ReactionWindow"/> wins while nothing sounds yet
+    ///     (the next sentence is loading) or the next one only just began (within
+    ///     <see cref="FreshAudibleGrace"/>): the listener reacted to the end of the previous one.
+    ///     Otherwise the sentence that is sounding (or was interrupted by a pause) is the target, and
+    ///     when playback has not played anything the current sentence is.
+    /// </remarks>
+    /// <returns>The sentence index and, when known, the slot that was heard.</returns>
+    private (int Index, string? Slot) ResolveFlagTarget()
+    {
+        var now = _time.GetUtcNow();
+        if (_finished is { } finished
+            && now - finished.At <= ReactionWindow
+            && (_audible is not { } fresh || now - fresh.Since <= FreshAudibleGrace))
+        {
+            return (finished.Index, finished.Slot);
+        }
+
+        return _audible is { } audible ? (audible.Index, audible.Slot) : (CurrentIndex, null);
+    }
+
+    /// <summary>
+    ///     Opens the editor for a new flag.
+    /// </summary>
+    /// <param name="index">The sentence to flag.</param>
+    /// <param name="slotHint">The slot that was heard for it, or <see langword="null"/> when unknown.</param>
+    /// <param name="spanStart">The start of the selected word span within the sentence.</param>
+    /// <param name="spanLength">The length of the selected span, or 0 to flag the whole sentence.</param>
+    private void OpenNewFlag(int index, string? slotHint, int spanStart, int spanLength)
+    {
+        PrepareDraft(index, slotHint, spanStart, spanLength);
+        var hasSpan = _draft is { SpanLength: > 0 };
+
+        // A selected word is most likely a mispronunciation; otherwise offer the category used last.
+        var category = hasSpan ? FlagCategory.MispronouncedWord : _lastCategory ?? FlagCategoryChoices[0].Value;
+        EditorCategory = FlagCategoryChoices.First(choice => choice.Value == category);
+        _editedFlag = null;
+        EditorNote = string.Empty;
+        IsCreatingFlag = true;
+        IsEditingFlag = true;
+    }
+
+    /// <summary>
+    ///     Captures what a flag on a sentence needs and describes the target in the editor header.
+    /// </summary>
+    /// <param name="index">The sentence to flag.</param>
+    /// <param name="slotHint">The slot that was heard for it, or <see langword="null"/> when unknown.</param>
+    /// <param name="spanStart">The start of the selected word span within the sentence.</param>
+    /// <param name="spanLength">The length of the selected span, or 0 to flag the whole sentence.</param>
+    private void PrepareDraft(int index, string? slotHint, int spanStart, int spanLength)
+    {
         var sentence = _sentences[index];
 
         // A span that does not fit the sentence (a stale selection) is dropped rather than trusted.
@@ -81,13 +222,15 @@ internal sealed partial class MainViewModel
             ? (spanStart, spanLength)
             : (0, 0);
 
-        var slot = ActiveSlotName;
+        var slot = slotHint ?? ActiveSlotName;
         var selection = SlotNamed(slot).CurrentSelection;
 
-        // The flag is built from what was actually heard for this sentence. Only when it was never
-        // heard (it was selected but not played) is the active slot's current model recorded, with no
-        // readings or phonemes, so old diagnostics are never mixed with a newer model or settings.
-        var heard = _heard is { } last && last.Index == index && last.SentenceText == sentence.Text ? last : null;
+        // The flag is built from what was actually heard for this sentence (through the slot that was
+        // audible when known). Only when it was never heard (it was selected but not played) is the
+        // active slot's current model recorded, with no readings or phonemes, so old diagnostics are
+        // never mixed with a newer model or settings.
+        var heard = (slotHint is null ? null : _heard.FindLast(last => last.Index == index && last.SentenceText == sentence.Text && last.Slot == slotHint))
+            ?? _heard.FindLast(last => last.Index == index && last.SentenceText == sentence.Text);
         var heardSelection = heard?.Selection ?? selection;
         var model = heardSelection is null ? new SessionModel { ModelId = "(none)" } : SessionModel.From(heardSelection);
         slot = heard?.Slot ?? slot;
@@ -103,13 +246,20 @@ internal sealed partial class MainViewModel
             diagnostics?.ReadingsFor(start, length) ?? string.Empty,
             diagnostics?.Phonemes.Summary ?? string.Empty);
 
-        _editedFlag = null;
-        EditorCategory ??= FlagCategoryChoices[0];
-        EditorNote = string.Empty;
-        EditorHeader = length > 0
-            ? $"New flag: sentence {index + 1}, \"{sentence.Text.Substring(start, length)}\" (slot {slot})"
-            : $"New flag: sentence {index + 1}, whole sentence (slot {slot})";
-        IsEditingFlag = true;
+        var subject = length > 0 ? $"\"{sentence.Text.Substring(start, length)}\"" : "whole sentence";
+        EditorHeader = $"New flag: sentence {index + 1} of {_sentences.Count} (slot {slot}), {subject}";
+        EditorTargetText = Excerpt(sentence.Text);
+    }
+
+    /// <summary>
+    ///     Shortens a sentence to one line for the editor.
+    /// </summary>
+    /// <param name="text">The sentence text.</param>
+    /// <returns>The text on one line, cut with an ellipsis when long.</returns>
+    private static string Excerpt(string text)
+    {
+        var flat = text.ReplaceLineEndings(" ");
+        return flat.Length <= 140 ? flat : string.Concat(flat.AsSpan(0, 140), "...");
     }
 
     /// <summary>
@@ -124,6 +274,8 @@ internal sealed partial class MainViewModel
         }
 
         _editedFlag = item;
+        IsCreatingFlag = false;
+        EditorTargetText = Excerpt(item.Flag.SentenceText);
         EditorCategory = FlagCategoryChoices.First(choice => choice.Value == item.Flag.Category);
         EditorNote = item.Flag.Note;
         EditorHeader = item.IsUntrusted
@@ -157,9 +309,12 @@ internal sealed partial class MainViewModel
             }
         }
 
+        _lastCategory = EditorCategory.Value;
         IsEditingFlag = false;
+        IsCreatingFlag = false;
         _editedFlag = null;
         _draft = null;
+        SaveSettings();
         SetMessage("Flag saved. Press Space to resume.", false);
     }
 
@@ -170,6 +325,7 @@ internal sealed partial class MainViewModel
     internal void CancelFlag()
     {
         IsEditingFlag = false;
+        IsCreatingFlag = false;
         _editedFlag = null;
         _draft = null;
     }

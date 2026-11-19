@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.Proofreader.Diagnostics;
 using DemaConsulting.Speech.Proofreader.Playback;
 using DemaConsulting.Speech.Proofreader.Session;
@@ -20,8 +22,8 @@ namespace DemaConsulting.Speech.Proofreader;
 ///     It orchestrates the playback controller and is the controller's host. Everything runs on the
 ///     UI thread; synthesis, resampling, text analysis, and diagnostics run on the thread pool and
 ///     report back through awaited tasks. Navigation has one rule: while something is playing or
-///     paused, jumping to a sentence restarts playback there (or stops first when the jump is only a
-///     selection), so the highlighted sentence is always the one that would be heard next.
+///     paused, jumping to a sentence restarts playback there only while it is actually playing; while
+///     paused or stopped a jump (click or key) only selects, and Space plays from the selection.
 /// </remarks>
 internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, IDisposable
 {
@@ -62,13 +64,33 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     internal Task DiagnosticsTask { get; private set; } = Task.CompletedTask;
 
     /// <summary>
-    ///     The last audio that was actually heard, or <see langword="null"/> before any (and after a new text is loaded).
+    ///     The audio that was recently heard, oldest first, or empty before any (and after a new text is loaded).
     /// </summary>
     /// <remarks>
     ///     Captured from the <see cref="PlaybackTarget"/> the audio was synthesized for, never from the
-    ///     slot's current user-interface state, so a flag always describes what the listener heard.
+    ///     slot's current user-interface state, so a flag always describes what the listener heard. Several
+    ///     are kept (not only the last), so a flag for the sentence just before the current one still
+    ///     describes the audio that was heard for it.
     /// </remarks>
-    private HeardSnapshot? _heard;
+    private readonly List<HeardSnapshot> _heard = [];
+
+    /// <summary>How many heard snapshots are kept.</summary>
+    private const int HeardHistoryLimit = 8;
+
+    /// <summary>The settings file, or <see langword="null"/> when nothing is remembered between launches.</summary>
+    private readonly UserSettingsStore? _settingsStore;
+
+    /// <summary>The clock used to tell a flag keypress that follows a sentence closely.</summary>
+    private readonly TimeProvider _time;
+
+    /// <summary>The sentence (and slot) that is sounding now, or <see langword="null"/>; stays set while paused mid-sentence.</summary>
+    private (int Index, string Slot, DateTimeOffset Since)? _audible;
+
+    /// <summary>The sentence (and slot) that last finished sounding, or <see langword="null"/>.</summary>
+    private (int Index, string Slot, DateTimeOffset At)? _finished;
+
+    /// <summary>The category of the last flag saved (also remembered across launches), or <see langword="null"/>.</summary>
+    private FlagCategory? _lastCategory;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="MainViewModel"/> class.
@@ -79,14 +101,21 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     /// <param name="player">The audio player.</param>
     /// <param name="splitter">The sentence splitter.</param>
     /// <param name="diagnostics">The diagnostics builder.</param>
-    /// <exception cref="ArgumentNullException">Thrown when an argument is <see langword="null"/>.</exception>
+    /// <param name="settingsStore">
+    ///     The per-user settings file that remembers the models, their settings, and the last flag
+    ///     category across launches, or <see langword="null"/> to remember nothing.
+    /// </param>
+    /// <param name="timeProvider">The clock, or <see langword="null"/> for the system clock.</param>
+    /// <exception cref="ArgumentNullException">Thrown when a required argument is <see langword="null"/>.</exception>
     public MainViewModel(
         ProofreaderCatalog catalog,
         SynthesisEngineHost engineHost,
         SentenceAudioCache cache,
         SentencePlayer player,
         SentenceSplitter splitter,
-        DiagnosticsBuilder diagnostics)
+        DiagnosticsBuilder diagnostics,
+        UserSettingsStore? settingsStore = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(engineHost);
@@ -101,9 +130,24 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         _player = player;
         _splitter = splitter;
         _diagnostics = diagnostics;
+        _settingsStore = settingsStore;
+        _time = timeProvider ?? TimeProvider.System;
         _controller = new PlaybackController(this, cache, player);
 
+        // Defaults first (Piper ONNX for A, Kokoro ONNX for B when installed), then what was used last.
         RefreshModels();
+        if (_settingsStore is not null)
+        {
+            var saved = _settingsStore.Load();
+            // A remembered model that is no longer installed is skipped (the defaults stand), unless
+            // nothing at all is installed, when the remembered choice is the most useful thing to show.
+            var requireInstalled = SlotA.Models.Any(choice => choice.IsInstalled);
+            SlotA.Restore(saved.SlotA, requireInstalled);
+            SlotB.Restore(saved.SlotB, requireInstalled);
+            AbMode = saved.AbMode;
+            _lastCategory = saved.LastCategory;
+        }
+
         LoadDevices();
     }
 
@@ -210,7 +254,26 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         AbMode ? [SlotA.ToTarget(), SlotB.ToTarget()] : [SlotA.ToTarget()];
 
     /// <inheritdoc/>
-    void IPlaybackHost.OnStateChanged(PlaybackState state) => State = state;
+    void IPlaybackHost.OnStateChanged(PlaybackState state)
+    {
+        State = state;
+
+        // Nothing sounds once playback has stopped; a pause keeps the sentence that was interrupted.
+        if (state == PlaybackState.Stopped)
+        {
+            _audible = null;
+        }
+    }
+
+    /// <inheritdoc/>
+    void IPlaybackHost.OnSentenceAudible(int index, string slotName) => _audible = (index, slotName, _time.GetUtcNow());
+
+    /// <inheritdoc/>
+    void IPlaybackHost.OnSentenceFinished(int index, string slotName)
+    {
+        _finished = (index, slotName, _time.GetUtcNow());
+        _audible = null;
+    }
 
     /// <inheritdoc/>
     void IPlaybackHost.OnSentenceStarted(int index, string slotName)
@@ -232,8 +295,11 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         // slot's controls must not leak into a flag raised for this audio.
         var text = _sentences[index].Text;
         var heard = new HeardSnapshot(index, text, target.Name, target.Selection, null);
-        _heard = heard;
-
+        _heard.Add(heard);
+        if (_heard.Count > HeardHistoryLimit)
+        {
+            _heard.RemoveAt(0);
+        }
         var version = ++_diagnosticsVersion;
         DiagnosticsTask = ApplyDiagnosticsAsync(target.Model, text, audio, version, heard);
     }
@@ -249,6 +315,7 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     {
         if (HasSentences)
         {
+            SaveSettings();
             _controller.TogglePlayPause(Math.Max(CurrentIndex, 0));
         }
     }
@@ -257,7 +324,11 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     ///     Stops playback.
     /// </summary>
     [RelayCommand]
-    internal void Stop() => _controller.Stop();
+    internal void Stop()
+    {
+        _controller.Stop();
+        ClearPlaybackMarks();
+    }
 
     /// <summary>
     ///     Moves to the previous sentence.
@@ -279,6 +350,8 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     {
         if (HasSentences)
         {
+            SaveSettings();
+            ClearPlaybackMarks();
             _controller.PlayFrom(Math.Max(CurrentIndex, 0));
         }
     }
@@ -303,8 +376,8 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     internal void RefreshModels()
     {
         var descriptors = _catalog.EnumerateSynthesisModels();
-        SlotA.SetModels(descriptors, 0);
-        SlotB.SetModels(descriptors, 1);
+        SlotA.SetModels(descriptors, 0, OnnxPiperLibriTtsEnSynthesisModel.ModelId);
+        SlotB.SetModels(descriptors, 1, OnnxKokoroEnglishSynthesisModel.ModelId);
         if (descriptors.All(descriptor => descriptor.State != SpeechModelState.Downloaded))
         {
             SetMessage(
@@ -382,7 +455,7 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         var extension = Path.GetExtension(path);
         var isMarkdown = extension.Equals(".md", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase);
-        await LoadTextAsync(text, Path.GetFileName(path), isMarkdown);
+        await LoadTextAsync(text, Path.GetFileName(path), isMarkdown, Path.GetDirectoryName(Path.GetFullPath(path)));
     }
 
     /// <summary>
@@ -391,8 +464,9 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     /// <param name="text">The text (or Markdown) to load.</param>
     /// <param name="name">The name to show for the source.</param>
     /// <param name="isMarkdown">Whether <paramref name="text"/> is Markdown to be stripped.</param>
+    /// <param name="sourceFolder">The folder the text came from, or <see langword="null"/> for pasted text.</param>
     /// <returns>A task that completes when the text is loaded (or the problem has been reported).</returns>
-    internal async Task LoadTextAsync(string text, string name, bool isMarkdown)
+    internal async Task LoadTextAsync(string text, string name, bool isMarkdown, string? sourceFolder = null)
     {
         if (IsBusy)
         {
@@ -407,6 +481,7 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
             var plain = isMarkdown ? MarkdownStripper.Strip(text) : text;
             var sentences = await Task.Run(() => _splitter.Split(plain));
             ApplyText(plain, sentences, name);
+            SourceFolder = sourceFolder;
             Flags.Clear();
             SessionPath = null;
             SetMessage(
@@ -432,8 +507,10 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     /// </summary>
     /// <param name="index">The target sentence; an index outside the text is ignored.</param>
     /// <param name="play">
-    ///     Whether playback must start there. Without it, playback that is running restarts at the
-    ///     target and playback that is paused is stopped, so the selection and the audio never disagree.
+    ///     Whether playback must start there regardless of the state. Without it, playback that is
+    ///     running (or loading) continues from the target, while playback that is paused or stopped
+    ///     only selects: a paused run is stopped so Space plays from the selection, and nothing starts
+    ///     by itself. Clicks and keyboard navigation both use this.
     /// </param>
     internal void JumpTo(int index, bool play)
     {
@@ -448,6 +525,8 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
             return;
         }
 
+        // An explicit move overrides what was just heard: the next flag is for what the user chose.
+        ClearPlaybackMarks();
         if (play || State is PlaybackState.Playing or PlaybackState.Loading)
         {
             _controller.PlayFrom(index);
@@ -468,6 +547,7 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     /// </summary>
     public void Dispose()
     {
+        SaveSettings();
         _controller.Stop();
 
         // Engine disposal is asynchronous; the process is exiting, so wait for it with a bound
@@ -510,12 +590,34 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         CurrentSentenceText = sentences.Count > 0 ? sentences[0].Text : string.Empty;
         OnPropertyChanged(nameof(HasSentences));
         OnPropertyChanged(nameof(PositionText));
-        _heard = null;
+        _heard.Clear();
+        ClearPlaybackMarks();
         if (sentences.Count > 0)
         {
             RefreshDiagnostics(0, ActiveSlotName, null);
         }
     }
+
+    /// <summary>
+    ///     Forgets which sentence was sounding or had just finished.
+    /// </summary>
+    private void ClearPlaybackMarks()
+    {
+        _audible = null;
+        _finished = null;
+    }
+
+    /// <summary>
+    ///     Remembers the models, their settings, A/B mode, and the last flag category for the next launch.
+    /// </summary>
+    private void SaveSettings() =>
+        _settingsStore?.Save(new UserSettings
+        {
+            SlotA = SlotA.CurrentSelection is { } a ? SessionModel.From(a) : null,
+            SlotB = SlotB.CurrentSelection is { } b ? SessionModel.From(b) : null,
+            AbMode = AbMode,
+            LastCategory = _lastCategory,
+        });
 
     /// <summary>
     ///     Sets the current sentence without treating it as a user jump.
@@ -535,7 +637,8 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     }
 
     /// <summary>
-    ///     Reacts to a selection made by the user in the sentence list: a click jumps and plays.
+    ///     Reacts to a selection made by the user in the sentence list: a click selects, and
+    ///     continues playing from there only when playback is running.
     /// </summary>
     /// <param name="value">The new current index.</param>
     partial void OnCurrentIndexChanged(int value)
@@ -543,7 +646,7 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
         CurrentSentenceText = value >= 0 && value < _sentences.Count ? _sentences[value].Text : string.Empty;
         if (!_suppressJump && value >= 0)
         {
-            JumpTo(value, play: true);
+            JumpTo(value, play: false);
         }
     }
 
@@ -625,10 +728,14 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
             var result = await Task.Run(() => _diagnostics.Build(model, text, audio));
 
             // The heard snapshot is completed even when the panes have since moved on, but only
-            // while it is still the last audio heard.
-            if (heard is not null && ReferenceEquals(_heard, heard))
+            // while it is still remembered.
+            if (heard is not null)
             {
-                _heard = heard with { Diagnostics = result };
+                var position = _heard.FindIndex(item => ReferenceEquals(item, heard));
+                if (position >= 0)
+                {
+                    _heard[position] = heard with { Diagnostics = result };
+                }
             }
 
             if (version != _diagnosticsVersion)

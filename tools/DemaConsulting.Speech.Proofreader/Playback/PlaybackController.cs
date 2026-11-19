@@ -78,6 +78,20 @@ internal interface IPlaybackHost
     void OnAudioReady(int index, PlaybackTarget target, SentenceAudio audio);
 
     /// <summary>
+    ///     Reports that a sentence's audio is about to be heard (playback of it starts now).
+    /// </summary>
+    /// <param name="index">The sentence index.</param>
+    /// <param name="slotName">The slot name.</param>
+    void OnSentenceAudible(int index, string slotName);
+
+    /// <summary>
+    ///     Reports that a sentence's audio has been heard to its end.
+    /// </summary>
+    /// <param name="index">The sentence index.</param>
+    /// <param name="slotName">The slot name.</param>
+    void OnSentenceFinished(int index, string slotName);
+
+    /// <summary>
     ///     Reports a message for the status banner.
     /// </summary>
     /// <param name="message">The message, or <see langword="null"/> to clear it.</param>
@@ -270,6 +284,10 @@ internal sealed class PlaybackController
         for (var slot = 0; slot < targets.Count; slot++)
         {
             var target = targets[slot];
+
+            // A pause that lands between sentences (or between the A and B renditions) holds here,
+            // so the current sentence stays the one that was just heard until playback resumes.
+            await _player.WaitWhilePausedAsync(token);
             _host.OnSentenceStarted(index, target.Name);
 
             // A slot without a usable model ends the run with the reason.
@@ -297,7 +315,9 @@ internal sealed class PlaybackController
                 SetState(PlaybackState.Playing);
             }
 
+            _host.OnSentenceAudible(index, target.Name);
             await _player.PlayAsync(prepared, token);
+            _host.OnSentenceFinished(index, target.Name);
 
             if (slot < targets.Count - 1)
             {

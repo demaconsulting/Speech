@@ -68,7 +68,7 @@ public class TsvExporterTests
             () => Assert.Equal("speed=1.25; voice=af_heart", fields[7]),
             () => Assert.Equal("lead=lead.verb(0.97)", fields[8]),
             () => Assert.Equal("first phonemes | second phonemes", fields[9]),
-            () => Assert.Equal("11", fields[10]));
+            () => Assert.Equal("12", fields[10])); // sentence_index is one-based (zero-based index 11), like the UI
     }
 
     /// <summary>
