@@ -11,16 +11,17 @@ namespace DemaConsulting.Speech.Proofreader;
 /// <remarks>
 ///     A flag is raised with one key: playback pauses, the flag editor opens for the current
 ///     sentence (and the word span the listener selected), and the model, settings, readings, and
-///     phonemes that were audible are snapshotted into the flag, so the export never depends on
-///     re-synthesis. Saving the editor keeps playback paused; Space resumes.
+///     phonemes that were audible are snapshotted into a draft when the flag is raised, so the export
+///     never depends on re-synthesis and navigating while the editor is open does not change what is
+///     saved. Saving the editor keeps playback paused; Space resumes.
 /// </remarks>
 internal sealed partial class MainViewModel
 {
     /// <summary>The flag being edited, or <see langword="null"/> while a new flag is being created.</summary>
     private FlagItemViewModel? _editedFlag;
 
-    /// <summary>The span selected when the new flag was started.</summary>
-    private (int Start, int Length) _draftSpan;
+    /// <summary>The snapshot taken when a new flag was started, or <see langword="null"/> when none is being created.</summary>
+    private FlagDraft? _draft;
 
     /// <summary>Set while the view model selects a flag itself, so it is not mistaken for a click that jumps.</summary>
     private bool _suppressFlagJump;
@@ -67,18 +68,36 @@ internal sealed partial class MainViewModel
 
         _controller.Pause();
 
+        var index = CurrentIndex;
+        var sentence = _sentences[index];
+
         // A span that does not fit the sentence (a stale selection) is dropped rather than trusted.
-        var length = _sentences[CurrentIndex].Text.Length;
-        _draftSpan = spanLength > 0 && spanStart >= 0 && spanStart + spanLength <= length
+        var (start, length) = spanLength > 0 && spanStart >= 0 && spanStart + spanLength <= sentence.Text.Length
             ? (spanStart, spanLength)
             : (0, 0);
+
+        var slot = ActiveSlotName;
+        var selection = SlotNamed(slot).CurrentSelection;
+
+        // The diagnostics are used only when they belong to the sentence being flagged.
+        var diagnostics = _shownDiagnostics is { } shown && shown.Index == index ? shown.Diagnostics : null;
+
+        _draft = new FlagDraft(
+            index,
+            sentence.Text,
+            start,
+            length,
+            slot,
+            selection is null ? new SessionModel { ModelId = "(none)" } : SessionModel.From(selection),
+            diagnostics?.ReadingsFor(start, length) ?? string.Empty,
+            diagnostics?.Phonemes.Summary ?? string.Empty);
 
         _editedFlag = null;
         EditorCategory ??= FlagCategoryChoices[0];
         EditorNote = string.Empty;
-        EditorHeader = _draftSpan.Length > 0
-            ? $"New flag: sentence {CurrentIndex + 1}, \"{_sentences[CurrentIndex].Text.Substring(_draftSpan.Start, _draftSpan.Length)}\" (slot {ActiveSlotName})"
-            : $"New flag: sentence {CurrentIndex + 1}, whole sentence (slot {ActiveSlotName})";
+        EditorHeader = length > 0
+            ? $"New flag: sentence {index + 1}, \"{sentence.Text.Substring(start, length)}\" (slot {slot})"
+            : $"New flag: sentence {index + 1}, whole sentence (slot {slot})";
         IsEditingFlag = true;
     }
 
@@ -119,11 +138,15 @@ internal sealed partial class MainViewModel
         }
         else
         {
-            AddFlag(CreateFlag());
+            if (_draft is { } draft)
+            {
+                AddFlag(CreateFlag(draft));
+            }
         }
 
         IsEditingFlag = false;
         _editedFlag = null;
+        _draft = null;
         SetMessage("Flag saved. Press Space to resume.", false);
     }
 
@@ -135,6 +158,7 @@ internal sealed partial class MainViewModel
     {
         IsEditingFlag = false;
         _editedFlag = null;
+        _draft = null;
     }
 
     /// <summary>
@@ -146,6 +170,12 @@ internal sealed partial class MainViewModel
         if (SelectedFlag is not { } item)
         {
             return;
+        }
+
+        // A flag being edited must not be saved into after it has been removed.
+        if (ReferenceEquals(item, _editedFlag))
+        {
+            CancelFlag();
         }
 
         var index = Flags.IndexOf(item);
@@ -167,33 +197,47 @@ internal sealed partial class MainViewModel
     }
 
     /// <summary>
-    ///     Builds a flag for the current sentence, snapshotting what was audible.
+    ///     Builds a flag from the draft taken when the flag was raised.
     /// </summary>
+    /// <param name="draft">The snapshot taken by <see cref="BeginFlag"/>.</param>
     /// <returns>The new flag, not yet numbered or added.</returns>
-    private ProofreadFlag CreateFlag()
-    {
-        var sentence = _sentences[CurrentIndex];
-        var selection = SlotNamed(ActiveSlotName).CurrentSelection;
-
-        // The diagnostics are used only when they belong to the sentence being flagged.
-        var diagnostics = _shownDiagnostics is { } shown && shown.Index == CurrentIndex ? shown.Diagnostics : null;
-
-        return new ProofreadFlag
+    private ProofreadFlag CreateFlag(FlagDraft draft) =>
+        new()
         {
-            SentenceIndex = sentence.Index,
-            SentenceText = sentence.Text,
-            SpanStart = _draftSpan.Start,
-            SpanLength = _draftSpan.Length,
-            Word = _draftSpan.Length > 0 ? sentence.Text.Substring(_draftSpan.Start, _draftSpan.Length) : string.Empty,
+            SentenceIndex = draft.Index,
+            SentenceText = draft.SentenceText,
+            SpanStart = draft.SpanStart,
+            SpanLength = draft.SpanLength,
+            Word = draft.SpanLength > 0 ? draft.SentenceText.Substring(draft.SpanStart, draft.SpanLength) : string.Empty,
             Category = EditorCategory!.Value,
             Note = EditorNote.Trim(),
             CreatedUtc = DateTimeOffset.UtcNow,
-            Slot = ActiveSlotName,
-            Model = selection is null ? new SessionModel { ModelId = "(none)" } : SessionModel.From(selection),
-            Readings = diagnostics?.ReadingsFor(_draftSpan.Start, _draftSpan.Length) ?? string.Empty,
-            Phonemes = diagnostics?.Phonemes.Summary ?? string.Empty,
+            Slot = draft.Slot,
+            Model = draft.Model,
+            Readings = draft.Readings,
+            Phonemes = draft.Phonemes,
         };
-    }
+
+    /// <summary>
+    ///     Everything a new flag needs, captured when the flag is raised.
+    /// </summary>
+    /// <param name="Index">The sentence index.</param>
+    /// <param name="SentenceText">The sentence text.</param>
+    /// <param name="SpanStart">The start of the flagged span, sentence-relative.</param>
+    /// <param name="SpanLength">The length of the flagged span, or 0 for the whole sentence.</param>
+    /// <param name="Slot">The name of the slot that was audible.</param>
+    /// <param name="Model">The model and settings that were audible.</param>
+    /// <param name="Readings">The word readings for the span.</param>
+    /// <param name="Phonemes">The phoneme summary of the sentence.</param>
+    private sealed record FlagDraft(
+        int Index,
+        string SentenceText,
+        int SpanStart,
+        int SpanLength,
+        string Slot,
+        SessionModel Model,
+        string Readings,
+        string Phonemes);
 
     /// <summary>
     ///     Numbers a flag, inserts it in sentence order, and selects it.

@@ -182,6 +182,9 @@ internal sealed class SentencePlayer
     {
         ArgumentNullException.ThrowIfNull(audio);
 
+        // A canceled request must not touch the position or the playing flag of the sentence now audible.
+        cancellationToken.ThrowIfCancellationRequested();
+
         var device = GetDevice();
         var channels = audio.ChannelCount;
         var blockFrames = Math.Max(1, audio.SampleRate * BlockMilliseconds / 1000);
@@ -255,9 +258,14 @@ internal sealed class SentencePlayer
         if (_started && _device is { } device)
         {
             // What is still queued was not played; stopping discards it, so rewind to just before it.
-            var pendingFrames = (int)(device.PendingSampleCount / Math.Max(1, device.ChannelCount));
-            var rewind = device.SampleRate * ResumeRewindMilliseconds / 1000;
-            _position = Math.Max(0, _position - pendingFrames - rewind);
+            // Between sentences nothing is playing and the next PlayAsync resets the position anyway.
+            if (_playing)
+            {
+                var pendingFrames = (int)(device.PendingSampleCount / Math.Max(1, device.ChannelCount));
+                var rewind = device.SampleRate * ResumeRewindMilliseconds / 1000;
+                _position = Math.Max(0, _position - pendingFrames - rewind);
+            }
+
             StopDevice(device);
         }
     }

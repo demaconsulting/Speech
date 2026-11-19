@@ -69,6 +69,11 @@ internal sealed class SynthesisEngineHost : IAsyncDisposable
         await entry.Gate.WaitAsync().ConfigureAwait(false);
         try
         {
+            if (entry.Disposed)
+            {
+                return SentenceAudio.Failed("The engine for this model was unloaded to make room for other models. Play the sentence again.");
+            }
+
             entry.Recorder!.BeginCapture();
             var speech = await entry.Engine!.SynthesizeAsync(text).ConfigureAwait(false);
             return new SentenceAudio(speech, entry.Recorder.EndCapture());
@@ -218,7 +223,16 @@ internal sealed class SynthesisEngineHost : IAsyncDisposable
             }
 
             await entry.Gate.WaitAsync().ConfigureAwait(false);
-            await entry.Engine.DisposeAsync().ConfigureAwait(false);
+            try
+            {
+                entry.Disposed = true;
+                await entry.Engine.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // Released so a caller already waiting on the gate sees Disposed instead of waiting forever.
+                entry.Gate.Release();
+            }
         }
         catch (Exception)
         {
@@ -263,6 +277,12 @@ internal sealed class SynthesisEngineHost : IAsyncDisposable
 
         /// <summary>Gets the gate that admits one synthesis at a time.</summary>
         public SemaphoreSlim Gate { get; } = new(1, 1);
+
+        /// <summary>
+        ///     Gets or sets a value indicating whether the engine has been disposed. Read and written
+        ///     only while holding <see cref="Gate"/>.
+        /// </summary>
+        public bool Disposed { get; set; }
 
         /// <summary>Gets or sets the tick count of the last request, for least-recently-used eviction.</summary>
         public long LastUsedTicks { get; set; } = Environment.TickCount64;

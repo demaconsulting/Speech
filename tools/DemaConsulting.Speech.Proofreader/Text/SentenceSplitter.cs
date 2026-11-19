@@ -13,7 +13,8 @@ namespace DemaConsulting.Speech.Proofreader.Text;
 ///     <see cref="EnglishTextAnalysis.SentenceBreaks"/> of the library's analyzer. The analyzer is
 ///     configured like the one the Kokoro and Piper models share (normalization and readings) and
 ///     is independent of the model the user selects, so sentence indices - which flags store - never
-///     shift when the model changes. Not thread-safe (the analyzer is shared by the instance's calls).
+///     shift when the model changes. Thread-safe: the splitter holds no mutable state and
+///     <see cref="EnglishTextAnalyzer"/> is immutable.
 /// </remarks>
 internal sealed partial class SentenceSplitter
 {

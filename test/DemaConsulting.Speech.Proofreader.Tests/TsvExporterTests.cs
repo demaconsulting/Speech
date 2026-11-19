@@ -41,8 +41,9 @@ public class TsvExporterTests
     [Fact]
     public void TsvExporter_Export_OneFlag_WritesHeaderAndOneFlatRow()
     {
-        // Arrange: one flag whose sentence and note contain tabs and line breaks
+        // Arrange: one flag whose sentence and note contain tabs and line breaks; the sentence is quoted dialogue
         var flag = CreateFlag(5, 11, 8, "wrong\tvowel\nsee note");
+        flag.SentenceText = "\"Hello,\" he said.\tgo\r\n";
 
         // Act
         var lines = TsvExporter.Export([flag]).Split('\n');
@@ -58,7 +59,7 @@ public class TsvExporterTests
         Assert.Equal(11, fields.Length);
         Assert.Multiple(
             () => Assert.Equal("5", fields[0]),
-            () => Assert.Equal("He will lead the lead role.", fields[1]),
+            () => Assert.Equal("\"\"\"Hello,\"\" he said. go \"", fields[1]),
             () => Assert.Equal("8-12", fields[2]),
             () => Assert.Equal("lead", fields[3]),
             () => Assert.Equal("wrong-heteronym", fields[4]),
@@ -68,6 +69,22 @@ public class TsvExporterTests
             () => Assert.Equal("lead=lead.verb(0.97)", fields[8]),
             () => Assert.Equal("first phonemes | second phonemes", fields[9]),
             () => Assert.Equal("11", fields[10]));
+    }
+
+    /// <summary>
+    ///     Validates that a note that a spreadsheet would read as a formula is exported as text.
+    /// </summary>
+    [Fact]
+    public void TsvExporter_Export_NoteStartingLikeFormula_IsPrefixedWithApostrophe()
+    {
+        // Arrange
+        var flag = CreateFlag(1, 0, 0, "-ing form");
+
+        // Act
+        var fields = TsvExporter.Export([flag]).Split('\n')[1].Split('\t');
+
+        // Assert
+        Assert.Equal("'-ing form", fields[5]);
     }
 
     /// <summary>

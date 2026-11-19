@@ -55,8 +55,9 @@ internal static class SessionFile
     /// <returns>The session, with typed parameter values.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="json"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidDataException">
-    ///     Thrown when the text is not valid session JSON, the version is not supported, or the
-    ///     recorded text hash does not match the stored text.
+    ///     Thrown when the text is not valid session JSON, the version is not supported, required
+    ///     parts of the session or its flags are missing (JSON <c>null</c>), or the recorded text
+    ///     hash does not match the stored text.
     /// </exception>
     public static ProofreadSession FromJson(string json)
     {
@@ -84,6 +85,8 @@ internal static class SessionFile
                 $"Unsupported session version {session.Version}; this tool reads version {ProofreadSession.CurrentVersion}.");
         }
 
+        ValidateShape(session);
+
         // The hash guards against a hand-edited or truncated text silently shifting every flag.
         if (!string.Equals(session.SourceSha256, ComputeHash(session.Text), StringComparison.OrdinalIgnoreCase))
         {
@@ -98,6 +101,48 @@ internal static class SessionFile
         }
 
         return session;
+    }
+
+    /// <summary>
+    ///     Rejects a session in which JSON <c>null</c> left a required part unset, so later code never faults on it.
+    /// </summary>
+    /// <param name="session">The deserialized session.</param>
+    /// <exception cref="InvalidDataException">Thrown when a required part is missing.</exception>
+    private static void ValidateShape(ProofreadSession session)
+    {
+        if (session.Text is null)
+        {
+            throw new InvalidDataException("The session has no text.");
+        }
+
+        if (session.SourceName is null || session.Flags is null)
+        {
+            throw new InvalidDataException("The session is incomplete: its source name or flags list is missing.");
+        }
+
+        if (session.SlotA is { Parameters: null } || session.SlotB is { Parameters: null })
+        {
+            throw new InvalidDataException("The session is incomplete: a slot has no parameters.");
+        }
+
+        for (var i = 0; i < session.Flags.Count; i++)
+        {
+            var flag = session.Flags[i];
+            if (flag is null
+                || flag.Model is null
+                || flag.Model.Parameters is null
+                || flag.Model.ModelId is null
+                || flag.Model.DisplayName is null
+                || flag.SentenceText is null
+                || flag.Word is null
+                || flag.Note is null
+                || flag.Slot is null
+                || flag.Readings is null
+                || flag.Phonemes is null)
+            {
+                throw new InvalidDataException($"Flag {i + 1} is incomplete (a required value is missing).");
+            }
+        }
     }
 
     /// <summary>

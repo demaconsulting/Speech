@@ -86,7 +86,10 @@ instead of attaching it to a different sentence.
 ## TSV export
 
 UTF-8 without a byte order mark, LF line endings, one header row, one row per flag sorted by sentence and span,
-invariant number formatting. Tabs and line breaks inside a field are replaced with a single space.
+invariant number formatting. Tabs and line breaks inside a field are replaced with a single space. A field that
+contains or starts with a double quote is wrapped in double quotes with embedded quotes doubled (the spreadsheet
+convention, so quoted dialogue stays in one cell), and a field starting with `=`, `+`, `-`, or `@` gets a leading
+apostrophe so a spreadsheet does not read it as a formula.
 
 | Column | Content |
 | --- | --- |

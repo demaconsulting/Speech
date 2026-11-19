@@ -98,7 +98,7 @@ public class SessionFileTests
     }
 
     /// <summary>
-    ///     Validates that unsupported versions, malformed JSON, and a text that does not match its hash are rejected with a clear error.
+    ///     Validates that unsupported versions, malformed JSON, incomplete sessions (JSON null), and a text that does not match its hash are rejected with a clear error.
     /// </summary>
     [Fact]
     public void SessionFile_FromJson_UntrustworthyFile_ThrowsInvalidDataException()
@@ -107,10 +107,18 @@ public class SessionFileTests
         var futureVersion = SessionFile.ToJson(CreateSession()).Replace("\"version\": 1", "\"version\": 2", StringComparison.Ordinal);
         var edited = CreateSession();
         edited.Text += " Extra.";
+        var noModel = CreateSession();
+        noModel.Flags[0].Model = null!;
+        var noParameters = CreateSession();
+        noParameters.Flags[0].Model.Parameters = null!;
 
         // Act / Assert: each is rejected as invalid data, not as an arbitrary exception
         Assert.Contains("version", Assert.Throws<InvalidDataException>(() => SessionFile.FromJson(futureVersion)).Message, StringComparison.Ordinal);
         Assert.Throws<InvalidDataException>(() => SessionFile.FromJson("{ not json"));
         Assert.Contains("SHA-256", Assert.Throws<InvalidDataException>(() => SessionFile.FromJson(SessionFile.ToJson(edited))).Message, StringComparison.Ordinal);
+        Assert.Throws<InvalidDataException>(() => SessionFile.FromJson("{ \"version\": 1, \"text\": null }"));
+        Assert.Throws<InvalidDataException>(() => SessionFile.FromJson("{ \"version\": 1, \"text\": \"a\", \"sourceSha256\": \"x\", \"flags\": null }"));
+        Assert.Contains("Flag 1", Assert.Throws<InvalidDataException>(() => SessionFile.FromJson(SessionFile.ToJson(noModel))).Message, StringComparison.Ordinal);
+        Assert.Contains("incomplete", Assert.Throws<InvalidDataException>(() => SessionFile.FromJson(SessionFile.ToJson(noParameters))).Message, StringComparison.Ordinal);
     }
 }

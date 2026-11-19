@@ -461,6 +461,9 @@ internal sealed partial class MainViewModel : ObservableObject, IPlaybackHost, I
     /// <param name="name">The source name.</param>
     private void ApplyText(string plain, IReadOnlyList<ProofreadSentence> sentences, string name)
     {
+        // An editor left open would otherwise keep a draft of text that is no longer loaded.
+        CancelFlag();
+
         _plainText = plain;
         _sentences = [.. sentences];
         SourceName = name;

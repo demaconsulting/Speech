@@ -10,8 +10,10 @@ namespace DemaConsulting.Speech.Proofreader.Session;
 /// <remarks>
 ///     The output is UTF-8 text with LF line endings, one header row, and one row per flag sorted by
 ///     sentence and then span. Fields never contain a tab or line break (each run of them becomes one
-///     space), so a row is always exactly one line. Numbers use invariant culture. Stateless and
-///     thread-safe.
+///     space), so a row is always exactly one line. A field containing a double quote is wrapped in
+///     double quotes with embedded quotes doubled, and a field starting with <c>=</c>, <c>+</c>,
+///     <c>-</c>, or <c>@</c> gets a leading apostrophe so a spreadsheet does not evaluate it.
+///     Numbers use invariant culture. Stateless and thread-safe.
 /// </remarks>
 internal static partial class TsvExporter
 {
@@ -56,18 +58,30 @@ internal static partial class TsvExporter
                 flag.SentenceIndex.ToString(CultureInfo.InvariantCulture),
             ];
 
-            builder.Append(string.Join('\t', fields.Select(Flatten))).Append('\n');
+            builder.Append(string.Join('\t', fields.Select(Escape))).Append('\n');
         }
 
         return builder.ToString();
     }
 
     /// <summary>
-    ///     Replaces every run of tabs and line breaks with a single space.
+    ///     Makes a field safe for one TSV cell: one line, quoted when it contains a double quote,
+    ///     and not evaluable as a spreadsheet formula.
     /// </summary>
     /// <param name="value">The field value.</param>
-    /// <returns>A single-line field value.</returns>
-    private static string Flatten(string value) => ControlRunRegex().Replace(value, " ");
+    /// <returns>The escaped field.</returns>
+    private static string Escape(string value)
+    {
+        // Each run of tabs and line breaks becomes one space, so a row stays one line.
+        var flat = ControlRunRegex().Replace(value, " ");
+
+        if (flat.Contains('"'))
+        {
+            return string.Concat("\"", flat.Replace("\"", "\"\""), "\"");
+        }
+
+        return flat.Length > 0 && flat[0] is '=' or '+' or '-' or '@' ? "'" + flat : flat;
+    }
 
     /// <summary>Matches a run of tab, CR, and LF characters.</summary>
     [GeneratedRegex(@"[\t\r\n]+")]

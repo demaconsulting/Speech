@@ -49,7 +49,7 @@ public class SentenceSplitterTests
     ///     so a played sentence is never split differently from how the library would speak it.
     /// </summary>
     [Fact]
-    public void SentenceSplitter_Split_SentencesMatchSynthesisChunks()
+    public void SentenceSplitter_Split_PerSentenceChunks_MatchLibraryChunks()
     {
         // Arrange: the library's view of the whole paragraph (what a model's capability profile chunks)
         var splitter = new SentenceSplitter();
