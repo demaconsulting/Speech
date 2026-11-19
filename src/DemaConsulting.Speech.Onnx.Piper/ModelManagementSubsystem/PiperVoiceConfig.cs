@@ -95,9 +95,9 @@ internal sealed class PiperVoiceConfig
     ///     to <c>espeak</c>; <c>audio.sample_rate</c> and <c>num_speakers</c> positive JSON integers;
     ///     <c>inference.noise_scale</c>, <c>inference.length_scale</c> and <c>inference.noise_w</c> finite JSON numbers
     ///     (the length scale positive, the others not negative); <c>espeak.voice</c> a string; <c>audio</c>,
-    ///     <c>inference</c> and <c>espeak</c> objects; each <c>phoneme_id_map</c> entry a non-empty key mapped to a
-    ///     non-empty array of non-negative JSON integers, with no duplicated key. Absent optional fields take their
-    ///     defaults.
+    ///     <c>inference</c> and <c>espeak</c> objects; each <c>phoneme_id_map</c> entry a key of exactly one Unicode
+    ///     scalar mapped to a non-empty array of non-negative JSON integers, with no duplicated key. Absent optional
+    ///     fields take their defaults.
     /// </remarks>
     public static PiperVoiceConfig Parse(string json)
     {
@@ -190,6 +190,13 @@ internal sealed class PiperVoiceConfig
             if (entry.Name.Length == 0)
             {
                 throw new InvalidDataException("The Piper phoneme_id_map has an entry with an empty symbol.");
+            }
+
+            // The engine looks symbols up one Unicode scalar at a time, so a longer key could never be reached.
+            if (!Rune.TryGetRuneAt(entry.Name, 0, out var scalar) || scalar.Utf16SequenceLength != entry.Name.Length)
+            {
+                throw new InvalidDataException(
+                    $"The Piper phoneme_id_map key '{entry.Name}' is not a single Unicode scalar; the engine looks symbols up one scalar at a time.");
             }
 
             if (entry.Value.ValueKind != JsonValueKind.Array || entry.Value.GetArrayLength() == 0)

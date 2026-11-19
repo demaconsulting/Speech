@@ -41,4 +41,5 @@ symbol; a null text and an empty path throw argument errors; the file is read fr
 `PiperVoiceConfig_Parse_UnusableConfiguration_ThrowsInvalidData`,
 `PiperVoiceConfig_Parse_FieldOfTheWrongTypeOrRange_ThrowsNamingTheField`,
 `PiperVoiceConfig_Parse_EmptyOrRepeatedSymbol_ThrowsNamingTheProblem`,
+`PiperVoiceConfig_Parse_SupplementaryScalarSymbol_IsOneSymbol`,
 `PiperVoiceConfig_ParseAndLoad_InvalidArguments_Throw`

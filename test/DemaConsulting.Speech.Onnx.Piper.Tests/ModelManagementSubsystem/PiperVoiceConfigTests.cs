@@ -187,10 +187,12 @@ public sealed class PiperVoiceConfigTests
         Assert.Contains(path[^1], error.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a symbol table with an empty symbol or a repeated symbol is rejected rather than silently keeping one of the entries.</summary>
+    /// <summary>Proves a symbol table with an empty symbol, a symbol of more than one Unicode scalar or a repeated symbol is rejected rather than keeping an entry the engine can never look up.</summary>
     [Theory]
     [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "": [7] } }""", "empty symbol")]
     [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "a": [5], "a": [6] } }""", "more than once")]
+    [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "ab": [7] } }""", "'ab' is not a single Unicode scalar")]
+    [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "e\u0301": [7] } }""", "not a single Unicode scalar")]
     public void PiperVoiceConfig_Parse_EmptyOrRepeatedSymbol_ThrowsNamingTheProblem(string json, string expectedMessage)
     {
         // Act
@@ -198,6 +200,18 @@ public sealed class PiperVoiceConfigTests
 
         // Assert
         Assert.Contains(expectedMessage, error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a symbol outside the Basic Multilingual Plane (two UTF-16 code units, one Unicode scalar) is a valid single symbol.</summary>
+    [Fact]
+    public void PiperVoiceConfig_Parse_SupplementaryScalarSymbol_IsOneSymbol()
+    {
+        // Act
+        var config = PiperVoiceConfig.Parse("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "\ud83d\ude00": [7] } }""");
+
+        // Assert
+        Assert.True(config.TryGetIds("\ud83d\ude00", out var ids));
+        Assert.Equal([7L], ids);
     }
 
     /// <summary>Proves a configuration file is read from its path.</summary>
