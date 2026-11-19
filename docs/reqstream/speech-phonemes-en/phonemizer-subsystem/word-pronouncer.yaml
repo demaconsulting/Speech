@@ -17,13 +17,17 @@ sections:
               - id: SpeechPhonemesEn-Phonemizer-WordPronouncer-Priority
                 title: >-
                   The WordPronouncer class shall pronounce a word from the reading when the reading table
-                  resolves it, else from the dictionary's first variant (the variant with the velar stop first
+                  resolves it, else from the reviewed correction of a wrong dictionary entry when the word
+                  has one (nobly), else from the dictionary's first variant (the variant with the velar stop first
                   for the comparative of an adjective in ng, whose dictionary entry lists it with and without
                   the stop), else from the morphology rules of a
                   known stem, else from a productive prefix and a known remainder of at least four letters
                   (never splitting a word the dictionary lists), else from the letter-to-sound model, and
                   report the source of its answer; shall fold diacritics before the lookup; shall pronounce
-                  a hyphenated compound part by part with each part's own stress, a small function word
+                  a hyphenated compound part by part with the primary stress on the first part and a secondary
+                  stress on a later part that had a primary one (taking the stress pattern of the closed
+                  dictionary spelling when it has the same sounds, one primary stress on the same vowel and a
+                  stress on every later stressed part), a small function word
                   inside it unstressed, except that a closed dictionary spelling is used when a part is not a
                   word of its own; and shall give no pronunciation for text that contains a letter it cannot
                   fold to the Latin alphabet.
@@ -32,9 +36,12 @@ sections:
                   come before the model because they are exact where the model guesses, and the minimum
                   remainder keeps a real word that merely begins like a prefix from being split. The
                   compound and diacritic rules are what make "well-known", "state-of-the-art" and "café"
-                  sound like the words they are.
+                  sound like the words they are. The dictionary is wrong about a few words (it lists
+                  "nobly" with the vowel of "knobbly"), so a short reviewed table of corrections speaks the
+                  word the writer meant.
                 tests:
                   - WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed
+                  - WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry
                   - WordPronouncer_Pronounce_ComparativeInNg_TakesTheVariantWithTheVelarStop
                   - WordPronouncer_Pronounce_ProductivePrefix_IsPrefixPlusKnownWord
                   - WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules

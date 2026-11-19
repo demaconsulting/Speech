@@ -45,6 +45,25 @@ sections:
                 tests:
                   - SentenceChunker_Chunk_LongClauseWithNoPunctuation_SplitsOnWhitespaceBudget
 
+              - id: Speech-Synthesis-SentenceChunker-PhraseBoundaryFallback
+                title: >-
+                  The SentenceChunker class shall, when it splits a piece at whitespace because the piece
+                  exceeds the maximum chunk length, end each chunk where a speaker pauses (after a dash, or
+                  before an opening bracket) when that leaves a reasonably full chunk, otherwise before a
+                  conjunction or relative word, otherwise after a word that is not a function word, and shall
+                  never end a chunk between a function word and the word after it when another boundary
+                  within the budget is a reasonably full chunk.
+                justification: |
+                  A chunk is spoken as one utterance, and a voice that gets "the last full measure of" ends
+                  its utterance on a preposition with nothing after it, so the listener hears a hole
+                  inside the phrase. Cutting where the writer already paused (a dash) or where a clause
+                  begins keeps each utterance a whole phrase, at the same length budget.
+                tests:
+                  - SentenceChunker_Chunk_LongClauseWithDashes_SplitsAtTheLastDashThatFits
+                  - SentenceChunker_Chunk_LongClauseWithoutDashes_SplitsBeforeAConjunction
+                  - SentenceChunker_Chunk_LongClauseWithNothingBetter_NeverEndsAChunkOnAFunctionWord
+                  - SentenceChunker_ChunkAligned_PhraseBoundarySplit_KeepsEveryAnnotationInItsChunk
+
               - id: Speech-Synthesis-SentenceChunker-BoundaryHandling
                 title: >-
                   The SentenceChunker class shall return a single word unsplit when the word

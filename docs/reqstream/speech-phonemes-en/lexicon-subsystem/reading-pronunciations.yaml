@@ -34,3 +34,19 @@ sections:
                   - ReadingPronunciations_TryResolve_HeadwordInflectionAndOverride_ResolveFromTheTables
                   - ReadingPronunciations_TryResolve_UnknownReadingOrUnrelatedForm_IsAGap
                   - ReadingPronunciations_Parse_MalformedTables_AreRejected
+
+              - id: SpeechPhonemesEn-Lexicon-ReadingPronunciations-Corrections
+                title: >-
+                  The ReadingPronunciations unit shall hold the reviewed table of corrections of wrong
+                  dictionary entries (the lexicon-corrections table: a lower-case word and the ARPAbet
+                  pronunciation that replaces every variant the dictionary lists for it), shall look a word up
+                  in it, and shall reject a malformed table (a wrong column count, a word that is not lower
+                  case letters and apostrophes, a phone that is not ARPAbet, a repeated word) with a format
+                  error; every shipped row shall correct a word the dictionary lists with another pronunciation.
+                justification: |
+                  The lexicon is the dictionary's own content, so a wrong entry would be spoken wrong for good
+                  (the dictionary lists "nobly" with the vowel of "knobbly"). A reviewed, tiny table with a
+                  reason on every row fixes the word without touching the pinned dictionary image, and the
+                  last check keeps a row from outliving the entry it corrects.
+                tests:
+                  - ReadingPronunciations_LexiconCorrections_ParseAndShippedTable_AreWellFormedAndEveryRowCorrectsAnEntry

@@ -228,7 +228,7 @@ everything spoken through `SpeakAsync`, `SynthesizeAsync` and the CLI:
   so unusual words are spoken but not always as a person would say them. A host can correct a word with a
   pronunciation override dictionary (see "Pronunciation Overrides").
 - A long text is split between words, preferably at a comma, a colon or the end of a sentence, into parts that fit the
-  voice graph (Kokoro takes at most 510 phoneme tokens; a Piper part holds at most 256 phoneme symbols), and the audio
+  voice graph (Kokoro takes at most 510 phoneme tokens; a Piper part holds at most 384 phoneme symbols), and the audio
   of the parts is joined; text is never truncated.
 - Kokoro reduces the common function words (`the`, `of`, `to`, `and`, ...) the way its training data does, and Piper
   reduces a table of function words as well.

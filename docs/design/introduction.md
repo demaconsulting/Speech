@@ -878,6 +878,7 @@ src/DemaConsulting.Speech.Phonemes.En/
 │   ├── LetterNames.cs                                     — Internal letter-name pronunciations
 │   ├── Morphology.cs                                      — Internal stem-derived and clitic pronunciations (with SuffixKind and Derivation)
 │   ├── ReadingPronunciations.cs                           — Internal pronunciation of every reading id (with ReadingEntry)
+│   ├── LexiconCorrections.cs                              — Internal reviewed corrections of wrong dictionary entries
 │   └── NamespaceDoc.cs                                    — Namespace documentation (not a software item)
 ├── LetterToSoundSubsystem/
 │   ├── LetterToSound.cs                                   — Internal caching converter that never leaves a word silent

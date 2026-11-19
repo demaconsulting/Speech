@@ -22,10 +22,11 @@ sections:
                   link, a preferred audio format of mono 22,050 Hz, no audio-tag support, the shared English
                   text analyzer (the same instance for every model instance), and a capability profile that joins
                   the clause pieces of a sentence (the core chunker splits at every comma, semicolon and colon)
-                  into one segment, with their annotations moved to their place, so that the voice speaks a
+                  into one segment, with their annotations moved to their place (a piece that the core chunker cut
+                  at a dash or inside a long clause is joined as well), so that the voice speaks a
                   sentence as one utterance, while a sentence end (including a sentence boundary an analyzer
                   declared, even after a clause mark), a pause, silence, different parameter
-                  overrides and a joined text beyond the core chunker's 200-character budget remain boundaries.
+                  overrides and a joined text beyond 300 characters remain boundaries.
                 justification: |
                   The identifier is what a host stores and a catalog lists; the license is an attribution license
                   that a host must be able to read before it offers the voice; the audio format is the voice's own

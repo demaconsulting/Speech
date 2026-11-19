@@ -212,7 +212,7 @@ public sealed class EnglishPhonemizer
             && host.Pronunciation.Count > 0 && TryCliticKind(text[1..], out var kind))
         {
             var joined = Morphology.AppendClitic(host.Pronunciation, kind);
-            items[^1] = new PhonemizedItem(PhonemizedItemKind.Word, host.Text + text, joined, host.Source, host.ReadingId);
+            items[^1] = new PhonemizedItem(PhonemizedItemKind.Word, host.Text + text, joined, host.Source, host.ReadingId, compoundBreak: host.CompoundBreak);
             return true;
         }
 

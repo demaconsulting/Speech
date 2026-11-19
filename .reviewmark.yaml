@@ -2934,6 +2934,7 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.Piper/SynthesisSubsystem/PiperPhonemePipeline.cs"
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/PiperPhonemePipelineTests.cs"
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/piper-pipeline-golden.tsv"  # golden sentences
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/piper-gettysburg-golden.tsv"  # golden sentences of a listening review
 
   # SpeechOnnxChatterboxTurbo-Architecture Review (one per system)
   - id: SpeechOnnxChatterboxTurbo-Architecture
@@ -4399,8 +4400,10 @@ reviews:
       - "docs/design/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.md"
       - "docs/verification/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.md"
       - "src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/ReadingPronunciations.cs"
+      - "src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/LexiconCorrections.cs"
       - "data/phonemes-en/reading-pronunciations.tsv"               # embedded reviewed reading table
       - "data/phonemes-en/form-overrides.tsv"                       # embedded form overrides
+      - "data/phonemes-en/lexicon-corrections.tsv"                  # embedded reviewed corrections of wrong dictionary entries
       - "data/phonemes-en/reading-gaps.tsv"                         # committed gap list (empty)
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs"
 

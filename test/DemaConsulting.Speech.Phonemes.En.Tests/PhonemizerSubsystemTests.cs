@@ -198,33 +198,41 @@ public sealed class PhonemizerSubsystemTests
         // Act
         var result = Phonemizer.Phonemize("don't dog's dogs' well-known unfollowed 'tis");
 
-        // Assert: apostrophes and hyphens stay inside the word; each part of a compound keeps its own stress
+        // Assert: apostrophes and hyphens stay inside the word; a later part of a compound has a secondary stress
         Assert.Equal(["don't", "dog's", "dogs'", "well-known", "unfollowed", "'tis"], result.Items.Select(i => i.Text));
         Assert.Equal("D OW1 N T", result.Items[0].Arpabet);
         Assert.Equal("D AO1 G Z", result.Items[1].Arpabet);
         Assert.Equal("D AO1 G Z", result.Items[2].Arpabet);
-        Assert.Equal("W EH1 L N OW1 N", result.Items[3].Arpabet);
+        Assert.Equal("W EH1 L N OW2 N", result.Items[3].Arpabet);
         Assert.Equal("AH0 N F AA1 L OW0 D", result.Items[4].Arpabet);
         Assert.Equal(PronunciationSource.Morphology, result.Items[4].Source);
         Assert.Empty(result.OovWords);
     }
 
-    /// <summary>Proves the stress policy of hyphenated compounds: every part keeps its stress, a small function word inside a compound is unstressed, and a closed dictionary spelling is used only when a part is not a word.</summary>
+    /// <summary>Proves the stress policy of hyphenated compounds: one primary stress on the first element and a secondary stress where a later element had a primary one, a small function word inside a compound is unstressed, a closed dictionary spelling is used as listed only when a part is not a word, and a word with a closed spelling of the same sounds takes the stress pattern of that spelling.</summary>
     [Fact]
-    public void PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressEveryPartAndReduceFunctionWords()
+    public void PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressTheFirstPartAndReduceFunctionWords()
     {
         // Act
-        var result = Phonemizer.Phonemize("a full-time job in a state-of-the-art day-to-day wi-fi");
+        var result = Phonemizer.Phonemize("a full-time job in a state-of-the-art day-to-day wi-fi battle-field self-evident twenty-one e-mail");
 
-        // Assert: full-time has a closed dictionary entry with a secondary stress on time, but both parts are words, so each is stressed
-        Assert.Equal("F UH1 L T AY1 M", result.Items.Single(i => i.Text == "full-time").Arpabet);
+        // Assert: full-time has a closed dictionary entry (F UH1 L T AY2 M) but both parts are words, so the sounds are the parts' and the stress is the entry's
+        Assert.Equal("F UH1 L T AY2 M", result.Items.Single(i => i.Text == "full-time").Arpabet);
 
-        // Assert: of keeps its full vowel without stress and to is reduced inside a compound
-        Assert.Equal("S T EY1 T AH2 V DH AH0 AA1 R T", result.Items.Single(i => i.Text == "state-of-the-art").Arpabet);
-        Assert.Equal("D EY1 T AH0 D EY1", result.Items.Single(i => i.Text == "day-to-day").Arpabet);
+        // Assert: of keeps its full vowel without stress and to is reduced inside a compound; the last part has the secondary stress
+        Assert.Equal("S T EY1 T AH2 V DH AH0 AA2 R T", result.Items.Single(i => i.Text == "state-of-the-art").Arpabet);
+        Assert.Equal("D EY1 T AH0 D EY2", result.Items.Single(i => i.Text == "day-to-day").Arpabet);
 
         // Assert: wi and fi are not words of their own, so the dictionary's closed spelling wifi is used as listed
         Assert.Equal("W AY1 F AY2", result.Items.Single(i => i.Text == "wi-fi").Arpabet);
+
+        // Assert: the later part never has a primary stress (one voice would read two stressed words with a break between them)
+        Assert.Equal("B AE1 T AH0 L F IY2 L D", result.Items.Single(i => i.Text == "battle-field").Arpabet);
+        Assert.Equal("S EH1 L F EH2 V AH0 D AH0 N T", result.Items.Single(i => i.Text == "self-evident").Arpabet);
+        Assert.Equal("T W EH1 N T IY0 W AH2 N", result.Items.Single(i => i.Text == "twenty-one").Arpabet);
+
+        // Assert: a closed spelling that moves the stress to the second part (email: IY0 M EY1 L) is not followed
+        Assert.Equal("IY1 M EY2 L", result.Items.Single(i => i.Text == "e-mail").Arpabet);
     }
 
     /// <summary>Proves a bare digit string is spoken digit by digit, one item per digit.</summary>
@@ -429,7 +437,7 @@ public sealed class PhonemizerSubsystemTests
         Assert.Equal(PronunciationSource.Lexicon, real!.Source);
     }
 
-    /// <summary>Proves diacritics are folded for lookup, a hyphenated compound pronounces every part with its own stress, a small function word inside it is unstressed, and text that is no word has no pronunciation.</summary>
+    /// <summary>Proves diacritics are folded for lookup, a hyphenated compound has its first part stressed and a secondary stress on the later ones, a small function word inside it is unstressed, and text that is no word has no pronunciation.</summary>
     [Fact]
     public void WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules()
     {
@@ -446,10 +454,101 @@ public sealed class PhonemizerSubsystemTests
 
         // Assert
         Assert.Equal(plain!.Pronunciation.ToString(), accented!.Pronunciation.ToString());
-        Assert.Equal("F UH1 L T AY1 M", fullTime!.Pronunciation.ToString());
-        Assert.Equal("S T EY1 T AH2 V DH AH0 AA1 R T", stateOfTheArt!.Pronunciation.ToString());
+        Assert.Equal("F UH1 L T AY2 M", fullTime!.Pronunciation.ToString());
+        Assert.Equal(3, fullTime.CompoundBreak);
+        Assert.Equal("S T EY1 T AH2 V DH AH0 AA2 R T", stateOfTheArt!.Pronunciation.ToString());
         Assert.Equal("W AY1 F AY2", wifi!.Pronunciation.ToString());
         Assert.Null(notAWord);
+    }
+
+    /// <summary>
+    ///     Proves a correction of the reviewed table beats the dictionary's own entry of the word: the dictionary lists
+    ///     <i>nobly</i> with the vowel of <i>knobbly</i>, the correction has the vowel of <i>noble</i>, and a pronouncer
+    ///     with no corrections still returns the dictionary's entry.
+    /// </summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry()
+    {
+        // Arrange
+        var corrected = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+        var uncorrected = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default, LexiconCorrections.Parse(new StringReader("word\tarpabet\tnote\n")));
+
+        // Act
+        var nobly = corrected.Pronounce("nobly", null);
+        var noble = corrected.Pronounce("noble", null);
+        var dictionary = uncorrected.Pronounce("nobly", null);
+        var ordinary = corrected.Pronounce("battle", null);
+
+        // Assert: the stem's vowel (as in noble) instead of the dictionary's, from the lexicon step of the priority list
+        Assert.Equal("N OW1 B L IY0", nobly!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.Lexicon, nobly.Source);
+        Assert.Equal("N OW1 B AH0 L", noble!.Pronunciation.ToString());
+        Assert.Equal("N AA1 B L IY0", dictionary!.Pronunciation.ToString());
+        Assert.Equal("B AE1 T AH0 L", ordinary!.Pronunciation.ToString());
+    }
+
+    /// <summary>
+    ///     Proves every word of the dictionary (all 124,926 headwords) is pronounced by the phonemizer exactly as the
+    ///     dictionary lists it (its first variant, the velar comparative first for the adjectives in <i>ng</i>), whatever
+    ///     the morphology rules, the prefix rule or the letter-to-sound model would derive, with the reviewed corrections
+    ///     the only exceptions; a trailing apostrophe of the headword (the dropped-g headwords) is part of the word.
+    /// </summary>
+    [Fact]
+    public void PhonemizerSubsystem_Phonemize_EveryDictionaryWord_IsPronouncedAsTheDictionaryListsItExceptTheCorrections()
+    {
+        // Arrange
+        var words = 0;
+        var wrong = new List<string>();
+        var notFromTheLexicon = new List<string>();
+
+        // Act
+        foreach (var entry in CmuLexicon.Default.Entries())
+        {
+            words++;
+            var expected = LexiconCorrections.Default.TryGet(entry.Word, out var correction)
+                ? correction
+                : Morphology.OrderVariants(entry.Word, entry.Pronunciations, CmuLexicon.Default)[0];
+            var item = Assert.Single(Phonemizer.Phonemize(entry.Word).Items);
+            if (item.Arpabet != expected.ToString())
+            {
+                wrong.Add($"{entry.Word}: expected {expected}, got {item.Arpabet}");
+            }
+
+            if (item.Source != PronunciationSource.Lexicon)
+            {
+                notFromTheLexicon.Add($"{entry.Word}: {item.Source}");
+            }
+        }
+
+        // Assert: nothing was derived where the dictionary has an entry
+        Assert.Equal(124926, words);
+        Assert.Empty(wrong);
+        Assert.Empty(notFromTheLexicon);
+    }
+
+    /// <summary>Proves a word that the lexicon lists with a trailing apostrophe (the dropped-g headwords) keeps it (it is not a closing quote), while the apostrophe after another word stays a quote mark and the plural possessive keeps its own rule.</summary>
+    [Fact]
+    public void PhonemizerSubsystem_Phonemize_TrailingApostropheOfALexiconWord_StaysInTheWord()
+    {
+        // Arrange: the dictionary's headwords that end in an apostrophe after n (there are forty-one)
+        var droppedG = CmuLexicon.Default.Entries().Where(e => e.Word.EndsWith("in'", StringComparison.Ordinal)).ToList();
+        var first = droppedG[0];
+        var second = droppedG[^1];
+
+        // Act
+        var result = Phonemizer.Phonemize($"He was {first.Word} and {second.Word} home, the dogs' bones, and 'quoted' words.");
+
+        // Assert: the two are words of their own with the dictionary's sounds, and so is every other one alone
+        Assert.Equal(41, droppedG.Count);
+        Assert.Equal(["He", "was", first.Word, "and", second.Word, "home"], result.Items.Where(i => i.Kind == PhonemizedItemKind.Word).Take(6).Select(i => i.Text));
+        Assert.Equal(first.Pronunciations[0].ToString(), result.Items.Single(i => i.Text == first.Word).Arpabet);
+        Assert.Equal(second.Pronunciations[0].ToString(), result.Items.Single(i => i.Text == second.Word).Arpabet);
+        Assert.All(droppedG, entry => Assert.Equal(entry.Word, Assert.Single(Phonemizer.Phonemize(entry.Word).Items).Text));
+
+        // Assert: the plural possessive is one word and the quote marks around a word that is not listed stay marks
+        Assert.Contains(result.Items, i => i.Text == "dogs'");
+        Assert.Contains(result.Items, i => i.Kind == PhonemizedItemKind.Punctuation && i.Text == "'");
+        Assert.Contains(result.Items, i => i.Kind == PhonemizedItemKind.Word && i.Text == "quoted");
     }
 
     /// <summary>Creates a reading annotation.</summary>

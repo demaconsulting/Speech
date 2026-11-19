@@ -28,4 +28,9 @@ contain every word of the whole; an empty sequence gives no part.
 
 ##### Splitting
 
-**Test**: `PhonemeStream_Split_ItemsBeyondTheLimit_AreCutAtClauseMarksWithoutLoss`
+**Tests**: `PhonemeStream_Split_ItemsBeyondTheLimit_AreCutAtClauseMarksWithoutLoss`,
+`PhonemeStream_Split_TextWithoutMarks_IsCutBeforeAConjunctionNeverAfterAFunctionWord`
+
+A text of 160 characters with no mark at all is cut before the last conjunction that fits
+(`...bright blue boats | but he sailed...`), and with a smaller limit no part ends on `of`, `the`, `and`, `but`, `in` or
+`its`, whatever the budget; the parts together are the whole text.

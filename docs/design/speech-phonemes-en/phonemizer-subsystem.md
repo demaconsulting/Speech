@@ -54,17 +54,19 @@ empty of value or malformed is not indexed and the text is spoken as usual.
 
 **Tokens.** At each position the tokenizer tries, in order: skip whitespace and the audio-tag placeholder (U+FFFC); a
 letter of a spelled replacement is a token of its own; a run of ASCII digits; a run of Latin letters, which may contain
-inner apostrophes and hyphens and may take a trailing apostrophe after `s` (the plural possessive `dogs'`), except that
-a hyphen whose neighbors on both sides are replacement text (the hyphen between the digit groups of `555-0147`, each
-read by the text analysis on its own) ends the word and is a punctuation token, a pause between the groups; a leading
-apostrophe belongs to a word only when the lexicon lists it so (`'tis`, `'cause`) and otherwise is a quote mark; a
-contraction ending directly after a word that a replacement boundary cut off is a clitic; the marks
-`. , ; : ! ? … — – - ( ) [ ] { } " “ ” ‘ ’ ' « »` are punctuation, a run of one mark being one token; anything else (an
-emoji, a character of another script, `#`) is an unsupported run.
+inner apostrophes and hyphens and may take a trailing apostrophe after `s` (the plural possessive `dogs'`) or when the
+lexicon lists the word with one (the dropped-g headwords, which end in `in'`), except that a hyphen whose neighbors on
+both sides are replacement text (the hyphen between the digit groups of `555-0147`, each read by the text analysis on
+its own) ends the word and is a punctuation token, a pause between the groups; a leading apostrophe belongs to a word
+only when the lexicon lists it so (`'tis`, `'cause`) and otherwise is a quote mark; a contraction ending directly after
+a word that a replacement boundary cut off is a clitic; the marks `. , ; : ! ? … — – - ( ) [ ] { } " “ ” ‘ ’ ' « »` are
+punctuation, a run of one mark being one token; anything else (an emoji, a character of another script, `#`) is an
+unsupported run.
 
 **Pronouncing a word.** `WordPronouncer` folds the word (lower case, straight apostrophes, diacritics removed, `ß` as
 `ss`; a character that cannot be folded to the Latin alphabet makes the word unpronounceable) and tries the sources in
-priority order: the reading, when the reading table resolves the spelling under the requested id; the first variant of
+priority order: the reading, when the reading table resolves the spelling under the requested id; the reviewed
+correction of a wrong dictionary entry; the first variant of
 the dictionary entry (for the comparative of an adjective in `ng` the variant with the velar stop first, since the
 dictionary lists `stronger` also without it); the morphology derivation from a known stem; a productive prefix
 (`counter under super inter multi semi anti over non out sub dis mis pre un re`) with a known or derivable remainder of
@@ -76,10 +78,21 @@ word's normal pronunciation, which a renderer speaks when its voice cannot repre
 parsed falls back to the plain word.
 
 **Hyphenated compounds.** The closed spelling of the dictionary is used only when a part is not a word of its own
-(`wi-fi` is `wifi`); otherwise each part is pronounced with its own primary stress (`well-known` has two), and a small
+(`wi-fi` is `wifi`); otherwise the sounds are those of the parts and the stress is that of one compound word: the first
+primary stress is kept and a later primary stress becomes a secondary one (`well-known` is `W EH1 L N OW2 N`,
+`battle-field` is `B AE1 T AH0 L F IY2 L D`; a voice that reads two primary stresses in one written word pauses between
+them, which is how *battle-field* was heard as *battle ... field*). When the dictionary lists the closed spelling with
+the same sounds, one primary stress on the vowel that carries it in the parts and a stress on every later stressed part,
+its stress pattern is used. A small
 function word in a later part (`of the in to for and or on at by as a an`) is unstressed, `to` as `T AH0` and `of` as
-`AH2 V`. The item records where the second part starts so that the Kokoro renderer, whose voice stresses only the first
-part, can demote the rest.
+`AH2 V`. The item records where the second part starts, so that the Piper renderer writes the later secondary stress
+even next to the primary one, which a single word's stress-clash rule would drop.
+
+**Reviewed corrections.** The dictionary is the only source of pronunciations, so a wrong entry is spoken wrong for
+good: it lists *nobly* as `N AA1 B L IY0` (the vowel of *knobbly*). `data/phonemes-en/lexicon-corrections.tsv` holds the
+few reviewed corrections (a lower-case word, the pronunciation, the reason), embedded by link and consulted by the word
+pronouncer before the dictionary; the dictionary image and its pins stay untouched. The phonemizer's test over every
+word of the dictionary proves that these rows are the only words that are not pronounced as the dictionary lists them.
 
 **Error handling.** A null text throws `ArgumentNullException`; no other input throws. A reading that cannot be applied
 to its word is not an error: the word keeps its default pronunciation and the item records the requested id with

@@ -50,8 +50,10 @@ sections:
               The RenderingSubsystem shall apply the conventions of each voice model: the stress mark before
               the vowel it belongs to, the model's own vowel and diphthong symbols, the flap between a
               stressed and an unstressed vowel (also before a final -y that the dictionary stresses secondarily),
-              the linking r of the espeak-style text, the stress of
-              hyphenated compounds per model (every part stressed for Piper, only the first for Kokoro), words
+              the linking r of the espeak-style text, the vowels of the espeak-style text before r (the vowel of
+              near before r written with a lax i, the schwa after ay and aw before r, the vowel of cure before r
+              for u), the stress of
+              hyphenated compounds (the first part primary and each later part secondary, in both models), words
               separated by one space with a closing mark attached to the word before it, quotation marks and
               dashes as a pause for Piper (which has no symbol for them) and as the model's own marks for
               Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a hyphen
@@ -72,7 +74,8 @@ sections:
               - RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel
               - RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel
               - RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices
-              - RenderingSubsystem_Compounds_StressIsPerModel
+              - RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes
+              - RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions
               - RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions
               - RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped
               - RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot

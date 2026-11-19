@@ -193,7 +193,7 @@ public sealed class EspeakIpaRenderer
             weak = WeakForms.AtTextStart(item.Text, weak);
         }
 
-        var text = known && weak.Length > 0 ? weak : EspeakWordRules.Render(item.Pronunciation.Phones, demoted);
+        var text = known && weak.Length > 0 ? weak : EspeakWordRules.Render(item.Pronunciation.Phones, demoted, item.CompoundBreak);
 
         // An r-colored vowel at the end of a word is joined to a vowel-initial word by a linking r
         return nextStartsWithVowel && (text.EndsWith('ɚ') || text.EndsWith("ɜː", StringComparison.Ordinal)) ? text + "ɹ" : text;

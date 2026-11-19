@@ -542,6 +542,7 @@ sections:
               - Speech-Synthesis-SentenceChunker-BoundarySplitting
               - Speech-Synthesis-SentenceChunker-SecondaryBoundarySplitting
               - Speech-Synthesis-SentenceChunker-WhitespaceBudgetFallback
+              - Speech-Synthesis-SentenceChunker-PhraseBoundaryFallback
               - Speech-Synthesis-SentenceChunker-BoundaryHandling
               - Speech-Synthesis-SentenceChunker-NonPositiveMaxLengthRejection
               - Speech-Synthesis-SentenceChunker-NullTextRejection

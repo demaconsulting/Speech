@@ -31,16 +31,18 @@ unit indices.
   `".5 units"` at start-of-text/after whitespace/a sign/a currency symbol. A genuine sentence-ending period directly
   followed by a digit after a letter (e.g. `"Wait.5 more."`) still splits normally, since the numeral exception only
   applies when no letter precedes the period. A piece still longer than `maxLength` after both punctuation passes is
-  split on a whitespace budget; a single word that alone exceeds `maxLength` is returned whole, never split mid-word.
-  Any resulting piece whose trimmed text contains no letter or digit at all (just punctuation and/or whitespace, e.g. a
-  lone comma or a whitespace-spaced ellipsis like `". . ."`) is then merged onto the end of the immediately preceding
-  non-empty chunk (joined by a single space), or dropped if there is no preceding chunk - except, for text that carries
-  annotations, a piece that wholly contains an annotation with a non-empty value, which is kept as its own chunk.
-  `ChunkWithMetadata` additionally flags a chunk whose final text ends in three or more consecutive `.` characters (with
-  or without interspersed whitespace) as `EndsWithEllipsis`. These numeral exceptions assume English/US-style numeral
-  punctuation (`,` as thousands separator, `.` as decimal point); locales that swap the two roles (e.g. `"1.000,5"`) are
-  not specially handled - every model in this library's current catalog is English-only, so this is not currently a
-  defect, but a future non-English model would need these rules adjusted rather than assuming they generalize as-is.
+  split on whitespace, preferably at a phrase boundary (after a dash, before a conjunction, after a word that does not
+  need the one after it; see the budget pass below); a single word that alone exceeds `maxLength` is returned whole,
+  never split mid-word. Any resulting piece whose trimmed text contains no letter or digit at all (just punctuation
+  and/or whitespace, e.g. a lone comma or a whitespace-spaced ellipsis like `". . ."`) is then merged onto the end of
+  the immediately preceding non-empty chunk (joined by a single space), or dropped if there is no preceding chunk -
+  except, for text that carries annotations, a piece that wholly contains an annotation with a non-empty value, which is
+  kept as its own chunk. `ChunkWithMetadata` additionally flags a chunk whose final text ends in three or more
+  consecutive `.` characters (with or without interspersed whitespace) as `EndsWithEllipsis`. These numeral exceptions
+  assume English/US-style numeral punctuation (`,` as thousands separator, `.` as decimal point); locales that swap the
+  two roles (e.g. `"1.000,5"`) are not specially handled - every model in this library's current catalog is
+  English-only, so this is not currently a defect, but a future non-English model would need these rules adjusted rather
+  than assuming they generalize as-is.
 - **ChunkAligned(text, annotations, sentenceBreaks, maxLength)**: The single, position-aware
   implementation that `Chunk` and `ChunkWithMetadata` also run (there is no second, older code
   path). It returns the same chunks as `ChunkWithMetadata` when `annotations` and `sentenceBreaks`
@@ -64,11 +66,19 @@ unit indices.
      cannot change how the range splits. This reproduces the old behavior, which tested against a
      substring, byte for byte.
   4. **Budget pass**: a range no longer than `maxLength` becomes one piece with a single run
-     `(Start, Length, 0)`. A longer range is scanned as words (maximal non-whitespace runs) and
-     grouped greedily exactly as before: the next word adds `word.Length` plus one separator when
-     the group is non-empty, and the group is flushed when adding the word would exceed
-     `maxLength`. The piece text is the words joined by a single space, with one run per word whose
-     `TextStart` is that word's running position in the joined text. Whitespace runs inside such a
+     `(Start, Length, 0)`. A longer range is scanned as words (maximal non-whitespace runs). Each piece takes
+     the words that fit (the next word adds `word.Length` plus one separator when the piece is non-empty, and the
+     piece is full when adding the word would exceed `maxLength`) and then ends at the best phrase boundary
+     among them (`ChooseBoundary`) instead of wherever the budget ran out, so a long clause is not cut between a
+     function word and the word it belongs to (*the last full measure of | devotion*). In order of preference the
+     piece ends after a dash (`--`, `-`, an en or em dash, alone or at the end of a word) or before an opening
+     bracket when it holds at least a quarter of the budget; else before a conjunction or relative word (`and`,
+     `but`, `that`, `which`, `who`, `because`, `when`, `if`, ...) that follows a word that is not a function word,
+     when it holds at least two fifths; else after any word that is not a function word (an article, preposition,
+     auxiliary, pronoun, negation or conjunction, from two small English word lists), when it holds at least half;
+     else after the last word that fits, exactly as before. Within a rule the latest boundary wins, and no boundary
+     is put before a word that is only a mark. The piece text is the words joined by a single space, with one
+     run per word whose `TextStart` is that word's running position in the joined text. Whitespace runs inside such a
      piece therefore collapse, and the runs record exactly where each surviving word came from.
   5. **Degenerate merge**: a piece with no letter or digit is appended to the
      previous piece as `previous + " " + piece`, with its runs appended after the previous runs,

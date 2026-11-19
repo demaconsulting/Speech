@@ -25,7 +25,8 @@ sections:
             title: >-
               The PhonemizerSubsystem shall pronounce each word from a host pronunciation override when one
               covers the word, otherwise from the reading the text analysis chose for it, otherwise from the
-              dictionary's first variant, and shall report the source in the item; a host override shall beat
+              dictionary's first variant (for every word of the dictionary, with only the reviewed corrections
+              of wrong entries as exceptions), and shall report the source in the item; a host override shall beat
               a reading, shall apply to the headword of a possessive or contraction (with a straight or a
               typographic apostrophe) as it does to the word alone, and a text without annotations shall give
               every word its dictionary default.
@@ -40,6 +41,7 @@ sections:
               - PhonemizerSubsystem_Phonemize_PronunciationOverride_BeatsReadingAndLexicon
               - PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes
               - PhonemizerSubsystem_Phonemize_NoAnnotations_UsesDefaultReadingsWithoutNormalization
+              - PhonemizerSubsystem_Phonemize_EveryDictionaryWord_IsPronouncedAsTheDictionaryListsItExceptTheCorrections
 
           - id: SpeechPhonemesEn-Phonemizer-ReadingSelection
             title: >-
@@ -84,13 +86,17 @@ sections:
           - id: SpeechPhonemesEn-Phonemizer-Tokens
             title: >-
               The PhonemizerSubsystem shall treat a contraction, a possessive and a hyphenated compound as one
-              word (each part of a compound with its own stress and a small function word inside it
-              unstressed), shall pass clause punctuation through as items and skip the audio-tag placeholder,
+              word (the first part of a compound with the primary stress, a later part with a secondary
+              stress where it had a primary one, and a small function word inside it unstressed), shall
+              treat a word that the lexicon lists with a trailing apostrophe (the dropped-g headwords that end in in') as one word, shall
+              pass clause punctuation through as items and skip the audio-tag placeholder,
               shall speak a bare run of digits digit by digit, and shall look a word with a diacritic up
               without it.
             justification: |
               The text analysis hands over words as people write them, and "don't", "well-known" and "café"
-              must come out as one word each with the sound a speaker gives them. Numbers should arrive
+              must come out as one word each with the sound a speaker gives them. A voice that reads two
+              primary stresses in one written word pauses between them ("battle ... field"), so a compound
+              has one. Numbers should arrive
               written out by the analysis, but a digit that gets through must be spoken, not dropped.
             children:
               - SpeechPhonemesEn-Phonemizer-WordTokenizer-Tokens
@@ -98,7 +104,8 @@ sections:
             tests:
               - PhonemizerSubsystem_Phonemize_Punctuation_PassesThrough
               - PhonemizerSubsystem_Phonemize_ContractionsPossessivesAndCompounds_AreOneWord
-              - PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressEveryPartAndReduceFunctionWords
+              - PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressTheFirstPartAndReduceFunctionWords
+              - PhonemizerSubsystem_Phonemize_TrailingApostropheOfALexiconWord_StaysInTheWord
               - PhonemizerSubsystem_Phonemize_BareDigits_AreSpokenOneByOne
               - PhonemizerSubsystem_Phonemize_Diacritics_AreFoldedForLookup
 

@@ -38,13 +38,16 @@ listed; a diacritic is folded for the lookup; and an annotation outside the text
 #### Source priority and defaults
 
 **Tests**: `PhonemizerSubsystem_Phonemize_NoAnnotations_UsesDefaultReadingsWithoutNormalization`,
+`PhonemizerSubsystem_Phonemize_EveryDictionaryWord_IsPronouncedAsTheDictionaryListsItExceptTheCorrections`,
 `PhonemizerSubsystem_Phonemize_PronunciationOverride_BeatsReadingAndLexicon`,
 `PhonemizerSubsystem_Phonemize_HeadwordAnnotationsWithClitic_ApplyForBothApostrophes`
 
-`record 5 cats` is spoken as written; an ARPAbet override (with and without stress digits) and an IPA override win over
-a reading on the same word; the override of `record` also applies to `record's` and `record'll` (and to `record’s` with
-the analysis' normalization annotation of the apostrophe), the IPA one with the ending added in IPA, and an override of
-the whole token wins.
+`record 5 cats` is spoken as written; each of the 124,926 words of the dictionary, phonemized alone, is its first
+variant from the lexicon (the velar comparative first for the adjectives in `ng`), with only the two reviewed
+corrections as exceptions; an ARPAbet override (with and without stress digits) and an IPA override win over a reading
+on the same word; the override of `record` also applies to `record's` and `record'll` (and to `record’s` with the
+analysis' normalization annotation of the apostrophe), the IPA one with the ending added in IPA, and an override of the
+whole token wins.
 
 #### Reading selection
 
@@ -71,13 +74,16 @@ replacement running past the end of the text and a reading id of the wrong shape
 
 **Tests**: `PhonemizerSubsystem_Phonemize_Punctuation_PassesThrough`,
 `PhonemizerSubsystem_Phonemize_ContractionsPossessivesAndCompounds_AreOneWord`,
-`PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressEveryPartAndReduceFunctionWords`,
+`PhonemizerSubsystem_Phonemize_HyphenatedCompounds_StressTheFirstPartAndReduceFunctionWords`,
+`PhonemizerSubsystem_Phonemize_TrailingApostropheOfALexiconWord_StaysInTheWord`,
 `PhonemizerSubsystem_Phonemize_BareDigits_AreSpokenOneByOne`,
 `PhonemizerSubsystem_Phonemize_Diacritics_AreFoldedForLookup`
 
 `Wait... what, then? <placeholder> Go!` gives eight items with the marks as punctuation;
 `don't dog's dogs' well-known unfollowed 'tis` gives six words; the compounds `full-time`, `state-of-the-art`,
-`day-to-day` and `wi-fi` have the stresses of the design; `42` is `F AO1 R` and `T UW1`; `café` sounds like `cafe`.
+`day-to-day`, `wi-fi`, `battle-field`, `self-evident`, `twenty-one` and `e-mail` have the stresses of the design (one
+primary stress, on the first part); the dictionary's dropped-g headwords (all that end in `in'`) are words of their own;
+`42` is `F AO1 R` and `T UW1`; `café` sounds like `cafe`.
 
 #### Reporting
 

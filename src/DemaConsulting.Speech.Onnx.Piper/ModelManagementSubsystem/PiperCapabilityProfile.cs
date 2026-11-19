@@ -20,12 +20,17 @@ namespace DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 ///     </para>
 ///     <para>
 ///     <b>How.</b> The default profile renders the plan as always (tags, pauses, parameter overrides, ellipsis pauses,
-///     annotations). Then every segment that ends in a clause mark (<c>,</c>, <c>;</c> or <c>:</c>) is joined to the
+///     annotations). Then every segment that does not end a sentence (it ends in a clause mark, <c>,</c>, <c>;</c> or <c>:</c>,
+///     in a dash, or in a letter or digit because the core chunker had to cut a long clause) is joined to the
 ///     segment after it, with one space between them and the annotations of the second shifted to their place in the
 ///     joined text, as long as nothing sets the two apart: no silence between them, the same parameter overrides, and a
-///     joined text no longer than <see cref="SentenceChunker.DefaultMaxChunkLength"/> characters (the budget of the core
-///     chunker), so a long sentence still reaches the engine in playback-sized segments. The engine itself splits what
-///     still phonemizes to more than 256 symbols, preferably after a clause mark. Sentence ends, ellipses, tags and
+///     joined text no longer than <see cref="MaxJoinedLength"/> characters. The core chunker cuts a long clause at a dash,
+///     before a conjunction or after a word that is not a function word, and the joining puts such pieces together again
+///     up to the budget, so a long sentence is spoken in a few whole-phrase utterances and not in one per clause. The
+///     budget is 300 characters, not the core chunker's 200: over eight renderings of the final sentence of the Gettysburg
+///     Address (four speakers, two draws each) the recognizer proxy made fewer word errors the longer the utterances were
+///     allowed to be (see <c>docs/evaluation/phonemes-en/renderers.md</c>, "Listening Fixes 3"). The engine itself splits what
+///     still phonemizes to more than 384 symbols, at the best phrase boundary. Sentence ends, ellipses, tags and
 ///     pauses stay boundaries, and so does every sentence boundary an analyzer declared: the spans are cut into one
 ///     group per authoritative sentence first, so a sentence that ends in a clause mark (<c>Consider this:</c>)
 ///     is never joined to the next sentence. The profile needs nothing of the core library but its public chunking and plan types.
@@ -34,8 +39,14 @@ namespace DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 /// </remarks>
 internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
 {
-    /// <summary>The marks that end a clause piece the core chunker split at.</summary>
-    private const string ClauseMarks = ",;:";
+    /// <summary>
+    ///     The longest joined segment, in characters: the voice speaks a whole sentence of this length in one utterance with
+    ///     fewer errors than the same text in shorter ones (see the remarks of the class).
+    /// </summary>
+    internal const int MaxJoinedLength = 300;
+
+    /// <summary>The marks that end a clause piece the core chunker split at, or a piece cut at a dash.</summary>
+    private const string PauseMarks = ",;:\u2014\u2013";
 
     /// <summary>
     ///     Gets the shared instance.
@@ -198,19 +209,19 @@ internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
     }
 
     /// <summary>
-    ///     Tests whether a segment that ends in a clause mark is joined to the segment after it.
+    ///     Tests whether a segment that does not end a sentence is joined to the segment after it.
     /// </summary>
     /// <param name="first">The earlier segment.</param>
     /// <param name="second">The segment after it.</param>
-    /// <returns><see langword="true"/> when both have text, nothing sets them apart and the joined text fits the chunk budget.</returns>
+    /// <returns><see langword="true"/> when both have text, the first ends in a clause mark, a dash or a word (a cut inside a clause), nothing sets them apart and the joined text fits <see cref="MaxJoinedLength"/>.</returns>
     private static bool CanJoin(SpeechSegment first, SpeechSegment second) =>
         first.Text.Length > 0
         && second.Text.Length > 0
-        && ClauseMarks.Contains(first.Text[^1], StringComparison.Ordinal)
+        && (PauseMarks.Contains(first.Text[^1], StringComparison.Ordinal) || first.Text.EndsWith("--", StringComparison.Ordinal) || char.IsLetterOrDigit(first.Text[^1]))
         && first.PostSilenceMs == 0
         && second.PreSilenceMs == 0
         && SameOverrides(first.ParameterOverrides, second.ParameterOverrides)
-        && first.Text.Length + 1 + second.Text.Length <= SentenceChunker.DefaultMaxChunkLength;
+        && first.Text.Length + 1 + second.Text.Length <= MaxJoinedLength;
 
     /// <summary>
     ///     Joins two segments: the text with one space between, the annotations of the second moved to their place.

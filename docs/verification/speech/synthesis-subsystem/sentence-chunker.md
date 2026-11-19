@@ -40,13 +40,19 @@ All tests are in `test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SentenceCh
 **Stimulus**: Single and multiple sentences, long clause-bearing sentences, short sentences
 containing a comma, semicolon or colon, and a long clause with no punctuation.
 
-**Expected**: Primary then secondary splits, applied even under the length budget; the
-whitespace budget applies only to pieces still too long.
+**Expected**: Primary then secondary splits, applied even under the length budget; the whitespace budget applies only to
+pieces still too long, and cuts them at a dash, before a conjunction or after a word that is not a function word (never
+between `of` and the word after it) when one leaves a reasonably full chunk, with the annotations of the words kept in
+their chunks.
 
 **Tests**: `SentenceChunker_Chunk_ShortSingleSentence_ReturnsOneChunk`,
 `SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries`,
 `SentenceChunker_Chunk_LongSentenceWithClauses_SplitsOnSecondaryBoundaries`,
 `SentenceChunker_Chunk_LongClauseWithNoPunctuation_SplitsOnWhitespaceBudget`,
+`SentenceChunker_Chunk_LongClauseWithDashes_SplitsAtTheLastDashThatFits`,
+`SentenceChunker_Chunk_LongClauseWithoutDashes_SplitsBeforeAConjunction`,
+`SentenceChunker_Chunk_LongClauseWithNothingBetter_NeverEndsAChunkOnAFunctionWord`,
+`SentenceChunker_ChunkAligned_PhraseBoundarySplit_KeepsEveryAnnotationInItsChunk`,
 `SentenceChunker_Chunk_ShortSentenceWithComma_SplitsOnCommaEvenUnderBudget`,
 `SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget`
 

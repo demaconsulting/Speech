@@ -16,6 +16,7 @@ resource lives in the library. Nothing here is legal advice.
 | [MANIFEST.tsv](MANIFEST.tsv) | pins: SHA-256, size and row count of the CMUdict input and of the uncompressed lexicon and letter-to-sound model images; verified by `build-lexicon --check` and `train-lts --check` |
 | [reading-pronunciations.tsv](reading-pronunciations.tsv) | the reviewed, frozen ARPAbet pronunciation of every heteronym reading id of `DemaConsulting.Speech.Text.En` (395 rows: `reading_id`, `arpabet`, `source`); embedded in the library |
 | [form-overrides.tsv](form-overrides.tsv) | the few inflected spellings the morphology rules cannot derive from a reading's headword (`does`, `lives`, `dove` ...); embedded in the library |
+| [lexicon-corrections.tsv](lexicon-corrections.tsv) | the reviewed corrections of the few CMUdict entries that are transcription errors (`nobly`, `novelly`): `word`, `arpabet` and the reason; embedded in the library and consulted by the word pronouncer before the dictionary (the dictionary image and its pins are not touched) |
 | [reading-gaps.tsv](reading-gaps.tsv) | the committed list of (spelling, reading id) pairs that cannot be resolved; expected to be empty (header only) |
 | [renderer-corpus.tsv](renderer-corpus.tsv) | 300 own-written sentences (CC0) that, with the golden sentences, make the tuning corpus of the renderer measurement (`measure-oracle`; see `docs/evaluation/phonemes-en/renderers.md`) |
 | [renderer-validation.tsv](renderer-validation.tsv) | 60 further own-written sentences (CC0), written after the renderer rules were frozen and used only for the held-out measurement |
@@ -57,6 +58,10 @@ The rules (implemented in `tools/DemaConsulting.Speech.Phonemes.En.Tools/Lexicon
   bytes depend on the runtime's deflate and are never compared) and with `MANIFEST.tsv`, and proves that every entry reads back
   identical through the library's lookup.
 - The morphology rules that derive words the lexicon lacks are measured against the lexicon itself with `measure-morphology`.
+- The lexicon is the dictionary's own content, so a wrong entry is spoken wrong. The few that are transcription errors are
+  corrected by `lexicon-corrections.tsv` at run time (found by comparing every word that is a stem plus a neutral suffix
+  with its stem's entry and reading the disagreements; the phonemizer's test over every word of the dictionary proves the
+  corrections are the only words that are not pronounced as the dictionary lists them).
 
 ## Reading Pronunciations
 

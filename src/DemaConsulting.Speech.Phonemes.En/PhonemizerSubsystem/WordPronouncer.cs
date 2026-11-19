@@ -21,7 +21,9 @@ internal sealed record PronouncedWord(Pronunciation Pronunciation, Pronunciation
 ///     <para>
 ///     A host-supplied override is handled by the phonemizer before it asks this class, because an override
 ///     replaces the word entirely. A hyphenated compound is pronounced as the lexicon's joined spelling when it has
-///     one, otherwise part by part, each part keeping its own stress (every part of <c>well-known</c> has a primary stress).
+///     one and a part is not a word of its own, otherwise part by part, with the stress of one compound word: a primary
+///     stress on the first element and a secondary stress where a later element had a primary one
+///     (<c>well-known</c>: <c>W EH1 L N OW2 N</c>).
 ///     A word with a diacritic is looked up without it (<c>café</c> as <c>cafe</c>). A word the lexicon and the
 ///     inflection rules do not know is tried as a productive prefix (<c>un</c>, <c>re</c>, <c>over</c> ...) plus a
 ///     known word (<c>unfollowed</c>) before it is handed to the letter-to-sound fallback.
@@ -75,6 +77,9 @@ internal sealed class WordPronouncer
     /// <summary>The reading tables.</summary>
     private readonly ReadingPronunciations _readings;
 
+    /// <summary>The reviewed corrections of wrong dictionary entries.</summary>
+    private readonly LexiconCorrections _corrections;
+
     /// <summary>The out-of-vocabulary fallback.</summary>
     private readonly LetterToSound _letterToSound;
 
@@ -84,11 +89,13 @@ internal sealed class WordPronouncer
     /// <param name="lexicon">The lexicon.</param>
     /// <param name="readings">The reading tables.</param>
     /// <param name="letterToSound">The fallback for words the lexicon and the morphology cannot pronounce.</param>
-    public WordPronouncer(CmuLexicon lexicon, ReadingPronunciations readings, LetterToSound letterToSound)
+    /// <param name="corrections">The reviewed corrections of wrong dictionary entries, or <see langword="null"/> for the embedded table.</param>
+    public WordPronouncer(CmuLexicon lexicon, ReadingPronunciations readings, LetterToSound letterToSound, LexiconCorrections? corrections = null)
     {
         _lexicon = lexicon;
         _readings = readings;
         _letterToSound = letterToSound;
+        _corrections = corrections ?? LexiconCorrections.Default;
     }
 
     /// <summary>
@@ -147,6 +154,12 @@ internal sealed class WordPronouncer
         if (readingId is not null && _readings.TryResolve(word, readingId, out var read) && read is not null)
         {
             return new PronouncedWord(read, PronunciationSource.Reading);
+        }
+
+        // A word whose dictionary entry is a known transcription error (nobly)
+        if (_corrections.TryGet(word, out var corrected))
+        {
+            return new PronouncedWord(corrected, PronunciationSource.Lexicon);
         }
 
         // The dictionary's first variant is the default
@@ -223,9 +236,8 @@ internal sealed class WordPronouncer
         var parts = word.Split('-', StringSplitOptions.RemoveEmptyEntries);
 
         // A compound the dictionary lists closed is used as listed only when a part is not a word of its own (wi-fi:
-        // wifi); when every part is a word the parts are pronounced one by one, because the dictionary's closed
-        // spellings carry the stress of a single word (a dictionary entry such as the one for full-time) where the engines the voices were trained with give
-        // each part its own primary stress
+        // wifi); when every part is a word the sounds are those of the parts (re-sign is not resign), and the closed
+        // spelling is consulted only for its stress pattern
         var joined = word.Replace("-", string.Empty, StringComparison.Ordinal);
         var listed = _lexicon.Lookup(joined);
         if (listed.Count > 0 && !parts.All(_lexicon.Contains))
@@ -233,8 +245,7 @@ internal sealed class WordPronouncer
             return new PronouncedWord(listed[0], PronunciationSource.Lexicon);
         }
 
-        // Part by part, each with its own stress; the small function words inside a compound (mother-in-law,
-        // state-of-the-art) are unstressed
+        // Part by part; the small function words inside a compound (mother-in-law, state-of-the-art) are unstressed
         var result = Pronunciation.Empty;
         var source = PronunciationSource.Lexicon;
         var secondPartStart = -1;
@@ -258,7 +269,112 @@ internal sealed class WordPronouncer
             result = result.Append(phones);
         }
 
-        return new PronouncedWord(result, source, secondPartStart);
+        return new PronouncedWord(CompoundStress(result, secondPartStart, listed), source, secondPartStart);
+    }
+
+    /// <summary>
+    ///     Gives the phones of a compound pronounced part by part the stress of one word: one primary stress, on the
+    ///     first part (where the dictionary lists the closed spelling with the same sounds, its stress pattern), and
+    ///     a secondary stress where a later part had a primary one.
+    /// </summary>
+    /// <remarks>
+    ///     Pronounced part by part, every part of <c>battle-field</c> keeps a primary stress, and a voice then reads the
+    ///     compound as two stressed words with a break between them. The stress pattern of an English compound is one
+    ///     main stress on its first element and a lesser stress on the later ones (<c>battlefield</c>: <c>B AE1 T AH0 L F IY2 L D</c>).
+    ///     The closed spelling of the dictionary is trusted for the pattern only when it sounds exactly like the parts
+    ///     (<c>battlefield</c> does; <c>resign</c> is not <c>re-sign</c>, so it is not used).
+    /// </remarks>
+    /// <param name="phones">The phones of all parts.</param>
+    /// <param name="secondPartStart">The index of the first phone of the second part.</param>
+    /// <param name="closed">The dictionary's variants of the closed spelling; may be empty.</param>
+    /// <returns>The phones with the compound's stress.</returns>
+    private static Pronunciation CompoundStress(Pronunciation phones, int secondPartStart, IReadOnlyList<Pronunciation> closed)
+    {
+        var stressed = phones.Phones.ToArray();
+
+        // The closed spelling's stress pattern, when it has the sounds of the parts, one primary stress on the vowel
+        // that has it in the parts, and a stress on every later vowel that had a primary one (a later part never
+        // loses its stress: the hyphen shows the writer meant two elements)
+        foreach (var variant in closed)
+        {
+            if (variant.Count == stressed.Length && SameSounds(variant.Phones, stressed) && KeepsStressedParts(variant.Phones, stressed, secondPartStart))
+            {
+                stressed = variant.Phones.ToArray();
+                break;
+            }
+        }
+
+        // One primary stress: the first; any later one is a secondary stress
+        var seenPrimary = false;
+        for (var i = 0; i < stressed.Length; i++)
+        {
+            if (stressed[i].Stress != 1)
+            {
+                continue;
+            }
+
+            if (seenPrimary && i >= secondPartStart)
+            {
+                stressed[i] = stressed[i].WithStress(2);
+            }
+
+            seenPrimary = true;
+        }
+
+        return new Pronunciation(stressed);
+    }
+
+    /// <summary>
+    ///     Tests whether the stress pattern of a closed spelling can stand for the stress pattern of a compound's parts.
+    /// </summary>
+    /// <param name="closed">The phones of the closed spelling.</param>
+    /// <param name="parts">The phones of the parts, of the same length and sounds.</param>
+    /// <param name="secondPartStart">The index of the first phone of the second part.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the closed spelling has one primary stress, on the vowel that has the first primary
+    ///     stress of the parts, and keeps a stress on every vowel of a later part that had a primary stress.
+    /// </returns>
+    private static bool KeepsStressedParts(ReadOnlySpan<Phone> closed, Phone[] parts, int secondPartStart)
+    {
+        var primaries = 0;
+        var firstPrimary = -1;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (closed[i].Stress == 1)
+            {
+                primaries++;
+            }
+
+            if (parts[i].Stress == 1 && firstPrimary < 0)
+            {
+                firstPrimary = i;
+            }
+            else if (parts[i].Stress == 1 && i >= secondPartStart && closed[i].Stress == 0)
+            {
+                return false;
+            }
+        }
+
+        return primaries == 1 && firstPrimary >= 0 && closed[firstPrimary].Stress == 1;
+    }
+
+    /// <summary>
+    ///     Tests whether two phone sequences have the same sounds, whatever their stress.
+    /// </summary>
+    /// <param name="first">The first sequence.</param>
+    /// <param name="second">The second sequence, of the same length.</param>
+    /// <returns><see langword="true"/> when every pair of phones has the same base symbol.</returns>
+    private static bool SameSounds(ReadOnlySpan<Phone> first, Phone[] second)
+    {
+        for (var i = 0; i < second.Length; i++)
+        {
+            if (first[i].BaseSymbol != second[i].BaseSymbol)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

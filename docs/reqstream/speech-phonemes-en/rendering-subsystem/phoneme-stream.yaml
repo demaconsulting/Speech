@@ -19,14 +19,18 @@ sections:
                   The PhonemeStream class shall join the rendered pieces of a sequence of items with one
                   space between words, attach a closing mark to the word before it and an opening mark to
                   the word after it, and add nothing for an item with no piece; and shall split a long
-                  sequence between items into parts that each stay within the budget, end after the last
-                  clause mark in the second half of the part if there is one, otherwise after the last word
-                  that fits, and together contain every item, returning no part for an empty sequence.
+                  sequence between items into parts that each stay within the budget, end at the best phrase
+                  boundary (after the last clause mark when the part holds at least a fifth of the budget,
+                  otherwise before a conjunction or relative word, otherwise after a word that is not a function
+                  word, and never between a function word and the word after it when another boundary is
+                  within reach), and together contain every item, returning no part for an empty sequence.
                 justification: |
                   Both renderers need the same layout and the same cut, and a difference between them would
                   be a defect that no listener could explain. The budget keeps a reserve for the few symbols
                   that rendering a run of items can add at its edges, so a part never exceeds the limit of
-                  the model.
+                  the model. A part is one utterance of the voice, and one that ends on "of" leaves a hole
+                  in the phrase.
                 tests:
                   - PhonemeStream_Join_WordsAndMarks_AreSpacedByTheSharedLayout
                   - PhonemeStream_Split_ItemsBeyondTheLimit_AreCutAtClauseMarksWithoutLoss
+                  - PhonemeStream_Split_TextWithoutMarks_IsCutBeforeAConjunctionNeverAfterAFunctionWord

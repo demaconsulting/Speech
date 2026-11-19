@@ -46,7 +46,8 @@ internal readonly record struct Token(TokenKind Kind, int Start, int End)
 ///     Rules, in the order they are tried at each position: whitespace and the core library's audio-tag placeholder
 ///     are skipped; a letter of a spelled replacement is a token of its own; a run of digits is one token; a run of
 ///     Latin letters is a word, which may contain apostrophes between letters and hyphens between letters (and may
-///     take a trailing apostrophe after <c>s</c>, the plural possessive), except a hyphen between two replacements,
+///     take a trailing apostrophe after <c>s</c>, the plural possessive, or when the lexicon lists the word with one:
+///     the dropped-g headwords, which end in <c>in'</c>), except a hyphen between two replacements,
 ///     which ends the word and is a punctuation token (the boundary between the digit groups of a phone number);
 ///     a leading apostrophe belongs to a word only
 ///     when the lexicon lists it that way (<c>'cause</c>, <c>'tis</c>) and otherwise is a quote mark; a contraction
@@ -68,7 +69,7 @@ internal static class WordTokenizer
     ///     Tokenizes spoken text.
     /// </summary>
     /// <param name="spoken">The spoken text.</param>
-    /// <param name="lexicon">The lexicon, consulted only to decide whether a leading apostrophe is part of a word.</param>
+    /// <param name="lexicon">The lexicon, consulted only to decide whether a leading or a trailing apostrophe is part of a word.</param>
     /// <returns>The tokens in order.</returns>
     public static List<Token> Tokenize(SpokenText spoken, CmuLexicon lexicon)
     {
@@ -134,7 +135,7 @@ internal static class WordTokenizer
 
         if (IsLatinLetter(c))
         {
-            return Add(tokens, TokenKind.Word, index, ScanWord(spoken, index));
+            return Add(tokens, TokenKind.Word, index, ScanWord(spoken, lexicon, index));
         }
 
         return IsApostrophe(c) ? NextApostrophe(spoken, lexicon, index, tokens) : NextMark(spoken, index, tokens);
@@ -196,12 +197,13 @@ internal static class WordTokenizer
     }
 
     /// <summary>
-    ///     Scans a word: Latin letters with inner apostrophes and hyphens and a trailing plural-possessive apostrophe.
+    ///     Scans a word: Latin letters with inner apostrophes and hyphens and a trailing apostrophe (a plural possessive, or a word the lexicon lists with one).
     /// </summary>
     /// <param name="spoken">The spoken text.</param>
+    /// <param name="lexicon">The lexicon, consulted for a trailing apostrophe after a letter other than <c>s</c>.</param>
     /// <param name="start">The index of the first letter.</param>
     /// <returns>The index after the word.</returns>
-    private static int ScanWord(SpokenText spoken, int start)
+    private static int ScanWord(SpokenText spoken, CmuLexicon lexicon, int start)
     {
         var s = spoken.Text;
         var index = start;
@@ -223,8 +225,9 @@ internal static class WordTokenizer
             }
         }
 
-        // dogs' : the plural possessive keeps its apostrophe
-        if (index < s.Length && IsApostrophe(s[index]) && (s[index - 1] is 's' or 'S') && (index + 1 >= s.Length || !IsLatinLetter(s[index + 1])))
+        // dogs' : the plural possessive keeps its apostrophe; so does a word the lexicon lists with one (a dropped-g headword)
+        if (index < s.Length && IsApostrophe(s[index]) && (index + 1 >= s.Length || !IsLatinLetter(s[index + 1]))
+            && ((s[index - 1] is 's' or 'S') || lexicon.Contains(s[start..(index + 1)])))
         {
             index++;
         }

@@ -69,7 +69,7 @@ sections:
           - id: SpeechOnnxPiper-Synthesis-TextSplitting
             title: >-
               The SynthesisSubsystem shall speak a segment that is longer than one utterance in several utterances of
-              at most 256 phoneme symbols, cut between words and after a clause mark where one fits, with no sound
+              at most 384 phoneme symbols, cut between words at the best phrase boundary, with no sound
               lost and the audio joined in order, and shall produce empty audio at the voice's sample rate for a text
               with no sound in this voice without running the graph.
             justification: |

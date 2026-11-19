@@ -176,6 +176,99 @@ public class SentenceChunkerTests
     }
 
     /// <summary>
+    ///     Proves that a long clause with dashes is cut after the last dash that fits the budget, so each chunk is a
+    ///     whole phrase (the sentence of the Gettysburg Address that a whitespace-only cut broke between <i>of</i> and
+    ///     <i>devotion</i>), and that the chunks reconstruct the words in order.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_Chunk_LongClauseWithDashes_SplitsAtTheLastDashThatFits()
+    {
+        // Arrange: 330 characters without a comma, three dashes, the budget of 200
+        const string text = "It is rather for us to be here dedicated to the great task remaining before us -- that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion -- that we here highly resolve that these dead shall not have died in vain -- that this nation, under God, shall have a new birth of freedom.";
+
+        // Act
+        var chunks = SentenceChunker.Chunk(text);
+
+        // Assert: cut after the first dash (the second would not fit), never after "of"; the second chunk ends at the dash after "devotion"
+        Assert.Equal("It is rather for us to be here dedicated to the great task remaining before us --", chunks[0]);
+        Assert.Equal("that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion --", chunks[1]);
+        Assert.Equal("that we here highly resolve that these dead shall not have died in vain -- that this nation,", chunks[2]);
+        Assert.All(chunks, chunk => Assert.InRange(chunk.Length, 1, SentenceChunker.DefaultMaxChunkLength));
+        Assert.Equal(text, string.Join(' ', chunks));
+    }
+
+    /// <summary>
+    ///     Proves that a long clause with no dash is cut before a conjunction or relative word (where a clause starts)
+    ///     when one is within reach, rather than wherever the budget runs out.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_Chunk_LongClauseWithoutDashes_SplitsBeforeAConjunction()
+    {
+        // Arrange: the budget runs out inside "sailed across the wide grey sea"
+        const string text = "The old captain loved the quiet harbor town and its bright blue boats but he sailed across the wide grey sea every spring";
+
+        // Act
+        var chunks = SentenceChunker.Chunk(text, maxChunkLength: 90);
+
+        // Assert: the first chunk ends before "but" (the last conjunction that fits), not after "sailed across"
+        Assert.Equal("The old captain loved the quiet harbor town and its bright blue boats", chunks[0]);
+        Assert.Equal("but he sailed across the wide grey sea every spring", chunks[1]);
+        Assert.Equal(text, string.Join(' ', chunks));
+    }
+
+    /// <summary>
+    ///     Proves that a long clause with no dash and no conjunction is never cut between a function word and the word
+    ///     after it when another boundary leaves a reasonably full chunk (<i>the | last</i>, <i>of | devotion</i>,
+    ///     <i>we | here</i>), and that a clause with only function words at the end of the budget still splits.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_Chunk_LongClauseWithNothingBetter_NeverEndsAChunkOnAFunctionWord()
+    {
+        // Arrange: a budget of 34 holds "they gave the last full measure of", so a plain budget cut would end on "of"
+        const string text = "they gave the last full measure of the devotion that remained";
+        const string functionOnly = "alpha beta gamma delta of the of the of the of the of the of the";
+
+        // Act
+        var chunks = SentenceChunker.Chunk(text, maxChunkLength: 34);
+        var unavoidable = SentenceChunker.Chunk(functionOnly, maxChunkLength: 12);
+
+        // Assert: the first chunk ends before "of", on the last word that does not need the one after it
+        Assert.Equal("they gave the last full measure", chunks[0]);
+        Assert.All(chunks.Take(chunks.Count - 1), chunk => Assert.DoesNotContain(chunk.Split(' ')[^1], new[] { "of", "the", "that", "we" }));
+        Assert.Equal(text, string.Join(' ', chunks));
+
+        // Assert: when only function words are in reach the budget cut is used, so the text is still split and nothing is lost
+        Assert.True(unavoidable.Count > 1);
+        Assert.Equal(functionOnly, string.Join(' ', unavoidable));
+    }
+
+    /// <summary>
+    ///     Proves that the annotations of a clause that is cut at a phrase boundary are re-based onto the chunk that holds
+    ///     them, exactly as for any other whitespace cut.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_ChunkAligned_PhraseBoundarySplit_KeepsEveryAnnotationInItsChunk()
+    {
+        // Arrange: a dash cut inside one clause, with an annotation on a word on each side
+        const string text = "the quiet harbor town was asleep -- while the sailors dreamed of the open sea";
+        var annotations = new[]
+        {
+            new SegmentAnnotation(text.IndexOf("harbor", StringComparison.Ordinal), 6, "word", "harbor"),
+            new SegmentAnnotation(text.IndexOf("sailors", StringComparison.Ordinal), 7, "word", "sailors"),
+        };
+
+        // Act
+        var chunks = SentenceChunker.ChunkAligned(text, annotations, null, maxChunkLength: 50);
+
+        // Assert
+        Assert.Equal(["the quiet harbor town was asleep --", "while the sailors dreamed of the open sea"], chunks.Select(chunk => chunk.Text));
+        var harbor = Assert.Single(chunks[0].Annotations);
+        Assert.Equal("harbor", chunks[0].Text.Substring(harbor.Start, harbor.Length));
+        var sailors = Assert.Single(chunks[1].Annotations);
+        Assert.Equal("sailors", chunks[1].Text.Substring(sailors.Start, sailors.Length));
+    }
+
+    /// <summary>
     ///     Proves that <see cref="SentenceChunker.Chunk"/> rejects a <c>maxChunkLength</c>
     ///     that is not strictly positive (zero).
     /// </summary>

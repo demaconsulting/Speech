@@ -19,6 +19,16 @@ note, for the spellings that the rules would get wrong (`does`, `lives`, `dove`,
 
 The lemma of a reading id is the text before its first period, and spellings are lower-case ASCII.
 
+*The lexicon corrections* are the embedded resource `lexicon-corrections.tsv` (the file
+`data/phonemes-en/lexicon-corrections.tsv`): `word`, `arpabet` and a note giving the reason, for the dictionary entries
+that are transcription errors (`nobly`, which the dictionary lists with the vowel of *knobbly*, and `novelly`).
+`LexiconCorrections` (a helper of this unit, with `Parse(table)`, `Default`, `TryGet(word, out pronunciation)` and
+`Entries`) parses them; a word that is not lower-case letters and apostrophes, a phone that is not ARPAbet, a wrong
+column count and a repeated word are a `FormatException`. The word pronouncer consults the table before the dictionary,
+so a correction replaces every variant the dictionary lists, and the dictionary image and its pins stay untouched. The
+table was found by comparing every dictionary word that is a stem plus a neutral suffix (`-ly`, `-ness`, `-ful`,
+`-less`, `-ment`, `-ish`) with the entry of its stem and reading the 137 disagreements; two were errors.
+
 **Key Methods**:
 
 - **Parse(readings, overrides)**: builds the tables from text; throws `FormatException` naming the file and line for a

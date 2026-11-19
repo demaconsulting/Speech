@@ -52,6 +52,22 @@ sections:
               - LexiconSubsystem_Readings_Table_CoversTheInventoryAndMatchesTheLexicon
               - LexiconSubsystem_Readings_Resolve_EveryInventoryPair_ResolvesWithNoSilentGap
 
+          - id: SpeechPhonemesEn-Lexicon-Corrections
+            title: >-
+              The LexiconSubsystem shall hold a reviewed table of corrections for the dictionary entries that
+              are transcription errors, each correcting an entry the dictionary really lists differently, so
+              that the correction and nothing else replaces the dictionary's pronunciation of a word.
+            justification: |
+              The dictionary is the only pronunciation source, so its few wrong entries (it lists "nobly" with
+              the vowel of "knobbly") are spoken wrong unless something corrects them. The table is data with a
+              reason per row, the dictionary image and its pins stay untouched, and the phonemizer's full
+              dictionary test proves that these rows are the only exceptions.
+            children:
+              - SpeechPhonemesEn-Lexicon-ReadingPronunciations-Corrections
+            tests:
+              - ReadingPronunciations_LexiconCorrections_ParseAndShippedTable_AreWellFormedAndEveryRowCorrectsAnEntry
+              - PhonemizerSubsystem_Phonemize_EveryDictionaryWord_IsPronouncedAsTheDictionaryListsItExceptTheCorrections
+
           - id: SpeechPhonemesEn-Lexicon-Morphology
             title: >-
               The LexiconSubsystem shall derive the pronunciation of a regular plural, past tense, -ing

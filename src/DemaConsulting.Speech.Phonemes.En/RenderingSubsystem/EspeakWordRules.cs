@@ -40,8 +40,13 @@ internal static class EspeakWordRules
     /// </summary>
     /// <param name="phones">The phones.</param>
     /// <param name="demotePrimary">Whether the primary stress is rendered as a secondary stress (a prominent function word).</param>
+    /// <param name="compoundBreak">
+    ///     The index of the first phone of the second part of a compound pronounced part by part, or <c>-1</c>. A secondary
+    ///     stress from this phone on is the lesser stress of a later element of the compound, not a clash with the primary
+    ///     stress, so it is always written (<c>wˈɛlnˌoʊn</c>).
+    /// </param>
     /// <returns>The IPA symbols with stress marks.</returns>
-    public static string Render(ReadOnlySpan<Phone> phones, bool demotePrimary = false)
+    public static string Render(ReadOnlySpan<Phone> phones, bool demotePrimary = false, int compoundBreak = -1)
     {
         var tonic = TonicOrdinal(phones);
         var vowelCount = CountVowels(phones);
@@ -62,6 +67,13 @@ internal static class EspeakWordRules
 
             // A secondary stress on the final -y (nobody, thirty) is not realized
             var mark = phone.Stress == 2 && last && phone.BaseSymbol == "IY" ? string.Empty : StressMark(phone.Stress, ordinal, tonic, demotePrimary);
+
+            // The lesser stress of a later element of a compound stands next to the primary stress of the first (well-known)
+            if (phone.Stress == 2 && compoundBreak >= 0 && i >= compoundBreak && !(i == phones.Length - 1 && phone.BaseSymbol == "IY"))
+            {
+                mark = Secondary;
+            }
+
             if (teen)
             {
                 mark = TeenMark(ordinal, last, vowelCount) ?? mark;
@@ -186,6 +198,12 @@ internal static class EspeakWordRules
             return "ŋ";
         }
 
+        // The r after ay or aw before a consonant or the end of the word is part of the schwa that follows the diphthong (fire: faɪɚ)
+        if (symbol == "R" && SymbolAt(phones, index - 1) is "AY" or "AW" && !IsVowelAt(phones, index + 1))
+        {
+            return string.Empty;
+        }
+
         return symbol switch
         {
             "B" => "b",
@@ -241,9 +259,9 @@ internal static class EspeakWordRules
             case "AO":
                 return SymbolAt(phones, index + 1) is "NG" or "F" or "TH" or "S" ? "ɔ" : "ɔː";
             case "AW":
-                return "aʊ";
+                return DiphthongBeforeR(phones, index, "aʊ");
             case "AY":
-                return "aɪ";
+                return DiphthongBeforeR(phones, index, "aɪ");
             case "EH":
                 return "ɛ";
             case "ER":
@@ -255,7 +273,8 @@ internal static class EspeakWordRules
 
                 return (stress > 0 ? "ɜː" : "ɚ") + (nextIsVowel ? "ɹ" : string.Empty);
             case "EY":
-                return "eɪ";
+                // Before r (and not before a vowel) the vowel is the one of square (share, menswear)
+                return SymbolAt(phones, index + 1) == "R" && !IsVowelAt(phones, index + 2) ? "ɛ" : "eɪ";
             case "IH":
                 return stress > 0 ? "ɪ" : UnstressedIh(phones, index, ordinal, tonic);
             case "IY":
@@ -268,8 +287,35 @@ internal static class EspeakWordRules
                 // ur before a vowel is doubled (as in "during")
                 return "ʊ" + (SymbolAt(phones, index + 1) == "R" && IsVowelAt(phones, index + 2) ? "ɹ" : string.Empty);
             default:
-                return "uː";
+                // uː before r is the vowel of cure (poor: pʊɹ), doubled before a vowel like the one of "during"
+                if (SymbolAt(phones, index + 1) != "R")
+                {
+                    return "uː";
+                }
+
+                return "ʊ" + (IsVowelAt(phones, index + 2) ? "ɹ" : string.Empty);
         }
+    }
+
+    /// <summary>
+    ///     Gets the IPA of the diphthong <c>ay</c> or <c>aw</c>: before <c>r</c> a schwa follows it that carries the
+    ///     <c>r</c> (<i>inspire</i>: <c>ɪnspˈaɪɚ</c>, <i>hour</i>: <c>ˈaʊɚ</c>), and a high front vowel after the <c>r</c> brings the
+    ///     <c>r</c> back (<i>firing</i>: <c>fˈaɪɚɹɪŋ</c>).
+    /// </summary>
+    /// <param name="phones">The phones.</param>
+    /// <param name="index">The index of the diphthong.</param>
+    /// <param name="diphthong">The IPA of the diphthong itself.</param>
+    /// <returns>The IPA symbols.</returns>
+    /// <remarks>Before any other vowel (<i>cairo</i>, <i>cyrus</i>, <i>environment</i>) the <c>r</c> stays a plain <c>ɹ</c> after the diphthong.</remarks>
+    private static string DiphthongBeforeR(ReadOnlySpan<Phone> phones, int index, string diphthong)
+    {
+        if (SymbolAt(phones, index + 1) != "R")
+        {
+            return diphthong;
+        }
+
+        var highFrontOrNone = !IsVowelAt(phones, index + 2) || SymbolAt(phones, index + 2) is "IH" or "IY";
+        return highFrontOrNone ? diphthong + "ɚ" : diphthong;
     }
 
     /// <summary>
@@ -283,6 +329,12 @@ internal static class EspeakWordRules
     /// <returns>The IPA symbols.</returns>
     private static string Iy(ReadOnlySpan<Phone> phones, int index, int ordinal, int tonic, bool stressed)
     {
+        // Before r the vowel is the one of near (here: hˈɪɹ, not hˈiːɹ) whatever its stress
+        if (SymbolAt(phones, index + 1) == "R")
+        {
+            return "ɪ";
+        }
+
         if (stressed)
         {
             return "iː";
