@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Build Configuration.
+         Dev-only desktop tool (never packed, never shipped): a human listener proofreads long-form
+         text-to-speech output sentence by sentence. Like the Demo it is an application, so it
+         targets net10.0 (LTS) only and has no consumer compatibility matrix to satisfy. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Proofreader</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Proofreader</AssemblyName>
+
+    <!-- WinExe suppresses the console window on Windows; on Linux/macOS it behaves as Exe. -->
+    <OutputType>WinExe</OutputType>
+    <IsPackable>false</IsPackable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+
+    <!-- Code Quality Configuration (mirrors DemaConsulting.Speech.Demo.csproj) -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Avalonia UI Dependencies (versions match the Demo; there is no central package management) -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.5" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <!-- Speech Engine Native Runtime Dependencies.
+       The library does not bundle sherpa-onnx native runtime packages, so the consuming
+       application (this tool, like the Demo) adds the runtime package for each RID it runs on. -->
+  <ItemGroup>
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.8" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.linux-x64" Version="1.13.8" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Project References.
+       Every synthesis model family the library registers, plus the English text analysis and
+       phonemizer libraries whose output the diagnostics pane shows. The Demo project is never
+       referenced: the few settings presenters the tool needs are small and are copied. -->
+  <ItemGroup>
+    <!-- ONNX Runtime pairing: sherpa-onnx's native onnxruntime must stay the only one in the
+         process, so the managed API is pinned to 1.28.0 with native assets excluded (see the CLI
+         and Demo projects for the full note). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Piper\DemaConsulting.Speech.Onnx.Piper.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Text.En\DemaConsulting.Speech.Text.En.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Phonemes.En\DemaConsulting.Speech.Phonemes.En.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Proofreader.Tests" />
+  </ItemGroup>
+
+</Project>

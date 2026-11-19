@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:DemaConsulting.Speech.Proofreader.Settings"
+             x:Class="DemaConsulting.Speech.Proofreader.Settings.ModelSlotView"
+             x:DataType="local:ModelSlotViewModel">
+
+  <!-- One model slot: the model dropdown with its status and the generic settings panel. -->
+  <Border BorderThickness="1" BorderBrush="Gray" CornerRadius="4" Padding="8" Margin="0,0,0,8">
+    <StackPanel Spacing="4">
+      <TextBlock Text="{Binding Name, StringFormat='Model {0}'}" FontWeight="SemiBold" />
+      <ComboBox ItemsSource="{Binding Models}"
+                SelectedItem="{Binding SelectedModel}"
+                DisplayMemberBinding="{Binding Label}"
+                HorizontalAlignment="Stretch" />
+      <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75" />
+      <local:ModelSettingsView DataContext="{Binding Settings}" />
+    </StackPanel>
+  </Border>
+
+</UserControl>
