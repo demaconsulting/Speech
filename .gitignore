@@ -106,3 +106,7 @@ AGENT_REPORT_*.md
 # Text.En training data: local caches (evaluation sets and CMUdict evidence, working inputs) that are not part of the data
 data/text-en/external/
 data/text-en/work/
+
+# Phonemes.En data: local caches (the pinned CMUdict download, oracle measurement scratch) that are never committed
+data/phonemes-en/external/
+data/phonemes-en/work/

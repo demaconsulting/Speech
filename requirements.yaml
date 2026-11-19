@@ -177,10 +177,17 @@ includes:
   - docs/reqstream/speech-onnx-kokoro.yaml
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.yaml
-  - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.yaml
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.yaml
+  - docs/reqstream/speech-onnx-piper.yaml
+  - docs/reqstream/speech-onnx-piper/model-management-subsystem.yaml
+  - docs/reqstream/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.yaml
+  - docs/reqstream/speech-onnx-piper/model-management-subsystem/piper-voice-config.yaml
+  - docs/reqstream/speech-onnx-piper/synthesis-subsystem.yaml
+  - docs/reqstream/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml
@@ -225,6 +232,8 @@ includes:
   - docs/reqstream/speech-text-en/normalization-subsystem/number-verbalizer.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/abbreviation-resolver.yaml
   - docs/reqstream/speech-text-en/normalization-subsystem/acronym-recognizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/web-address-recognizer.yaml
+  - docs/reqstream/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/tsv-table.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/text-en-data-set.yaml
@@ -253,6 +262,24 @@ includes:
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.yaml
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/external-evaluation-record.yaml
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/evaluate-external-command.yaml
+  - docs/reqstream/speech-phonemes-en.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/cmu-lexicon.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/phone.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/morphology.yaml
+  - docs/reqstream/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.yaml
+  - docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem/lts-model.yaml
+  - docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem/letter-to-sound.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem/english-phonemizer.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem/word-tokenizer.yaml
+  - docs/reqstream/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/espeak-ipa-renderer.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/misaki-renderer.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/weak-forms.yaml
+  - docs/reqstream/speech-phonemes-en/rendering-subsystem/phoneme-stream.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

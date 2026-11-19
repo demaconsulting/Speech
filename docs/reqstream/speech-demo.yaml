@@ -228,7 +228,8 @@ sections:
         justification: |
           The demo's composition root registers the sibling packages' production models into
           its SpeechModelCatalog - core DemaConsulting.Speech ships zero built-in models - so
-          the demo's catalog panel must surface those real models.
+          the demo's catalog panel must surface those real models: the Sherpa, Kokoro, Piper,
+          Nemotron speech-to-text and Chatterbox Turbo models.
         children:
           - SpeechDemo-App-CatalogRegistration
         tests:

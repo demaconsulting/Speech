@@ -8,6 +8,13 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
+    # The managed Microsoft.ML.OnnxRuntime pin and the org.k2fsa.sherpa.onnx packages (which bundle the native
+    # ONNX Runtime the process loads) must be upgraded together, by hand: the managed API must match the native
+    # library (see docs/design/ots/microsoft-ml-onnxruntime.md and the doctor command's native-runtime check),
+    # so Dependabot must not bump either one on its own.
+    ignore:
+      - dependency-name: "Microsoft.ML.OnnxRuntime*"
+      - dependency-name: "org.k2fsa.sherpa.onnx*"
     groups:
       nuget-dependencies:
         patterns:

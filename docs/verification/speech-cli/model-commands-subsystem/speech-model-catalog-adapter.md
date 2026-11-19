@@ -26,7 +26,8 @@ is an `ArgumentException`, and a failed composition propagates its exception.
 
 **Scenario**: `Enumerate` is called on a fresh adapter.
 
-**Expected**: The Sherpa, Kokoro, Nemotron and Chatterbox Turbo models (matched by the Chatterbox base
+**Expected**: The Sherpa, Kokoro, Piper (`piper-onnx-libritts-r-en-us-medium`), Nemotron and Chatterbox Turbo models
+(matched by the Chatterbox base
 model id prefix) are present and all are `NotDownloaded`.
 
 ##### SpeechModelCatalogAdapter_UninstallAndCleanUpLeftovers_NeverInstalledModel_DoNotThrow

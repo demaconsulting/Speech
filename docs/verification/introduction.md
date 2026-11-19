@@ -23,10 +23,10 @@ This document is intended for:
 ## Scope
 
 This document covers the verification design for the Speech system and its constituent software
-items, for the SpeechSherpa library system, for the SpeechOnnx, SpeechOnnxKokoro,
-SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo library systems, for the SpeechTextEn library
-system, for the SpeechCli command-line tool system, and for the SpeechDemo application system, each
-with its constituent software items, specifically:
+items, for the SpeechSherpa library system, for the SpeechOnnx, SpeechOnnxKokoro, SpeechOnnxPiper,
+SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo library systems, for the SpeechTextEn and
+SpeechPhonemesEn library systems, for the SpeechCli command-line tool system, and for the SpeechDemo application
+system, each with its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -65,8 +65,13 @@ sibling system that `Speech` must never depend on:
 - **SpeechOnnx (System)** and its **OnnxRuntimeSubsystem (Subsystem)** — Shared ONNX Runtime
   infrastructure: the layered execution-provider selector with CPU fallback
 - **SpeechOnnxKokoro (System)** — The ONNX Runtime Kokoro-82M text-to-speech package, with its
-  **ModelManagementSubsystem** (catalog extension, model, text normalizer, lexicon phonemizer,
-  phoneme vocabulary) and **SynthesisSubsystem** (the engine)
+  **ModelManagementSubsystem** (catalog extension, model with its shared English text analyzer,
+  phoneme vocabulary) and **SynthesisSubsystem** (the engine and the phoneme pipeline that turns
+  text and annotations into token ids)
+- **SpeechOnnxPiper (System)** — The ONNX Runtime Piper (VITS) English (US) `libritts_r` text-to-speech
+  package, with its **ModelManagementSubsystem** (catalog extension, voice model with its archive
+  extractor, voice configuration reader) and **SynthesisSubsystem** (the engine and the phoneme
+  pipeline that turns text and annotations into framed phoneme ids)
 - **SpeechOnnxNemotronStt (System)** — The ONNX Runtime Nemotron streaming speech-recognition
   package, with its **ModelManagementSubsystem** (catalog extension, model, vocabulary) and
   **RecognitionSubsystem** (the engine, feature extractor, RNN-T decoder, silence limiter)
@@ -83,13 +88,21 @@ The following software items of the SpeechTextEn system are also covered; it is 
   session, with its **AnalysisSubsystem** (the analyzer, its options, the annotation vocabulary,
   the part-of-speech adapter and the diagnostics reporter) and its **NormalizationSubsystem** (the
   alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the
-  abbreviation resolver and the acronym recognizer, whose
+  abbreviation resolver, the acronym recognizer, the web address recognizer and the alphanumeric token
+  recognizer, whose
   tests feed the real tokenizer's tokens to the normalizer through a test helper), and its
   non-shipped **TrainingDataSubsystem** (the `check-data` command of the Text.En trainer that verifies the
   training data in `data/text-en/`: the strict file reader, the typed loader, the manifest verifier, the span
   validator, the finding collector, the schema, license and leakage checks and the command entry, verified in
   `test/DemaConsulting.Speech.Text.En.Trainer.Tests` over data folders that the tests build in code and once over
   the real committed data)
+- **SpeechPhonemesEn (System)** — The `DemaConsulting.Speech.Phonemes.En` English phonemizer package (a preview),
+  verified through its public API with golden corpora (sentences, readings, out-of-vocabulary words and both
+  renderers) and symbol-coverage gates against the Piper symbol table and the Kokoro vocabulary, with its
+  **LexiconSubsystem** (the embedded dictionary, the phone types, morphology and reading pronunciations),
+  **LetterToSoundSubsystem** (the trained network and its converter), **PhonemizerSubsystem** (the phonemizer, the
+  word tokenizer and the word pronouncer) and **RenderingSubsystem** (the Piper IPA and Kokoro symbol renderers, the
+  weak-form table and the shared layout and splitting)
 
 The following software items of the SpeechCli system are also covered:
 
@@ -122,7 +135,7 @@ The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
-- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
+- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa and SpeechOnnxPiper model installs
 - **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by the Speech audio pipeline
 - **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx libraries
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
@@ -171,10 +184,13 @@ The SpeechSherpa system follows the same pattern as a sibling system: its verifi
 lives under `docs/verification/speech-sherpa/` (system document `docs/verification/speech-sherpa.md`),
 its design under `docs/design/speech-sherpa/`, its source under `src/DemaConsulting.Speech.Sherpa/`,
 and its tests under `test/DemaConsulting.Speech.Sherpa.Tests/`. The SpeechCli, SpeechDemo, SpeechOnnx,
-SpeechOnnxKokoro, SpeechOnnxNemotronStt, SpeechOnnxChatterboxTurbo, and SpeechTextEn systems follow the
+SpeechOnnxKokoro, SpeechOnnxPiper, SpeechOnnxNemotronStt, SpeechOnnxChatterboxTurbo, SpeechTextEn, and
+SpeechPhonemesEn systems follow the
 same sibling-system pattern under their own kebab-case folders and `test/DemaConsulting.Speech.*.Tests`; the
 trainer tool of SpeechTextEn keeps its source in `tools/DemaConsulting.Speech.Text.En.Trainer/` and its tests in
-`test/DemaConsulting.Speech.Text.En.Trainer.Tests/`.
+`test/DemaConsulting.Speech.Text.En.Trainer.Tests/`, and the tools project of SpeechPhonemesEn
+(`tools/DemaConsulting.Speech.Phonemes.En.Tools/`) is non-shipped evidence tooling without a test project of its own,
+whose `--check` commands and the golden-corpus tests of SpeechPhonemesEn are its verification.
 
 OTS items have parallel artifacts in:
 

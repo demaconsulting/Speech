@@ -7,7 +7,7 @@ package SpeechCli {
              * unchanged to the resolved model's real SpeechSynthesizerFactory/
              * SpeechRecognizerFactory, preserving each factory's own honestly-unavailable
              * fallback contract rather than masking it. Chains AddChatterboxTurboModels after the
-             * Sherpa/Kokoro/Nemotron models, sharing one ReferenceVoiceLibrary with the voice
+             * Sherpa/Kokoro/Piper/Nemotron models, sharing one ReferenceVoiceLibrary with the voice
              * members and passing --voices-dir as the extra reference-voice directory. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapter.cs */

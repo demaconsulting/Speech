@@ -174,6 +174,31 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that the model supplies the English text analysis, shared by every instance, and that the
+    ///     analysis chooses different readings for the noun and the verb <c>record</c>, so the session can
+    ///     hand them to the annotated engine.
+    /// </summary>
+    [Fact]
+    public void OnnxKokoroEnglishSynthesisModel_TextAnalyzer_IsSharedAndClassifiesHeteronyms()
+    {
+        // Arrange
+        ISynthesisModel first = new OnnxKokoroEnglishSynthesisModel();
+        ISynthesisModel second = new OnnxKokoroEnglishSynthesisModel();
+
+        // Act
+        var analyzer = first.TextAnalyzer;
+        var result = analyzer?.Analyze("They record the song. The record broke.", CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(analyzer);
+        Assert.Same(analyzer, second.TextAnalyzer);
+        Assert.NotNull(result);
+        var readings = result.Annotations.Where(annotation => annotation.Kind == "en.reading").Select(annotation => annotation.Value).ToList();
+        Assert.Equal(2, readings.Count);
+        Assert.NotEqual(readings[0], readings[1]);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="ISynthesisModel.ResolveSpeakerId"/> resolves every one of the 29
     ///     declared voice values to its own <see cref="OnnxKokoroEnglishSynthesisModel"/>
     ///     declaration-order index.

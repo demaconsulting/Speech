@@ -39,7 +39,8 @@ relays the tagger's decisions, so the tests assert structure, offsets and wiring
 tagger assigns with full confidence. The curated heteronym sentences are clear cases written independently of any
 labeled data set: they show that the shipped model is wired into the default analyzer, not its accuracy, which is
 claimed only as the committed evaluation record states it. A phoneme string is verified only for its syntax. The
-documented limitations (URLs, Roman numerals, prefix currency codes, multi-word override entries) are pinned by golden
+documented limitations (Roman numerals, prefix currency codes, multi-word override entries, dotted names that are not
+web addresses) are pinned by golden
 rows and unit tests.
 
 ## Test Environment
@@ -174,6 +175,16 @@ numbers, decimals, amounts, abbreviated dates and units; that the documented def
 year, a month-first date, a fraction) are applied and counted (four ambiguous readings, cued and equal readings not
 counted); and that a 16-digit run is read digit by digit while a 65-digit run and a 33-digit fraction stay as written,
 each counted as a numeric fallback, with no value over the documented size.
+
+### Web Addresses and Identifiers
+
+**Test**: `SpeechTextEn_Analyze_WebAddressesAndIdentifiers_AreSpokenAsPiecesWithoutChangingText`
+
+Verifies, through the public analyzer and the independent applier, that `Visit https://www.example.com/docs?id=7 today.`
+is spoken with the scheme and `www` spelled, every separator as a word and the colon kept, that
+`Mail john.smith@example.com, now.` keeps its comma, that `report.pdf` and `Node.js` are unchanged, and that `A4`,
+`B12`, `COVID-19`, `12-year-old` and `10K` are spoken as `A four`, `B twelve`, `COVID-nineteen`, `twelve-year-old` and
+`ten K`, with the source text untouched.
 
 ### Pronunciation Overrides
 

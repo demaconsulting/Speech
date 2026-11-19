@@ -3,7 +3,8 @@ package SpeechOnnxKokoro {
         doc /* Real, concrete ISynthesisModel backing the bare ONNX export
              * onnx-community/Kokoro-82M-v1.0-ONNX (Apache-2.0), run directly through ONNX
              * Runtime with no bundled native inference engine. Declares 29 American/British
-             * English voices as a ChoiceParameter, owns a 30-file download descriptor (the ONNX
+             * English voices as a ChoiceParameter (the British voices speak American phonemes), supplies the shared
+             * English text analysis (SpeechTextEn: normalization and heteronym readings) to the session, owns a 30-file download descriptor (the ONNX
              * graph plus every voice's style-vector file, none requiring extraction), builds its
              * ONNX Runtime session through the sibling SpeechOnnx system's
              * OnnxExecutionProviderSelector (supplying OnnxKokoroSynthesisEngine.RunProbeInference

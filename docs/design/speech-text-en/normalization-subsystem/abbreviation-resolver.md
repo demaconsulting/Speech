@@ -41,6 +41,8 @@ The lexicon covers these groups (US English spoken forms):
   Department
 - **Business suffixes** (suffix): `Inc.` Incorporated, `Ltd.` Limited, `Corp.` Corporation, `Co.` Company,
   `Bros.` Brothers
+- **Area units** (lowercase): `sq.` square (prefix), `ft.` feet (suffix); `5 ft.` after a number is read by the
+  numeric rule first, so these two serve `200 sq. ft.`
 - **Ambiguous** (see the decision order below): `St.`: Saint (prefix) or Street (suffix, default); `Dr.`: Doctor
   (prefix, default) or Drive (suffix); `Sr.`: Sister (prefix) or Senior (suffix, default); `No.`: Number (prefix,
   `next-digit`) or `No` (word, default)

@@ -66,6 +66,8 @@ Ltd.	Limited	suffix	yes	-	business suffix
 Corp.	Corporation	suffix	yes	-	business suffix
 Co.	Company	suffix	yes	-	business suffix
 Bros.	Brothers	suffix	yes	-	business suffix
+sq.	square	prefix	yes	-	area unit word ('200 sq. ft.')
+ft.	feet	suffix	yes	-	unit word not after a number ('sq. ft.'); '5 ft.' is read by number normalization
 St.	Saint	prefix	no	-	St. Louis
 St.	Street	suffix	yes	-	Main St.
 Dr.	Doctor	prefix	yes	-	Dr. Smith

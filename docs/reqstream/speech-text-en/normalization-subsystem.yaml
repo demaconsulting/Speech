@@ -6,7 +6,9 @@
 # docs/reqstream/speech-text-en.yaml. This subsystem turns the tokens of an English text into a
 # description of how parts of it are spoken: the alignment types that carry and check the result
 # (NormalizationAlignment), the rule pass that produces it (TextNormalizer), the recognizer and the
-# word builder behind the numeric rule (NumericExpressionRecognizer and NumberVerbalizer), and the
+# word builder behind the numeric rule (NumericExpressionRecognizer and NumberVerbalizer), the
+# recognizers of web addresses and of identifiers that mix letters and digits
+# (WebAddressRecognizer and AlphanumericTokenRecognizer), and the
 # two lexicons behind the abbreviation and initialism rules (AbbreviationResolver and
 # AcronymRecognizer). It never rewrites the text and never
 # depends on the part-of-speech tagger. It also applies host-supplied token directives (the
@@ -178,7 +180,8 @@ sections:
               a number with thousands separators, a signed number, a decimal, an ordinal, a hash
               number and a number with leading zeros, in lowercase plain words without a digit,
               hyphen or comma, shall read an ordinal only where its suffix matches its number,
-              shall leave a number with letters mixed in, a non-ASCII digit and the other
+              shall leave a number with letters mixed in (other than the identifiers and glued
+              letters of the address and identifier requirement), a non-ASCII digit and the other
               documented unsupported forms unchanged without counting them, shall read a four-digit
               number from 1000 to 2099 as a year after a year cue, a month, a date context or an
               era, as a cardinal after a quantity cue or before a unit, a currency or a counted
@@ -201,8 +204,8 @@ sections:
               A phoneme-driven model cannot pronounce digits. The words follow one fixed
               convention (no "and", no hyphens: "twenty four") so that a backend needs no number
               parser, a leading zero marks an identifier that is read digit by digit, and a number
-              the library cannot read safely (a hexadecimal literal, a compound such as "3-D",
-              digits of another script) stays as written instead of being guessed. "In 1999" is
+              the library cannot read safely (a hexadecimal literal, a name before a number such as
+              "mid-1990s", digits of another script) stays as written instead of being guessed. "In 1999" is
               "nineteen ninety nine" and "about 1500 people" is "one thousand five hundred", so the
               closed, documented cue lists make the reading predictable, and a decade is spoken as a
               word such as "nineties". "5-10" is a range, "555-1234" is read digit by digit and
@@ -285,6 +288,40 @@ sections:
             tests:
               - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
               - NormalizationSubsystem_SentenceBreaks_NumbersAndDates_BreakOnlyWhereTheSentenceEnds
+
+          - id: SpeechTextEn-Normalization-AddressAndIdentifierReading
+            title: >-
+              The NormalizationSubsystem shall give the spoken form of the pieces of a URL (scheme
+              letters and a leading www spelled, the slashes after the scheme dropped), an e-mail
+              address and a bare domain with a known top-level domain (each separator as its own
+              word, the words between them left as written), shall give an identifier of capital
+              letters and digits its letters spelled and its digits read, a name joined to a
+              number by a hyphen its number read, and the number of a hyphenated compound (12-year-old)
+              and a number with a glued capital letter (10K) their number read and the letter spelled,
+              shall leave a file name, a dotted name with an unknown ending and a capital word of
+              four or more letters before digits unchanged, shall try the address rule before the
+              clitic, abbreviation and acronym rules and the identifier rule after the lexicons,
+              and shall keep every one of these spans free of whitespace, colons and digits.
+            justification: |
+              Addresses and identifiers are common in running text and have no reading as written:
+              a model would run "example.com" together or say "A4" as the article and a number.
+              The address rule must come first because "john.smith@example.com" would otherwise be
+              taken for a clitic or an abbreviation, and the identifier rule comes after the
+              lexicons so that a listed entry wins. Each span holds only the piece that is not a
+              word, so the phonemizer still speaks the words of the address and the span survives
+              the chunking of the Speech library. A file name such as "report.pdf" reads correctly
+              as written and must stay.
+            children:
+              - SpeechTextEn-Normalization-WebAddressRecognizer-Pieces
+              - SpeechTextEn-Normalization-WebAddressRecognizer-Boundaries
+              - SpeechTextEn-Normalization-AlphanumericTokenRecognizer-Identifiers
+              - SpeechTextEn-Normalization-AlphanumericTokenRecognizer-HyphenatedNames
+              - SpeechTextEn-Normalization-NumericExpressionRecognizer-CompoundsAndLetters
+              - SpeechTextEn-Normalization-TextNormalizer-AddressesAndIdentifiers
+            tests:
+              - NormalizationSubsystem_GoldenFile_EveryRow_MatchesExpectedSpokenTextSentencesAndAmbiguity
+              - NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts
+              - NormalizationSubsystem_AlignmentContract_RandomNumericText_SatisfiesAllInvariants
 
           - id: SpeechTextEn-Normalization-TokenDirectives
             title: >-

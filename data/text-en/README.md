@@ -167,13 +167,13 @@ words and contain no IPA, no WHD gloss and no WHD sentence. `bench-mapping.tsv` 
 ## Leakage
 
 All rows were compared with every evaluation set: WHD train, eval and its converted dev (not committed), heteronym-bench (all 566
-items), PartOfSpeech `pos-gold`, user36 and the branch gold set and listening pack of the unpublished Speech branch (500 sentences),
+items), PartOfSpeech `pos-gold`, `user36` (36 adversarial sentences) and `branch-gold` (the 500-sentence gold set with its listening pack, both from a local pre-release experiment),
 the PartOfSpeech open dev and test, gold v2, shape probe, STE challenge and the shapes development tranches (24 sets,
 31,324 sentences, 28,708 distinct keys). Rule: the key is the lower-case alphanumerics of the sentence (exact normalized match);
 a near duplicate is a sentence of at least 8 words whose word 5-grams are at least 80 percent contained in the evaluation 5-grams.
 
 - Removed before the files were written: 7 exact matches (all synthetic; short generic sentences such as "The dove is a symbol of
-  peace." that appear in heteronym-bench or the branch gold set) and 31 near duplicates (30 natural: boilerplate shared with the PartOfSpeech open
+  peace." that appear in heteronym-bench or the `branch-gold` set) and 31 near duplicates (30 natural: boilerplate shared with the PartOfSpeech open
   dev/test sentences, the shapes development tranche of defined terms and pos-gold; 1 synthetic of the second round). List: `exclusions.tsv`.
 - Remaining: 0 exact, 0 near duplicates in all four data files. Rows that share at least one word 5-gram with some evaluation set (generic phrases such
   as "at the end of the"): train 688 of 19,865, dev 93 of 3,235, holdout-natural 68 of 1,167, holdout-independent 4 of 1,972. Counts per set: `leakage-report.tsv`.

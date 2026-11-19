@@ -569,6 +569,31 @@ public sealed class SpeechTextEnTests
         }
     }
 
+    /// <summary>Proves web addresses are spoken as their pieces (scheme letters and www spelled, separators as words, slashes dropped), identifiers of letters and digits have their letters spelled and digits read, file names stay as written, and the text itself is never rewritten.</summary>
+    [Fact]
+    public void SpeechTextEn_Analyze_WebAddressesAndIdentifiers_AreSpokenAsPiecesWithoutChangingText()
+    {
+        // Arrange: (text, the text as spoken)
+        (string Text, string Spoken)[] rows =
+        [
+            ("Visit https://www.example.com/docs?id=7 today.", "Visit H T T P S:W W W dot example dot com slash docs question mark id equals 7 today."),
+            ("Mail john.smith@example.com, now.", "Mail john dot smith at example dot com, now."),
+            ("Open report.pdf or Node.js now.", "Open report.pdf or Node.js now."),
+            ("Paper A4, vitamin B12 and COVID-19 hit the 12-year-old, 10K runner.", "Paper A four, vitamin B twelve and COVID-nineteen hit the twelve-year-old, ten K runner."),
+        ];
+        var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
+
+        foreach (var (text, spoken) in rows)
+        {
+            // Act
+            var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+            // Assert: the annotations name the source characters and the source is untouched
+            Assert.Equal(spoken, NormalizationHarness.ApplyNormalizations(text, result.Annotations));
+            Assert.All(result.Annotations, annotation => Assert.InRange(annotation.Start + annotation.Length, 1, text.Length));
+        }
+    }
+
     /// <summary>Proves the sentence breaks around numbers, decimals, amounts, abbreviated dates and units fall exactly where the sentences end.</summary>
     [Fact]
     public void SpeechTextEn_Analyze_NumericSentenceBreaks_FollowTheSentenceEnd()

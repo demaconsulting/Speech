@@ -1,7 +1,7 @@
 # Checksums of the files of data/text-en/, verified by the check-data command of the Text.En trainer; MANIFEST.tsv itself and the local caches external/ and work/ are not listed
 # columns = file, sha256, bytes, rows (lines minus the header for .tsv files, lines for all other files)
 ATTRIBUTION.md	841bf1862cbf3017dd1090243835c262d3a5a438a12eb2411c47abf0b83e1e0c	2698	39
-README.md	c5d93547998bd75af6e8c4ff9f134a9bb769b722ab753dc9182d42129dbbb89b	37934	354
+README.md	dafc1256df819cb0a8d3bf4c95fefddabd7f78c39f78b96e5c83e5b40d0236db	37985	354
 audit/adjudication.tsv	143c53f1e124b2d5e3d7fe16f2a761f13117cea12238412f80b7ce2aa198e6ec	9952	85
 audit/audit-summary.md	2c5067b5d599a458a0b84da5c4332c5e51a3c8abec30ca522f0b501e93e1db2e	9312	121
 audit/consistency-fixes.tsv	ce8e67110b396db315f93a56975b9b97d1c96fcb1d444530524eeb46e68b4c00	3072	27
@@ -27,7 +27,7 @@ prompts/final-review.md	c861d2a2d6c5bc6390aa984bbe50127304bc276923c7f30d3812b58f
 prompts/generation-synthetic-v2.md	4371180d4550b9d135faa134bfa814bdf0d51d70ef0ceb09a5a32b9d6dc7c8e3	4040	34
 prompts/generation-synthetic-v3.md	e8145b0172edbc56afb0e52c83cfe0dafd08c25f08353ec3c1cd8c56ad44b4b0	3188	33
 prompts/generation-synthetic.md	472e0f2b7379f8be7db908e478a611288abfb23057b63a7ded4b30d9b5ffd28f	3869	39
-prompts/harvest-derivation.md	3ea81fea8f2297ea977be267c2c2c83b6a95c2d3961fdaa305bdffd4eb05a5b2	5037	47
+prompts/harvest-derivation.md	a5df208a49a4cbb3b054657b08fd134a739553a90945ea265985352f3a1369b7	4945	47
 prompts/holdout-independent.md	b24b705e49755a3b46e55075569b2a8f3d64648916382d7ecabf7cf24cd42ba5	3117	30
 prompts/holdout-review.md	a185e4512457a1d744cdfe9263514d989350f3ada2b946c4724baee877d71f78	1951	27
 prompts/labeling-harvest-llm.md	ffbfb9693b2731fc1df33b97cb7614ab0be02e209ef56fa066f57b17da161387	2955	35

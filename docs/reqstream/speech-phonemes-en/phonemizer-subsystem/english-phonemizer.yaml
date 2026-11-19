@@ -1,0 +1,28 @@
+---
+# Software Unit Requirements for EnglishPhonemizer
+#
+# These requirements describe the behavior of the EnglishPhonemizer unit: the public entry point of the package
+# (with the result types PhonemizedText and PhonemizedItem that it returns). It decomposes the parent
+# SpeechPhonemesEn PhonemizerSubsystem requirements. Covered by the EnglishPhonemizer_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/PhonemizerSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: PhonemizerSubsystem Requirements
+        sections:
+          - title: EnglishPhonemizer Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Phonemizer-EnglishPhonemizer-Phonemize
+                title: >-
+                  The EnglishPhonemizer class shall reject a null text with an argument error (with or
+                  without annotations) and shall return for a text and an empty annotation list exactly the
+                  result it returns for the text alone.
+                justification: |
+                  The phonemizer is the one public door of the package, so its argument contract and the
+                  equality of "no annotations" and "empty annotations" (the plain generation path and the
+                  analyzed path must not differ by accident) are what every model package relies on. The
+                  shape of the result is exercised by every subsystem and system test that reads it.
+                tests:
+                  - EnglishPhonemizer_Phonemize_NullText_Throws
+                  - EnglishPhonemizer_Phonemize_EmptyAnnotations_EqualsNoAnnotations

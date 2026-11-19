@@ -4,14 +4,17 @@
 `onnx-community/Kokoro-82M-v1.0-ONNX` (Kokoro-82M v1.0, upstream `hexgrad/Kokoro-82M` lineage), run
 directly through ONNX Runtime with no bundled native inference engine - unlike the sibling
 `DemaConsulting.Speech.Sherpa` package's sherpa-onnx-backed `SherpaOnnxKokoroEnglishSynthesisModel`
-(the earlier, StyleTTS2-derived v0.19 variant, bundling its own phonemizer). This class owns
-text-to-phoneme conversion itself via the embedded `KokoroLexiconPhonemizer`, because this v1.0
-ONNX export performs only the final waveform-generation forward pass.
+(the earlier, StyleTTS2-derived v0.19 variant, bundling its own phonemizer). Text-to-phoneme conversion is
+owned by this package, because this v1.0 ONNX export performs only the final waveform-generation forward pass:
+this class supplies the shared English text analysis (`TextAnalyzer`) and constructs the engine with the
+`KokoroPhonemePipeline` that phonemizes with the Phonemes.En library.
 
 **Data Model**: No persistent instance state beyond a constructor-supplied, optional ordered list
 of preferred execution provider names (`_preferredExecutionProviderNames`), forwarded unchanged to
 `OnnxExecutionProviderSelector.Create`. `ModelId = "kokoro-onnx-v1_0-en"`. `VoiceParameterId =
-"voice"`. `DownloadDescriptor` declares 30 individual HTTPS files: the `int8` ONNX graph variant
+"voice"`. `SharedAnalyzer` is one lazily created Text.En `EnglishTextAnalyzer` (annotations: normalization
+and reading) shared by all instances. `DownloadDescriptor` declares 30 individual HTTPS files: the `int8` ONNX
+graph variant
 (`onnx/model_quantized.onnx`, 92,361,116 bytes) and 29 voice style-vector `.bin` files (one per
 declared English voice, each an exact `(510, 256)` float32 array - 522,240 bytes - except the
 bundled default blend voice `af`, which is `(512, 256)` - 524,288 bytes), each with an
@@ -41,8 +44,8 @@ Hugging Face directly.
   and the `ConvTranspose` operator), which construction alone cannot detect - then reads every
   declared voice's `.bin` file into a flattened `float[]` keyed by its index in `VoiceOrder` (the
   engine-specific integer speaker id), and constructs and returns a loaded
-  `OnnxKokoroSynthesisEngine` from the session, a fresh `KokoroPhonemeVocabulary`, a fresh
-  `KokoroLexiconPhonemizer`, and the loaded voice styles. This model's phoneme vocabulary is not
+  `OnnxKokoroSynthesisEngine` from the session, a `KokoroPhonemePipeline` over a fresh
+  `KokoroPhonemeVocabulary`, and the loaded voice styles. This model's phoneme vocabulary is not
   downloaded at all - it is embedded directly in this package, since it is small, fixed, and
   versioned together with this class's own token-id handling code.
 - **ISynthesisModel.PreferredAudioFormat** *(public)*: mono `24000` Hz, matching
@@ -64,21 +67,26 @@ always the final, unprobed fallback, so `CreateBackend` only fails this way for 
 malformed or unreadable model file. The ONNX session itself is created before any voice-style
 file is read, so this method holds the session in a local variable across that later work and
 disposes it itself (in a `catch` block, before rethrowing) if reading a voice file or
-constructing the vocabulary/phonemizer fails - the only way to avoid leaking the native session
+constructing the vocabulary/pipeline fails - the only way to avoid leaking the native session
 handle, since the `OnnxKokoroSynthesisEngine` that would otherwise own its lifetime is never
 constructed on that failure path.
 
 **Voice Subset**: this release ships 54 named voices across multiple languages; this
-class declares only its 29 American/British English voices, because its embedded
-`KokoroLexiconPhonemizer` only converts English text to phonemes - feeding the model's Japanese or
+class declares only its 29 American/British English voices, because this package's phonemization only
+converts English text to phonemes - feeding the model's Japanese or
 Mandarin voices through an English-only phonemizer would mispronounce their own language's text.
+**Caveat for the British voices** (`bf_*`, `bm_*`): the phonemes are always General American, so a British voice
+speaks American pronunciations in its own voice quality (for example the `r` in `car` is pronounced). Their
+listening quality has not been evaluated separately; British English phonemes are deferred. The same caveat is
+in the type remarks of the class and in the package README.
 Adding a further English voice later is purely additive: download and verify its `.bin` file, add
 one `VoiceOrder`/`VoiceLabels` entry and one `DownloadDescriptor` file entry; no other code in this
 class needs to change.
 
 **Style Vectors Indexed by Utterance Length**: each voice's `.bin` file is a flattened `(rows,
 256)` float32 array, and the row selected for one utterance depends on that utterance's own
-phoneme-token count - see `OnnxKokoroSynthesisEngine.Generate`'s row-selection logic, which
+phoneme-token count - see `OnnxKokoroSynthesisEngine`'s row-selection logic (one row per part of a long
+segment), which
 mirrors the proven Python reference pipeline exactly.
 
 **Why the int8 Graph**: the `int8` (`model_quantized`) variant (92,361,116 bytes, about 88 MiB)
@@ -89,8 +97,9 @@ on CPU), and downloads about 71 MB less.
 
 **Dependencies**: `ISynthesisModel`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`,
 `ChoiceParameter`, `ChoiceParameterOption`, `OnnxExecutionProviderSelector` (the sibling SpeechOnnx
-system's shared helper), `OnnxKokoroSynthesisEngine`, `KokoroPhonemeVocabulary`,
-`KokoroLexiconPhonemizer`, `ISynthesisBackend`, Microsoft.ML.OnnxRuntime's `InferenceSession`.
+system's shared helper), `OnnxKokoroSynthesisEngine`, `KokoroPhonemePipeline`, `KokoroPhonemeVocabulary`,
+`EnglishTextAnalyzer` and `TextEnAnnotationSelection` (Text.En), `ISynthesisBackend`, Microsoft.ML.OnnxRuntime's
+`InferenceSession`.
 
 **Callers**: `SpeechModelCatalogKokoroExtensions.AddKokoroModels` (registers this instance through
 `SpeechModelCatalog.AddModels`); `SpeechModelDownloader` (fetches and checksum-verifies every

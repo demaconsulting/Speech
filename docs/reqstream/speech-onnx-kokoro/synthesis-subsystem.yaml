@@ -3,15 +3,21 @@
 #
 # These requirements describe the subsystem-level behavior of the SpeechOnnxKokoro
 # SynthesisSubsystem, decomposing the system-level requirements in
-# docs/reqstream/speech-onnx-kokoro.yaml. This subsystem contains a single unit,
-# OnnxKokoroSynthesisEngine, the real raw-ONNX implementation of the Speech library's public
-# ISynthesisBackend seam; all synthesis policy above that seam (Layer 2 rendering, chunking,
-# session state machine, cancellation, fault containment) remains in the Speech library's own
-# SynthesisSubsystem. Each requirement states one observable behavior.
+# docs/reqstream/speech-onnx-kokoro.yaml. This subsystem contains two units: KokoroPhonemePipeline,
+# which turns the text of a segment (with the annotations of the English text analysis when there
+# are any) into Kokoro's phoneme token ids, and OnnxKokoroSynthesisEngine, the real raw-ONNX
+# implementation of the Speech library's public ISynthesisBackend seam (and of its annotated
+# derivative IAnnotatedSynthesisBackend) that runs the Kokoro graph once for every part of a
+# segment. All synthesis policy above that seam (Layer 2 rendering, chunking, session state
+# machine, cancellation, fault containment) remains in the Speech library's own SynthesisSubsystem.
+# Each requirement states one observable behavior.
 #
-# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/
-# OnnxKokoroSynthesisEngineTests.cs; unit-level requirements for OnnxKokoroSynthesisEngine live in
-# docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml.
+# Covered by the SynthesisSubsystem_* tests in test/DemaConsulting.Speech.Onnx.Kokoro.Tests/
+# SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs, which drive the engine and the real
+# pipeline together over a tiny hand-built ONNX fixture (the engine is the way into the subsystem),
+# and by the unit tests listed in the per-unit files under
+# docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/ (kokoro-phoneme-pipeline.yaml and
+# onnx-kokoro-synthesis-engine.yaml).
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -36,6 +42,72 @@ sections:
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Generate
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
+            tests:
+              - SynthesisSubsystem_TextWithoutSounds_ReturnsEmptyAudio
+
+          - id: SpeechOnnxKokoro-Synthesis-TextToPhonemes
+            title: >-
+              The SynthesisSubsystem shall convert the text of a segment into Kokoro's phoneme
+              token ids itself, through the shared English phonemizer: every word of the text is
+              spoken, a word that is not in the pronunciation dictionary included (pronounced from
+              its spelling), the small function words are spoken in their weak forms as in running
+              speech, and text without any sound produces no tokens.
+            justification: |
+              Unlike sherpa-onnx's native library (used by the sibling SpeechSherpa system), which
+              bundles phonemization internally, the bare ONNX export leaves text-to-phoneme
+              conversion entirely to the caller. Nothing may be silently omitted: a word that the
+              dictionary does not have is pronounced by the letter-to-sound model of the
+              phonemizer instead of being dropped. Kokoro was trained on phonemes whose function
+              words are reduced, and rendering them that way measured closer to those phonemes
+              (phone error rate 1.99 percent with weak forms against 4.88 percent with full forms
+              on the tuning sentences, see docs/evaluation/phonemes-en/kokoro-adoption.md), so weak
+              forms are the default for this model.
+            children:
+              - SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-PhonemeTokenIds
+              - SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-WeakForms
+              - SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-ArgumentValidation
+            tests:
+              - SynthesisSubsystem_UnknownWord_IsStillSpoken
+              - SynthesisSubsystem_TextWithoutSounds_ReturnsEmptyAudio
+
+          - id: SpeechOnnxKokoro-Synthesis-AnnotatedSpeech
+            title: >-
+              The SynthesisSubsystem shall speak a segment with the annotations of the English text
+              analysis when it is given them, speaking the spoken replacement of a number or an
+              abbreviation instead of its written text and the reading chosen for a heteronym, and
+              shall speak a segment without annotations as written, with the default reading of
+              every word and no normalization.
+            justification: |
+              The session analyzes the whole request and hands each segment's annotations to the
+              backend that can use them; the engine is such an annotated backend. The plain
+              generation call has no analysis, and its behavior (default readings, no
+              normalization) is the documented one for that path, so a caller that wants analyzed
+              speech goes through a session.
+            children:
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-AnnotatedGeneration
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-PlainGeneration
+              - SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-ReadingSelection
+            tests:
+              - SynthesisSubsystem_AnnotatedReplacement_IsSpokenAsReplaced
+              - SynthesisSubsystem_AnnotatedHeteronym_IsSpokenWithTheChosenReading
+
+          - id: SpeechOnnxKokoro-Synthesis-LongTextParts
+            title: >-
+              The SynthesisSubsystem shall speak a segment that has more phoneme tokens than the
+              model accepts in one run as several parts, each within the limit, cut between words
+              after a clause mark where there is one and losing none of the text, with one run of
+              the graph per part, the style row of the voice chosen for each part by its own token
+              count, and the audio of the parts joined in order.
+            justification: |
+              The graph accepts at most 510 phoneme tokens per run and Kokoro's style rows are
+              indexed by the token count of the utterance. A longer stretch of text (a long number
+              written out, a long run of words without a break) must be spoken whole instead of
+              being truncated, and each part is its own utterance with its own style row.
+            children:
+              - SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-LongText
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-GenerationInParts
+            tests:
+              - SynthesisSubsystem_TextBeyondTokenLimit_IsSpokenInSeveralParts
 
           - id: SpeechOnnxKokoro-Synthesis-OnnxBackendSampleRate
             title: >-

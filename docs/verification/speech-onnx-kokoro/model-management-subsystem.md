@@ -18,16 +18,19 @@ The SpeechOnnxKokoro ModelManagementSubsystem is verified through deterministic 
   established convention for its own catalog extension method
 - **`OnnxKokoroEnglishSynthesisModel`**: its declared identity, license, 29-voice
   `ChoiceParameter`, 30-file download descriptor, preferred audio format, speaker-id resolution
-  (including every declared voice plus unknown-value/missing-key/null-bag fallback), and an
+  (including every declared voice plus unknown-value/missing-key/null-bag fallback), the shared English text
+  analysis (one instance for all models, different reading annotations for the noun and the verb of `record`), and an
   end-to-end `CreateBackend` + `Generate` test against a fake ONNX fixture and 29 synthetic
   per-voice style-vector files proving the correct voice's style vector is forwarded verbatim -
   see *SpeechOnnxKokoro OnnxKokoroEnglishSynthesisModel Verification*
-- **`KokoroLexiconPhonemizer`**: its lexicon lookup, whitespace collapsing, vocabulary-punctuation
-  passthrough, out-of-vocabulary-word dropping/reporting, and argument validation - see
-  *SpeechOnnxKokoro KokoroLexiconPhonemizer Verification*
 - **`KokoroPhonemeVocabulary`**: its character-to-token-id lookup, unknown-character dropping,
   truncation to `MaxPhonemeTokens`, and argument validation - see *SpeechOnnxKokoro
   KokoroPhonemeVocabulary Verification*
+
+The conversion of text to phonemes (`KokoroPhonemePipeline`) belongs to the SynthesisSubsystem and is verified
+there (see *SpeechOnnxKokoro SynthesisSubsystem Verification*). The Kokoro test project has no separate
+subsystem-level test class for this subsystem: the catalog extension tests are its subsystem-level tests, and the
+model tests exercise the model together with the engine it constructs.
 
 ### Test Environment
 
@@ -51,18 +54,15 @@ format; `ResolveSpeakerId` resolves every declared voice to its declaration-orde
 back to the default voice's index for an unknown value, a missing key, or a `null` bag;
 `CreateBackend` throws `ArgumentException` for an empty installed directory and, for a valid
 directory, constructs an engine whose `Generate` forwards the requested voice's own style vector
-verbatim; `KokoroLexiconPhonemizer.Phonemize` returns the embedded lexicon's phonemes for known
-words, collapses whitespace, passes through vocabulary punctuation, drops non-vocabulary
-punctuation, drops and reports out-of-vocabulary words, and throws `ArgumentNullException` for
-null text; and `KokoroPhonemeVocabulary.ToTokenIds` converts known characters to their confirmed
-token ids in order, drops unknown characters, truncates to `MaxPhonemeTokens`, and throws
+verbatim; the model's text analysis is one instance shared by all models and gives the noun and the verb of
+`record` different reading annotations; and `KokoroPhonemeVocabulary.ToTokenIds` converts known characters to their
+confirmed token ids in order, drops unknown characters, truncates to `MaxPhonemeTokens`, and throws
 `ArgumentNullException` for null phonemes.
 
 ### Test Scenarios
 
 See each unit's own verification document for its detailed test scenarios:
-`onnx-kokoro-english-synthesis-model.md`, `kokoro-lexicon-phonemizer.md`,
-`kokoro-phoneme-vocabulary.md`.
+`onnx-kokoro-english-synthesis-model.md`, `kokoro-phoneme-vocabulary.md`.
 
 The `SpeechModelCatalogKokoroExtensions` unit's test scenarios are recorded above, directly
 against `test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechModelCatalogKokoroExtensionsTests.cs`;

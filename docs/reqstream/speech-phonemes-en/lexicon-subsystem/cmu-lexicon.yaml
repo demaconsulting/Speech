@@ -1,0 +1,40 @@
+---
+# Software Unit Requirements for CmuLexicon
+#
+# These requirements describe the behavior of the CmuLexicon unit, the embedded lexicon built from the CMU
+# Pronouncing Dictionary: its lookup contract. It decomposes the parent SpeechPhonemesEn LexiconSubsystem
+# requirement. Covered by the CmuLexicon_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LexiconSubsystem Requirements
+        sections:
+          - title: CmuLexicon Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Lexicon-CmuLexicon-Lookup
+                title: >-
+                  The CmuLexicon class shall return for a word all of its pronunciation variants in
+                  dictionary order, whatever the case of the word and whether its apostrophe is straight or
+                  typographic, shall return no pronunciation for a word that is absent or cannot be a
+                  headword (empty, with a digit or a hyphen) without throwing, and shall give the same
+                  answers to many threads at once, including the first ones that race on the shared
+                  instance. It shall also refuse a damaged lexicon image (a wrong header, a negative or
+                  impossible word count, a truncated image or trailing data, a word outside the alphabet or out
+                  of order, an invalid phone code) with an invalid-data error instead of using it.
+                justification: |
+                  The first variant is the default pronunciation and the others are the candidates a
+                  reading can name, so their order is part of the contract. Text arrives in any case and
+                  with word-processor apostrophes, and a lookup of arbitrary text must be safe, because
+                  the phonemizer asks about every word it meets. One shared instance serves every
+                  phonemizer. A corrupted image must fail when it is loaded, not give wrong or crashing
+                  lookups later.
+                tests:
+                  - CmuLexicon_Lookup_KnownWords_ReturnsAllVariantsInOrder
+                  - CmuLexicon_Lookup_CaseAndApostrophe_AreFolded
+                  - CmuLexicon_Lookup_UnknownOrInvalidWord_ReturnsEmpty
+                  - CmuLexicon_Lookup_ConcurrentUse_GivesTheSingleThreadedAnswers
+                  - CmuLexicon_FromImage_UndamagedImage_LoadsWithItsDeclaredWordCount
+                  - CmuLexicon_FromImage_DamagedImage_ThrowsInvalidDataNamingTheDamage
+                  - CmuLexicon_FromGZipStream_NotGZipOrCutShort_ThrowsInvalidData

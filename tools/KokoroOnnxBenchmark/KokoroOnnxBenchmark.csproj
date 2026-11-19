@@ -42,6 +42,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Text.En\DemaConsulting.Speech.Text.En.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Phonemes.En\DemaConsulting.Speech.Phonemes.En.csproj" />
   </ItemGroup>
 
   <!-- Linked, unmodified copies of the real production source - see the header comment for why
@@ -49,8 +51,7 @@
   <ItemGroup>
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx\OnnxRuntimeSubsystem\OnnxExecutionProviderSelector.cs" Link="Kokoro\OnnxExecutionProviderSelector.cs" />
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroPhonemeVocabulary.cs" Link="Kokoro\KokoroPhonemeVocabulary.cs" />
-    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroTextNormalizer.cs" Link="Kokoro\KokoroTextNormalizer.cs" />
-    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroLexiconPhonemizer.cs" Link="Kokoro\KokoroLexiconPhonemizer.cs" />
+    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\SynthesisSubsystem\KokoroPhonemePipeline.cs" Link="Kokoro\KokoroPhonemePipeline.cs" />
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\SynthesisSubsystem\OnnxKokoroSynthesisEngine.cs" Link="Kokoro\OnnxKokoroSynthesisEngine.cs" />
   </ItemGroup>
 
@@ -59,7 +60,6 @@
        namespace, not this tool's). -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\Resources\kokoro-v1.0-tokenizer.json" LogicalName="DemaConsulting.Speech.Onnx.Kokoro.Resources.kokoro-v1.0-tokenizer.json" Link="Resources\kokoro-v1.0-tokenizer.json" />
-    <EmbeddedResource Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\Resources\kokoro-en-lexicon.tsv.gz" LogicalName="DemaConsulting.Speech.Onnx.Kokoro.Resources.kokoro-en-lexicon.tsv.gz" Link="Resources\kokoro-en-lexicon.tsv.gz" />
   </ItemGroup>
 
 </Project>

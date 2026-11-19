@@ -1,0 +1,65 @@
+---
+# Software Subsystem Requirements for the SpeechPhonemesEn LetterToSoundSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechPhonemesEn LetterToSoundSubsystem,
+# decomposing the system-level requirements in docs/reqstream/speech-phonemes-en.yaml. The subsystem
+# pronounces a word that is in neither the dictionary nor derivable from it: the trained model (LtsModel, an
+# exact integer network over the letters of the word, trained on the CMU Pronouncing Dictionary alone by the
+# non-shipped tools project) and the converter around it (LetterToSound), which caches answers and guarantees
+# that a word with letters is never silent. Each requirement states one observable behavior.
+#
+# Unit-level content lives in per-unit files under
+# docs/reqstream/speech-phonemes-en/letter-to-sound-subsystem/. Covered by the LetterToSoundSubsystem_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/LetterToSoundSubsystemTests.cs, with the golden file
+# TestData/oov-golden.tsv.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LetterToSoundSubsystem Requirements
+        requirements:
+          - id: SpeechPhonemesEn-LetterToSound-TrainedModel
+            title: >-
+              The LetterToSoundSubsystem shall pronounce a word that is absent from the dictionary with the
+              model trained on the dictionary, giving every word of a corpus of about a hundred realistic
+              out-of-vocabulary words (names, brands, neologisms, compounds that the dictionary lacks) exactly
+              its pinned pronunciation.
+            justification: |
+              The pinned pronunciations detect any drift of the shipped weights, a different training run or
+              a change of the inference arithmetic, none of which a test of a few words would notice. The
+              corpus is a regression baseline, not an oracle; its doubtful items are listed in the
+              evaluation record and are never corrected by hand, so what ships is what the model computes.
+            children:
+              - SpeechPhonemesEn-LetterToSound-LtsModel-Conversion
+            tests:
+              - LetterToSoundSubsystem_OovGolden_EveryWordGetsItsPinnedPronunciation
+
+          - id: SpeechPhonemesEn-LetterToSound-NeverSilent
+            title: >-
+              The LetterToSoundSubsystem shall give every spelling that has a letter a non-empty
+              pronunciation with a vowel, whatever the spelling (a dictionary word, a name, a vowel-less
+              initialism, a very long word), and none to text without a letter.
+            justification: |
+              A word that comes out silent disappears from the speech without a trace. The model can give a
+              vowel-less answer for strings such as "www" or "sq", which a voice cannot say as a word, so
+              those are spoken by letter names instead; checking a large sample of the dictionary and a set
+              of hostile spellings shows that the guarantee holds beyond the examples a person chose.
+            children:
+              - SpeechPhonemesEn-LetterToSound-LetterToSound-Conversion
+            tests:
+              - LetterToSoundSubsystem_AnySpelling_IsNeverSilent
+
+          - id: SpeechPhonemesEn-LetterToSound-Deterministic
+            title: >-
+              The LetterToSoundSubsystem shall give a word the same pronunciation on every call, on every
+              runtime and operating system the package supports, and from any number of threads at once.
+            justification: |
+              The answer depends on the word alone, so the cache that speeds repeated words must never change
+              it, and the model uses exact integer arithmetic so that no machine differs from another. The
+              concurrency test compares many threads with the single-threaded answers; the identity across
+              runtimes is evidenced by running the pinned golden on every target framework in the build.
+            children:
+              - SpeechPhonemesEn-LetterToSound-LtsModel-Conversion
+            tests:
+              - LetterToSoundSubsystem_ConcurrentUse_GivesTheSingleThreadedAnswers
+              - LetterToSoundSubsystem_OovGolden_EveryWordGetsItsPinnedPronunciation

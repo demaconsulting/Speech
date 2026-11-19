@@ -7,17 +7,20 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 /// <param name="Start">The UTF-16 offset of the first covered character.</param>
 /// <param name="Length">The number of covered UTF-16 code units; positive.</param>
 /// <param name="Spoken">The spoken words: lowercase letters and single spaces (capitals only in month names, the separate spelled meridiem span <c>P M</c> or <c>A M</c>, <c>Celsius</c> and <c>Fahrenheit</c>), an apostrophe only in <c>o'clock</c>, never a digit.</param>
-/// <param name="Kind">One of <see cref="NormalizationKind.Number"/>, <see cref="NormalizationKind.Currency"/>, <see cref="NormalizationKind.DateTime"/> or <see cref="NormalizationKind.Unit"/>. A <c>DateTime</c> span whose spoken text is a letter sequence (the meridiem letters) is the spelled span; a glued meridiem is always its own span, never part of the words of the number.</param>
+/// <param name="Kind">One of <see cref="NormalizationKind.Number"/>, <see cref="NormalizationKind.Currency"/>, <see cref="NormalizationKind.DateTime"/> or <see cref="NormalizationKind.Unit"/>; the one spelled capital letter glued to a number (<c>10K</c>) is <see cref="NormalizationKind.Initialism"/>. A <c>DateTime</c> span whose spoken text is a letter sequence (the meridiem letters) is the spelled span; a glued meridiem is always its own span, never part of the words of the number.</param>
 internal readonly record struct NumericSpan(int Start, int Length, string Spoken, NormalizationKind Kind);
 
 /// <summary>
-///     The outcome of recognizing a numeric expression at one token: up to two replacement spans,
+///     The outcome of recognizing a numeric expression at one token: its replacement spans (one or
+///     two in nearly every case; one per digit group for a phone number or identifier),
 ///     the number of tokens the expression consumed, and the counts it asks the pass to record.
 /// </summary>
 /// <remarks>
-///     A plain value (no heap data besides the spoken strings): the recognizer never allocates a
-///     list per token. A match with no spans and <see cref="Fallback"/> set means the token looks
-///     numeric but is left as written because it is outside the documented limits or shapes.
+///     A plain value (no heap data besides the spoken strings) for up to two spans: the recognizer
+///     never allocates a list per token. Only the hyphen-separated digit groups of a phone number
+///     or identifier, which need one span per group, carry an array. A match with no spans and
+///     <see cref="Fallback"/> set means the token looks numeric but is left as written because it
+///     is outside the documented limits or shapes.
 /// </remarks>
 internal readonly struct NumericMatch
 {
@@ -27,20 +30,25 @@ internal readonly struct NumericMatch
     /// <summary>The second span, when <see cref="SpanCount"/> is 2.</summary>
     private readonly NumericSpan _second;
 
+    /// <summary>All spans, when <see cref="SpanCount"/> is more than 2; otherwise <see langword="null"/>.</summary>
+    private readonly NumericSpan[]? _all;
+
     /// <summary>
     ///     Initializes a new match.
     /// </summary>
     /// <param name="first">The first span (ignored when <paramref name="spanCount"/> is 0).</param>
-    /// <param name="second">The second span (ignored unless <paramref name="spanCount"/> is 2).</param>
-    /// <param name="spanCount">The number of spans, 0 to 2.</param>
+    /// <param name="second">The second span (ignored unless <paramref name="spanCount"/> is at least 2).</param>
+    /// <param name="all">Every span when <paramref name="spanCount"/> is more than 2; otherwise <see langword="null"/>.</param>
+    /// <param name="spanCount">The number of spans.</param>
     /// <param name="tokensConsumed">The number of tokens the expression covers from the starting token, at least 1.</param>
     /// <param name="ambiguous">Whether the reading chose a documented default among competing readings.</param>
     /// <param name="fallback">Whether the expression hit a documented limit or an unsupported numeric shape.</param>
     /// <param name="periodUnit">Whether the last span is a unit token that may carry an abbreviation period.</param>
-    internal NumericMatch(NumericSpan first, NumericSpan second, int spanCount, int tokensConsumed, bool ambiguous, bool fallback, bool periodUnit)
+    internal NumericMatch(NumericSpan first, NumericSpan second, NumericSpan[]? all, int spanCount, int tokensConsumed, bool ambiguous, bool fallback, bool periodUnit)
     {
         _first = first;
         _second = second;
+        _all = all;
         SpanCount = spanCount;
         TokensConsumed = tokensConsumed;
         Ambiguous = ambiguous;
@@ -80,6 +88,11 @@ internal readonly struct NumericMatch
             if ((uint)index >= (uint)SpanCount)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (_all is not null)
+            {
+                return _all[index];
             }
 
             return index == 0 ? _first : _second;
@@ -322,6 +335,9 @@ internal static class NumericExpressionRecognizer
         /// <summary>The second span.</summary>
         private NumericSpan _second;
 
+        /// <summary>Every span after the second, for the one-span-per-group reading of a phone number; <see langword="null"/> until needed.</summary>
+        private List<NumericSpan>? _rest;
+
         /// <summary>The number of spans added.</summary>
         private int _count;
 
@@ -351,9 +367,13 @@ internal static class NumericExpressionRecognizer
             {
                 _first = span;
             }
-            else
+            else if (_count == 1)
             {
                 _second = span;
+            }
+            else
+            {
+                (_rest ??= []).Add(span);
             }
 
             _count++;
@@ -363,7 +383,7 @@ internal static class NumericExpressionRecognizer
         ///     Produces the finished match.
         /// </summary>
         /// <returns>The match.</returns>
-        internal readonly NumericMatch ToMatch() => new(_first, _second, _count, Consumed < 1 ? 1 : Consumed, Ambiguous, Fallback, PeriodUnit);
+        internal readonly NumericMatch ToMatch() => new(_first, _second, _rest is null ? null : [_first, _second, .. _rest], _count, Consumed < 1 ? 1 : Consumed, Ambiguous, Fallback, PeriodUnit);
     }
 
     /// <summary>
@@ -505,7 +525,7 @@ internal static class NumericExpressionRecognizer
     ///     Creates the match of a numeric-looking token that is left as written.
     /// </summary>
     /// <returns>A match with no span and the fallback flag set.</returns>
-    private static NumericMatch FallbackMatch() => new(default, default, 0, 1, false, true, false);
+    private static NumericMatch FallbackMatch() => new(default, default, null, 0, 1, false, true, false);
 
     /// <summary>
     ///     Reads an optional sign, currency symbol or hash and finds where the digits start.
@@ -874,7 +894,69 @@ internal static class NumericExpressionRecognizer
             return TryGluedWord(ref c, integerDigits, fraction, currency.Singular, currency.Plural, false, NormalizationKind.Currency, out match);
         }
 
+        // A number joined to a word by a hyphen (12-year-old, 24-hour, 2.5-inch, 3-D): the number is read and the
+        // hyphenated word is left as it is, so the phonemizer sees "twelve-year-old", one compound.
+        if (c.Sign == '\0' && rest.Length > 1 && rest[0] == '-' && IsLetter(rest[1]))
+        {
+            return TryHyphenatedPrefix(ref c, integerDigits, fraction, hasThousands, out match);
+        }
+
+        // A number with one capital letter glued to it (10K, 5G, 3D, 12B): the number is read and the letter is spelled,
+        // which is how the written form is read aloud whatever the letter stands for (thousand, generation, dimensions).
+        if (unsignedInteger && !hasThousands && c.GroupCount == 1 && rest.Length == 1 && (rest[0] is >= 'A' and <= 'Z' or 'k'))
+        {
+            var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+            var fallback = false;
+            if (!TryAppendInteger(ref writer, integerDigits, ref fallback))
+            {
+                match = FallbackMatch();
+                return true;
+            }
+
+            var builder = new Builder { Consumed = 1, Fallback = fallback };
+            builder.Add(c.Token.Start, c.RestStart, writer.ToString(), NormalizationKind.Number);
+            builder.Add(c.Token.Start + c.RestStart, 1, char.ToUpperInvariant(rest[0]).ToString(), NormalizationKind.Initialism);
+            match = builder.ToMatch();
+            return true;
+        }
+
         return false;
+    }
+
+    /// <summary>
+    ///     Reads the number at the start of a hyphenated compound such as <c>12-year-old</c>: one span over the
+    ///     digits, nothing over the hyphen and the word after it.
+    /// </summary>
+    /// <param name="c">The scanned token, whose rest starts with a hyphen and a letter.</param>
+    /// <param name="integerDigits">The integer digits.</param>
+    /// <param name="fraction">The fraction digits, or empty.</param>
+    /// <param name="hasThousands">Whether the integer part had separators.</param>
+    /// <param name="match">The match when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> when the number is read or is a fallback.</returns>
+    /// <remarks>
+    ///     A four-digit integer in the year range is read like a year (<c>1500-word</c> is <i>fifteen hundred</i>,
+    ///     <c>2000-seat</c> is <i>two thousand</i>), which is also how such a quantity is usually said; any other number
+    ///     is read as a cardinal or decimal.
+    /// </remarks>
+    private static bool TryHyphenatedPrefix(ref Ctx c, ReadOnlySpan<char> integerDigits, ReadOnlySpan<char> fraction, bool hasThousands, out NumericMatch match)
+    {
+        match = default;
+        var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        var fallback = false;
+        if (fraction.IsEmpty && !hasThousands && integerDigits.Length == 4 && integerDigits[0] != '0' && IsYearRange(integerDigits))
+        {
+            NumberVerbalizer.AppendYear(ref writer, integerDigits);
+        }
+        else if (!TryAppendNumber(ref writer, c.Sign, integerDigits, fraction, ref fallback))
+        {
+            match = FallbackMatch();
+            return true;
+        }
+
+        var builder = new Builder { Consumed = 1, Fallback = fallback };
+        builder.Add(c.Token.Start, c.RestStart, writer.ToString(), NormalizationKind.Number);
+        match = builder.ToMatch();
+        return true;
     }
 
     /// <summary>
@@ -1669,14 +1751,16 @@ internal static class NumericExpressionRecognizer
     /// <summary>
     ///     Tells whether the token at an index is read as a number by itself: it is recognized and
     ///     produces at least one spoken span (a counted fallback that leaves the token as written,
-    ///     such as <c>1,23</c>, and an unrecognized token such as <c>2D</c> or <c>25:99</c> are not).
+    ///     such as <c>1,23</c>, and an unrecognized token such as <c>25:99</c> are not). A number with
+    ///     a capital letter glued to it (<c>2D</c>) is read, but it is not a complete number, so it is
+    ///     not an endpoint of a range.
     /// </summary>
     /// <param name="text">The text.</param>
     /// <param name="tokens">The tokens.</param>
     /// <param name="index">The token index, already validated by the caller.</param>
     /// <returns><see langword="true"/> when the token is read as a number.</returns>
     private static bool IsRangeEndpoint(string text, ReadOnlySpan<NormalizationToken> tokens, int index) =>
-        TryRecognize(text, tokens, index, out var endpoint) && endpoint.SpanCount > 0;
+        TryRecognize(text, tokens, index, out var endpoint) && endpoint.SpanCount > 0 && !(endpoint.SpanCount == 2 && endpoint[1].Kind == NormalizationKind.Initialism);
 
     /// <summary>
     ///     Reads a time written <c>h:mm</c>, with an optional glued meridiem or a following
@@ -1878,20 +1962,22 @@ internal static class NumericExpressionRecognizer
         }
         else
         {
-            // A phone number or identifier: every digit on its own.
+            // A phone number or identifier: every digit on its own, one span per hyphen-separated group so the
+            // hyphens stay between the spans (a speaker pauses between the groups of 555-0147, as in 555, 0147)
             if (total > NumberVerbalizer.MaxSpelledDigits)
             {
                 match = FallbackMatch();
                 return true;
             }
 
-            var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
             for (var group = 0; group < c.GroupCount; group++)
             {
-                NumberVerbalizer.AppendDigits(ref writer, c.Group(group));
+                var digits = c.Group(group);
+                builder.Add(c.Token.Start + c.Groups[2 * group], digits.Length, NumberVerbalizer.Digits(digits), NormalizationKind.Number);
             }
 
-            spoken = writer.ToString();
+            match = builder.ToMatch();
+            return true;
         }
 
         builder.Ambiguous = ambiguous;

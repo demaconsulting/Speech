@@ -4,9 +4,11 @@
     <Project Path="src/DemaConsulting.Speech.Sherpa/DemaConsulting.Speech.Sherpa.csproj" />
     <Project Path="src/DemaConsulting.Speech.Onnx/DemaConsulting.Speech.Onnx.csproj" />
     <Project Path="src/DemaConsulting.Speech.Onnx.Kokoro/DemaConsulting.Speech.Onnx.Kokoro.csproj" />
+    <Project Path="src/DemaConsulting.Speech.Onnx.Piper/DemaConsulting.Speech.Onnx.Piper.csproj" />
     <Project Path="src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
     <Project Path="src/DemaConsulting.Speech.Onnx.NemotronStt/DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
     <Project Path="src/DemaConsulting.Speech.Text.En/DemaConsulting.Speech.Text.En.csproj" />
+    <Project Path="src/DemaConsulting.Speech.Phonemes.En/DemaConsulting.Speech.Phonemes.En.csproj" />
     <Project Path="src/DemaConsulting.Speech.Demo/DemaConsulting.Speech.Demo.csproj" />
     <Project Path="src/DemaConsulting.Speech.Cli/DemaConsulting.Speech.Cli.csproj" />
   </Folder>
@@ -15,9 +17,11 @@
     <Project Path="test/DemaConsulting.Speech.Sherpa.Tests/DemaConsulting.Speech.Sherpa.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Onnx.Tests/DemaConsulting.Speech.Onnx.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Onnx.Kokoro.Tests/DemaConsulting.Speech.Onnx.Kokoro.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Onnx.Piper.Tests/DemaConsulting.Speech.Onnx.Piper.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/DemaConsulting.Speech.Onnx.NemotronStt.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Text.En.Tests/DemaConsulting.Speech.Text.En.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Phonemes.En.Tests/DemaConsulting.Speech.Phonemes.En.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Demo.Tests/DemaConsulting.Speech.Demo.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Cli.Tests/DemaConsulting.Speech.Cli.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Text.En.Trainer.Tests/DemaConsulting.Speech.Text.En.Trainer.Tests.csproj" />
@@ -25,5 +29,6 @@
   <Folder Name="/tools/">
     <Project Path="tools/ModelDownloader/ModelDownloader.csproj" />
     <Project Path="tools/DemaConsulting.Speech.Text.En.Trainer/DemaConsulting.Speech.Text.En.Trainer.csproj" />
+    <Project Path="tools/DemaConsulting.Speech.Phonemes.En.Tools/DemaConsulting.Speech.Phonemes.En.Tools.csproj" />
   </Folder>
 </Solution>

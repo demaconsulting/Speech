@@ -96,6 +96,21 @@ Speak text through a real playback device, selecting a specific device by name (
 speech-cli speak --tts-model vits-piper-en_US-libritts_r-medium --text "Hello there." --playback-device "Speakers (Realtek)"
 ```
 
+The two raw ONNX Runtime English voices speak numbers, dates, web addresses and heteronyms from the text analysis
+described in "Kokoro and Piper" above. Choose a Kokoro voice with `--tts-param voice=<name>` and one of the 904 Piper
+speakers with `--tts-param speaker=<0-903>`:
+
+```bash
+speech-cli download kokoro-onnx-v1_0-en piper-onnx-libritts-r-en-us-medium
+speech-cli speak --tts-model kokoro-onnx-v1_0-en --tts-param voice=af_heart --text "I will record the record." --output-audio kokoro.wav
+speech-cli speak --tts-model piper-onnx-libritts-r-en-us-medium --tts-param speaker=5 --text "Write to help@example.com." --output-audio piper.wav
+```
+
+`vits-piper-en_US-libritts_r-medium` (the Sherpa model) and `piper-onnx-libritts-r-en-us-medium` (the raw ONNX
+Runtime model of the `DemaConsulting.Speech.Onnx.Piper` package) are two different implementations of the same
+LibriTTS-R voice with the same 904 speakers: the first phonemizes with espeak-ng inside sherpa-onnx, the second with
+this repository's own English pipeline. Run `speech-cli list-models` to see both.
+
 Recognize speech live from the microphone, stopping automatically after five seconds of silence
 (and giving up to ten seconds to start speaking):
 

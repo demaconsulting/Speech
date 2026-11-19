@@ -170,11 +170,18 @@ input-files:
   - docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md
   - docs/verification/speech-onnx-kokoro.md
   - docs/verification/speech-onnx-kokoro/model-management-subsystem.md
-  - docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md
   - docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md
   - docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md
   - docs/verification/speech-onnx-kokoro/synthesis-subsystem.md
   - docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md
+  - docs/verification/speech-onnx-kokoro/synthesis-subsystem/kokoro-phoneme-pipeline.md
+  - docs/verification/speech-onnx-piper.md
+  - docs/verification/speech-onnx-piper/model-management-subsystem.md
+  - docs/verification/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md
+  - docs/verification/speech-onnx-piper/model-management-subsystem/piper-voice-config.md
+  - docs/verification/speech-onnx-piper/synthesis-subsystem.md
+  - docs/verification/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.md
+  - docs/verification/speech-onnx-piper/synthesis-subsystem/piper-phoneme-pipeline.md
   - docs/verification/speech-onnx-nemotron-stt.md
   - docs/verification/speech-onnx-nemotron-stt/model-management-subsystem.md
   - docs/verification/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.md
@@ -207,6 +214,8 @@ input-files:
   - docs/verification/speech-text-en/normalization-subsystem/number-verbalizer.md
   - docs/verification/speech-text-en/normalization-subsystem/abbreviation-resolver.md
   - docs/verification/speech-text-en/normalization-subsystem/acronym-recognizer.md
+  - docs/verification/speech-text-en/normalization-subsystem/web-address-recognizer.md
+  - docs/verification/speech-text-en/normalization-subsystem/alphanumeric-token-recognizer.md
   - docs/verification/speech-text-en/training-data-subsystem.md
   - docs/verification/speech-text-en/training-data-subsystem/tsv-table.md
   - docs/verification/speech-text-en/training-data-subsystem/text-en-data-set.md
@@ -235,6 +244,24 @@ input-files:
   - docs/verification/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.md
   - docs/verification/speech-text-en/external-evaluation-subsystem/external-evaluation-record.md
   - docs/verification/speech-text-en/external-evaluation-subsystem/evaluate-external-command.md
+  - docs/verification/speech-phonemes-en.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/cmu-lexicon.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/phone.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/morphology.md
+  - docs/verification/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.md
+  - docs/verification/speech-phonemes-en/letter-to-sound-subsystem.md
+  - docs/verification/speech-phonemes-en/letter-to-sound-subsystem/lts-model.md
+  - docs/verification/speech-phonemes-en/letter-to-sound-subsystem/letter-to-sound.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem/english-phonemizer.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem/word-tokenizer.md
+  - docs/verification/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/espeak-ipa-renderer.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/misaki-renderer.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/weak-forms.md
+  - docs/verification/speech-phonemes-en/rendering-subsystem/phoneme-stream.md
   - docs/verification/speech-sherpa.md
   - docs/verification/speech-sherpa/model-management-subsystem.md
   - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

@@ -47,10 +47,14 @@ missing record exits 1 naming the file.
 `EvaluateExternalCommand_Run_UnknownSetOrWriteWithCheck_ExitsTwo`,
 `EvaluateExternalCommand_Run_MissingPinsOrModel_ExitsTwo`,
 `EvaluateExternalCommand_Run_CacheInRepositoryOutsideIgnoredFolder_ExitsTwo`,
-`EvaluateExternalCommand_Run_DefaultAndOutsideCache_AreAccepted`
+`EvaluateExternalCommand_Run_DefaultAndOutsideCache_AreAccepted`,
+`EvaluateExternalCommand_Run_CacheLinkedIntoRepository_ExitsTwo`
 
 The exit code and the text of the output or error stream are checked for each case; a refused cache folder is neither
-created nor fetched into.
+created nor fetched into. The linked-cache test creates a real directory link outside the repository that points at a
+tracked folder in it, through the test helper `Fakes/DirectoryLink.cs` (a symbolic link, or a junction on Windows where
+the account has no link privilege); the link and a folder below it are refused and a plain outside folder is accepted.
+Where no link can be created the test is skipped with the helper's reason, so a skip is not evidence.
 
 ##### Fetch option
 

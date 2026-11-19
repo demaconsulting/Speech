@@ -32,7 +32,7 @@ exit code `1`.
 **Consumed**: the library's `SpeechModelCatalog`, `SpeechModelStore`, `SpeechModelDownloaderOptions`,
 `SpeechModelDescriptor`, parameter, progress and result types, `ReferenceVoiceLibrary`,
 `SpeechSynthesizerFactory`, `SpeechRecognizerFactory`, and the `AddSherpaModels`/`AddKokoroModels`/
-`AddNemotronSttModels`/`AddChatterboxTurboModels` registration extensions; and `Context` for
+`AddPiperModels`/`AddNemotronSttModels`/`AddChatterboxTurboModels` registration extensions; and `Context` for
 global options (`--models-dir`, `--voices-dir`, `--mirror-*`, `--no-emotions`).
 
 The `ICliModelCatalog` members fall into four groups:
@@ -54,7 +54,8 @@ network or model download.
 **Catalog composition**: `CliModelCatalogFactory` builds the storage options (`--models-dir` becomes the store
 root override) and the downloader options (the mirror from `--mirror-*`), and passes them, with `--voices-dir`,
 to `SpeechModelCatalogAdapter`. The adapter builds one `SpeechModelCatalog` and registers the model packages
-with `AddSherpaModels().AddKokoroModels().AddNemotronSttModels()`, because core `DemaConsulting.Speech` ships
+with `AddSherpaModels().AddKokoroModels().AddPiperModels().AddNemotronSttModels()`, because core
+`DemaConsulting.Speech` ships
 no built-in models. It then builds a `ReferenceVoiceLibrary` over the catalog's store and the same downloader
 options and registers the voice-cloning model with `AddChatterboxTurboModels`, handing it that library and the
 `--voices-dir` folder. The model and the voice commands therefore share one store, one mirror and one set of

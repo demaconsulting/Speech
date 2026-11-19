@@ -1,0 +1,53 @@
+---
+# Software Unit Requirements for AlphanumericTokenRecognizer
+#
+# These requirements describe the design-level behavior of the AlphanumericTokenRecognizer unit, the
+# stateless recognizer of identifiers that mix capital letters and digits (A4, H2O, MP3) and of names
+# joined to a number by a hyphen (COVID-19, Catch-22), with the spoken form of each part, decomposing
+# the parent SpeechTextEn NormalizationSubsystem requirements. It looks at one token only. Each
+# requirement states one observable behavior.
+#
+# Covered by
+# test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AlphanumericTokenRecognizerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: NormalizationSubsystem Requirements
+        sections:
+          - title: AlphanumericTokenRecognizer Requirements
+            requirements:
+              - id: SpeechTextEn-Normalization-AlphanumericTokenRecognizer-Identifiers
+                title: >-
+                  The AlphanumericTokenRecognizer class shall recognize a token of ASCII capital
+                  letters and digits that starts with letters and alternates runs of one to three
+                  letters and one to four digits, shall give each letter run as spelled letters and
+                  each digit run as a cardinal when it has at most three digits and no leading zero
+                  and digit by digit otherwise, with adjacent spans that cover the token at its
+                  offset in the text, and shall not recognize a word of four or more capitals before
+                  digits, a run of more than four digits, lower case, a leading digit, a token
+                  without digits, a single letter or a token of more than twelve characters.
+                justification: |
+                  "A4" read as the article and a number, or "H2O" read as one word, is wrong, and a
+                  model has no reading for the letter and digit mix. Short runs keep the rule to
+                  real identifiers (paper sizes, vitamins, chemical formulas, product names) and
+                  leave an ordinary shouted word such as "COVID19" alone.
+                tests:
+                  - AlphanumericTokenRecognizer_RecognizeIdentifier_SpellsLettersAndReadsDigits
+                  - AlphanumericTokenRecognizer_RecognizeIdentifier_SpansCoverTheTokenAtItsOffset
+                  - AlphanumericTokenRecognizer_RecognizeIdentifier_OtherShapes_ReturnNull
+
+              - id: SpeechTextEn-Normalization-AlphanumericTokenRecognizer-HyphenatedNames
+                title: >-
+                  The AlphanumericTokenRecognizer class shall recognize a name of ASCII letters
+                  joined by a hyphen to one to three digits and give only the digits a span, read
+                  as a cardinal, leaving the name and the hyphen as written, and shall not recognize
+                  four digits, no digits, letters mixed into the digits, a leading hyphen, digits
+                  before the hyphen or an ordinary compound word.
+                justification: |
+                  "COVID-19" read as the name, a pause and "one nine" is wrong; reading the number
+                  as a cardinal inside one hyphenated word gives "COVID-nineteen". Ordinary
+                  compounds and longer digit runs (years such as "mid-1990s") belong to other rules.
+                tests:
+                  - AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_ReadsOnlyTheDigits
+                  - AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_OtherShapes_ReturnNull

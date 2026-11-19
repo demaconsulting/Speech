@@ -66,6 +66,12 @@ contained in a longer evaluation sentence; neither is a finding and both are cou
 `LeakageChecker_LoadEvaluationSets_FileWithoutSentences_ThrowsNamingTheFile`,
 `LeakageChecker_LoadEvaluationSets_BlankLinesAmongSentences_AreSkippedAndTextIsKept`,
 `LeakageChecker_CheckExternal_SetsWithoutAnySentence_ThrowsInvalidDataException`,
-`LeakageChecker_IsInside_ComparesFullPaths`
+`LeakageChecker_IsInside_ComparesFullPaths`,
+`LeakageChecker_IsInside_LinkedPaths_UseRealLocations`
 
 The no-sentence theory has an empty file, a whitespace-only file and a table of blank cells, each next to a good set.
+The linked-paths test creates real directory links through the test helper `Fakes/DirectoryLink.cs` (a symbolic link,
+or a junction on Windows where the account has no link privilege): a link outside the data folder that points into it
+counts as inside and a link inside it that points out counts as outside. Where no link can be created the test is
+skipped with the helper's reason, so a skip is not evidence; the full-path comparison test above is the evidence
+that does not depend on the platform.

@@ -1,0 +1,121 @@
+---
+# Software Subsystem Requirements for the SpeechPhonemesEn RenderingSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechPhonemesEn RenderingSubsystem,
+# decomposing the system-level requirements in docs/reqstream/speech-phonemes-en.yaml. The subsystem turns a
+# phonemized text into the phoneme string a voice model reads: the espeak-style IPA of the Piper voice
+# (EspeakIpaRenderer) and the misaki symbols of Kokoro (MisakiRenderer), with the table of function-word weak
+# forms (WeakForms) and the layout and long-text splitting that both renderers share (PhonemeStream). It uses
+# only the result types of the PhonemizerSubsystem and the phone types of the LexiconSubsystem. Each
+# requirement states one observable behavior.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-phonemes-en/rendering-subsystem/.
+# Covered by the RenderingSubsystem_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs, with the symbol tables of the two voice
+# models (a trimmed copy of the Piper voice's phoneme_id_map and Kokoro's own tokenizer vocabulary) as test data.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: RenderingSubsystem Requirements
+        requirements:
+          - id: SpeechPhonemesEn-Rendering-SymbolCoverage
+            title: >-
+              The RenderingSubsystem shall produce only symbols of the voice model's own symbol table for
+              every pronunciation of the dictionary, every phone in every neighborhood of two phones, every
+              conversion of the letter-to-sound model for a large sample of spellings and the out-of-vocabulary
+              golden words, for every weak-form word and punctuation mark in every renderer mode, and for every host
+              IPA pronunciation, which it shall translate into the voice's symbols or, when the voice cannot
+              represent it completely, replace by the word's normal pronunciation.
+            justification: |
+              A symbol outside the model's table is dropped by the voice or fails at inference time. Context
+              rules (flapping, linking r, reduced vowels) make the output of a phone depend on its
+              neighbors, so the guarantee is proven over every sequence of three phones and the whole
+              dictionary rather than over the sentences that someone wrote. The two symbol tables are the
+              real ones (the voice's own phoneme map and Kokoro's own vocabulary).
+            children:
+              - SpeechPhonemesEn-Rendering-EspeakIpaRenderer-IpaRendering
+              - SpeechPhonemesEn-Rendering-MisakiRenderer-MisakiRendering
+            tests:
+              - RenderingSubsystem_Inventories_AreTheModelsOwnSymbolTables
+              - RenderingSubsystem_Coverage_EveryDictionaryPronunciation_UsesOnlySymbolsOfBothModels
+              - RenderingSubsystem_Coverage_EveryPhoneInEveryNeighborhood_UsesOnlySymbolsOfBothModels
+              - RenderingSubsystem_Coverage_EveryOutOfVocabularyConversion_UsesOnlySymbolsOfBothModels
+              - RenderingSubsystem_Coverage_WeakFormWordsAndPunctuation_UseOnlySymbolsOfBothModels
+              - RenderingSubsystem_IpaOverrides_CannotBeRepresentedCompletely_FallBackToTheNormalPronunciation
+              - RenderingSubsystem_IpaOverrides_AnySymbolOrPair_YieldsOnlySymbolsOfTheVoice
+
+          - id: SpeechPhonemesEn-Rendering-ModelConventions
+            title: >-
+              The RenderingSubsystem shall apply the conventions of each voice model: the stress mark before
+              the vowel it belongs to, the model's own vowel and diphthong symbols, the flap between a
+              stressed and an unstressed vowel (also before a final -y that the dictionary stresses secondarily),
+              the linking r of the espeak-style text, the stress of
+              hyphenated compounds per model (every part stressed for Piper, only the first for Kokoro), words
+              separated by one space with a closing mark attached to the word before it, quotation marks and
+              dashes as a pause for Piper (which has no symbol for them) and as the model's own marks for
+              Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a hyphen
+              between two replaced digit groups (the groups of a phone number) as a pause in both; a pronunciation given
+              as ARPAbet or as IPA shall be rendered in the same conventions as the dictionary word with the same
+              sounds, and only the seven numbers thirteen to nineteen shall take the first-syllable number stress
+              in the Piper rendering.
+            justification: |
+              The two voices were trained on text with different conventions, and the same phones read in the
+              wrong convention sound wrong even though every symbol is valid. The conventions are stated
+              as behavior examples, and the full-sentence goldens of the units pin the rest.
+            children:
+              - SpeechPhonemesEn-Rendering-EspeakIpaRenderer-IpaRendering
+              - SpeechPhonemesEn-Rendering-MisakiRenderer-MisakiRendering
+              - SpeechPhonemesEn-Rendering-PhonemeStream-Layout
+            tests:
+              - RenderingSubsystem_Layout_WordsAndClausePunctuation_FollowTheModelConventions
+              - RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel
+              - RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel
+              - RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices
+              - RenderingSubsystem_Compounds_StressIsPerModel
+              - RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions
+              - RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped
+              - RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot
+              - RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones
+              - RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice
+
+          - id: SpeechPhonemesEn-Rendering-WeakFormTable
+            title: >-
+              The RenderingSubsystem shall render a listed function word unstressed, in its reduced form or
+              with a secondary stress, in the Piper rendering unless weak forms are switched off, and shall
+              render it in its full dictionary form in the Kokoro rendering unless weak forms are switched on;
+              shall keep a function word in its full form right after a word whose readings differ only by the
+              voicing of the final consonant; shall never render a table entry to nothing or without a
+              vowel, a lone bare full vowel (the pronoun I) of the Kokoro rendering carrying a stress mark; and
+              shall give the first word of a rendered text (and of each part of a long text) in the Piper
+              rendering a secondary stress mark on an unmarked full-vowel weak form.
+            justification: |
+              The Piper voice was trained on speech with unstressed function words; Kokoro's reference
+              phonemizer keeps the full forms and the owner kept that default. Making the profile a switch of
+              the renderer, with the table as data, keeps it observable and testable. The reduced vowel of
+              a function word blurs the final s or z of a word such as close, and the Kokoro model drops a
+              lone unmarked diphthong symbol after a pause, so both are guarded. The Piper voice swallows an
+              unmarked weak form at the start of an utterance (the recognizer proxy hears the first word in
+              73 percent of renderings without the mark and 86 percent with it).
+            children:
+              - SpeechPhonemesEn-Rendering-WeakForms-FunctionWords
+            tests:
+              - RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled
+              - RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices
+              - RenderingSubsystem_WeakForms_FirstWordOfTheText_HasASecondaryStressOnItsFullVowel
+              - RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt
+
+          - id: SpeechPhonemesEn-Rendering-Parts
+            title: >-
+              The RenderingSubsystem shall render a long text as parts that each stay within the requested
+              number of symbols, end after a clause mark where one fits, lose no sound and never cut a word,
+              for both renderers, shall render a short text as one part equal to its plain rendering and a
+              text without sound as no part.
+            justification: |
+              The voice models accept a bounded number of input symbols, and cutting in the wrong place is
+              audible. The renderer knows the words and the clause marks, so the cut is made here once for
+              both models.
+            children:
+              - SpeechPhonemesEn-Rendering-PhonemeStream-Layout
+            tests:
+              - RenderingSubsystem_Parts_LongText_StayWithinTheLimitAtClauseBoundariesWithoutLoss

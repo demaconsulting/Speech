@@ -25,6 +25,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
@@ -80,9 +81,10 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         var descriptors = adapter.Enumerate();
 
         // Assert: the adapter registers the same models the application's own composition
-        // root does via AddSherpaModels().AddKokoroModels().AddNemotronSttModels().AddChatterboxTurboModels()
+        // root does via AddSherpaModels().AddKokoroModels().AddPiperModels().AddNemotronSttModels().AddChatterboxTurboModels()
         Assert.Contains(descriptors, d => d.Id == SherpaOnnxZipformerEnRecognitionModel.ModelId);
         Assert.Contains(descriptors, d => d.Id == OnnxKokoroEnglishSynthesisModel.ModelId);
+        Assert.Contains(descriptors, d => d.Id == OnnxPiperLibriTtsEnSynthesisModel.ModelId);
         Assert.Contains(descriptors, d => d.Id == OnnxNemotronMultilingualRecognitionModel.ModelId);
         Assert.Contains(
             descriptors,

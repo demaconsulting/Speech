@@ -1,0 +1,15 @@
+system	pass	units	words_compared	word_match_pct	word_match_excl_stress_pct	per_excl_stress_pct	primary_stress_agree_pct	stress_signature_agree_pct	secondary_stress_agree_pct
+piper	sentences-tuned	450	4279	86.12	91.14	3.01	95.90	93.48	54.49
+piper	sentences-validation	60	636	89.31	92.61	2.47	98.10	95.60	55.74
+piper	words-tuned	3000	3000	78.70	81.27	4.47	95.39	93.80	62.56
+piper	words-validation	3000	3000	75.37	77.47	4.38	96.76	94.00	68.28
+kokoro-full	sentences-tuned	450	4357	62.73	82.19	4.88	71.45	75.10	23.54
+kokoro-full	sentences-validation	60	659	64.80	83.16	4.50	72.17	76.33	21.62
+kokoro-full	words-tuned	3000	2990	81.34	86.09	2.91	94.81	91.27	48.47
+kokoro-full	words-validation	3000	2955	80.68	83.82	2.80	97.39	93.81	69.02
+kokoro-weak	sentences-tuned	450	4357	86.21	93.09	2.00	94.14	91.53	45.34
+kokoro-weak	sentences-validation	60	659	89.23	94.84	1.43	96.59	93.47	48.19
+piper-initial	sentences-tuned	450	4276	61.55	68.26	9.72	89.00	88.12	15.80
+piper-initial	words-tuned	3000	3000	62.77	68.00	7.49	95.13	89.20	37.15
+kokoro-initial	sentences-tuned	450	4342	56.49	76.39	6.60	71.36	74.41	22.26
+kokoro-initial	words-tuned	3000	2990	67.63	73.61	5.65	94.81	89.36	41.96

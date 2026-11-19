@@ -161,6 +161,37 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that the managed Microsoft ONNX Runtime (used by the Kokoro, Piper, Nemotron and
+    ///     Chatterbox models) initializes in the same host that carries sherpa-onnx, that the native
+    ///     ONNX Runtime that ends up loaded is the one sherpa ships (the same major.minor as the
+    ///     managed API, which the host pins to sherpa's), and that sherpa's native library still
+    ///     resolves afterwards. Both share one native ONNX Runtime file name, so this fails if the
+    ///     host ends up with a different native library than the managed API expects: Microsoft's
+    ///     newer copy replacing sherpa's breaks sherpa's versioned native symbols on Linux, and a
+    ///     native library older than the managed API makes the managed API throw.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_RawOnnxRuntimeInitializedFirst_SherpaNativeStillResolvable()
+    {
+        // Arrange
+        Assert.SkipUnless(
+            DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(AppContext.BaseDirectory) is not null,
+            "The SherpaOnnx native asset is not packaged for this runtime identifier.");
+        var context = Context.Create(["doctor"]);
+
+        // Act: the managed API throws here when the native runtime is older than it
+        var nativeVersionText = Microsoft.ML.OnnxRuntime.OrtEnv.Instance().GetVersionString();
+        var nativeVersion = Version.Parse(new string(nativeVersionText.TakeWhile(c => char.IsDigit(c) || c == '.').ToArray()));
+        var managedVersion = typeof(Microsoft.ML.OnnxRuntime.OrtEnv).Assembly.GetName().Version!;
+        var output = RunCapturingOutput(
+            context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), new FakeCliModelCatalog(), _tempDir);
+
+        // Assert: the native library in the process is sherpa's (same ONNX Runtime release as the managed pin)
+        Assert.Equal((managedVersion.Major, managedVersion.Minor), (nativeVersion.Major, nativeVersion.Minor));
+        Assert.Contains("[ OK ] SherpaOnnx native inference library is resolvable.", output);
+    }
+
+    /// <summary>
     ///     Test that <see cref="DoctorCommand.ResolveSherpaOnnxNativeLibraryPath"/> resolves the
     ///     RID-specific native asset path against a fixture directory laid out to match NuGet's
     ///     <c>runtimes/&lt;rid&gt;/native/</c> convention, deterministically and independent of

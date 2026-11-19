@@ -1,0 +1,396 @@
+reading_id	arpabet	source
+absent.adj	AE1 B S AH0 N T	cmu#1
+absent.verb	AE0 B S EH1 N T	authored
+abstract.adj-noun	AE1 B S T R AE2 K T	cmu#2
+abstract.verb	AE0 B S T R AE1 K T	cmu#1
+abuse.noun	AH0 B Y UW1 S	cmu#1
+abuse.verb	AH0 B Y UW1 Z	cmu#2
+addict.noun	AE1 D IH2 K T	cmu#2
+addict.verb	AH0 D IH1 K T	cmu#1
+address.noun	AE1 D R EH2 S	cmu#1
+address.verb	AH0 D R EH1 S	cmu#2
+advocate.noun	AE1 D V AH0 K AH0 T	cmu#1
+advocate.verb	AE1 D V AH0 K EY2 T	cmu#2
+affect.psych	AE1 F EH0 K T	authored
+affect.verb	AH0 F EH1 K T	cmu#1
+affiliate.noun	AH0 F IH1 L IY0 AH0 T	cmu#2
+affiliate.verb	AH0 F IH1 L IY0 EY2 T	cmu#1
+age.verb	EY1 JH	cmu#1
+aged.adj	EY1 JH IH0 D	cmu#2
+aggregate.adj-noun	AE1 G R AH0 G AH0 T	cmu#1
+aggregate.verb	AE1 G R AH0 G EY2 T	authored
+alternate.adj-noun	AO1 L T ER0 N AH0 T	cmu#1
+alternate.verb	AO1 L T ER0 N EY2 T	cmu#2
+analyse.verb	AE1 N AH0 L AY2 Z	authored
+analysis.plural	AH0 N AE1 L AH0 S AH0 S	cmu#1
+animate.adj-noun	AE1 N AH0 M AH0 T	cmu#1
+animate.verb	AE1 N AH0 M EY2 T	cmu#2
+appropriate.adj	AH0 P R OW1 P R IY0 AH0 T	cmu#1
+appropriate.verb	AH0 P R OW1 P R IY0 EY2 T	cmu#2
+approximate.adj-noun	AH0 P R AA1 K S AH0 M AH0 T	cmu#1
+approximate.verb	AH0 P R AA1 K S AH0 M EY2 T	cmu#2
+articulate.adj	AA0 R T IH1 K Y AH0 L AH0 T	cmu#2
+articulate.verb	AA0 R T IH1 K Y AH0 L EY2 T	cmu#1
+associate.adj-noun	AH0 S OW1 S IY0 AH0 T	cmu#1
+associate.verb	AH0 S OW1 S IY0 EY2 T	cmu#2
+attribute.noun	AE1 T R AH0 B Y UW2 T	cmu#1
+attribute.verb	AH0 T R IH1 B Y UW2 T	cmu#2
+augment.noun	AO1 G M AH0 N T	authored
+augment.verb	AO0 G M EH1 N T	cmu#1
+august.majestic	AO0 G AH1 S T	authored
+august.month	AO1 G AH0 S T	cmu#2
+august.name	AA1 G AH0 S T	cmu#1
+axe.tool	AE1 K S	cmu#1
+axis.plural	AE1 K S AH0 S	cmu#1
+bass.fish	B AE1 S	cmu#1
+bass.music	B EY1 S	cmu#2
+bless.verb	B L EH1 S	cmu#1
+blessed.adj	B L EH1 S IH0 D	authored
+bologna.city	B AH0 L OW1 N Y AH0	authored
+bologna.sausage	B AH0 L OW1 N IY0	cmu#1
+bow.bend	B AW1	cmu#1
+bow.weapon	B OW1	cmu#2
+buffet.meal	B AH0 F EY1	cmu#2
+buffet.strike	B AH1 F AH0 T	cmu#1
+celtic.culture	K EH1 L T IH0 K	cmu#2
+celtic.team	S EH1 L T IH0 K	cmu#1
+certificate.noun	S ER0 T IH1 F IH0 K AH0 T	cmu#1
+certificate.verb	S ER0 T IH1 F IH0 K EY2 T	rule:ate-schwa
+close.adj-noun	K L OW1 S	cmu#1
+close.verb	K L OW1 Z	cmu#2
+combat.noun	K AA1 M B AE0 T	cmu#1
+combat.verb	K AH0 M B AE1 T	cmu#2
+combine.noun	K AA1 M B AY0 N	cmu#1
+combine.verb	K AH0 M B AY1 N	cmu#2
+compact.adj-noun	K AA1 M P AE0 K T	cmu#1
+compact.verb	K AH0 M P AE1 K T	cmu#2
+compliment.noun	K AA1 M P L AH0 M AH0 N T	rule:ment-schwa
+compliment.verb	K AA1 M P L AH0 M EH2 N T	authored
+compound.noun	K AA1 M P AW0 N D	cmu#1
+compound.verb	K AH0 M P AW1 N D	cmu#2
+compress.noun	K AA1 M P R EH0 S	cmu#1
+compress.verb	K AH0 M P R EH1 S	cmu#2
+concert.noun	K AA1 N S ER0 T	cmu#1
+concert.verb	K AH0 N S ER1 T	cmu#2
+conduct.noun	K AA1 N D AH0 K T	cmu#1
+conduct.verb	K AA0 N D AH1 K T	cmu#2
+confederate.adj-noun	K AH0 N F EH1 D ER0 AH0 T	cmu#1
+confederate.verb	K AH0 N F EH1 D ER0 EY2 T	cmu#2
+confine.noun	K AA1 N F AY2 N	authored
+confine.verb	K AH0 N F AY1 N	cmu#1
+conflict.noun	K AA1 N F L IH0 K T	cmu#1
+conflict.verb	K AH0 N F L IH1 K T	cmu#2
+conglomerate.adj-noun	K AH0 N G L AA1 M ER0 AH0 T	cmu#1
+conglomerate.verb	K AH0 N G L AA1 M ER0 EY2 T	rule:ate-schwa
+conjugate.adj-noun	K AA1 N JH AH0 G AH0 T	rule:ate-schwa
+conjugate.verb	K AA1 N JH AH0 G EY2 T	cmu#2
+conscript.noun	K AA1 N S K R IH2 P T	cmu#1
+conscript.verb	K AH0 N S K R IH1 P T	cmu#2
+conserve.noun	K AA1 N S ER0 V	authored
+conserve.verb	K AH0 N S ER1 V	cmu#1
+console.noun	K AA1 N S OW0 L	cmu#1
+console.verb	K AH0 N S OW1 L	cmu#2
+consort.noun	K AA1 N S AO0 R T	authored
+consort.verb	K AH0 N S AO1 R T	cmu#1
+construct.noun	K AA1 N S T R AH0 K T	cmu#2
+construct.verb	K AH0 N S T R AH1 K T	cmu#1
+consummate.adj	K AA1 N S AH0 M AH0 T	cmu#1
+consummate.verb	K AA1 N S AH0 M EY2 T	cmu#2
+content.noun	K AA1 N T EH0 N T	cmu#1
+content.satisfied	K AH0 N T EH1 N T	cmu#2
+contest.noun	K AA1 N T EH0 S T	cmu#1
+contest.verb	K AH0 N T EH1 S T	cmu#2
+contract.noun	K AA1 N T R AE2 K T	cmu#1
+contract.verb	K AH0 N T R AE1 K T	cmu#2
+contrast.noun	K AA1 N T R AE0 S T	cmu#1
+contrast.verb	K AH0 N T R AE1 S T	cmu#2
+converse.adj-noun	K AA1 N V ER0 S	cmu#1
+converse.verb	K AH0 N V ER1 S	cmu#2
+convert.noun	K AA1 N V ER0 T	cmu#1
+convert.verb	K AH0 N V ER1 T	cmu#2
+convict.noun	K AA1 N V IH0 K T	cmu#1
+convict.verb	K AH0 N V IH1 K T	cmu#2
+coordinate.adj-noun	K OW0 AO1 R D AH0 N AH0 T	cmu#1
+coordinate.verb	K OW0 AO1 R D AH0 N EY2 T	cmu#2
+correlate.noun	K AO1 R AH0 L AH0 T	cmu#2
+correlate.verb	K AO1 R AH0 L EY2 T	cmu#1
+decrease.noun	D IY1 K R IY2 S	cmu#2
+decrease.verb	D IH0 K R IY1 S	cmu#1
+defect.noun	D IY1 F EH0 K T	cmu#1
+defect.verb	D IH0 F EH1 K T	cmu#2
+degenerate.adj-noun	D IH0 JH EH1 N ER0 AH0 T	cmu#1
+degenerate.verb	D IH0 JH EH1 N ER0 EY2 T	cmu#2
+delegate.noun	D EH1 L AH0 G AH0 T	cmu#2
+delegate.verb	D EH1 L AH0 G EY2 T	cmu#1
+deliberate.adj	D IH0 L IH1 B ER0 AH0 T	cmu#1
+deliberate.verb	D IH0 L IH1 B ER0 EY2 T	cmu#2
+desert.noun	D EH1 Z ER0 T	cmu#1
+desert.verb	D IH0 Z ER1 T	cmu#2
+designate.adj	D EH1 Z AH0 G N AH0 T	rule:ate-schwa
+designate.verb	D EH1 Z AH0 G N EY2 T	cmu#1
+deviate.noun	D IY1 V IY0 AH0 T	rule:ate-schwa
+deviate.verb	D IY1 V IY0 EY2 T	cmu#1
+diagnose.verb	D AY2 AH0 G N OW1 S	cmu#1
+diagnosis.plural	D AY2 AH0 G N OW1 S AH0 S	cmu#1
+diffuse.adj	D IH0 F Y UW1 S	cmu#1
+diffuse.verb	D IH0 F Y UW1 Z	cmu#2
+discard.noun	D IH1 S K AA2 R D	authored
+discard.verb	D IH0 S K AA1 R D	cmu#1
+discharge.noun	D IH1 S CH AA2 R JH	cmu#2
+discharge.verb	D IH0 S CH AA1 R JH	cmu#1
+discount.noun	D IH1 S K AW0 N T	cmu#2
+discount.verb	D IH0 S K AW1 N T	cmu#1
+discourse.noun	D IH1 S K AO0 R S	cmu#1
+discourse.verb	D IH0 S K AO1 R S	rule:verb-stress-shift
+dive.past	D AY1 V	cmu#1
+do.verb	D UW1	cmu#1
+document.noun	D AA1 K Y AH0 M AH0 N T	rule:ment-schwa
+document.verb	D AA1 K Y AH0 M EH2 N T	authored
+doe.plural	D OW1	cmu#1
+dove.bird	D AH1 V	cmu#1
+duplicate.adj-noun	D UW1 P L AH0 K AH0 T	cmu#1
+duplicate.verb	D UW1 P L AH0 K EY2 T	cmu#2
+elaborate.adj	IH0 L AE1 B R AH0 T	cmu#1
+elaborate.verb	IH0 L AE1 B ER0 EY2 T	cmu#2
+entrance.noun	EH1 N T R AH0 N S	cmu#1
+entrance.verb	IH0 N T R AE1 N S	authored
+escort.noun	EH1 S K AO0 R T	cmu#2
+escort.verb	EH0 S K AO1 R T	cmu#1
+essay.noun	EH1 S EY2	cmu#2
+essay.verb	EH0 S EY1	cmu#1
+estimate.noun	EH1 S T AH0 M AH0 T	cmu#1
+estimate.verb	EH1 S T AH0 M EY2 T	cmu#2
+excuse.noun	IH0 K S K Y UW1 S	cmu#1
+excuse.verb	IH0 K S K Y UW1 Z	cmu#2
+expatriate.noun	EH0 K S P EY1 T R IY0 AH0 T	cmu#2
+expatriate.verb	EH0 K S P EY1 T R IY0 EY2 T	cmu#1
+exploit.noun	EH1 K S P L OY2 T	cmu#1
+exploit.verb	EH2 K S P L OY1 T	cmu#2
+export.noun	EH1 K S P AO0 R T	cmu#1
+export.verb	IH0 K S P AO1 R T	authored
+expose.noun	EH2 K S P OW0 Z EY1	authored
+expose.verb	IH0 K S P OW1 Z	cmu#1
+extract.noun	EH1 K S T R AE2 K T	cmu#1
+extract.verb	IH0 K S T R AE1 K T	cmu#2
+fragment.noun	F R AE1 G M AH0 N T	cmu#1
+fragment.verb	F R AE1 G M EH2 N T	rule:ment-schwa
+frequent.adj	F R IY1 K W AH0 N T	cmu#1
+frequent.verb	F R IY0 K W EH1 N T	authored
+graduate.adj-noun	G R AE1 JH AH0 W AH0 T	cmu#1
+graduate.verb	G R AE1 JH AH0 W EY2 T	cmu#2
+house.noun	HH AW1 S	cmu#1
+house.verb	HH AW1 Z	authored
+impact.noun	IH1 M P AE0 K T	cmu#2
+impact.verb	IH2 M P AE1 K T	cmu#1
+implant.noun	IH1 M P L AE2 N T	cmu#2
+implant.verb	IH2 M P L AE1 N T	cmu#1
+implement.noun	IH1 M P L AH0 M AH0 N T	cmu#1
+implement.verb	IH1 M P L AH0 M EH2 N T	rule:ment-schwa
+import.noun	IH1 M P AO2 R T	cmu#2
+import.verb	IH2 M P AO1 R T	cmu#1
+incense.noun	IH1 N S EH2 N S	cmu#2
+incense.verb	IH2 N S EH1 N S	cmu#1
+incline.noun	IH1 N K L AY0 N	cmu#2
+incline.verb	IH2 N K L AY1 N	cmu#1
+incorporate.adj	IH2 N K AO1 R P ER0 AH0 T	rule:ate-schwa
+incorporate.verb	IH2 N K AO1 R P ER0 EY2 T	cmu#1
+increase.noun	IH1 N K R IY2 S	cmu#2
+increase.verb	IH2 N K R IY1 S	cmu#1
+increment.noun	IH1 N K R AH0 M AH0 N T	cmu#1
+increment.verb	IH1 N K R AH0 M EH2 N T	rule:ment-schwa
+initiate.noun	IH2 N IH1 SH IY0 AH0 T	rule:ate-schwa
+initiate.verb	IH2 N IH1 SH IY0 EY2 T	cmu#1
+insert.noun	IH1 N S ER2 T	cmu#2
+insert.verb	IH2 N S ER1 T	cmu#1
+inside.adj-noun	IH1 N S AY2 D	cmu#2
+inside.adv-prep	IH2 N S AY1 D	cmu#1
+instrument.noun	IH1 N S T R AH0 M AH0 N T	cmu#1
+instrument.verb	IH1 N S T R AH0 M EH2 N T	rule:ment-schwa
+insult.noun	IH1 N S AH2 L T	cmu#2
+insult.verb	IH2 N S AH1 L T	cmu#1
+intercept.noun	IH1 N T ER0 S EH2 P T	authored
+intercept.verb	IH2 N T ER0 S EH1 P T	cmu#1
+interchange.noun	IH1 N T ER0 CH EY2 N JH	authored
+interchange.verb	IH2 N T ER0 CH EY1 N JH	cmu#1
+intern.noun	IH1 N T ER0 N	cmu#1
+intern.verb	IH0 N T ER1 N	rule:verb-stress-shift
+intimate.adj	IH1 N T AH0 M AH0 T	cmu#1
+intimate.verb	IH1 N T AH0 M EY2 T	cmu#2
+intrigue.noun	IH1 N T R IY0 G	cmu#2
+intrigue.verb	IH2 N T R IY1 G	cmu#1
+invalid.adj	IH2 N V AE1 L AH0 D	cmu#3
+invalid.noun	IH1 N V AH0 L AH0 D	cmu#1
+invert.adj-noun	IH1 N V ER0 T	rule:verb-stress-shift
+invert.verb	IH2 N V ER1 T	cmu#1
+invite.noun	IH1 N V AY2 T	authored
+invite.verb	IH2 N V AY1 T	cmu#1
+isolate.noun	AY1 S AH0 L AH0 T	rule:ate-schwa
+isolate.verb	AY1 S AH0 L EY2 T	cmu#1
+jesus.english	JH IY1 Z AH0 S	cmu#1
+jesus.spanish	HH EH0 S UW1 S	authored
+job.bible	JH OW1 B	cmu#2
+job.work	JH AA1 B	cmu#1
+laminate.noun	L AE1 M AH0 N AH0 T	cmu#1
+laminate.verb	L AE1 M AH0 N EY2 T	cmu#2
+lead.guide	L IY1 D	cmu#2
+lead.metal	L EH1 D	cmu#1
+learn.verb	L ER1 N	cmu#1
+learned.adj	L ER1 N IH0 D	cmu#2
+legitimate.adj	L AH0 JH IH1 T AH0 M AH0 T	cmu#1
+legitimate.verb	L AH0 JH IH1 T AH0 M EY2 T	rule:ate-schwa
+life.plural	L AY1 F	cmu#1
+live.adj	L AY1 V	cmu#1
+live.verb	L IH1 V	cmu#2
+mate.companion	M EY1 T	cmu#1
+mate.drink	M AA1 T EY2	authored
+mediate.adj	M IY1 D IY0 AH0 T	rule:ate-schwa
+mediate.verb	M IY1 D IY0 EY2 T	cmu#1
+merchandise.noun	M ER1 CH AH0 N D AY2 S	authored
+merchandise.verb	M ER1 CH AH0 N D AY2 Z	cmu#1
+minute.time	M IH1 N AH0 T	cmu#1
+minute.tiny	M AY0 N UW1 T	cmu#2
+misuse.noun	M IH0 S Y UW1 S	cmu#2
+misuse.verb	M IH0 S Y UW1 Z	cmu#1
+mobile.city	M OW0 B IY1 L	authored
+mobile.movable	M OW1 B AH0 L	cmu#1
+mobile.sculpture	M OW1 B IY2 L	authored
+moderate.adj-noun	M AA1 D ER0 AH0 T	cmu#1
+moderate.verb	M AA1 D ER0 EY2 T	cmu#2
+mope.verb	M OW1 P	cmu#1
+moped.noun	M OW1 P EH0 D	cmu#2
+mouth.noun	M AW1 TH	cmu#1
+mouth.verb	M AW1 DH	authored
+nestle.company	N EH1 S L EY2	authored
+nestle.snuggle	N EH1 S AH0 L	cmu#1
+nominate.adj	N AA1 M AH0 N AH0 T	cmu#1
+nominate.verb	N AA1 M AH0 N EY2 T	cmu#2
+number.noun	N AH1 M B ER0	cmu#1
+number.numb	N AH1 M ER0	authored
+object.noun	AA1 B JH EH0 K T	cmu#1
+object.verb	AH0 B JH EH1 K T	cmu#2
+offset.noun	AO1 F S EH2 T	cmu#2
+offset.verb	AO0 F S EH1 T	cmu#1
+orient.noun	AO1 R IY0 EH2 N T	cmu#1
+orient.verb	AO1 R IY0 EH2 N T	cmu#1
+ornament.noun	AO1 R N AH0 M AH0 N T	cmu#1
+ornament.verb	AO1 R N AH0 M EH2 N T	rule:ment-schwa
+overthrow.noun	OW1 V ER0 TH R OW2	cmu#1
+overthrow.verb	OW2 V ER0 TH R OW1	authored
+pasty.adj	P EY1 S T IY0	authored
+pasty.noun	P AE1 S T IY0	authored
+perfect.adj	P ER1 F IH2 K T	cmu#2
+perfect.verb	P ER0 F EH1 K T	cmu#1
+perfume.noun	P ER1 F Y UW2 M	authored
+perfume.verb	P ER0 F Y UW1 M	cmu#1
+permit.noun	P ER1 M IH2 T	cmu#2
+permit.verb	P ER0 M IH1 T	cmu#1
+pervert.noun	P ER1 V ER0 T	cmu#1
+pervert.verb	P ER0 V ER1 T	cmu#2
+pigment.noun	P IH1 G M AH0 N T	cmu#1
+pigment.verb	P IH1 G M EH2 N T	rule:ment-schwa
+polish.nationality	P OW1 L IH0 SH	cmu#2
+polish.shine	P AA1 L IH0 SH	cmu#1
+postulate.noun	P AA1 S CH AH0 L AH0 T	cmu#2
+postulate.verb	P AA1 S CH AH0 L EY2 T	cmu#1
+precipitate.adj-noun	P R IH0 S IH1 P IH0 T AH0 T	rule:ate-schwa
+precipitate.verb	P R IH0 S IH1 P IH0 T EY2 T	cmu#1
+predicate.noun	P R EH1 D IH0 K AH0 T	cmu#2
+predicate.verb	P R EH1 D AH0 K EY2 T	cmu#1
+present.adj-noun	P R EH1 Z AH0 N T	cmu#1
+present.verb	P R IY0 Z EH1 N T	cmu#2
+primer.paint	P R AY1 M ER0	cmu#1
+primer.textbook	P R IH1 M ER0	authored
+proceeds.noun	P R OW1 S IY2 D Z	authored
+proceeds.verb	P R AH0 S IY1 D Z	cmu#1
+produce.noun	P R OW1 D UW0 S	cmu#2
+produce.verb	P R AH0 D UW1 S	cmu#1
+progress.noun	P R AA1 G R EH2 S	cmu#1
+progress.verb	P R AH0 G R EH1 S	cmu#2
+project.noun	P R AA1 JH EH0 K T	cmu#1
+project.verb	P R AH0 JH EH1 K T	cmu#2
+protest.noun	P R OW1 T EH2 S T	cmu#1
+protest.verb	P R AH0 T EH1 S T	cmu#2
+put.verb	P UH1 T	cmu#1
+putt.verb	P AH1 T	cmu#1
+ravel.composer	R AH0 V EH1 L	cmu#2
+ravel.tangle	R AE1 V AH0 L	cmu#1
+read.past	R EH1 D	cmu#1
+read.present	R IY1 D	cmu#2
+reading.act	R IY1 D IH0 NG	cmu#1
+reading.town	R EH1 D IH0 NG	cmu#2
+rebel.noun	R EH1 B AH0 L	cmu#1
+rebel.verb	R IH0 B EH1 L	cmu#2
+recall.noun	R IY1 K AO2 L	cmu#1
+recall.verb	R IH0 K AO1 L	cmu#2
+recharge.noun	R IY1 CH AA2 R JH	authored
+recharge.verb	R IY0 CH AA1 R JH	cmu#1
+record.noun	R EH1 K ER0 D	cmu#2
+record.verb	R AH0 K AO1 R D	cmu#1
+recount.again	R IY2 K AW1 N T	cmu#2
+recount.narrate	R IH0 K AW1 N T	cmu#1
+refund.noun	R IY1 F AH2 N D	cmu#2
+refund.verb	R IH0 F AH1 N D	cmu#1
+refuse.noun	R EH1 F Y UW2 S	authored
+refuse.verb	R AH0 F Y UW1 Z	cmu#1
+regiment.noun	R EH1 JH AH0 M AH0 N T	cmu#1
+regiment.verb	R EH1 JH AH0 M EH2 N T	rule:ment-schwa
+reject.noun	R IY1 JH EH0 K T	cmu#2
+reject.verb	R IH0 JH EH1 K T	cmu#1
+relay.noun	R IY1 L EY2	cmu#1
+relay.verb	R IY0 L EY1	rule:verb-stress-shift
+replicate.adj-noun	R EH1 P L AH0 K AH0 T	rule:ate-schwa
+replicate.verb	R EH1 P L AH0 K EY2 T	cmu#1
+rerelease.noun	R IY1 R IH0 L IY2 S	authored
+rerelease.verb	R IY2 R IH0 L IY1 S	authored
+research.noun	R IY1 S ER0 CH	cmu#2
+research.verb	R IY0 S ER1 CH	cmu#1
+resume.noun	R EH1 Z AH0 M EY2	cmu#3
+resume.verb	R IH0 Z UW1 M	cmu#1
+retard.noun	R IY1 T AA2 R D	authored
+retard.verb	R IH0 T AA1 R D	cmu#1
+rodeo.drive	R OW0 D EY1 OW0	authored
+rodeo.event	R OW1 D IY0 OW2	cmu#1
+row.argument	R AW1	authored
+row.line	R OW1	cmu#1
+sake.drink	S AA1 K IY0	authored
+sake.purpose	S EY1 K	cmu#1
+segment.noun	S EH1 G M AH0 N T	cmu#1
+segment.verb	S EH2 G M EH1 N T	cmu#2
+separate.adj	S EH1 P ER0 IH0 T	cmu#2
+separate.verb	S EH1 P ER0 EY2 T	cmu#1
+sewer.drain	S UW1 ER0	cmu#1
+sewer.seamstress	S OW1 ER0	authored
+sow.pig	S AW1	cmu#1
+sow.plant	S OW1	cmu#2
+subject.adj-noun	S AH1 B JH IH0 K T	cmu#2
+subject.verb	S AH0 B JH EH1 K T	cmu#1
+subordinate.adj-noun	S AH0 B AO1 R D AH0 N AH0 T	cmu#2
+subordinate.verb	S AH0 B AO1 R D AH0 N EY2 T	cmu#1
+supplement.noun	S AH1 P L AH0 M AH0 N T	cmu#1
+supplement.verb	S AH2 P L AH0 M EH1 N T	cmu#2
+survey.noun	S ER1 V EY2	cmu#2
+survey.verb	S ER0 V EY1	cmu#1
+suspect.adj-noun	S AH1 S P EH2 K T	cmu#2
+suspect.verb	S AH0 S P EH1 K T	cmu#1
+syndicate.noun	S IH1 N D IH0 K AH0 T	cmu#1
+syndicate.verb	S IH1 N D AH0 K EY2 T	cmu#2
+tear.drop	T IH1 R	cmu#2
+tear.rip	T EH1 R	cmu#1
+transform.noun	T R AE1 N S F AO0 R M	cmu#2
+transform.verb	T R AE0 N S F AO1 R M	cmu#1
+transplant.noun	T R AE1 N S P L AE2 N T	authored
+transplant.verb	T R AE0 N S P L AE1 N T	cmu#1
+transport.noun	T R AE1 N S P AO0 R T	cmu#2
+transport.verb	T R AE0 N S P AO1 R T	cmu#1
+underestimate.noun	AH1 N D ER0 EH1 S T AH0 M AH0 T	cmu#2
+underestimate.verb	AH1 N D ER0 EH1 S T AH0 M EY2 T	cmu#1
+uplift.noun	AH1 P L IH0 F T	cmu#1
+uplift.verb	AH0 P L IH1 F T	rule:verb-stress-shift
+upset.noun	AH1 P S EH2 T	cmu#2
+upset.verb	AH0 P S EH1 T	cmu#1
+use.habitual	Y UW1 S	cmu#1
+use.noun	Y UW1 S	cmu#1
+use.verb	Y UW1 Z	cmu#2
+wind.air	W IH1 N D	cmu#2
+wind.coil	W AY1 N D	cmu#1
+wound.injury	W UW1 N D	cmu#2

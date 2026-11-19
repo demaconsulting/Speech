@@ -1,0 +1,174 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Phonemes.En</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Phonemes.En</AssemblyName>
+
+    <!-- NuGet Package Configuration -->
+    <PackageId>DemaConsulting.Speech.Phonemes.En</PackageId>
+    <Version>0.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+    <Description>English pronunciation for DemaConsulting.Speech (preview): an EnglishPhonemizer that turns English text,
+      with the annotations of DemaConsulting.Speech.Text.En, into words with ARPAbet pronunciations and stress. It
+      uses an embedded pronunciation lexicon derived from the CMU Pronouncing Dictionary (every pronunciation
+      variant of each word), a reviewed table that gives every heteronym reading of the text analysis its
+      pronunciation, and a morphology that derives the pronunciation of inflected forms that the lexicon does not
+      list (plurals, past tenses, -ing forms, possessives, contractions). Words the dictionary and these rules cannot
+      pronounce get a pronunciation, with stress, from a small neural letter-to-sound model trained on the dictionary
+      alone, and are reported as out of vocabulary, never silent. Text-to-speech model packages turn the phones into
+      the symbols their voice model expects.</Description>
+    <!-- A package carries a license expression or a license file, never both. This package names a
+         file (MIT code, plus the BSD-style CMUdict license of the embedded lexicon) so the CMUdict
+         license text travels with the lexicon. See PACKAGE-LICENSE.md. -->
+    <PackageLicenseFile>PACKAGE-LICENSE.md</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Icon.png</PackageIcon>
+    <PackageTags>speech;text-to-speech;tts;phonemes;pronunciation;lexicon;cmudict;arpabet;english;offline</PackageTags>
+    <Copyright>Copyright DEMA Consulting</Copyright>
+    <Title>DemaConsulting.Speech.Phonemes.En</Title>
+    <Product>DemaConsulting.Speech.Phonemes.En</Product>
+
+    <!-- Symbol Package Configuration -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Code Quality Configuration -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- SBOM Configuration -->
+    <GenerateSBOM>true</GenerateSBOM>
+    <SBOMPackageName>$(PackageId)</SBOMPackageName>
+    <SBOMPackageVersion>$(Version)</SBOMPackageVersion>
+    <SBOMPackageSupplier>Organization: $(Company)</SBOMPackageSupplier>
+  </PropertyGroup>
+
+  <!-- Prerelease-only packing (TEMPORARY GUARD, the same as DemaConsulting.Speech.Text.En).
+       This package references DemaConsulting.Speech.Text.En, which depends on DemaConsulting.PartOfSpeech; that
+       package is published only as 0.1.0-beta.N, and the dependency flows through to this package's own
+       dependency list. A stable package may not depend on a prerelease package (NuGet NU5104), so this project
+       is packable only when the package version carries a prerelease label. A stable version skips this project
+       (the other packages still pack); a prerelease such as 1.0.0-beta.1 packs it. The effective version is
+       PackageVersion when given (as the workflows do) and Version otherwise; SemVer build metadata after '+' is
+       ignored, so only a hyphen in the version proper counts. The local default Version of 0.0.0 is stable, so a
+       plain local pack skips this project unless a prerelease version is passed.
+       REMOVE this guard together with the Text.En guard once DemaConsulting.PartOfSpeech ships a stable release. -->
+  <PropertyGroup>
+    <PhonemesEnEffectiveVersion>$(Version)</PhonemesEnEffectiveVersion>
+    <PhonemesEnEffectiveVersion Condition="'$(PackageVersion)' != ''">$(PackageVersion)</PhonemesEnEffectiveVersion>
+    <PhonemesEnVersionCore>$(PhonemesEnEffectiveVersion.Split('+')[0])</PhonemesEnVersionCore>
+    <IsPackable>false</IsPackable>
+    <IsPackable Condition="$(PhonemesEnVersionCore.Contains('-'))">true</IsPackable>
+  </PropertyGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <!-- The phonemizer reads the annotations of the English text analysis (reading ids, replacements,
+         pronunciation overrides) and maps its reading ids to pronunciations, so it depends on the text
+         analysis package, never the reverse. -->
+    <ProjectReference Include="..\DemaConsulting.Speech.Text.En\DemaConsulting.Speech.Text.En.csproj" />
+  </ItemGroup>
+
+  <!-- Build Tool Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.12" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <!-- Analyzer packages use child-element form to configure both PrivateAssets and IncludeAssets:
+         - PrivateAssets="all" prevents these build-time analyzers from becoming transitive dependencies
+           in packages that consume this library.
+         - IncludeAssets lists all asset types (including 'analyzers' and 'buildtransitive') to ensure
+           Roslyn analyzers and MSBuild targets are fully activated during the build. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Phonemes.En.Tests" />
+    <!-- The non-shipped tools project builds and verifies the lexicon resource with this library's own
+         image format, phone model and morphology instead of a copy of them. -->
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Phonemes.En.Tools" />
+  </ItemGroup>
+
+  <!-- The CMUdict-derived lexicon image (gzip-compressed, phone-coded, front-coded), written by the
+       non-shipped tools project (build-lexicon) from the pinned CMUdict and verified by its check option
+       against data/phonemes-en/MANIFEST.tsv. The resource name is the one CmuLexicon.Default reads.
+       The file is required: a build without it fails instead of silently shipping no lexicon.
+       WithCulture="false" is essential: MSBuild reads the "bin" in cmudict-en.bin.gz as a culture name (Bini)
+       and would put the resource in a satellite assembly. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\cmudict-en.bin.gz" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.cmudict-en.bin.gz" WithCulture="false" />
+  </ItemGroup>
+
+  <!-- The letter-to-sound model (gzip-compressed, quantized weights of three small neural networks), trained by the
+       non-shipped tools project (train-lts) from the pinned CMUdict alone and verified by its check option against
+       data/phonemes-en/MANIFEST.tsv. It pronounces the words the lexicon and the morphology cannot. The resource
+       name is the one LtsModel.Default reads; the file is required. WithCulture="false" for the same reason as above. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\lts-en.bin.gz" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.lts-en.bin.gz" WithCulture="false" />
+  </ItemGroup>
+
+  <!-- The frozen reading tables (written and reviewed by DEMA Consulting from the CMU Pronouncing Dictionary and
+       phonetic knowledge only), embedded by link from data/phonemes-en so the data folder stays the single source of
+       truth: the pronunciation of every heteronym reading id of the text analysis package, and the few inflected
+       spellings the morphology rules cannot give. The check option of the tools project's propose-readings command verifies them. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\phonemes-en\reading-pronunciations.tsv" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.reading-pronunciations.tsv" />
+    <EmbeddedResource Include="..\..\data\phonemes-en\form-overrides.tsv" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.form-overrides.tsv" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\Icon.png" Pack="true" PackagePath="\" />
+    <None Include="PACKAGE-LICENSE.md" Pack="true" PackagePath="\" />
+    <None Include="THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- API documentation generation -->
+  <PropertyGroup>
+    <!-- Run API documentation generation only for this framework in multi-targeted builds -->
+    <ApiDocsTargetFramework>net8.0</ApiDocsTargetFramework>
+    <!-- Configuration-specific output so Debug and Release docs do not overwrite each other -->
+    <ApiMarkOutputDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\apimark-docs</ApiMarkOutputDir>
+    <!-- Pack generated API docs into the NuGet package under api/ -->
+    <ApiMarkPackDocs>false</ApiMarkPackDocs>
+    <ApiMarkPackDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">true</ApiMarkPackDocs>
+    <!-- Disable for non-primary framework to avoid duplicate generation in multi-targeted builds -->
+    <DisableApiMark Condition="'$(TargetFramework)' != '$(ApiDocsTargetFramework)'">true</DisableApiMark>
+    <!-- Report (but do not yet fail the build on) any public API surface missing an XML doc
+         <summary>, so gaps are visible before this is tightened to Error. -->
+    <ApiMarkEnforceDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Public</ApiMarkEnforceDocs>
+    <ApiMarkEnforceDocsSeverity Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Warning</ApiMarkEnforceDocsSeverity>
+    <ApiMarkLibraryDescription Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">DemaConsulting.Speech.Phonemes.En (preview) supplies English pronunciation for DemaConsulting.Speech:
+      an embedded lexicon derived from the CMU Pronouncing Dictionary and a morphology for inflected
+      forms, in ARPAbet phones with lexical stress.
+
+      See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
+      [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)
+      for more.</ApiMarkLibraryDescription>
+  </PropertyGroup>
+
+</Project>

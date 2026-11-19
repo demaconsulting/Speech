@@ -1,0 +1,29 @@
+---
+# Software Unit Requirements for MisakiRenderer
+#
+# These requirements describe the behavior of the MisakiRenderer unit: the renderer that turns a phonemized
+# text into the misaki symbol string Kokoro reads (with its profile, the ARPAbet to misaki table and the
+# word-shape sound rules). It decomposes the parent SpeechPhonemesEn RenderingSubsystem requirements. Covered by
+# the MisakiRenderer_* tests in test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs, with the
+# golden file TestData/kokoro-misaki-golden.tsv.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: RenderingSubsystem Requirements
+        sections:
+          - title: MisakiRenderer Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Rendering-MisakiRenderer-MisakiRendering
+                title: >-
+                  The MisakiRenderer class shall render each of the 150 sentences of the golden corpus to
+                  exactly its reviewed misaki string with the token ids of Kokoro's vocabulary, using no
+                  symbol outside that vocabulary, and shall reject a missing text, a part limit below the
+                  minimum and an undefined profile with an argument error.
+                justification: |
+                  The golden is the regression baseline of the Kokoro rendering, generated, reviewed and
+                  frozen like the Piper one; the token ids prove that the phoneme string is what the model's
+                  tokenizer accepts. The renderer is a public type, so its arguments are checked.
+                tests:
+                  - MisakiRenderer_Render_Sentences_RenderTheReviewedPhonemeStrings
+                  - MisakiRenderer_Render_InvalidArguments_AreRejected

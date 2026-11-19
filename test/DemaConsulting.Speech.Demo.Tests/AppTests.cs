@@ -77,7 +77,7 @@ public sealed class AppTests
     }
 
     /// <summary>
-    ///     Literal identifiers of the Sherpa, Kokoro and Nemotron models the demo documents as
+    ///     Literal identifiers of the Sherpa, Kokoro, Piper and Nemotron models the demo documents as
     ///     offered (stated independently of the library's own constants).
     /// </summary>
     internal static readonly string[] ExpectedModelIds =
@@ -87,6 +87,7 @@ public sealed class AppTests
         "vits-piper-en_US-libritts_r-medium",
         "kokoro-int8-en-v0_19",
         "kokoro-onnx-v1_0-en",
+        "piper-onnx-libritts-r-en-us-medium",
         "nemotron-3.5-asr-streaming-0.6b-onnx-int4",
     ];
 

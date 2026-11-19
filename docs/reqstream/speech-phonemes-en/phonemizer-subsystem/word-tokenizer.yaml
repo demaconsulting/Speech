@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for WordTokenizer
+#
+# These requirements describe the behavior of the WordTokenizer unit: the spoken text that applies the
+# replacement annotations to the text and keeps track of what is original and what is spoken, the index of the
+# reading and pronunciation annotations, and the tokenizer that cuts the spoken text into word, letter, digit,
+# clitic, punctuation and unsupported tokens. It decomposes the parent SpeechPhonemesEn PhonemizerSubsystem
+# requirements. Covered by the WordTokenizer_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/PhonemizerSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: PhonemizerSubsystem Requirements
+        sections:
+          - title: WordTokenizer Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Phonemizer-WordTokenizer-Tokens
+                title: >-
+                  The WordTokenizer class shall cut the spoken text into word tokens (letters with inner
+                  apostrophes and hyphens, and a leading apostrophe only when the dictionary lists the word
+                  so, but not across a hyphen between two replacements, which is a punctuation token), one-letter tokens for a spelled replacement followed by a clitic token for a
+                  contraction ending that a replacement boundary cut off, digit runs, punctuation (a run of
+                  one mark being one token) and unsupported runs, shall skip whitespace and the audio-tag
+                  placeholder, and shall apply a replacement annotation to its span while ignoring an
+                  annotation that does not lie inside the text.
+                justification: |
+                  What counts as a word decides everything the later steps do: "don't" is one word, a
+                  leading quote is not part of a word, "FBI's" is three letters and an ending, and an emoji
+                  is something the phonemizer cannot say and must report. The rules are applied in a fixed
+                  order so that every text has exactly one tokenization.
+                tests:
+                  - WordTokenizer_Tokenize_WordsPunctuationDigitsAndUnsupportedRuns_AreClassified
+                  - WordTokenizer_Tokenize_LeadingApostrophe_IsPartOfAWordOnlyWhenTheDictionaryListsIt
+                  - WordTokenizer_Tokenize_HyphenBetweenTwoReplacements_IsPunctuationNotACompoundJoint
+                  - WordTokenizer_Tokenize_ReplacementsAndSpelledLetters_AreAppliedAndBadAnnotationsIgnored

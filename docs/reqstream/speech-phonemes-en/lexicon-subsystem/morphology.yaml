@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for Morphology
+#
+# These requirements describe the behavior of the Morphology unit: the sound rules for the endings of regular
+# inflected forms, possessives and contractions, and the derivation of a form from a stem the lexicon knows.
+# It decomposes the parent SpeechPhonemesEn LexiconSubsystem requirement. Covered by the Morphology_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Morphology.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LexiconSubsystem Requirements
+        sections:
+          - title: Morphology Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Lexicon-Morphology-Derivation
+                title: >-
+                  The Morphology class shall choose the sound of a plural, past-tense, -ing, possessive or
+                  contraction ending by the last phone of the stem (s, z or iz; t, d or id; a syllabic
+                  ending only after the sounds that need one), shall derive the pronunciation of a word that
+                  is a known stem plus a regular ending from the stem's pronunciation (a superlative after a
+                  stem that ends in a stressed ng with the velar stop, as in strongest), shall order the
+                  variants of the comparative of an adjective in ng so that the one with the velar stop comes
+                  first, and shall report that
+                  a word has no derivation when no known stem and ending produce it.
+                justification: |
+                  The ending of an English inflection is decided by the last sound of the stem, so it can be
+                  derived exactly instead of guessed. A word that no stem explains must be reported as
+                  not derivable so that the caller falls back to the letter-to-sound model instead of
+                  receiving a wrong derivation.
+                tests:
+                  - Morphology_TryDerive_RegularForm_DerivesFromStem
+                  - Morphology_TryDerive_NoKnownStem_ReturnsFalse
+                  - Morphology_Apply_EndingByLastPhone
+                  - Morphology_OrderVariants_ComparativeInNg_StartsWithTheVelarStop
+                  - Morphology_AppendClitic_ByHostLastPhone

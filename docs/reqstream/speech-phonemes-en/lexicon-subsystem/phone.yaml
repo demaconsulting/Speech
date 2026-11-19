@@ -1,0 +1,28 @@
+---
+# Software Unit Requirements for Phone
+#
+# These requirements describe the behavior of the Phone unit: the phone and pronunciation value types (with the
+# letter names that spell a letter) that every other unit of the package is written in terms of. It decomposes
+# the parent SpeechPhonemesEn LexiconSubsystem requirement. Covered by the Pronunciation_* test in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LexiconSubsystem Requirements
+        sections:
+          - title: Phone Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Lexicon-Phone-ArpabetForm
+                title: >-
+                  The Pronunciation class shall parse the text form of the CMU Pronouncing Dictionary (phones
+                  separated by spaces, each vowel with a stress digit) and print it back unchanged, shall
+                  expose the stress and the base symbol of each phone, and shall reject a phone that is not
+                  an ARPAbet phone with a format error.
+                justification: |
+                  Every table of the package (the reading table, the form overrides, the host overrides in
+                  ARPAbet) and every test golden is written in the dictionary's own text form, so reading and
+                  writing it exactly is the foundation of all of them, and a mistyped phone has to be an
+                  error and never a silently different sound.
+                tests:
+                  - Pronunciation_Parse_TextForm_RoundTrips

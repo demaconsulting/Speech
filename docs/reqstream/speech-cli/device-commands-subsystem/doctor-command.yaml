@@ -46,14 +46,20 @@ sections:
               - id: SpeechCli-DeviceCommands-DoctorNativeRuntimes
                 title: >-
                   The DoctorCommand shall report whether the native SherpaOnnx runtime is
-                  resolvable.
+                  resolvable, including in a host that has already initialized the managed
+                  Microsoft ONNX Runtime used by the raw ONNX model packages.
                 tags: [unit]
                 justification: |
                   A missing native runtime is a common cause of recognition failures. The native-library test
                   deliberately exercises the real load path and is skipped on a platform with no supported
-                  runtime identifier.
+                  runtime identifier. Sherpa's and Microsoft's native ONNX Runtime libraries share one file
+                  name, so a host that carries both must still be able to load sherpa's library once the
+                  managed runtime has been initialized first, with the native runtime in the process being the
+                  one the managed API is pinned to; the test that does exactly that is the
+                  observable evidence that the arrangement of the native assets works on the machine.
                 tests:
                   - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable
+                  - DoctorCommand_Run_RawOnnxRuntimeInitializedFirst_SherpaNativeStillResolvable
                   - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
                   - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull
 

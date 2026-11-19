@@ -70,12 +70,12 @@
        everything these tests need, so the tests never reach past the item under test into the
        library directly. -->
   <ItemGroup>
-    <!-- Keep sherpa-onnx's libonnxruntime; Microsoft's native copy would overwrite it (see the Cli project). -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" ExcludeAssets="native" />
+    <!-- Keep sherpa-onnx's native onnxruntime (1.28.2) and the matching managed 1.28.0 API (see the CLI project). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Demo\DemaConsulting.Speech.Demo.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
     <!-- Needed only so SpeechDemoTests can compose the catalog exactly as the demo's own
-         composition root does (AddSherpaModels().AddKokoroModels().AddNemotronSttModels()), proving the real-catalog
+         composition root does (AddSherpaModels().AddKokoroModels().AddPiperModels().AddNemotronSttModels()), proving the real-catalog
          model count the demo reports includes the Kokoro ONNX synthesis model, not merely the
          Sherpa models. -->
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />

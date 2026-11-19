@@ -4,13 +4,17 @@
 
 `OnnxKokoroSynthesisEngine` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs`,
-proving its constructor argument validation, `ISynthesisBackend.Generate`'s zero-token
-short-circuit and disposed-engine guard, and `RunProbeInference`'s successful-probe path - all
-against a tiny, hand-built ONNX test fixture (`TestData/fake-kokoro-model.onnx`) whose single node
-forwards its `style` input straight through as the output, never the real ~88 MiB production
-model. `OnnxKokoroEnglishSynthesisModelTests` already proves `Generate`'s voice-style-vector
-selection and tensor-wiring end-to-end (via `CreateBackend`), so this class focuses on behavior
-specific to this engine class itself, reachable only through its own internal constructor.
+proving its constructor argument validation, the zero-token short-circuit of `ISynthesisBackend.Generate` and the
+disposed-engine guard, the annotated generation, the generation in parts, the style-row selection, and
+`RunProbeInference`'s successful-probe path - all against a tiny, hand-built ONNX test fixture
+(`TestData/fake-kokoro-model.onnx`) whose single node forwards its `style` input straight through as the output,
+never the real ~88 MiB production model. The engine takes its token ids from the real `KokoroPhonemePipeline`
+(verified by its own tests), and the fixture returns the style row the engine selected - the row is indexed by the
+number of phoneme tokens - so a test can read from the audio samples how many sounds were spoken and which row (and
+so which voice) was used. Tests whose subject is this behavior of the engine together with the pipeline carry the
+prefix `SynthesisSubsystem_` (they are also the subsystem-level tests). `OnnxKokoroEnglishSynthesisModelTests` proves
+`Generate`'s voice-style-vector selection and tensor-wiring end-to-end (via `CreateBackend`), so this class focuses on
+behavior specific to this engine class itself, reachable only through its own internal constructor.
 
 One test, `Generate_RealInstalledModel_ProducesNonEmptyAudio`, additionally exercises the real
 production model end-to-end - through `OnnxKokoroEnglishSynthesisModel.CreateBackend` and
@@ -44,12 +48,15 @@ locally, per `requirements-principles.md`'s "Tests MAY exist without a requireme
 #### Acceptance Criteria
 
 The constructor throws `ArgumentNullException` for each individually-null required parameter
-(session, vocabulary, phonemizer, voice-styles dictionary) and `ArgumentException` for an empty
+(session, phoneme pipeline, voice-styles dictionary) and `ArgumentException` for an empty
 voice-styles dictionary; `SampleRate` always reports 24000 Hz; `Generate` returns an empty
-`BackendAudio` at 24000 Hz, without failing, for text that phonemizes to zero tokens
-(empty text, or text composed entirely of out-of-vocabulary words); `Generate` throws
+`BackendAudio` at 24000 Hz, without failing, for text with no sound in this voice (empty text, an emoji);
+a word absent from the dictionary is spoken; `GenerateAnnotated` speaks a replacement annotation instead of
+the written text and the reading the annotations of the model's analysis chose; a text longer than the model
+accepts is spoken in several runs of the graph; `Generate` throws
 `ArgumentNullException` for null text and `ObjectDisposedException` once the engine has been
-disposed; a second `Dispose` call is a harmless no-op; `RunProbeInference` runs its representative
+disposed; a second `Dispose` call is a harmless no-op, concurrent calls release the session once, and a disposal that
+overlaps a running synthesis waits for it; `RunProbeInference` runs its representative
 inference successfully, without throwing, against a session that can actually run the graph; and,
 when the real production model is installed in this environment, `CreateBackend` plus `Generate`
 together synthesize non-empty audio at 24000 Hz for a real English sentence.
@@ -60,13 +67,9 @@ together synthesize non-empty audio at 24000 Hz for a real English sentence.
 
 **Test**: `Constructor_NullSession_ThrowsArgumentNullException`
 
-##### The constructor throws ArgumentNullException for a null vocabulary
+##### The constructor throws ArgumentNullException for a null phoneme pipeline
 
-**Test**: `Constructor_NullVocabulary_ThrowsArgumentNullException`
-
-##### The constructor throws ArgumentNullException for a null phonemizer
-
-**Test**: `Constructor_NullPhonemizer_ThrowsArgumentNullException`
+**Test**: `Constructor_NullPipeline_ThrowsArgumentNullException`
 
 ##### The constructor throws ArgumentNullException for a null voice-styles dictionary
 
@@ -80,10 +83,33 @@ together synthesize non-empty audio at 24000 Hz for a real English sentence.
 
 **Test**: `SampleRate_IsAlways24000`
 
-##### Generate returns empty audio for zero-token text
+##### Generate returns empty audio for text without sounds
 
-**Test**: `Generate_ZeroTokenText_ReturnsEmptyAudio` (a `[Theory]` covering empty text and
-text composed entirely of out-of-vocabulary words)
+**Test**: `SynthesisSubsystem_TextWithoutSounds_ReturnsEmptyAudio` (a `[Theory]` covering empty text and
+an emoji)
+
+##### Generate speaks a word that is absent from the dictionary
+
+**Test**: `SynthesisSubsystem_UnknownWord_IsStillSpoken`
+
+A made-up 22-letter word through the plain `Generate` produces audio.
+
+##### GenerateAnnotated speaks the replacement and the chosen reading
+
+**Tests**: `SynthesisSubsystem_AnnotatedReplacement_IsSpokenAsReplaced`,
+`SynthesisSubsystem_AnnotatedHeteronym_IsSpokenWithTheChosenReading`
+
+With a voice whose rows are filled with their own row index, the first sample is the number of phoneme tokens of the
+utterance. A replacement annotation (`twenty twenty-six` for `2026`) gives more tokens than the plain call; the
+annotations of the model's analysis of `A separate room.` give fewer tokens than the plain call, which speaks the
+default reading.
+
+##### A long segment is spoken in parts, one run of the graph each
+
+**Test**: `SynthesisSubsystem_TextBeyondTokenLimit_IsSpokenInSeveralParts`
+
+The fixture returns one 256-sample style row per run, so forty copies of a sentence (about 1,000 tokens) give a
+length that is a multiple of 256 and at least three rows long.
 
 ##### A multi-row voice selects its style row by token count
 
@@ -108,7 +134,13 @@ to synthesize an utterance.
 
 ##### Disposing the engine releases the session
 
-**Test**: `Dispose_ReleasesSession`
+**Tests**: `Dispose_ReleasesSession`, `Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce`
+
+The second test holds one synthesis inside the engine (through an annotation list, a public input of the engine that
+blocks until released), starts two disposals, waits until a new synthesis is refused (which shows the disposal has
+begun), and checks that the session has not been disposed yet, that the held synthesis still returns audio once
+released, and that the session was disposed exactly once (counted through
+`DisposalTrackingInferenceSession.DisposeCount`).
 
 ##### Generate throws ArgumentNullException for null text
 
@@ -116,11 +148,15 @@ to synthesize an utterance.
 
 ##### Generate throws ObjectDisposedException after disposal
 
-**Test**: `Generate_AfterDispose_ThrowsObjectDisposedException`
+**Tests**: `Generate_AfterDispose_ThrowsObjectDisposedException`,
+`Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed`
+
+The race test runs eight workers of 25 syntheses against one disposal and checks that every outcome is audio or
+`ObjectDisposedException`.
 
 ##### Disposing twice does not throw
 
-**Test**: `Dispose_CalledTwice_DoesNotThrow`
+**Tests**: `Dispose_CalledTwice_DoesNotThrow`, `Dispose_ConcurrentCallers_ReleaseTheSessionOnce`
 
 ##### RunProbeInference runs successfully against a runnable session
 

@@ -35,7 +35,7 @@ desktop lifetime.
   testable directly.
 - `CatalogFactory` is a composition-root local function that maps the supplied
   `SpeechModelDownloaderOptions?` to a `ModelCatalogComposition`. It creates a `SpeechModelCatalog`
-  from the launch store options and those downloader options, registers the Sherpa, Kokoro and
+  from the launch store options and those downloader options, registers the Sherpa, Kokoro, Piper and
   Nemotron model families, builds one `ReferenceVoiceLibrary` over the catalog's store, registers
   the Chatterbox Turbo model with that shared library and the optional `--voices-dir` folder, and
   returns the catalog and library together as the composition. The factory builds its own

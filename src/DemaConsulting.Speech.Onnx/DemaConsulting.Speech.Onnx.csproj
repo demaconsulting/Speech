@@ -67,8 +67,13 @@
          compile-time reference to any specific provider package - falling back to the always
          -available CPU provider when no accelerated provider is present at runtime. This mirrors
          the sibling DemaConsulting.Speech.Sherpa package's "consuming application brings its own
-         native runtime package" convention. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+         native runtime package" convention.
+         The version is a floor, deliberately the lowest managed API the ONNX packages are built
+         and tested against (1.28.0, the ONNX Runtime that sherpa-onnx 1.13.x ships natively): a
+         consumer may reference a newer Microsoft.ML.OnnxRuntime, but the managed version must
+         never be newer than the native onnxruntime library that ends up loaded in the process
+         (see the CLI and demo projects, which keep sherpa-onnx's native copy). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->

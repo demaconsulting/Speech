@@ -35,6 +35,11 @@ replacement is spelled exactly when its spoken text is a letter sequence, an amp
 spelled letter spans and an `and` span with unchanged spoken text and the possessive tail outside every span, and
 adjacent replacements are separated by exactly one space. An empty text normalizes to nothing.
 
+**Web addresses and identifiers.** A URL, an e-mail address and a bare domain are spoken as their pieces before the
+clitic, abbreviation and acronym rules can take the token, an identifier of capital letters and digits has its
+letters spelled and its digits read, a name joined to a number by a hyphen has its number read, and a file name or a
+dotted name with an unknown ending is left as written.
+
 **Periods and breaks.** A suffix abbreviation keeps its period at a sentence end and consumes it mid-sentence in both
 token shapes, and forces a break only before a capitalized next word; a prefix title consumes its period and removes
 the tokenizer break after it; the word reading of `No.` adds a break but no span; a name suffix before a credential
@@ -77,6 +82,19 @@ span `A T`, the symbol span `" and "` and the spelled span `T`, with the spoken 
 mark directly before `AT&T` the result is `trademark A T and T` with no double space. The numeric-separation,
 multi-token and invisible-character-in-number rows (`50%`, `5 million USD`, `5–10`, a number with a zero-width space)
 are golden rows.
+
+##### Web addresses and identifiers
+
+**Tests**: `TextNormalizer_Normalize_WebAddresses_AreSpokenAsTheirPieces` (a five-row theory),
+`TextNormalizer_Normalize_LettersAndDigits_AreSpelledAndRead` (a three-row theory)
+
+`Visit https://www.example.com/docs?id=7 today.` becomes `Visit H T T P S:W W W dot example dot com slash docs
+question mark id equals 7 today.` (the colon after the scheme stays, the two slashes are dropped);
+`Mail john.smith@example.com, now.` becomes `Mail john dot smith at example dot com, now.`; the final period of
+`example.com.` stays the sentence's own; `report.pdf` and `Node.js` have no span. `A4`, `B12`, `H2O` and `MP3` are
+read `A four`, `B twelve`, `H two O` and `M P three`, `COVID-19` and `Catch-22` become `COVID-nineteen` and
+`Catch-twenty two`, and `COVID19` is left alone; every spelled span is a letter sequence and every other span is
+not. The remaining address and identifier rows are golden rows.
 
 ##### Period and sentence rules
 

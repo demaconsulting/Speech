@@ -6,8 +6,9 @@
 # spoken, decomposing the parent SpeechTextEn NormalizationSubsystem requirements. Its rules are applied
 # in a fixed order: user override directives (which win over every other rule for the spoken form;
 # the sentence-break edits of the abbreviation rules are kept), invisible characters,
-# clitics, numeric expressions (through
-# NumericExpressionRecognizer), abbreviations, acronyms, symbols and apostrophes. The tests feed
+# web addresses (through WebAddressRecognizer), clitics, numeric expressions (through
+# NumericExpressionRecognizer), abbreviations, acronyms, identifiers of letters and digits
+# (through AlphanumericTokenRecognizer), symbols and apostrophes. The tests feed
 # it the tokens of the real DemaConsulting.PartOfSpeech tokenizer through a test harness, which is
 # the unit's only dependency on the OTS package and exists in the tests only. Each requirement
 # states one observable behavior.
@@ -61,6 +62,28 @@ sections:
                   - TextNormalizer_Normalize_SpelledReplacements_AreDecidedByShape
                   - TextNormalizer_Normalize_AmpersandInitialisms_AreDecomposedWithUnchangedSpokenText
                   - TextNormalizer_Normalize_AmpersandInitialismNextToReplacement_PadsExactlyOneSpace
+
+              - id: SpeechTextEn-Normalization-TextNormalizer-AddressesAndIdentifiers
+                title: >-
+                  The TextNormalizer class shall speak a URL, an e-mail address and a bare domain
+                  with a known top-level domain as their pieces (the scheme letters and a leading
+                  www spelled, each separator as a word, the slashes after the scheme dropped, the
+                  words between them left as written) before any clitic, abbreviation or acronym
+                  rule can take the token, shall speak an identifier of capital letters and digits
+                  with its letters spelled and its digits read and a name joined to a number by a
+                  hyphen with only the number read, and shall leave a file name, a dotted name with
+                  an unknown ending and a capital word of four or more letters before digits as
+                  written.
+                justification: |
+                  A model reads "john.smith@example.com" as one unpronounceable word and "A4" as the
+                  article and a number, so the pieces that are not words must be spoken, while the
+                  words of an address stay words for the phonemizer. The address rule runs first
+                  because a dotted name could otherwise be taken for a clitic or an abbreviation, and
+                  the identifier rule runs after the lexicons so that a listed entry wins. Names such
+                  as "report.pdf" and "Node.js" are not addresses and must not be reworded.
+                tests:
+                  - TextNormalizer_Normalize_WebAddresses_AreSpokenAsTheirPieces
+                  - TextNormalizer_Normalize_LettersAndDigits_AreSpelledAndRead
 
               - id: SpeechTextEn-Normalization-TextNormalizer-PeriodsAndBreaks
                 title: >-

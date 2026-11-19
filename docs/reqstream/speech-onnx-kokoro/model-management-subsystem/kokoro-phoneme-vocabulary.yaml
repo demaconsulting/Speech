@@ -44,7 +44,10 @@ sections:
                   most 510 entries.
                 justification: |
                   The model has a 512-token context window, two of which are reserved for the
-                  leading and trailing pad token the caller adds.
+                  leading and trailing pad token the caller adds. The phoneme pipeline never
+                  hands the vocabulary more than the limit (it splits long text into parts
+                  first), so this cap is the last guard of the limit and not the way long text is
+                  handled.
                 tests:
                   - ToTokenIds_LongerThanMaxPhonemeTokens_IsTruncated
 

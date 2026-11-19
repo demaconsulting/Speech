@@ -5,10 +5,11 @@
 # ModelManagementSubsystem, decomposing the system-level requirements in
 # docs/reqstream/speech-onnx-kokoro.yaml. This subsystem supplies the one concrete,
 # ONNX-Runtime-backed speech model that implements the Speech library's ISynthesisModel
-# contract (OnnxKokoroEnglishSynthesisModel), the two supporting units that give it its own
-# text-to-phoneme-to-token pipeline (KokoroLexiconPhonemizer, KokoroPhonemeVocabulary), and the
-# AddKokoroModels() catalog-registration extension method. Each requirement states one
-# observable behavior.
+# contract (OnnxKokoroEnglishSynthesisModel, including the shared English text analysis it hands to
+# the session), the supporting unit that holds Kokoro's own phoneme vocabulary
+# (KokoroPhonemeVocabulary), and the AddKokoroModels() catalog-registration extension method. The
+# conversion of text to phonemes lives in the SynthesisSubsystem (KokoroPhonemePipeline). Each
+# requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
 # docs/reqstream/speech-onnx-kokoro/model-management-subsystem/. The AddKokoroModels() extension
@@ -16,8 +17,12 @@
 # consolidated here at subsystem level, matching the sibling SpeechSherpa system's established
 # convention for its own catalog extension method.
 #
-# This package is covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests - see per-unit files
-# under docs/reqstream/speech-onnx-kokoro/model-management-subsystem/ for the full tests: lists.
+# This package is covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests. The test project has no
+# separate subsystem-level test class for this subsystem: the catalog extension tests
+# (SpeechModelCatalogKokoroExtensionsTests.cs) are its subsystem-level tests, the model tests
+# (ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModelTests.cs) exercise the model together with
+# the engine it constructs, and the per-unit files under
+# docs/reqstream/speech-onnx-kokoro/model-management-subsystem/ list the unit-level tests.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -77,6 +82,8 @@ sections:
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstructionArgumentValidation
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-SessionDisposedOnFailure
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
+            tests:
+              - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
           - id: SpeechOnnxKokoro-Models-VoiceSelection
             title: >-
@@ -90,34 +97,25 @@ sections:
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-VoiceOptions
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerIdDefaultFallback
+            tests:
+              - OnnxKokoroEnglishSynthesisModel_VoiceParameter_Declares29VoicesWithDefault
+              - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
 
-          - id: SpeechOnnxKokoro-Models-TextToPhonemePipeline
+          - id: SpeechOnnxKokoro-Models-TextAnalysis
             title: >-
-              The ModelManagementSubsystem shall convert English text into Kokoro phoneme
-              strings itself, speaking normalized numbers, symbols, and acronyms and omitting and
-              reporting words it cannot pronounce.
+              The ModelManagementSubsystem shall supply the English text analysis that the Speech
+              library's session runs over the text before synthesis (numbers, currency, dates and
+              abbreviations spoken as words, and the reading of each heteronym), one analysis
+              shared by every instance of the model.
             justification: |
-              Unlike sherpa-onnx's native library (used by the sibling SpeechSherpa system),
-              which bundles phonemization internally, the bare ONNX export leaves text-to-phoneme
-              conversion entirely to the caller. This subsystem must own that responsibility
-              itself for Kokoro v1.0 synthesis to produce correct pronunciation.
+              The model decides what the session analyzes. The reading of a heteronym and the
+              spoken form of a number are decided once, by the shared analysis, and handed to the
+              engine as annotations; the analysis loads its trained data on first use, so sharing
+              one instance keeps every model instance cheap.
             children:
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-Phonemize
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-WhitespaceCollapse
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ContractionRecognition
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-PunctuationPassThrough
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-PunctuationDrop
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-EllipsisToken
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-EmptyInput
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-TextNormalization
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-NumberToWords
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-HugeNumberResilience
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-SpellingCorrection
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-AcronymSpelling
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordReporting
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
-              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-NormalizationArgumentValidation
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-TextAnalysis
+            tests:
+              - OnnxKokoroEnglishSynthesisModel_TextAnalyzer_IsSharedAndClassifiesHeteronyms
 
           - id: SpeechOnnxKokoro-Models-PhonemeTokenization
             title: >-
@@ -132,3 +130,5 @@ sections:
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-Truncation
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-PadToken
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation
+            tests:
+              - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder

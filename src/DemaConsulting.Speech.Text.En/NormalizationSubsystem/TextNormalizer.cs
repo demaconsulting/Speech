@@ -11,16 +11,19 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 ///     One linear pass over the tokens applies an ordered list of rules, the first match winning:
 ///     user overrides (host-supplied directives, which win over every other rule for the spoken
 ///     form; the sentence-break edits of the abbreviation rules are kept), invisible
-///     characters, clitics, numeric expressions, lexicon abbreviations, acronyms and
-///     initialisms, symbols and marks, and elision apostrophes. Replacements that are letter
+///     characters, web addresses, clitics, numeric expressions, lexicon abbreviations, acronyms and
+///     initialisms, identifiers that mix letters and digits, symbols and marks, and elision apostrophes. Replacements that are letter
 ///     sequences (initialisms, initials, meridiems) are marked as spelled, so they are annotated
 ///     <c>en.spell</c> rather than <c>en.norm</c>. Every rule looks at a constant
 ///     number of neighboring tokens, so the pass is linear in the text length whatever the text
 ///     contains. The rules are lexical and orthographic only; the part-of-speech tagger is never
 ///     consulted, so the result does not depend on which annotations the analyzer was asked for.
 ///     Numbers, ordinals, years, currency, percent, units, times, dates and digit groups are read
-///     by <see cref="NumericExpressionRecognizer"/> (en-US only); URLs, markup, Roman numerals,
-///     hyphenated digit compounds and the hyphen policy are deliberately not handled yet and pass
+///     by <see cref="NumericExpressionRecognizer"/> (en-US only), which also reads the number of a
+///     hyphenated compound (<c>12-year-old</c>) and a number with a capital letter glued to it (<c>10K</c>);
+///     URLs, e-mail addresses and bare domains are read by <see cref="WebAddressRecognizer"/> and
+///     identifiers such as <c>A4</c> or <c>COVID-19</c> by <see cref="AlphanumericTokenRecognizer"/>.
+///     Markup, Roman numerals and the hyphen policy are deliberately not handled yet and pass
 ///     through untouched. An instance keeps no per-request state and is thread-safe.
 /// </remarks>
 internal sealed class TextNormalizer
@@ -348,6 +351,14 @@ internal sealed class TextNormalizer
                 return index + 1;
             }
 
+            // Rule 1b: a web address (URL, e-mail address, bare domain) in one token: its separators are spoken as
+            // words, before any rule can take the token for a clitic, an abbreviation or an acronym.
+            if (WebAddressRecognizer.Recognize(span, token.Start) is { } addressSpans)
+            {
+                EmitSpans(addressSpans);
+                return index + 1;
+            }
+
             // Rule 2: clitics ('s, n't, ...) get their apostrophe canonicalized and, on request, a role.
             if (TryGetClitic(span, out var cliticKind, out var apostropheOffset))
             {
@@ -382,6 +393,14 @@ internal sealed class TextNormalizer
             if (TryApplyAcronym(index, span, out var next))
             {
                 return next;
+            }
+
+            // Rule 4b: identifiers and names that mix letters and digits (A4, H2O, MP3, COVID-19), after the lexicons
+            // so an entry of either wins.
+            if ((AlphanumericTokenRecognizer.RecognizeIdentifier(span, token.Start) ?? AlphanumericTokenRecognizer.RecognizeHyphenatedNumber(span, token.Start)) is { } mixedSpans)
+            {
+                EmitSpans(mixedSpans);
+                return index + 1;
             }
 
             // Rule 5: symbols and marks, standalone or inside a word.
@@ -637,6 +656,24 @@ internal sealed class TextNormalizer
             }
 
             return next;
+        }
+
+        /// <summary>
+        ///     Emits the spans a recognizer found inside one token.
+        /// </summary>
+        /// <param name="spans">The spans in text order; each is one replacement inside the token.</param>
+        /// <remarks>
+        ///     A span that touches the next one leaves the separating space to the later span, which pads its own left
+        ///     side, so two adjacent replacements are separated by exactly one space.
+        /// </remarks>
+        private readonly void EmitSpans(IReadOnlyList<NumericSpan> spans)
+        {
+            for (var s = 0; s < spans.Count; s++)
+            {
+                var span = spans[s];
+                var touchesNext = s + 1 < spans.Count && spans[s + 1].Start == span.Start + span.Length;
+                Emit(span.Start, span.Length, span.Spoken, span.Kind, allowRightPad: !touchesNext);
+            }
         }
 
         /// <summary>

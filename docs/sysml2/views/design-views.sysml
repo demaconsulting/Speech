@@ -11,9 +11,11 @@ package Speech {
         expose SpeechSherpa;
         expose SpeechOnnx;
         expose SpeechOnnxKokoro;
+        expose SpeechOnnxPiper;
         expose SpeechOnnxChatterboxTurbo;
         expose SpeechOnnxNemotronStt;
         expose SpeechTextEn;
+        expose SpeechPhonemesEn;
     }
 
     view SpeechView {
@@ -157,6 +159,23 @@ package SpeechOnnxKokoro {
     }
 }
 
+// SpeechOnnxPiper views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly. The subsystem views carry a 'Piper' prefix because rendered SVG
+// filenames are keyed by bare view name.
+package SpeechOnnxPiper {
+    view SpeechOnnxPiperView {
+        expose SpeechOnnxPiperSystem;
+    }
+
+    view PiperModelManagementSubsystemView {
+        expose ModelManagementSubsystem;
+    }
+
+    view PiperSynthesisSubsystemView {
+        expose SynthesisSubsystem;
+    }
+}
+
 // SpeechOnnxChatterboxTurbo views. Declared in their own package so each 'expose' statement can
 // reference its target part def directly. The subsystem views carry a 'ChatterboxTurbo' prefix
 // because rendered SVG filenames are keyed by bare view name.
@@ -221,5 +240,30 @@ package SpeechTextEn {
 
     view TextEnExternalEvaluationSubsystemView {
         expose ExternalEvaluationSubsystem;
+    }
+}
+
+// SpeechPhonemesEn views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly. The subsystem views carry a 'PhonemesEn' prefix because rendered SVG
+// filenames are keyed by bare view name, so a generic name could overwrite another package's diagram.
+package SpeechPhonemesEn {
+    view SpeechPhonemesEnView {
+        expose SpeechPhonemesEnSystem;
+    }
+
+    view PhonemesEnLexiconSubsystemView {
+        expose LexiconSubsystem;
+    }
+
+    view PhonemesEnLetterToSoundSubsystemView {
+        expose LetterToSoundSubsystem;
+    }
+
+    view PhonemesEnPhonemizerSubsystemView {
+        expose PhonemizerSubsystem;
+    }
+
+    view PhonemesEnRenderingSubsystemView {
+        expose RenderingSubsystem;
     }
 }

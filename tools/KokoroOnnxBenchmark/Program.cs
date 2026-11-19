@@ -36,11 +36,9 @@ var voiceFloats = new float[voiceBytes.Length / sizeof(float)];
 Buffer.BlockCopy(voiceBytes, 0, voiceFloats, 0, voiceBytes.Length);
 
 var vocabulary = new KokoroPhonemeVocabulary();
-var phonemizer = new KokoroLexiconPhonemizer();
 using var engine = new OnnxKokoroSynthesisEngine(
     session,
-    vocabulary,
-    phonemizer,
+    new KokoroPhonemePipeline(vocabulary),
     new Dictionary<int, float[]> { [0] = voiceFloats });
 
 string[] sentences =

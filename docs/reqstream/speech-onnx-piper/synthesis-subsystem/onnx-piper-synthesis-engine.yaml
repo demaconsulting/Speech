@@ -1,0 +1,82 @@
+---
+# Software Unit Requirements for OnnxPiperSynthesisEngine
+#
+# These requirements describe the behavior of the OnnxPiperSynthesisEngine unit: the synthesis backend that runs the
+# Piper voice's ONNX graph directly through ONNX Runtime over the phoneme ids of the PiperPhonemePipeline unit. They
+# decompose the parent SpeechOnnxPiper SynthesisSubsystem requirements. Covered by the OnnxPiperSynthesisEngine_* tests in
+# test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/OnnxPiperSynthesisEngineTests.cs, which run a tiny
+# stand-in graph that echoes what it is fed (built by PiperTestFixtures, with a session wrapper that records its disposal in
+# DisposalTrackingInferenceSession). The test that runs the real voice skips itself when the voice is not installed and
+# is not linked to a requirement.
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: OnnxPiperSynthesisEngine Requirements
+            requirements:
+              - id: SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-GraphInputs
+                title: >-
+                  The OnnxPiperSynthesisEngine class shall run the graph once per utterance with the framed phoneme
+                  ids of the pipeline (and their count), the voice's own noise and noise-width scales, the voice's
+                  length scale divided by the requested speed (a speed that is zero, negative, infinite or not a
+                  number counting as 1) and the requested speaker clamped into the voice's range, shall use the
+                  annotations of the English text analysis when it is given them and speak the text as written
+                  otherwise, shall report the voice's sample rate, and shall reject a null text, a null annotation
+                  list and a null constructor argument.
+                justification: |
+                  These inputs are the contract with the Piper graph. A faster speech is a smaller length scale, a
+                  speaker outside the voice's speakers would make the graph fail, and the annotations are how the
+                  reading chosen for a heteronym reaches the voice. A graph that echoes its inputs shows exactly what
+                  was sent.
+                tests:
+                  - OnnxPiperSynthesisEngine_Generate_Sentence_FeedsFramedIdsVoiceScalesAndSpeaker
+                  - OnnxPiperSynthesisEngine_Generate_Speed_ScalesTheLengthScale
+                  - OnnxPiperSynthesisEngine_Generate_Speaker_ReachesTheModelWithinRange
+                  - OnnxPiperSynthesisEngine_GenerateAnnotated_HeteronymSentence_FeedsTheChosenReadings
+                  - OnnxPiperSynthesisEngine_Constructor_NullArgument_Throws
+                  - OnnxPiperSynthesisEngine_Generate_TextWithNothingToSay_ReturnsEmptyAudio
+
+              - id: SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-TextLength
+                title: >-
+                  The OnnxPiperSynthesisEngine class shall run the graph once for each utterance of a long text and
+                  join the results in order into one audio, and shall return empty audio at the voice's sample rate,
+                  without running the graph, for a text that is empty, blank or has no sound in the voice.
+                justification: |
+                  A segment that the pipeline cuts into several utterances must still be one audio, and a text with
+                  nothing to say must not reach the graph or produce noise. An empty result from a graph that always
+                  returns samples shows that it did not run.
+                tests:
+                  - OnnxPiperSynthesisEngine_Generate_VeryLongText_IsSpokenInPartsAndJoined
+                  - OnnxPiperSynthesisEngine_Generate_TextWithNothingToSay_ReturnsEmptyAudio
+
+              - id: SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-UnknownSymbols
+                title: >-
+                  The OnnxPiperSynthesisEngine class shall count over its lifetime every phoneme symbol that the
+                  voice's table lacks and list the distinct symbols, shall report none for text whose symbols are all
+                  in the table, and shall still speak the rest of the text.
+                justification: |
+                  A symbol that cannot be encoded is skipped as Piper does, and the loss must be visible to a host or
+                  a test instead of being silent.
+                tests:
+                  - OnnxPiperSynthesisEngine_Generate_SymbolOutsideTheTable_IsCountedAndReported
+
+              - id: SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-Lifecycle
+                title: >-
+                  The OnnxPiperSynthesisEngine class shall provide a probe that runs one sentence-sized inference on
+                  a given session and succeeds on a session that can run the graph, shall dispose the session it owns
+                  exactly once when it is disposed (also when several callers dispose it at once), shall accept a
+                  second disposal, shall throw ObjectDisposedException for synthesis after disposal, and shall not
+                  release the session while a synthesis is running: a synthesis that overlaps a disposal either
+                  completes with its audio or is refused with ObjectDisposedException, and the disposal waits for it.
+                justification: |
+                  The probe is how the execution-provider selector rejects a provider that loads yet cannot run the
+                  graph, and the native session must be released by its owner exactly once and never under a running
+                  inference, which could crash the process.
+                tests:
+                  - OnnxPiperSynthesisEngine_RunProbeInference_RunnableSession_DoesNotThrow
+                  - OnnxPiperSynthesisEngine_Dispose_Engine_ReleasesTheSessionOnceAndEndsUse
+                  - OnnxPiperSynthesisEngine_Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce
+                  - OnnxPiperSynthesisEngine_Dispose_ConcurrentCallers_ReleaseTheSessionOnce
+                  - OnnxPiperSynthesisEngine_Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed

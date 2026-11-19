@@ -19,7 +19,7 @@ views show is produced by a view model that is verified directly.
 
 Automated coverage **does not** extend to driving the user interface, to real audio hardware, or to
 a real, multi-hundred-megabyte model download. The demo's catalog is populated through
-SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`,
+SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, SpeechOnnxPiper's `AddPiperModels()`,
 the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterboxTurbo
 `AddChatterboxTurboModels()` with real, production models covering both the recognition and
 synthesis roles, but the full download/install lifecycle is still verified at the subsystem level
@@ -86,7 +86,8 @@ picker a user would read as a bug.
 **Test**: `SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels`
 
 Verifies that the catalog panel composed through `App.Compose` lists a model from each documented
-family (Sherpa, Kokoro, Nemotron speech-to-text and Chatterbox Turbo, by literal model identifier) -
+family (Sherpa, Kokoro, Piper, Nemotron speech-to-text and Chatterbox Turbo, by literal model identifier, including
+`piper-onnx-libritts-r-en-us-medium`) -
 spanning both the recognition and synthesis roles - rather than reporting an empty catalog. The test
 asserts independently stated identifiers instead of comparing the panel with the catalog it was
 built from, so a family that is not registered fails the test.

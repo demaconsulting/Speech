@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for ReadingPronunciations
+#
+# These requirements describe the behavior of the ReadingPronunciations unit: the frozen, reviewed table that
+# maps every reading id of the English text analysis inventory to the pronunciation of its headword, the few
+# listed spellings the sound rules cannot give, and the resolution of a spelling under a reading. It decomposes
+# the parent SpeechPhonemesEn LexiconSubsystem requirement. Covered by the ReadingPronunciations_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: LexiconSubsystem Requirements
+        sections:
+          - title: ReadingPronunciations Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Lexicon-ReadingPronunciations-Resolution
+                title: >-
+                  The ReadingPronunciations class shall resolve a spelling under a reading id to the
+                  pronunciation of the reading's headword when the spelling is the headword, to the headword
+                  plus the sound of the ending when the spelling is a regular inflection of it, and to the
+                  listed pronunciation when the spelling is a listed override that takes precedence over
+                  both; shall report a spelling that none of these explains as unresolved instead of
+                  supplying a default; and shall reject a malformed table (a source that is not a dictionary
+                  variant, a rule or an authored entry, a phone that is not ARPAbet, a repeated id) with a
+                  format error.
+                justification: |
+                  A reading id names a sense of a word, not a spelling, so the pronunciation of "records"
+                  under "record.noun" comes from the headword and the rules, except for the dozen spellings
+                  (does, lives, dove ...) that the rules would get wrong. A pair that nothing explains must
+                  be visible as a gap, because a silent default would make the model say the wrong word,
+                  and a damaged table is a build defect that has to fail at once.
+                tests:
+                  - ReadingPronunciations_TryResolve_HeadwordInflectionAndOverride_ResolveFromTheTables
+                  - ReadingPronunciations_TryResolve_UnknownReadingOrUnrelatedForm_IsAGap
+                  - ReadingPronunciations_Parse_MalformedTables_AreRejected

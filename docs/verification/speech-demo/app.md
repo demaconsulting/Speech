@@ -22,7 +22,7 @@ verification (`Ots/AvaloniaTests.cs`) and is linked here as evidence for the `Ap
 
 The unit passes when the shell composes over the real library entry points without a downloaded
 model, every panel is wired and the catalog lists a model from each documented family (Sherpa,
-Kokoro, Nemotron speech-to-text and Chatterbox Turbo, checked by literal identifier), every teardown
+Kokoro, Piper, Nemotron speech-to-text and Chatterbox Turbo, checked by literal identifier), every teardown
 step runs in order even when earlier steps fail, each failure is contained, a repeated shutdown
 request is deferred while cleanup is held pending and starts no second cleanup, and `App` derives
 from the Avalonia application type.
@@ -41,7 +41,8 @@ model catalog panels all present.
 **Scenario**: The composed catalog is enumerated.
 
 **Expected**: The catalog panel lists the literal identifier of a model from each documented family
-(the Sherpa zipformer, VITS and Kokoro models, the Kokoro ONNX model, both Nemotron models and a
+(the Sherpa zipformer, VITS and Kokoro models, the Kokoro ONNX model, the Piper LibriTTS-R ONNX model
+`piper-onnx-libritts-r-en-us-medium`, both Nemotron models and a
 Chatterbox Turbo model).
 
 #### App_Compose_NullLaunchOptions_ComposesShell

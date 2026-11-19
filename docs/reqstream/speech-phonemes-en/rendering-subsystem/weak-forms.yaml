@@ -1,0 +1,39 @@
+---
+# Software Unit Requirements for WeakForms
+#
+# These requirements describe the behavior of the WeakForms unit: the table of the small function words that are
+# unstressed in running speech, with their reduced forms before a consonant and before a vowel, the words that
+# only lose their primary stress, the details that only the espeak-style voice has, and the grouping of a
+# function word with the article after it. It decomposes the parent SpeechPhonemesEn RenderingSubsystem
+# requirement. Covered by the WeakForms_* tests in
+# test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs.
+
+sections:
+  - title: SpeechPhonemesEn Requirements
+    sections:
+      - title: RenderingSubsystem Requirements
+        sections:
+          - title: WeakForms Requirements
+            requirements:
+              - id: SpeechPhonemesEn-Rendering-WeakForms-FunctionWords
+                title: >-
+                  The WeakForms table shall give a listed function word its reduced form by whether the next
+                  word starts with a vowel, report a word that only loses its primary stress as demoted
+                  without a form, report a word that is not in the table as absent, and apply the
+                  details of the espeak-style voice (the flap of it and at before a vowel, on the and for the
+                  as one group, the secondary stress of a few more words) only when the caller asks for the
+                  espeak style, and shall withhold the reduced form of a listed word right after a word whose
+                  readings differ only by the voicing of the final consonant (close to, a house to), and shall
+                  mark an unmarked full-vowel form with a secondary stress when it is the first word of a text
+                  (not the reduced forms, the, for or a form that has a mark).
+                justification: |
+                  The table records which function words are weak and how, from the standard description of
+                  English weak forms, and which classes the measurement against the training text of the
+                  Piper voice decided; the misaki profile must not see the details that exist only for the
+                  espeak-style voice, or Kokoro would change. The voice swallows an unmarked weak form at the
+                  start of an utterance, except that for becomes war or or with any mark.
+                tests:
+                  - WeakForms_TryGet_ListedWords_GiveTheirFormByFollowingSound
+                  - WeakForms_TryGet_EspeakStyleDetails_AreForPiperOnly
+                  - WeakForms_VoicingAlternatingWords_AreDerivedFromTheReadingTableAndTheLexicon
+                  - WeakForms_AtTextStart_MarksOnlyAnUnmarkedFullVowelForm

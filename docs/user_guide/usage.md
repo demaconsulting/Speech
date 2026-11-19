@@ -109,12 +109,13 @@ describing *which* models are available and their tunable parameters:
   `IoFailure`, or `Failed` on a real download problem (with the underlying exception in
   `SpeechModelDownloadResult.Error`), or throws `ArgumentException` for an unrecognized model id.
 
-The library provides **seven production model classes** across both roles it defines, via four model
+The library provides **eight production model classes** across both roles it defines, via five model
 packages. `DemaConsulting.Speech.Sherpa` supplies four through `.AddSherpaModels()`:
 `SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`,
 `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and `SherpaOnnxKokoroEnglishSynthesisModel`.
 `DemaConsulting.Speech.Onnx.Kokoro` supplies `OnnxKokoroEnglishSynthesisModel` through
-`.AddKokoroModels()`, `DemaConsulting.Speech.Onnx.NemotronStt` supplies
+`.AddKokoroModels()`, `DemaConsulting.Speech.Onnx.Piper` supplies `OnnxPiperLibriTtsEnSynthesisModel` through
+`.AddPiperModels()`, `DemaConsulting.Speech.Onnx.NemotronStt` supplies
 `OnnxNemotronMultilingualRecognitionModel` through `.AddNemotronSttModels()`, and
 `DemaConsulting.Speech.Onnx.ChatterboxTurbo` supplies `OnnxChatterboxTurboEnglishSynthesisModel`
 through `.AddChatterboxTurboModels(options)`. The catalog/contract seam, together with each model's

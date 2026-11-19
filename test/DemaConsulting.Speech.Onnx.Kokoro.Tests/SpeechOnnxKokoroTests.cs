@@ -1,119 +1,264 @@
-using System.Xml.Linq;
+using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
+using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Onnx.Kokoro.Tests;
 
 /// <summary>
-///     System-level tests for the SpeechOnnxKokoro package license files: the combined
-///     <c>PACKAGE-LICENSE.md</c> that the package names as its license, and the
-///     <c>THIRD-PARTY-NOTICES.md</c> that attributes the embedded lexicon and tokenizer data to
-///     its sources. The tests read the repository files directly; the packed package itself is
-///     asserted by the <c>Kokoro_Package_LicenseFilesPackaged</c> FileAssert test.
+///     System tests for the Kokoro package, through its public API only: the catalog registration
+///     (<see cref="SpeechModelCatalogKokoroExtensions.AddKokoroModels"/>), the synthesis model loaded
+///     into a speech synthesizer engine, and the speech the engine produces for text.
 /// </summary>
-public sealed class SpeechOnnxKokoroTests
+/// <remarks>
+///     The ONNX graph is the tiny hand-built fixture <c>TestData/fake-kokoro-model.onnx</c>, which returns
+///     the style row it was given as its audio, and the installed voices are synthetic: every row of voice
+///     <c>v</c> holds <c>v * 1000 + row</c>. Each run of the graph therefore returns 256 samples that all
+///     equal the voice's marker plus the number of phoneme tokens of that run (the row index is the token
+///     count), which makes the voice that spoke and how much was spoken directly observable. The phonemes
+///     themselves are the real ones - real text analysis, real phonemizer, real renderer and vocabulary.
+/// </remarks>
+public sealed class SpeechOnnxKokoroTests : IClassFixture<SpeechOnnxKokoroTests.InstalledFakeModel>
 {
-    /// <summary>The license file the package names as its license.</summary>
-    private const string PackageLicenseFileName = "PACKAGE-LICENSE.md";
+    /// <summary>The length of the audio one run of the fixture graph returns (one style row).</summary>
+    private const int SamplesPerRun = 256;
 
-    /// <summary>The third-party notices file shipped next to the license file.</summary>
-    private const string ThirdPartyNoticesFileName = "THIRD-PARTY-NOTICES.md";
+    /// <summary>The installed fixture model shared by the tests of this class.</summary>
+    private readonly InstalledFakeModel _installed;
 
-    /// <summary>The package project folder, relative to the repository root.</summary>
-    private const string PackageFolder = "src/DemaConsulting.Speech.Onnx.Kokoro";
+    /// <summary>Initializes a new instance of the <see cref="SpeechOnnxKokoroTests"/> class.</summary>
+    /// <param name="installed">The installed fixture model.</param>
+    public SpeechOnnxKokoroTests(InstalledFakeModel installed) => _installed = installed;
 
-    /// <summary>The SPDX expression every license the package ships is listed in.</summary>
-    private const string SpdxHeader = "SPDX-License-Identifier: MIT AND Apache-2.0 AND BSD-2-Clause";
-
-    /// <summary>Proves the project file names the combined license file and packs both files at the package root.</summary>
+    /// <summary>
+    ///     Proves that registering the Kokoro models gives the catalog (the same one, so registrations chain)
+    ///     the English synthesis model, with a
+    ///     voice choice of all declared voices and a default, so a host can offer the voices to its users.
+    /// </summary>
     [Fact]
-    public void SpeechOnnxKokoro_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot()
+    public void SpeechOnnxKokoro_AddKokoroModels_OffersTheEnglishSynthesisModelWithItsVoices()
     {
         // Arrange
-        var projectPath = FindRepositoryFile($"{PackageFolder}/DemaConsulting.Speech.Onnx.Kokoro.csproj");
+        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = _installed.Root });
 
         // Act
-        var project = XDocument.Load(projectPath);
-        var licenseFiles = project.Descendants("PackageLicenseFile").Select(element => element.Value.Trim()).ToList();
-        var licenseExpressions = project.Descendants("PackageLicenseExpression").ToList();
-        var packedItems = project.Descendants("None")
-            .Where(element => (string?)element.Attribute("Pack") == "true")
-            .ToDictionary(
-                element => (string?)element.Attribute("Include") ?? string.Empty,
-                element => (string?)element.Attribute("PackagePath"),
-                StringComparer.Ordinal);
+        var result = catalog.AddKokoroModels();
+        var descriptors = result.Enumerate();
 
         // Assert
-        Assert.Equal([PackageLicenseFileName], licenseFiles);
-        Assert.Empty(licenseExpressions);
-        foreach (var fileName in new[] { PackageLicenseFileName, ThirdPartyNoticesFileName })
+        Assert.Same(catalog, result);
+        var descriptor = Assert.Single(descriptors);
+        Assert.Equal(SpeechModelRole.Synthesis, descriptor.Role);
+        var model = Assert.IsAssignableFrom<ISynthesisModel>(descriptor.Model);
+        var voices = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(29, voices.Options.Count);
+        Assert.Contains(voices.Default, voices.Options.Select(option => option.Value));
+    }
+
+    /// <summary>
+    ///     Proves that the voice the caller selects is the voice that speaks, that the default voice speaks
+    ///     when none is selected.
+    /// </summary>
+    [Fact]
+    public async Task SpeechOnnxKokoro_Synthesize_SelectedVoice_SpeaksWithItsOwnStyle()
+    {
+        // Arrange
+        var defaultVoice = _installed.VoiceIndex("af_heart");
+        var selectedVoice = _installed.VoiceIndex("bm_george");
+
+        // Act
+        var byDefault = await SpeakAsync("The cat sat on the mat.", null);
+        var selected = await SpeakAsync("The cat sat on the mat.", "bm_george");
+
+        // Assert
+        Assert.All(byDefault, run => Assert.Equal(defaultVoice, run.Voice));
+        Assert.All(selected, run => Assert.Equal(selectedVoice, run.Voice));
+        Assert.Equal(byDefault.Select(run => run.Tokens), selected.Select(run => run.Tokens));
+    }
+
+    /// <summary>
+    ///     Proves that the engine speaks the reading the text analysis chose for a heteronym: the adjective
+    ///     <c>separate</c> has fewer sounds than the verb the word is read as by default, so the sentence is
+    ///     shorter than the same text spoken as written with every word in its default reading.
+    /// </summary>
+    [Fact]
+    public async Task SpeechOnnxKokoro_Synthesize_HeteronymSentence_SpeaksTheChosenReadings()
+    {
+        // Arrange
+        const string sentence = "A separate room.";
+        using var backend = new OnnxKokoroEnglishSynthesisModel().CreateBackend(_installed.ModelDirectory);
+
+        // Act
+        var chosenReadings = await SpeakAsync(sentence, null);
+        var defaultReadings = backend.Generate(sentence, 1.0f, speakerId: 0);
+
+        // Assert
+        var chosenTokens = Assert.Single(chosenReadings).Tokens;
+        Assert.True(chosenTokens < defaultReadings.Samples[0], "The adjective reading has fewer sounds than the verb reading.");
+    }
+
+    /// <summary>
+    ///     Proves that numbers and symbols are spoken as words, not as the characters they are written with:
+    ///     an amount of money is spoken as its words, which is longer than the characters read as written.
+    /// </summary>
+    [Fact]
+    public async Task SpeechOnnxKokoro_Synthesize_NumbersAndSymbols_AreSpokenAsWords()
+    {
+        // Arrange
+        using var backend = new OnnxKokoroEnglishSynthesisModel().CreateBackend(_installed.ModelDirectory);
+
+        // Act
+        var spokenAsWords = Assert.Single(await SpeakAsync("It costs $5.", null)).Tokens;
+        var asWritten = backend.Generate("It costs $5.", 1.0f, speakerId: 0).Samples[0];
+
+        // Assert
+        Assert.True(spokenAsWords > asWritten, "Five dollars spoken as words is longer than the symbol and the digit read as written.");
+    }
+
+    /// <summary>
+    ///     Proves that a word absent from the dictionary is still spoken, with sounds worked out from its
+    ///     spelling, rather than silently left out.
+    /// </summary>
+    [Fact]
+    public async Task SpeechOnnxKokoro_Synthesize_WordAbsentFromDictionary_IsStillSpoken()
+    {
+        // Act
+        var withoutWord = Assert.Single(await SpeakAsync("Hello there.", null)).Tokens;
+        var withWord = Assert.Single(await SpeakAsync("Hello there Kathmandu.", null)).Tokens;
+
+        // Assert
+        Assert.True(withWord >= withoutWord + 6, "The name must add the sounds of its own.");
+    }
+
+    /// <summary>
+    ///     Proves that a segment with more sounds than the model accepts in one run is spoken in parts and
+    ///     nothing is cut off: the parts together carry at least as many sounds as the same text spoken in
+    ///     small pieces would have.
+    /// </summary>
+    [Fact]
+    public async Task SpeechOnnxKokoro_Synthesize_LongSegment_IsSpokenInPartsWithoutLoss()
+    {
+        // Arrange
+        const string piece = "The cat sat on the mat and the dog barked at the moon";
+        var pieceTokens = Assert.Single(await SpeakAsync(piece, null)).Tokens;
+        var text = string.Join(' ', Enumerable.Repeat(piece, 40));
+
+        // Act
+        var runs = await SpeakAsync(text, null);
+
+        // Assert
+        Assert.True(runs.Count >= 3, "About 1,500 sounds need at least three runs of the graph.");
+        Assert.All(runs, run => Assert.InRange(run.Tokens, 1, KokoroPhonemeVocabulary.MaxPhonemeTokens));
+        Assert.True(runs.Sum(run => run.Tokens) >= 40 * pieceTokens - runs.Count, "No word may be cut off.");
+    }
+
+    /// <summary>
+    ///     Loads the fixture model into a synthesizer engine, speaks <paramref name="text"/> and returns every run of
+    ///     the graph, in order, with the voice and the number of sounds it carried.
+    /// </summary>
+    /// <param name="text">The text to speak.</param>
+    /// <param name="voice">The selected voice, or <see langword="null"/> for the default voice.</param>
+    /// <returns>One entry per run of the graph.</returns>
+    private async Task<IReadOnlyList<Run>> SpeakAsync(string text, string? voice)
+    {
+        var parameterValues = voice is null
+            ? null
+            : new Dictionary<string, object> { [OnnxKokoroEnglishSynthesisModel.VoiceParameterId] = voice };
+        await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+            new OnnxKokoroEnglishSynthesisModel(),
+            _installed.ModelDirectory,
+            parameterValues: parameterValues);
+        Assert.True(engine.IsAvailable);
+
+        var runs = new List<Run>();
+        foreach (var speech in await engine.SynthesizeAsync(text))
         {
-            Assert.True(packedItems.TryGetValue(fileName, out var packagePath), $"{fileName} is not packed");
-            Assert.Equal("\\", packagePath);
-            Assert.True(File.Exists(FindRepositoryFile($"{PackageFolder}/{fileName}")), $"{fileName} does not exist");
+            Assert.Equal(0, speech.Samples.Count % SamplesPerRun);
+            for (var offset = 0; offset < speech.Samples.Count; offset += SamplesPerRun)
+            {
+                var marker = (int)speech.Samples[offset];
+                runs.Add(new Run(marker / 1000, marker % 1000));
+            }
         }
+
+        return runs;
     }
 
-    /// <summary>Proves the license file starts with the package's SPDX expression and covers the code and both embedded data files.</summary>
-    [Fact]
-    public void SpeechOnnxKokoro_PackageLicense_File_CoversCodeAndEmbeddedData()
+    /// <summary>One run of the fixture graph: the voice that spoke and the number of phoneme tokens it carried.</summary>
+    /// <param name="Voice">The index of the voice, in declaration order.</param>
+    /// <param name="Tokens">The number of phoneme tokens of the run.</param>
+    private sealed record Run(int Voice, int Tokens);
+
+    /// <summary>
+    ///     A fixture model installed once into a scratch directory: the fixture graph and one synthetic voice
+    ///     file for every voice the model declares.
+    /// </summary>
+    public sealed class InstalledFakeModel : IDisposable
     {
-        // Arrange
-        var licensePath = FindRepositoryFile($"{PackageFolder}/{PackageLicenseFileName}");
+        /// <summary>One more row than the largest token count of a run, so every count has a row of its own.</summary>
+        private const int RowsPerVoice = KokoroPhonemeVocabulary.MaxPhonemeTokens + 1;
 
-        // Act
-        var firstLine = File.ReadLines(licensePath).First().TrimEnd();
-        var text = File.ReadAllText(licensePath);
+        private readonly List<string> _voices = [];
 
-        // Assert
-        Assert.Equal(SpdxHeader, firstLine);
-        Assert.Contains("MIT License", text, StringComparison.Ordinal);
-        Assert.Contains("kokoro-en-lexicon.tsv.gz", text, StringComparison.Ordinal);
-        Assert.Contains("kokoro-v1.0-tokenizer.json", text, StringComparison.Ordinal);
-        Assert.Contains("CMUdict", text, StringComparison.Ordinal);
-        Assert.Contains("Apache", text, StringComparison.Ordinal);
-        Assert.Contains(ThirdPartyNoticesFileName, text, StringComparison.Ordinal);
-    }
-
-    /// <summary>Proves the third-party notices attribute the embedded data to its sources with their license texts, state the misaki provenance limits without over-claiming, and claim no public-domain status.</summary>
-    [Fact]
-    public void SpeechOnnxKokoro_ThirdPartyNotices_File_AttributesEmbeddedData()
-    {
-        // Arrange
-        var noticesPath = FindRepositoryFile($"{PackageFolder}/{ThirdPartyNoticesFileName}");
-
-        // Act
-        var text = File.ReadAllText(noticesPath);
-
-        // Assert
-        Assert.Contains("Carnegie Mellon University", text, StringComparison.Ordinal);
-        Assert.Contains("Redistribution and use in source and binary forms", text, StringComparison.Ordinal);
-        Assert.Contains("Apache License", text, StringComparison.Ordinal);
-        Assert.Contains("Version 2.0, January 2004", text, StringComparison.Ordinal);
-        Assert.Contains("hexgrad/misaki", text, StringComparison.Ordinal);
-        Assert.Contains("cmusphinx/cmudict", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("public domain", text, StringComparison.OrdinalIgnoreCase);
-
-        // The misaki provenance statement: version, undocumented upstream data, unverified author statements, planned replacement
-        var flat = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
-        Assert.Contains("version 0.7.4", flat, StringComparison.Ordinal);
-        Assert.Contains("does not document the upstream provenance", flat, StringComparison.Ordinal);
-        Assert.Contains("We have not independently verified these statements or the licensing of the upstream data", flat, StringComparison.Ordinal);
-        Assert.Contains("scheduled to be replaced by one generated solely from the CMU Pronouncing Dictionary", flat, StringComparison.Ordinal);
-    }
-
-    /// <summary>Finds a file in the repository by walking up from the test output folder to the repository root.</summary>
-    /// <param name="relativePath">The path of the file relative to the repository root, using forward slashes.</param>
-    /// <returns>The full path of the file.</returns>
-    /// <exception cref="InvalidOperationException">The repository root cannot be found above the test output folder.</exception>
-    private static string FindRepositoryFile(string relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Speech.slnx")))
+        /// <summary>Initializes a new instance of the <see cref="InstalledFakeModel"/> class and installs the files.</summary>
+        public InstalledFakeModel()
         {
-            directory = directory.Parent;
+            Root = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Onnx.Kokoro.Tests", Guid.NewGuid().ToString("N"));
+            ModelDirectory = Path.Join(Root, "model");
+            var onnxDirectory = Path.Join(ModelDirectory, "onnx");
+            var voicesDirectory = Path.Join(ModelDirectory, "voices");
+            Directory.CreateDirectory(onnxDirectory);
+            Directory.CreateDirectory(voicesDirectory);
+            File.Copy(
+                Path.Combine(AppContext.BaseDirectory, "TestData", "fake-kokoro-model.onnx"),
+                Path.Join(onnxDirectory, "model_quantized.onnx"));
+
+            // The declared voice files, in declaration (speaker id) order
+            foreach (var file in new OnnxKokoroEnglishSynthesisModel().DownloadDescriptor.Files)
+            {
+                if (!file.RelativeInstallPath.StartsWith("voices/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var voiceIndex = _voices.Count;
+                _voices.Add(Path.GetFileNameWithoutExtension(file.RelativeInstallPath));
+                var style = new float[RowsPerVoice * SamplesPerRun];
+                for (var row = 0; row < RowsPerVoice; row++)
+                {
+                    Array.Fill(style, (float)((voiceIndex * 1000) + row), row * SamplesPerRun, SamplesPerRun);
+                }
+
+                var bytes = new byte[style.Length * sizeof(float)];
+                Buffer.BlockCopy(style, 0, bytes, 0, bytes.Length);
+                File.WriteAllBytes(Path.Join(ModelDirectory, file.RelativeInstallPath), bytes);
+            }
         }
 
-        return directory == null
-            ? throw new InvalidOperationException("The repository root (the folder containing Speech.slnx) was not found.")
-            : Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        /// <summary>Gets the scratch root directory.</summary>
+        public string Root { get; }
+
+        /// <summary>Gets the directory the fixture model is installed to.</summary>
+        public string ModelDirectory { get; }
+
+        /// <summary>Returns the declaration-order index of a voice.</summary>
+        /// <param name="voice">The voice value, for example <c>af_heart</c>.</param>
+        /// <returns>The index of the voice.</returns>
+        public int VoiceIndex(string voice) => _voices.IndexOf(voice);
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Root))
+                {
+                    Directory.Delete(Root, recursive: true);
+                }
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup only; a leftover temp directory does not fail the test.
+            }
+        }
     }
 }

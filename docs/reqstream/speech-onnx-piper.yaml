@@ -1,0 +1,192 @@
+---
+# Software System Requirements for SpeechOnnxPiper
+#
+# These requirements describe the externally visible behavior of the SpeechOnnxPiper library
+# (DemaConsulting.Speech.Onnx.Piper) from the point of view of a host application that consumes it. SpeechOnnxPiper is
+# a sibling system to Speech: it supplies the Piper (VITS) LibriTTS-R English voice `en_US-libritts_r-medium` as a
+# synthesis model for the Speech library's ISynthesisModel extension seam, run directly through ONNX Runtime with no
+# bundled native inference engine and no espeak-ng, and owns the whole text-to-speech pipeline of that voice: the
+# English text analysis of SpeechTextEn, the phonemization and the espeak-style IPA rendering of SpeechPhonemesEn,
+# the encoding of the phonemes with the voice's own symbol table, and the inference. The Speech library never depends
+# on it. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.Piper.Tests/SpeechOnnxPiperTests.cs, which drives the public API
+# (SpeechModelCatalog.AddPiperModels, the registered model and the backend that CreateBackend returns) over a tiny
+# stand-in ONNX graph that echoes what it is fed, so that no test needs the real voice (about 78 MB), and by the
+# FileAssert test of the built package. The subsystem and unit requirements under docs/reqstream/speech-onnx-piper/
+# decompose these. A further test runs the real installed voice when it is present on the machine and skips itself
+# otherwise; it is not requirements evidence.
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    requirements:
+      - id: SpeechOnnxPiper-Models-AddPiperModels
+        title: >-
+          The library shall let a host register the Piper LibriTTS-R English voice with a Speech library
+          SpeechModelCatalog through a single AddPiperModels() call that adds exactly one synthesis model with a
+          stable identity and a declared CC BY 4.0 license, returns the catalog it was called on so that
+          registrations chain, and rejects a null catalog.
+        tags: [system]
+        justification: |
+          The Speech library's catalog ships empty and carries no ONNX Runtime dependency, so a host needs one
+          discoverable, opt-in call to make this package's voice available for enumeration, download and
+          composition. The voice's license is an attribution license, so a host must be able to read it from the
+          catalog before it offers the voice.
+        children:
+          - SpeechOnnxPiper-Models-CatalogRegistration
+        tests:
+          - SpeechOnnxPiper_AddPiperModels_RegistersTheVoiceAndChains
+
+      - id: SpeechOnnxPiper-Models-VoiceInstallation
+        title: >-
+          The library shall download the voice as one HTTPS archive that is pinned by its SHA-256 and install it by
+          keeping only the ONNX graph and the voice configuration, placed directly in the install directory under
+          their bare file names, so that no entry path can leave the directory, no other file of the archive (the
+          espeak-ng data, the token table) is ever written, and the archive is deleted afterwards; an archive that
+          lacks either file shall fail the installation.
+        tags: [system]
+        justification: |
+          The voice's own Hugging Face files could not be reached when the package was developed, so the same
+          voice is taken from the archive that the sherpa-onnx project publishes, whose hash was verified and is
+          pinned. That archive also holds the espeak-ng data, which has a license of its own (GPL-3.0) and which
+          this package does not use, so it must never be written to the installed model. An archive entry is
+          untrusted input: where a file lands must not depend on the entry's path. A voice without its graph or
+          its configuration cannot speak, and a failed installation must say so instead of leaving a half-installed
+          model.
+        children:
+          - SpeechOnnxPiper-Models-DownloadAndInstall
+        tests:
+          - SpeechOnnxPiper_VoiceDownload_IsPinnedBySha256
+          - SpeechOnnxPiper_InstallAndLoad_ArchiveBecomesAWorkingVoice
+
+      - id: SpeechOnnxPiper-Models-VoiceConfiguration
+        title: >-
+          The library shall read the settings of the voice (its symbol table, sample rate, number of speakers and
+          recommended inference scales) from the voice's own configuration file, shall reject a configuration that
+          is unusable with an invalid-data error that names what is wrong, and shall reject a voice that is not the
+          904-speaker, 22,050 Hz voice before any inference session is created.
+        tags: [system]
+        justification: |
+          The graph does no phonemization, so the voice's symbol table, which only the configuration holds, decides
+          what every phoneme is called. A configuration that is damaged, or that belongs to another voice, would
+          produce silent or garbled audio with no signal, and a session that was created before the check would be
+          a native resource leaked by the failure.
+        children:
+          - SpeechOnnxPiper-Models-ConfigurationValidation
+        tests:
+          - SpeechOnnxPiper_CreateBackend_VoiceOfAnotherShapeOrBrokenConfiguration_Fails
+
+      - id: SpeechOnnxPiper-Synthesis-SpeakerAndSpeed
+        title: >-
+          The library shall let a host choose one of the voice's 904 speakers by number (0 to 903, default 0) and a
+          speaking speed, shall run the voice with the chosen speaker (a speaker outside the voice's range selecting
+          speaker 0 when resolved from the host's parameter values and the nearest valid speaker when passed
+          directly), shall speak faster for a speed above 1 and slower for a speed below 1, and shall declare no
+          audio-tag support.
+        tags: [system]
+        justification: |
+          The LibriTTS-R voice has 904 speakers of widely varying quality that are identified only by number, so a
+          host needs a numeric parameter to pick one and a safe default when the value is missing or stale. The
+          host's speed has to change the speaking rate in the direction the library defines. A plain VITS voice has
+          no inline audio tags, so the library's default capability profile has to apply.
+        children:
+          - SpeechOnnxPiper-Models-SpeakerSelection
+          - SpeechOnnxPiper-Synthesis-GraphInputs
+        tests:
+          - SpeechOnnxPiper_Synthesize_SpeakerAndSpeed_ReachTheVoice
+
+      - id: SpeechOnnxPiper-Synthesis-ReadingAwareSpeech
+        title: >-
+          The library shall turn English text into the phonemes the voice reads without any separate phonemizer or
+          espeak-ng: it shall speak each word with the reading (such as the noun or the verb of "record") that the
+          English text analysis chose for it, and shall speak a word that is in no dictionary instead of skipping it.
+        tags: [system]
+        justification: |
+          The Piper graph takes phoneme ids, so the package must supply the pronunciation itself. A heteronym said
+          with the wrong reading changes the meaning of a sentence, and a word that is skipped changes it as well,
+          so the readings of the text analysis must reach the voice and a word that no dictionary knows must still
+          be pronounced by the trained letter-to-sound model of the phonemization package.
+        children:
+          - SpeechOnnxPiper-Synthesis-ReadingAwarePhonemes
+        tests:
+          - SpeechOnnxPiper_Synthesize_HeteronymSentence_SpeaksTheChosenReading
+          - SpeechOnnxPiper_Synthesize_UnknownWord_IsStillSpoken
+
+      - id: SpeechOnnxPiper-Synthesis-UnknownSymbolsReported
+        title: >-
+          The library shall never silently lose a phoneme: a phoneme symbol that the voice's symbol table does not
+          contain shall be skipped, counted and listed by the synthesis backend, and the rest of the text shall still
+          be spoken.
+        tags: [system]
+        justification: |
+          The voice cannot say a symbol that is not in its table. Skipping it matches what Piper does, but doing it
+          without a trace would hide a defect (for example a host pronunciation that uses a symbol the voice does
+          not know), so the loss is counted and named and can be investigated.
+        children:
+          - SpeechOnnxPiper-Synthesis-UnknownSymbolReport
+        tests:
+          - SpeechOnnxPiper_Synthesize_VoiceWithoutASymbol_ReportsTheLossAndStillSpeaks
+
+      - id: SpeechOnnxPiper-Synthesis-TextLength
+        title: >-
+          The library shall speak a text that is too long for one utterance whole, as several utterances cut between
+          words after a clause mark where there is one, joined into one audio, and shall return empty audio at the
+          voice's sample rate for a text with nothing to say, without running the voice.
+        tags: [system]
+        justification: |
+          VITS is trained on sentence-sized input, so a long run of words has to be cut, and cutting inside a word
+          or dropping a part would be audible. A text that is empty, blank or only an emoji has no sound in this
+          voice, and a host must get an honest empty result for it rather than an error or noise.
+        children:
+          - SpeechOnnxPiper-Synthesis-TextSplitting
+        tests:
+          - SpeechOnnxPiper_Synthesize_LongTextAndSoundlessText_AreSpokenWholeOrEmpty
+
+      - id: SpeechOnnxPiper-Synthesis-ExecutionProvider
+        title: >-
+          The library shall let a host name preferred accelerated execution providers when it registers the voice,
+          shall use a preferred provider only when the voice's graph runs on it, and shall otherwise fall back to
+          the CPU provider, which is always available.
+        tags: [system]
+        justification: |
+          A host that has an accelerated native runtime can pass the provider's name, but a provider that is not
+          installed, or that loads yet cannot run the graph (observed with other providers and graphs), must not
+          make the voice unavailable: the CPU provider ships in the base ONNX Runtime package and always works.
+        children:
+          - SpeechOnnxPiper-Models-ProviderSelection
+          - SpeechOnnxPiper-Synthesis-SessionLifecycle
+        tests:
+          - SpeechOnnxPiper_CreateBackend_UnavailablePreferredProvider_FallsBackToCpu
+
+      - id: SpeechOnnxPiper-Synthesis-Disposal
+        title: >-
+          The library shall release the inference session when the synthesis backend is disposed, shall accept
+          being disposed more than once, and shall refuse to synthesize after disposal.
+        tags: [system]
+        justification: |
+          An ONNX Runtime session holds native memory of about 78 MB, so a host that disposes the backend must get
+          it back, a second dispose must be harmless, and a use after disposal must fail loudly instead of touching
+          a released native object.
+        children:
+          - SpeechOnnxPiper-Synthesis-SessionLifecycle
+        tests:
+          - SpeechOnnxPiper_Backend_Dispose_IsIdempotentAndEndsUse
+
+      - id: SpeechOnnxPiper-Licensing-PackageNotices
+        title: >-
+          The package shall declare its license through a license file that starts with the SPDX expression
+          MIT AND CC-BY-4.0 and contains the MIT license text for the code and the license note of the voice it
+          downloads, shall carry a third-party notice that
+          gives the CC BY 4.0 attribution of the voice, cites the LibriTTS-R corpus, names the Piper project and the
+          archive the voice is taken from, and points to the notices of the text analysis and phonemization
+          packages; both files shall be packed at the package root and the nuspec shall name the license file.
+        tags: [system]
+        justification: |
+          The voice is licensed under CC BY 4.0, an attribution license, while the code is MIT: declaring the MIT
+          License alone would misstate what a consumer receives. Attribution has to travel with the package, and the
+          corpus maintainers ask that their paper is cited. The package embeds none of the third-party data, so
+          the notices of the text analysis and pronunciation data stay with the packages that carry them. The built
+          package is inspected by a FileAssert test; the text of the notices is reviewed, not scanned, and this is not
+          legal advice.
+        tests:
+          - Piper_Package_LicenseFilesPackaged

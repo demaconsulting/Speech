@@ -1,0 +1,98 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxPiper SynthesisSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxPiper SynthesisSubsystem, decomposing the
+# system-level requirements in docs/reqstream/speech-onnx-piper.yaml. The subsystem turns text into audio with the
+# Piper voice: the phoneme pipeline (PiperPhonemePipeline, with the utterance type PiperUtterance) turns the text of one
+# segment and the annotations of the English text analysis into the framed phoneme ids of the voice, and the synthesis
+# engine (OnnxPiperSynthesisEngine) runs the voice's ONNX graph over them. Each requirement states one observable
+# behavior.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-onnx-piper/synthesis-subsystem/. Covered by the
+# SynthesisSubsystem_* tests in
+# test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/SynthesisSubsystemTests.cs, which run the real text
+# analysis, phonemizer, renderer and symbol table of the voice (a trimmed copy of its configuration) over a tiny
+# stand-in ONNX graph that echoes what it is fed, so that what reaches the graph is observed exactly.
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxPiper-Synthesis-ReadingAwarePhonemes
+            title: >-
+              The SynthesisSubsystem shall turn the text of a segment, with the annotations of the English text
+              analysis when there are any, into the framed phoneme ids of the voice, so that the reading chosen for a
+              heteronym reaches the voice and a word that is in no dictionary is still pronounced.
+            justification: |
+              The graph takes ids, not text. The text analysis decides which reading of a heteronym a sentence
+              needs, the phonemization package pronounces every word with letters (by dictionary, rules or a trained
+              model), and the renderer writes the result in the symbols the voice was trained on, so the subsystem
+              is only right if the readings and the unknown words survive all the way to the ids the graph is fed.
+            children:
+              - SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-Readings
+              - SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-Encoding
+              - SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-GraphInputs
+            tests:
+              - SynthesisSubsystem_Synthesize_HeteronymSentence_SpeaksTheChosenReading
+              - SynthesisSubsystem_Synthesize_UnknownWord_IsStillSpoken
+
+          - id: SpeechOnnxPiper-Synthesis-UnknownSymbolReport
+            title: >-
+              The SynthesisSubsystem shall skip a phoneme symbol that the voice's table lacks only visibly: the
+              utterance lists the distinct symbols it lost, the engine counts and lists them over its lifetime, and
+              the rest of the text is still spoken.
+            justification: |
+              Piper itself skips a symbol it cannot encode, so the voice stays usable, but a skip without a trace
+              would hide a defect in the renderer or a host's pronunciation, so the loss has to be reported where a
+              host or a test can read it.
+            children:
+              - SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-Encoding
+              - SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-UnknownSymbols
+            tests:
+              - SynthesisSubsystem_Synthesize_SymbolOutsideTheTable_IsCountedAndReportedWhileTheRestIsSpoken
+
+          - id: SpeechOnnxPiper-Synthesis-GraphInputs
+            title: >-
+              The SynthesisSubsystem shall run the voice's graph with the framed ids, the voice's own noise and
+              noise-width scales, the length scale divided by the requested speed (a speed that is not a positive
+              number counting as 1) and the requested speaker brought into the voice's range.
+            justification: |
+              The inputs are the contract with the graph. A speed that moved the length scale the wrong way, or a
+              speaker outside the voice's range, would change the speech or make the graph fail, so what actually
+              reaches the graph is observed with a graph that echoes it.
+            children:
+              - SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-GraphInputs
+            tests:
+              - SynthesisSubsystem_Synthesize_SpeedAndSpeaker_ReachTheGraph
+
+          - id: SpeechOnnxPiper-Synthesis-TextSplitting
+            title: >-
+              The SynthesisSubsystem shall speak a segment that is longer than one utterance in several utterances of
+              at most 256 phoneme symbols, cut between words and after a clause mark where one fits, with no sound
+              lost and the audio joined in order, and shall produce empty audio at the voice's sample rate for a text
+              with no sound in this voice without running the graph.
+            justification: |
+              VITS is trained on sentence-sized input, so a very long run of words is cut by the renderer, which
+              knows the words and the clause marks. Joining the parts keeps one segment one audio, and a text with
+              nothing to say must not reach the graph at all.
+            children:
+              - SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-LongText
+              - SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-TextLength
+            tests:
+              - SynthesisSubsystem_Synthesize_LongText_IsSpokenWholeAndJoined
+              - SynthesisSubsystem_Synthesize_SoundlessText_ReturnsEmptyAudio
+
+          - id: SpeechOnnxPiper-Synthesis-SessionLifecycle
+            title: >-
+              The SynthesisSubsystem shall be able to run one sentence-sized probe inference on a session so that a
+              session whose execution provider cannot run the graph is detected, shall release the session when the
+              engine is disposed, shall accept a second disposal and shall refuse to synthesize after disposal.
+            justification: |
+              Some providers load a graph and fail at the first run, which only a representative run reveals, and
+              the native session must be released exactly once by its owner.
+            children:
+              - SpeechOnnxPiper-Synthesis-OnnxPiperSynthesisEngine-Lifecycle
+            tests:
+              - SynthesisSubsystem_Probe_RunnableSession_DoesNotThrow
+              - SynthesisSubsystem_Backend_Dispose_IsIdempotentAndEndsUse

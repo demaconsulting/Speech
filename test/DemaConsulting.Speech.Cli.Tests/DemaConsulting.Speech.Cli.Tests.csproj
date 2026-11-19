@@ -65,8 +65,8 @@
 
   <!-- Project References -->
   <ItemGroup>
-    <!-- Keep sherpa-onnx's libonnxruntime; Microsoft's native copy would overwrite it (see the Cli project). -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" ExcludeAssets="native" />
+    <!-- Keep sherpa-onnx's native onnxruntime (1.28.2) and the matching managed 1.28.0 API (see the CLI project). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Cli\DemaConsulting.Speech.Cli.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
   </ItemGroup>

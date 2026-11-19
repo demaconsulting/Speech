@@ -82,10 +82,21 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
-    <!-- sherpa-onnx ships its own libonnxruntime (1.28.2) with the same file name; copying Microsoft's native runtime too would overwrite it and break sherpa. The managed API is pinned to 1.28.0 so it runs on sherpa's runtime. -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" ExcludeAssets="native" />
+    <!-- ONNX Runtime pairing. sherpa-onnx ships its own native onnxruntime 1.28.2 (same file name,
+         onnxruntime.dll / libonnxruntime.so) and its C API is linked against that library's versioned
+         symbols (Linux: VERS_1.28.2), so Microsoft's native copy must NOT replace it (on Linux sherpa
+         then fails to load: "version 'VERS_1.28.2' not found"). Native assets are therefore excluded and
+         sherpa's 1.28.2 is the only onnxruntime in the process. The managed API used by the raw-ONNX
+         models (Kokoro, Piper, Nemotron, Chatterbox) must then not be newer than that native library
+         (a 1.31.x managed API fails with "API version [31] is not available"), so it is pinned to 1.28.0,
+         the 1.28 release of Microsoft.ML.OnnxRuntime. Keep this version equal to the ONNX Runtime
+         bundled with the org.k2fsa.sherpa.onnx.runtime.* version in use; the doctor command tests
+         fail when the pairing drifts. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
+    <ProjectReference Include="..\DemaConsulting.Speech.Onnx.Piper\DemaConsulting.Speech.Onnx.Piper.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
   </ItemGroup>

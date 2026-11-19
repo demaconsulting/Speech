@@ -91,6 +91,9 @@ SpeechDemo has the following project dependencies:
   catalog the demo composes (see *SpeechSherpa Design*)
 - **SpeechOnnxKokoro**: `AddKokoroModels()` registers the shipped Kokoro ONNX text-to-speech
   model (see *SpeechOnnxKokoro Design*)
+- **SpeechOnnxPiper**: `AddPiperModels()` registers the shipped Piper LibriTTS-R English (US) ONNX
+  text-to-speech model, `piper-onnx-libritts-r-en-us-medium`, from the package
+  `DemaConsulting.Speech.Onnx.Piper` (see *SpeechOnnxPiper Design*)
 - **SpeechOnnxNemotronStt**: `AddNemotronSttModels()` registers the shipped Nemotron ONNX
   speech-recognition model (see *SpeechOnnxNemotronStt Design*)
 - **SpeechOnnxChatterboxTurbo**: `AddChatterboxTurboModels()` registers the Chatterbox Turbo
@@ -113,6 +116,18 @@ SpeechDemo also depends on the following NuGet packages:
 - No PortAudio runtime package is declared: `PortAudioSharp2`, referenced by the library,
   declares its native runtime packages as its own dependencies, so they restore transitively
   through the project reference
+- **Microsoft ONNX Runtime**: the raw ONNX model packages (Kokoro, Piper, Nemotron STT and Chatterbox Turbo) use
+  the managed `Microsoft.ML.OnnxRuntime` API. The demo references it directly at `1.28.0` with
+  `ExcludeAssets="native"`: the sherpa-onnx native runtime packages above ship their own ONNX Runtime library
+  (1.28.2 for sherpa-onnx 1.13.8) under the same file name as Microsoft's, only one file of that name can be in
+  the output, and sherpa's must be the one that stays (its Linux libraries are linked against the versioned
+  symbols `VERS_1.28.2`, so Microsoft's copy cannot replace it). Microsoft's managed API requires a native
+  library at least as new as itself, so the managed API is pinned to 1.28.0, the 1.28 release. The raw ONNX
+  packages require 1.28.0 or newer, so this reference raises no package-downgrade warning. The arrangement is
+  verified on `win-x64` and `linux-x64` (the demo's test project passes on both, and the CLI, built the same
+  way, runs every model family there); keep the version equal to the ONNX Runtime release bundled with the
+  sherpa-onnx native runtime packages. The doctor regression test of the CLI (see *DoctorCommand
+  Verification*) is the observable evidence that the two families coexist in a host built the same way
 
 See *OTS Integration Design*, *Avalonia Design*, and *CommunityToolkit.Mvvm Design* for details.
 
@@ -128,7 +143,8 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 1. **Input**: The process entry point configures the Avalonia application host
 2. **Composition**: On framework initialization the application parses `AppLaunchOptions` and
    constructs an `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
-   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, SpeechOnnxNemotronStt's
+   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, SpeechOnnxPiper's `AddPiperModels()`,
+   SpeechOnnxNemotronStt's
    `AddNemotronSttModels()`, and SpeechOnnxChatterboxTurbo's `AddChatterboxTurboModels()` over one
    shared `ReferenceVoiceLibrary` (see *Launch Options and
    Mirror Configuration* and *Reference Voices*), wraps each in its demo-owned service
@@ -224,7 +240,8 @@ point.
 
 `App`'s composition root threads these options through a `CatalogFactory` local function — capturing the resolved
 `SpeechModelStoreOptions` and the
-`AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`/`AddChatterboxTurboModels()` composition — that
+`AddSherpaModels()`/`AddKokoroModels()`/`AddPiperModels()`/`AddNemotronSttModels()`/
+`AddChatterboxTurboModels()` composition — that
 `ModelCatalogService` (see *SpeechDemo ModelCatalogSubsystem Design*) calls again, with freshly resolved downloader
 options, whenever the user applies new mirror settings from the catalog panel. This is what lets the mirror be
 reconfigured from the running application instead of only at launch, without the library's own `SpeechModelCatalog`

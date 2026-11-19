@@ -1,0 +1,118 @@
+# Out-of-vocabulary golden corpus: realistic words that the CMU Pronouncing Dictionary lacks (names, brands, neologisms, compounds, loanwords), chosen by hand.
+# Columns: word, then the pronunciation (ARPAbet with stress) of the shipped letter-to-sound model, pinned to detect drift of the weights.
+# The expected column is regenerated with: regenerate-goldens --oov. A changed line is a behavior change to review; a doubtful line is flagged in docs/evaluation/phonemes-en/oov.md, never hand-corrected here.
+zendaya	Z EH0 N D AY1 AH0
+saoirse	S AW1 R S
+xiomara	Z IY2 OW0 M AA1 R AH0
+torvalds	T AO1 R V AH0 L D Z
+oluwaseun	OW2 L UW0 W EY1 Z AH0 N
+chimamanda	CH IH2 M AH0 M AE1 N D AH0
+adichie	AE1 D IH0 CH IY0
+kathmandu	K AE1 TH M AH0 N D UW2
+bratislava	B R AA2 T IH0 S L AA1 V AH0
+huawei	HH W AO1 EY0
+xiaomi	Z IY0 AW1 M IY0
+lenovo	L EH0 N OW1 V OW0
+uniqlo	Y UW1 N IH0 K L OW0
+muji	M UW1 JH IY0
+haribo	HH EH0 R IY1 B OW0
+nutella	N UW0 T EH1 L AH0
+toblerone	T AA1 B L ER0 OW2 N
+pringles	P R IH1 NG G AH0 L Z
+cheetos	CH IY1 T OW0 Z
+shopify	SH AA1 P AH0 F AY2
+squarespace	S K W AA0 R EH1 S P EY0 S
+anthropic	AE0 N TH R AA1 P IH0 K
+airbnb	EH1 R B N B
+fitbit	F IH1 T B IH2 T
+roomba	R UW1 M B AH0
+venmo	V EH1 N M OW0
+fortnite	F AO1 R T N AY2 T
+duolingo	D UW2 OW0 L IH1 NG G OW0
+peloton	P EH1 L AH0 T AH0 N
+chromebook	K R OW1 M B UH2 K
+tiktok	T IH1 K T AH0 K
+openai	OW0 P EH1 N AY2
+chatgpt	CH AE1 T P T
+pytorch	P AY1 T AO0 R CH
+tensorflow	T EH0 N S AO1 R F L OW0
+kubernetes	K Y UW1 B ER0 N IY2 T S
+typescript	T AY1 P S K R IH2 P T
+postgres	P OW1 S T G R Z
+graphql	G R AE1 P K AH0 L
+nginx	N JH IH1 NG K S
+kotlin	K AA1 T L IH0 N
+rustacean	R AH0 S T EY1 SH AH0 N
+subreddit	S AH0 B R EH1 D IH0 T
+fediverse	F EH1 D IH0 V ER0 S
+metaverse	M EH1 T AH0 V ER0 S
+ebook	EH1 B UH0 K
+webcam	W EH1 B K AH0 M
+emoji	EH0 M OW1 JH IY0
+vlog	V L AA1 G
+cyberbullying	S AY1 B ER0 B AH0 L IY2 IH0 NG
+crowdfunding	K R AW1 D F AH2 N D IH0 NG
+livestream	L AY1 V S T R IY2 M
+doomscrolling	D UW0 M S K R OW1 L IH0 NG
+gamification	G AE2 M AH0 F AH0 K EY1 SH AH0 N
+biohacking	B AY1 OW0 HH AE2 K IH0 NG
+microplastics	M AY2 K R OW0 P L AE1 S T IH0 K S
+deepfake	D IY1 P F EY2 K
+chatbot	CH AE1 T B AA2 T
+hyperloop	HH AY1 P ER0 L UW2 P
+brexit	B R EH1 K S IH0 T
+covid	K OW1 V IH0 D
+instagrammable	IH2 N S T AE0 G R AE1 M AH0 B AH0 L
+photobomb	F OW1 T OW0 B AA2 M
+hangry	HH AE1 NG G R IY0
+staycation	S T EY0 K EY1 SH AH0 N
+edutainment	EH2 JH AH0 T EY1 N M AH0 N T
+paywall	P EY1 W AO2 L
+fintech	F IH1 N T EH2 K
+telehealth	T EH1 L IH0 HH EH2 L TH
+neuroplasticity	N UH2 R OW0 P L AE2 S T IH1 S AH0 T IY0
+cybersecurity	S AY2 B ER2 S AH0 K Y UH1 R AH0 T IY0
+hyperlocal	HH AY2 P ER1 L AH0 K AH0 L
+tokenization	T OW2 K N IH0 Z EY1 SH AH0 N
+interoperability	IH2 N T ER0 OW2 P ER0 AH0 B IH1 L IH0 T IY0
+ransomware	R AE1 N S AH0 M W EH2 R
+zoombombing	Z UW1 M B AA2 M IH0 NG
+wokeness	W AA1 K N AH0 S
+antivax	AE1 N T IY0 V AE2 K S
+bioinformatics	B AY2 OW0 IH2 N F ER0 M AE1 T IH0 K S
+nanobot	N AE1 N AH0 B AA2 T
+exoplanet	IH0 G Z AA1 P L AH0 N AH0 T
+fluffernutter	F L AH1 F ER0 N AH2 T ER0
+moonwalker	M UW1 N W AO2 K ER0
+lighthousekeeper	L AY1 T HH AW2 S K IY2 P ER0
+sunflowerseed	S AH0 N F L AW1 ER0 S IY2 D
+zorblax	Z AO1 R B L AE0 K S
+qwerty	K ER1 T IY0
+flibbertigibbet	F L IH1 B ER0 T IH0 JH IH0 B IH0 T
+paddleboard	P AE1 D AH0 L B AO2 R D
+bingewatching	B IH1 NG W AA2 CH IH0 NG
+kombucha	K AA2 M B UW1 CH AH0
+sriracha	S R IH0 R AA1 CH AH0
+matcha	M AE1 CH AH0
+bokeh	B OW0 K EY1
+djembe	JH EH1 M B
+theremin	TH EH1 R AH0 M IH0 N
+bouzouki	B UW2 Z AW1 K IY0
+didgeridoo	D IH2 JH ER0 IY1 D UW2
+tzatziki	T Z AH0 T Z IY1 K IY0
+bruschetta	B R UW0 SH EH1 T AH0
+ramen	R AE1 M AH0 N
+edamame	EH1 D AH0 M EY2 M
+churro	CH UH1 R OW0
+empanada	EH0 M P AA0 N AA1 D AH0
+bibimbap	B IH1 B IH0 M B AE2 P
+ciabatta	S IY2 AH0 B AA1 T AH0
+gelato	JH EH0 L AA1 T OW0
+quesadilla	K W EH2 S AH0 D IH1 L AH0
+taquito	T AH0 K IY1 T OW0
+horchata	HH AO0 R K AA1 T AH0
+sangria	S AA1 NG G R IY0 AH0
+prosecco	P R OW0 S EH1 K OW0
+zumba	Z AH1 M B AH0
+crossfit	K R AO1 S F IH0 T
+parkour	P AA1 R K ER0

@@ -1,0 +1,56 @@
+---
+# Software Unit Requirements for PiperVoiceConfig
+#
+# These requirements describe the behavior of the PiperVoiceConfig unit: the reader of the voice's .onnx.json file, which
+# holds the symbol table that turns phoneme symbols into the integer ids the graph takes, the output sample rate, the
+# speaker count and the voice's recommended inference scales. They decompose the parent SpeechOnnxPiper
+# ModelManagementSubsystem requirements. Covered by the PiperVoiceConfig_* tests in
+# test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/PiperVoiceConfigTests.cs, which read a trimmed
+# copy of the real configuration (TestData/en_US-libritts_r-medium.onnx.trimmed.json).
+
+sections:
+  - title: SpeechOnnxPiper Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: PiperVoiceConfig Requirements
+            requirements:
+              - id: SpeechOnnxPiper-Models-PiperVoiceConfig-Parsing
+                title: >-
+                  The PiperVoiceConfig class shall read from the voice's configuration the sample rate, the number of
+                  speakers (1 when absent), the noise, length and noise-width scales (the defaults 0.667, 1.0 and 0.8
+                  when absent), the espeak voice name and the symbol table with the ids of every symbol (including
+                  the framing symbols ^, _ and $), shall look symbols up ordinally and case-sensitively, and shall
+                  read the same configuration from a file.
+                justification: |
+                  The symbol table decides what every phoneme is called for the graph, and symbols that differ only
+                  by case are different symbols. The recommended scales are the voice's own, with Piper's defaults
+                  for a configuration that gives none. The tests read a trimmed copy of the real configuration of
+                  the voice, so the shape that was read is the real one.
+                tests:
+                  - PiperVoiceConfig_Parse_RealVoiceConfiguration_ReadsSettingsAndSymbolTable
+                  - PiperVoiceConfig_TryGetIds_Symbols_AreOrdinalAndCaseSensitive
+                  - PiperVoiceConfig_Parse_MinimalConfiguration_UsesDefaults
+                  - PiperVoiceConfig_Load_ConfigurationFile_ReadsIt
+
+              - id: SpeechOnnxPiper-Models-PiperVoiceConfig-Rejection
+                title: >-
+                  The PiperVoiceConfig class shall reject with an invalid-data error a configuration that is not
+                  JSON, is not an object, has no phoneme map, has no positive sample rate, uses a phoneme type other
+                  than the string espeak, has a field of a JSON type or range other than the one documented for it
+                  (the sample rate and speaker count positive integers, the scales finite numbers, the espeak voice a
+                  string, each symbol a non-empty, non-repeated key with a non-empty array of non-negative integer
+                  ids), or lacks the framing symbol ^, _ or $ (the message naming the missing symbol), and shall
+                  reject a null text or an empty path with an argument error.
+                justification: |
+                  A configuration that cannot give the symbol table must fail loudly at load time instead of
+                  producing silent or garbled audio later, and the message has to say what is wrong so that a
+                  broken installation can be diagnosed. Accepting a wrong-typed value by coercion would hide a
+                  damaged or hand-edited file.
+                tests:
+                  - PiperVoiceConfig_Parse_MissingFramingSymbol_ThrowsNamingTheSymbol
+                  - PiperVoiceConfig_Parse_UnusableConfiguration_ThrowsInvalidData
+                  - PiperVoiceConfig_Parse_FieldOfTheWrongTypeOrRange_ThrowsNamingTheField
+                  - PiperVoiceConfig_Parse_EmptyOrRepeatedSymbol_ThrowsNamingTheProblem
+                  - PiperVoiceConfig_Parse_SupplementaryScalarSymbol_IsOneSymbol
+                  - PiperVoiceConfig_ParseAndLoad_InvalidArguments_Throw

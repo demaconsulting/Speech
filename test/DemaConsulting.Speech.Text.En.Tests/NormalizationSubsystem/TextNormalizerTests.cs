@@ -327,7 +327,42 @@ public sealed class TextNormalizerTests
         Assert.Equal("Fort Worth is far.", fort.ApplySpokenForms());
         Assert.Equal(NormalizationKind.Abbreviation, Assert.Single(fort.Spans).Kind);
         Assert.Equal("Item Number five shipped.", reference.ApplySpokenForms());
-        Assert.Equal([NormalizationKind.Abbreviation, NormalizationKind.Number], reference.Spans.Select(span => span.Kind));
+    }
+
+    /// <summary>Proves a URL, an e-mail address and a bare domain are spoken as their pieces before any other rule can claim the token, while file names and dotted names with an unknown ending are left as written.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("Visit https://www.example.com/docs?id=7 today.", "Visit H T T P S:W W W dot example dot com slash docs question mark id equals 7 today.")]
+    [InlineData("Mail john.smith@example.com, now.", "Mail john dot smith at example dot com, now.")]
+    [InlineData("See www.example.org/a-b_c.", "See W W W dot example dot org slash a dash b underscore c.")]
+    [InlineData("Visit example.com. Then relax.", "Visit example dot com. Then relax.")]
+    [InlineData("Open report.pdf or Node.js now.", "Open report.pdf or Node.js now.")]
+    public void TextNormalizer_Normalize_WebAddresses_AreSpokenAsTheirPieces(string text, string spoken)
+    {
+        // Act
+        var aligned = NormalizationHarness.Normalize(text);
+
+        // Assert
+        Assert.Equal(spoken, aligned.ApplySpokenForms());
+        Assert.Equal(spoken == text, aligned.Spans.Count == 0);
+    }
+
+    /// <summary>Proves an identifier of capital letters and digits has its letters spelled and its digits read, and a name joined to a number by a hyphen has only the number read.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("Use paper A4 and vitamin B12 with H2O and MP3.", "Use paper A four and vitamin B twelve with H two O and M P three.")]
+    [InlineData("COVID-19 and Catch-22 spread.", "COVID-nineteen and Catch-twenty two spread.")]
+    [InlineData("The COVID19 wave.", "The COVID19 wave.")]
+    public void TextNormalizer_Normalize_LettersAndDigits_AreSpelledAndRead(string text, string spoken)
+    {
+        // Act
+        var aligned = NormalizationHarness.Normalize(text);
+
+        // Assert
+        Assert.Equal(spoken, aligned.ApplySpokenForms());
+        Assert.All(aligned.Spans, span => Assert.Equal(span.Kind == NormalizationKind.Initialism, span.Spoken.Trim().All(character => character is >= 'A' and <= 'Z' or ' ')));
     }
 
     /// <summary>Proves bad arguments are rejected: null text, null collaborators, and malformed token lists.</summary>

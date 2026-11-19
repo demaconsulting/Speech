@@ -6,12 +6,18 @@
 # without specifying implementation details. SpeechOnnxKokoro is a sibling system to Speech: it
 # supplies a concrete, ONNX-Runtime-backed Kokoro v1.0 text-to-speech model and inference engine
 # through the Speech library's ISynthesisModel extension seam, ships as its own package, and is
-# versioned as part of this repository. The Speech library never depends on it. Each requirement
-# states one observable behavior.
+# versioned as part of this repository. The Speech library never depends on it. The library turns
+# English text into speech by itself: the English text analysis of SpeechTextEn (numbers, currency
+# and abbreviations spoken as words, the reading of each heteronym), the phonemizer of
+# SpeechPhonemesEn (CMU Pronouncing Dictionary plus a letter-to-sound model for words the
+# dictionary does not have) rendered as Kokoro's phoneme symbols, and Kokoro's own token
+# vocabulary. Each requirement states one observable behavior.
 #
-# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests - see the subsystem/unit-level reqstream
-# files under docs/reqstream/speech-onnx-kokoro/ for the full tests: lists these system
-# requirements decompose into.
+# Covered by the system tests in test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechOnnxKokoroTests.cs
+# (the public API only: the catalog registration, the model loaded into a speech synthesizer engine
+# over a tiny fixture ONNX graph and synthetic voices, and the speech the engine produces) and by
+# the FileAssert test of the built package. The subsystem and unit requirements under
+# docs/reqstream/speech-onnx-kokoro/ decompose these.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -19,35 +25,26 @@ sections:
       - id: SpeechOnnxKokoro-Models-AddKokoroModels
         title: >-
           The library shall let a host register its ONNX-Runtime-backed Kokoro v1.0 synthesis
-          model with a Speech library SpeechModelCatalog through a single AddKokoroModels() call.
+          model with a Speech library SpeechModelCatalog through a single AddKokoroModels() call,
+          which shall return the catalog it was called on so that registrations can be chained.
         tags: [system]
         justification: |
           The Speech library's catalog ships empty and carries no ONNX Runtime dependency, so a
           host needs one discoverable, opt-in entry point to make this package's model available
-          for enumeration, download, and composition.
+          for enumeration, download, and composition. Returning the same catalog keeps it
+          composable with registrations from any other model package in one fluent expression.
         children:
           - SpeechOnnxKokoro-Models-CatalogRegistration
+          - SpeechOnnxKokoro-Models-CatalogChaining
           - SpeechOnnxKokoro-Models-CatalogArgumentValidation
         tests:
-          - AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel
-
-      - id: SpeechOnnxKokoro-Models-AddKokoroModelsChaining
-        title: >-
-          The library's AddKokoroModels() call shall return the same catalog it was called on so
-          that registrations can be chained.
-        tags: [system]
-        justification: |
-          Chaining keeps the catalog composable with registrations from any other model package
-          in one fluent expression.
-        children:
-          - SpeechOnnxKokoro-Models-CatalogChaining
-        tests:
-          - AddKokoroModels_Called_ReturnsSameCatalogInstance
+          - SpeechOnnxKokoro_AddKokoroModels_OffersTheEnglishSynthesisModelWithItsVoices
 
       - id: SpeechOnnxKokoro-Models-SynthesisModel
         title: >-
           The library shall provide a real, downloadable, ONNX-Runtime-backed English synthesis
-          model implementing the Speech library's ISynthesisModel contract.
+          model implementing the Speech library's ISynthesisModel contract, which a host can load
+          from its installed files into a synthesizer engine that speaks text.
         tags: [system]
         justification: |
           The real Kokoro v1.0 ONNX export performs only the waveform-generation forward pass;
@@ -56,35 +53,79 @@ sections:
         children:
           - SpeechOnnxKokoro-Models-RealSynthesisModelWithVoiceSelection
         tests:
-          - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+          - SpeechOnnxKokoro_AddKokoroModels_OffersTheEnglishSynthesisModelWithItsVoices
+          - SpeechOnnxKokoro_Synthesize_SelectedVoice_SpeaksWithItsOwnStyle
 
       - id: SpeechOnnxKokoro-Models-SelectableVoices
         title: >-
           The library shall let a host select among multiple English voices of the synthesis
-          model.
+          model, and shall speak with the voice that was selected and with the default voice when
+          none is selected.
         tags: [system]
         justification: |
-          Voice selection lets a host offer more than a single fixed voice.
+          Voice selection lets a host offer more than a single fixed voice, and the audio must
+          audibly honor the selection. The model declares 29 American and British English voices;
+          the British voices speak American pronunciations (see the design notes of the
+          SpeechOnnxKokoro system), which is a documented limitation and not a selection error.
         children:
           - SpeechOnnxKokoro-Models-VoiceSelection
         tests:
-          - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+          - SpeechOnnxKokoro_AddKokoroModels_OffersTheEnglishSynthesisModelWithItsVoices
+          - SpeechOnnxKokoro_Synthesize_SelectedVoice_SpeaksWithItsOwnStyle
 
       - id: SpeechOnnxKokoro-Models-EmbeddedPhonemePipeline
         title: >-
-          The library shall turn English text into the phoneme token ids the model was trained
-          on without requiring any separate phonemizer or tokenizer download.
+          The library shall speak English text from the model graph and the voices alone, without
+          any separate phonemizer, pronunciation dictionary or tokenizer download: every word of
+          the text is spoken, a word that is not in the pronunciation dictionary included, and
+          nothing is silently omitted.
         tags: [system]
         justification: |
           The bare ONNX export performs only the waveform-generation forward pass, so a host
           cannot synthesize correct speech unless the package also converts text to phonemes
-          and tokens.
+          and tokens. Names, brands and new words are always missing from a dictionary, and a
+          voice that skips them makes sentences unintelligible, so a word the dictionary does not
+          have is pronounced from its spelling by the letter-to-sound model of the phonemizer.
         children:
-          - SpeechOnnxKokoro-Models-TextToPhonemePipeline
           - SpeechOnnxKokoro-Models-PhonemeTokenization
+          - SpeechOnnxKokoro-Synthesis-TextToPhonemes
         tests:
-          - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
-          - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
+          - SpeechOnnxKokoro_Synthesize_WordAbsentFromDictionary_IsStillSpoken
+
+      - id: SpeechOnnxKokoro-Synthesis-ReadingAwareSpeech
+        title: >-
+          The library shall speak the text the way the English text analysis of the session reads
+          it: the reading chosen for a heteronym (the noun or the verb of a spelling such as
+          record, the adjective or the verb of separate), and numbers, currency, dates and
+          abbreviations as the words they stand for.
+        tags: [system]
+        justification: |
+          A phoneme-driven model says what the phonemes say, so "record" the noun and the verb
+          must reach it as different phonemes and "$5" as "five dollars". The model supplies the
+          shared text analysis to the Speech library's session, and its engine uses the result;
+          text spoken without a session (the plain generation call) uses the default reading of
+          every word and no normalization, which is the documented behavior of that path.
+        children:
+          - SpeechOnnxKokoro-Models-TextAnalysis
+          - SpeechOnnxKokoro-Synthesis-AnnotatedSpeech
+        tests:
+          - SpeechOnnxKokoro_Synthesize_HeteronymSentence_SpeaksTheChosenReadings
+          - SpeechOnnxKokoro_Synthesize_NumbersAndSymbols_AreSpokenAsWords
+
+      - id: SpeechOnnxKokoro-Synthesis-LongText
+        title: >-
+          The library shall speak a stretch of text that has more sounds than the model accepts in
+          one run in several parts, cut between words after a clause mark where there is one, and
+          shall join the audio of the parts, without cutting off any of the text.
+        tags: [system]
+        justification: |
+          The Kokoro graph accepts at most 510 phoneme tokens per run. The session already splits a
+          request into sentences, but a long number or a long run of words without a break can
+          still exceed the limit, and truncating it would silently lose the end of the text.
+        children:
+          - SpeechOnnxKokoro-Synthesis-LongTextParts
+        tests:
+          - SpeechOnnxKokoro_Synthesize_LongSegment_IsSpokenInPartsWithoutLoss
 
       - id: SpeechOnnxKokoro-Synthesis-RealBackend
         title: >-
@@ -101,7 +142,7 @@ sections:
           - SpeechOnnxKokoro-Synthesis-OnnxBackendVoiceSelection
           - SpeechOnnxKokoro-Synthesis-OnnxBackendLifecycle
         tests:
-          - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+          - SpeechOnnxKokoro_Synthesize_SelectedVoice_SpeaksWithItsOwnStyle
 
       - id: SpeechOnnxKokoro-Synthesis-ExecutionProviderProbe
         title: >-
@@ -118,24 +159,22 @@ sections:
 
       - id: SpeechOnnxKokoro-Licensing-PackageNotices
         title: >-
-          The package shall name a combined license file that starts with the SPDX expression of
-          the package, contains the MIT license text for the code and covers the embedded lexicon
-          and tokenizer data with their licenses, and shall carry a third-party notice that
-          attributes the embedded data to its sources; both files shall be packed at the package
-          root.
+          The package shall name a combined license file that starts with the SPDX expression
+          MIT AND Apache-2.0 for the package, contains the MIT license text for the code and covers
+          the embedded Apache-2.0 tokenizer, and shall carry a third-party notice that attributes
+          the embedded tokenizer to its source and points to the notices of the text analysis and
+          pronunciation packages it depends on; both files shall be packed at the package root.
         tags: [system]
         justification: |
-          The package embeds data derived from CMUdict (a BSD-style license that requires the
-          copyright notice and conditions to be reproduced in binary distributions) and misaki
-          (Apache-2.0, which requires the license text to travel with the work), plus a tokenizer
-          from the Apache-2.0 Kokoro export, while declaring only the MIT license for the code.
-          The upstream provenance and licensing of misaki's own dictionaries are undocumented, so
-          the notices state what is known and claim nothing beyond misaki's repository license;
-          the lexicon is scheduled to be replaced by one generated solely from CMUdict.
-          A package can carry a license expression or a license file, so a combined license file
-          is the way to let every applicable license travel with the package.
+          The package embeds the Kokoro tokenizer from the Apache-2.0 Kokoro export, which
+          requires the license text to travel with the work, while the code is under the MIT
+          License; the combined expression MIT AND Apache-2.0 says what a consumer receives. A
+          package can carry a license expression or a license file, so a combined license file is
+          the way to let every applicable license travel with the package. The pronunciation data
+          (derived from the CMU Pronouncing Dictionary) and the heteronym model are not embedded
+          in this package: they come from the Phonemes.En and Text.En packages that it depends on,
+          whose own notices carry their licenses, so the notices of this package point to them
+          instead of repeating them. The built package is inspected by a FileAssert test; it is not
+          legal advice.
         tests:
-          - SpeechOnnxKokoro_PackageLicense_ProjectFile_NamesLicenseFileAtPackageRoot
-          - SpeechOnnxKokoro_PackageLicense_File_CoversCodeAndEmbeddedData
-          - SpeechOnnxKokoro_ThirdPartyNotices_File_AttributesEmbeddedData
           - Kokoro_Package_LicenseFilesPackaged
