@@ -198,31 +198,39 @@ sections:
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-UseAfterDispose
                 title: >-
                   The OnnxKokoroSynthesisEngine class's Generate method shall throw
-                  ObjectDisposedException after the engine has been disposed.
+                  ObjectDisposedException after the engine has been disposed, and a synthesis that
+                  overlaps a disposal shall either complete with its audio or be refused with
+                  ObjectDisposedException.
                 justification: |
                   Use after disposal is a programming error that should surface with a clear
-                  exception rather than running against a released native session.
+                  exception rather than running against a released native session, and a race
+                  between a running synthesis and a disposal must never crash the process.
                 tests:
                   - Generate_AfterDispose_ThrowsObjectDisposedException
+                  - Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
                 title: >-
                   The OnnxKokoroSynthesisEngine class shall release the loaded inference session
-                  when it is disposed.
+                  when it is disposed, exactly once, and not while a synthesis is still running:
+                  the disposal waits for the running synthesis.
                 justification: |
                   The loaded session holds native memory sized to a multi-hundred-megabyte model,
-                  so it must be released deterministically when the owning engine is disposed.
+                  so it must be released deterministically when the owning engine is disposed, and
+                  releasing it under a running inference would crash the process.
                 tests:
                   - Dispose_ReleasesSession
+                  - Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-DisposeIdempotent
                 title: >-
                   The OnnxKokoroSynthesisEngine class shall treat a second Dispose call as a
-                  no-op.
+                  no-op, including when several threads dispose it at once.
                 justification: |
                   Idempotent disposal keeps teardown paths safe.
                 tests:
                   - Dispose_CalledTwice_DoesNotThrow
+                  - Dispose_ConcurrentCallers_ReleaseTheSessionOnce
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference
                 title: >-

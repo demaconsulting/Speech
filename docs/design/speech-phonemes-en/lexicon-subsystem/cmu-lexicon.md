@@ -31,7 +31,10 @@ created once on first use under `Lazy<T>` with publication safety. `LexiconEntry
   and the tools
 - **WordCount**: the number of words
 
-**Error Handling**: a header that is not valid or a truncated image throws `InvalidDataException`; `Default` therefore
+**Error Handling**: a header that is not valid, a negative word count or one the data cannot hold (checked against the
+smallest possible entry before the image is walked, so nothing is sized from an unchecked count), a truncated image,
+trailing data, a word that is empty, outside `a-z'` or not strictly after the previous word, or an invalid phone code
+throws `InvalidDataException`; `Default` therefore
 throws for a defective build, and the failure is cached by the `Lazy<T>`. `Lookup` never throws for any string.
 
 **Dependencies**: `Phone` and `Pronunciation` (the phone codes of the variants); the framework (gzip, spans).

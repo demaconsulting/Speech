@@ -40,7 +40,8 @@ visible to a host or a test. The renderer is tested to emit only symbols of this
 for the text the shipped phonemizer produces.
 
 **Session ownership.** The engine owns the session it is given and disposes it when it is disposed; disposal is
-idempotent, and synthesis after disposal throws `ObjectDisposedException`. The engine also provides the probe inference
+idempotent and safe against concurrent synthesis (it waits for the runs in progress before releasing the session, once),
+and synthesis after disposal throws `ObjectDisposedException`. The engine also provides the probe inference
 (`RunProbeInference`, one sentence-sized run) that `OnnxExecutionProviderSelector` uses to reject an accelerated
 provider that loads the graph but cannot run it.
 

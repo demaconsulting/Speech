@@ -2769,6 +2769,8 @@ reviews:
       - "docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/BlockingAnnotationList.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/DisposalTrackingInferenceSession.cs"
 
   # SpeechOnnxKokoro-SynthesisSubsystem-KokoroPhonemePipeline Review (one per unit)
   - id: SpeechOnnxKokoro-SynthesisSubsystem-KokoroPhonemePipeline
@@ -2911,6 +2913,7 @@ reviews:
       - "docs/verification/speech-onnx-piper/synthesis-subsystem/onnx-piper-synthesis-engine.md"
       - "src/DemaConsulting.Speech.Onnx.Piper/SynthesisSubsystem/OnnxPiperSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/OnnxPiperSynthesisEngineTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/BlockingAnnotationList.cs"
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/SynthesisSubsystem/DisposalTrackingInferenceSession.cs"
 
   # SpeechOnnxPiper-SynthesisSubsystem-PiperPhonemePipeline Review (one per unit)
@@ -4326,6 +4329,7 @@ reviews:
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs"
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Morphology.cs"
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs"
+      - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Images.cs"
 
   # SpeechPhonemesEn-LexiconSubsystem-CmuLexicon Review (one per unit)
   - id: SpeechPhonemesEn-LexiconSubsystem-CmuLexicon
@@ -4343,6 +4347,7 @@ reviews:
       - "src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/CmuLexicon.cs"
       - "src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/LexiconImageFormat.cs"
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Images.cs"
 
   # SpeechPhonemesEn-LexiconSubsystem-Phone Review (one per unit)
   - id: SpeechPhonemesEn-LexiconSubsystem-Phone

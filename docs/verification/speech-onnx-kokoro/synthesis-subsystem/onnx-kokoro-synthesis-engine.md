@@ -55,7 +55,8 @@ a word absent from the dictionary is spoken; `GenerateAnnotated` speaks a replac
 the written text and the reading the annotations of the model's analysis chose; a text longer than the model
 accepts is spoken in several runs of the graph; `Generate` throws
 `ArgumentNullException` for null text and `ObjectDisposedException` once the engine has been
-disposed; a second `Dispose` call is a harmless no-op; `RunProbeInference` runs its representative
+disposed; a second `Dispose` call is a harmless no-op, concurrent calls release the session once, and a disposal that
+overlaps a running synthesis waits for it; `RunProbeInference` runs its representative
 inference successfully, without throwing, against a session that can actually run the graph; and,
 when the real production model is installed in this environment, `CreateBackend` plus `Generate`
 together synthesize non-empty audio at 24000 Hz for a real English sentence.
@@ -133,7 +134,13 @@ to synthesize an utterance.
 
 ##### Disposing the engine releases the session
 
-**Test**: `Dispose_ReleasesSession`
+**Tests**: `Dispose_ReleasesSession`, `Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce`
+
+The second test holds one synthesis inside the engine (through an annotation list, a public input of the engine that
+blocks until released), starts two disposals, waits until a new synthesis is refused (which shows the disposal has
+begun), and checks that the session has not been disposed yet, that the held synthesis still returns audio once
+released, and that the session was disposed exactly once (counted through
+`DisposalTrackingInferenceSession.DisposeCount`).
 
 ##### Generate throws ArgumentNullException for null text
 
@@ -141,11 +148,15 @@ to synthesize an utterance.
 
 ##### Generate throws ObjectDisposedException after disposal
 
-**Test**: `Generate_AfterDispose_ThrowsObjectDisposedException`
+**Tests**: `Generate_AfterDispose_ThrowsObjectDisposedException`,
+`Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed`
+
+The race test runs eight workers of 25 syntheses against one disposal and checks that every outcome is audio or
+`ObjectDisposedException`.
 
 ##### Disposing twice does not throw
 
-**Test**: `Dispose_CalledTwice_DoesNotThrow`
+**Tests**: `Dispose_CalledTwice_DoesNotThrow`, `Dispose_ConcurrentCallers_ReleaseTheSessionOnce`
 
 ##### RunProbeInference runs successfully against a runnable session
 

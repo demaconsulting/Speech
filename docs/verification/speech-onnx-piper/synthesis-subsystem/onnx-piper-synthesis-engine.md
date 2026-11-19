@@ -31,8 +31,9 @@ pad id 0, the end id 2, the length equal to the id count, the scales 0.333, 1.0 
 Hz; null arguments are rejected; the annotated heteronym sentence feeds other ids than the plain one; forty sentences
 give an audio of exactly the length that their utterances predict, with at least three utterances; with the symbol `ɑ`
 removed from the table the count and the list report exactly that symbol for `hot` and nothing for `Hello there.`; the
-probe does not throw on a runnable session; and a second disposal does not throw, the session was disposed and a
-synthesis after disposal throws `ObjectDisposedException`.
+probe does not throw on a runnable session; and a second disposal does not throw, the session was disposed once and a
+synthesis after disposal throws `ObjectDisposedException`; a disposal that overlaps a running synthesis waits for it,
+and concurrent disposals and syntheses give only audio or `ObjectDisposedException`.
 
 #### Test Scenarios
 
@@ -56,4 +57,14 @@ synthesis after disposal throws `ObjectDisposedException`.
 ##### Probe and disposal
 
 **Tests**: `OnnxPiperSynthesisEngine_RunProbeInference_RunnableSession_DoesNotThrow`,
-`OnnxPiperSynthesisEngine_Dispose_Engine_ReleasesTheSessionOnceAndEndsUse`
+`OnnxPiperSynthesisEngine_Dispose_Engine_ReleasesTheSessionOnceAndEndsUse`,
+`OnnxPiperSynthesisEngine_Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce`,
+`OnnxPiperSynthesisEngine_Dispose_ConcurrentCallers_ReleaseTheSessionOnce`,
+`OnnxPiperSynthesisEngine_Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed`
+
+The overlap test holds one synthesis inside the engine (through an annotation list, a public input of the engine that
+blocks until released), starts two disposals, waits until a new synthesis is refused (which shows the disposal has
+begun), and checks that the session has not been disposed yet, that the held synthesis still returns audio once
+released, and that the session was disposed exactly once. The race test runs eight workers of 25 syntheses against one
+disposal and checks that every outcome is audio or `ObjectDisposedException`. The session is counted through
+`DisposalTrackingInferenceSession.DisposeCount`.

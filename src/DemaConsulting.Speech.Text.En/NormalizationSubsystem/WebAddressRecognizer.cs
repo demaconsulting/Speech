@@ -18,7 +18,11 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 ///     a span in two), so the colon after the scheme and before a port stays as a pause mark.
 ///     </para>
 ///     <para>
-///     A token is a bare domain only when its last label is one of a short list of top-level domains, so a file name
+///     A token with a scheme (<c>http://</c>, <c>https://</c> or <c>ftp://</c> followed by a letter or digit) is a web
+///     address whether or not its host has a dot (<c>http://localhost</c>, <c>ftp://server/path</c>,
+///     <c>https://localhost:8080/x</c>); a scheme with nothing after it (<c>http://</c>) is not recognized, because
+///     there is no address to speak. Without a scheme, a token is a bare domain only when its last label is one of a
+///     short list of top-level domains, so a file name
 ///     such as <c>report.pdf</c> or a name such as <c>Node.js</c> is never read as an address. The scan reads each
 ///     character a constant number of times and a token longer than <see cref="MaxTokenLength"/> characters is left
 ///     alone. The class is stateless and thread-safe.
@@ -49,7 +53,7 @@ internal static class WebAddressRecognizer
     /// </returns>
     internal static IReadOnlyList<NumericSpan>? Recognize(ReadOnlySpan<char> token, int tokenStart)
     {
-        if (token.Length < MinTokenLength || token.Length > MaxTokenLength || token.IndexOfAny('.', '@') < 0)
+        if (token.Length < MinTokenLength || token.Length > MaxTokenLength)
         {
             return null;
         }
@@ -61,13 +65,19 @@ internal static class WebAddressRecognizer
         var schemeLength = SchemeLength(token);
         if (schemeLength > 0)
         {
-            // The scheme letters are spelled, the colon stays, the two slashes are dropped
+            // A scheme is itself the evidence of a URL, so its host needs no dot (http://localhost, ftp://server/path);
+            // the scheme letters are spelled, the colon stays, the two slashes are dropped
             spans.Add(new NumericSpan(tokenStart, schemeLength, SpelledLetters(token[..schemeLength]), NormalizationKind.Initialism));
             spans.Add(new NumericSpan(tokenStart + schemeLength + 1, 2, string.Empty, NormalizationKind.Dropped));
             position = schemeLength + 3;
             isAddress = true;
         }
-
+        else if (token.IndexOfAny('.', '@') < 0)
+        {
+            // Without a scheme only an e-mail address (an @) or a bare domain (a dot) can be a web address, so a token
+            // with neither is rejected before the finer checks
+            return null;
+        }
         if (HasWwwPrefix(token[position..]))
         {
             spans.Add(new NumericSpan(tokenStart + position, 3, "W W W", NormalizationKind.Initialism));

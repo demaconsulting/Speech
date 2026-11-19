@@ -20,7 +20,9 @@ identity of the shipped model with its training is `train-lts --check`.
 
 More than 3,000 sampled dictionary spellings each get a non-empty pronunciation with exactly one primary stress, and
 converting a word twice gives identical text; an image of six arbitrary bytes and an image that is only the magic number
-are rejected with an invalid-data error; a null image or stream is rejected with an argument error.
+are rejected with an invalid-data error; so is the shipped image with a damaged chunk count or chunk length, a damaged
+layer width, a cut at several points or a trailing byte (a theory, each message naming the damage); a non-gzip stream is
+rejected the same way; a null image or stream is rejected with an argument error.
 
 #### Test Scenarios
 
@@ -30,4 +32,6 @@ are rejected with an invalid-data error; a null image or stream is rejected with
 
 ##### Damaged image
 
-**Test**: `LtsModel_FromImage_DamagedImage_IsRejected`
+**Tests**: `LtsModel_FromImage_DamagedImage_IsRejected`,
+`LtsModel_FromImage_DamagedHeaderCountOrLength_ThrowsInvalidDataNamingTheDamage`,
+`LtsModel_FromGZipStream_NotGZip_ThrowsInvalidData`

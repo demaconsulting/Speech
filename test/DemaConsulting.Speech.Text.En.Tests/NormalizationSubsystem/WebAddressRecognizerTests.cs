@@ -35,6 +35,32 @@ public sealed class WebAddressRecognizerTests
         Assert.Equal(token.IndexOf(':') + 1, spans[1].Start);
     }
 
+    /// <summary>
+    ///     Proves a scheme alone makes a URL, so a host without a dot (a local name, a server name, a host with a port)
+    ///     is recognized, while a scheme with nothing usable after it is not an address.
+    /// </summary>
+    /// <param name="token">The token.</param>
+    /// <param name="spoken">The expected spoken texts of the spans, joined by a bar, or null when the token is not an address.</param>
+    [Theory]
+    [InlineData("http://localhost", "H T T P|")]
+    [InlineData("ftp://server/path", "F T P||slash")]
+    [InlineData("https://localhost:8080/x", "H T T P S||slash")]
+    [InlineData("HTTP://Intranet/a-b", "H T T P||slash|dash")]
+    [InlineData("http://127.0.0.1/", "H T T P||dot|dot|dot|slash")]
+    [InlineData("http://", null)]
+    [InlineData("https://.", null)]
+    [InlineData("ftp://-x", null)]
+    [InlineData("gopher://localhost", null)]
+    [InlineData("localhost/path", null)]
+    public void WebAddressRecognizer_Recognize_SchemeWithDotlessHost_IsAnAddressOnlyWithAHost(string token, string? spoken)
+    {
+        // Act
+        var spans = WebAddressRecognizer.Recognize(token, 0);
+
+        // Assert
+        Assert.Equal(spoken, Spoken(spans));
+    }
+
     /// <summary>Proves a leading www is spelled, with or without a scheme, and that the separators after it are spoken.</summary>
     [Fact]
     public void WebAddressRecognizer_Recognize_LeadingWww_IsSpelledAndSeparatorsAreSpoken()

@@ -50,7 +50,18 @@ internal sealed class OnnxPiperSynthesisEngine : IAnnotatedSynthesisBackend
     private readonly PiperPhonemePipeline _pipeline;
     private readonly ConcurrentDictionary<string, long> _unknownSymbols = new(StringComparer.Ordinal);
     private long _unknownSymbolCount;
+
+    /// <summary>Guards <see cref="_disposed"/>, <see cref="_activeRuns"/> and the release of the session.</summary>
+    private readonly object _lifetimeLock = new();
+
+    /// <summary>Whether disposal has begun; no new run may start once it is set. Guarded by <see cref="_lifetimeLock"/>.</summary>
     private bool _disposed;
+
+    /// <summary>How many runs currently hold a lease on the session. Guarded by <see cref="_lifetimeLock"/>.</summary>
+    private int _activeRuns;
+
+    /// <summary>Whether the session has been disposed, so it is disposed exactly once. Guarded by <see cref="_lifetimeLock"/>.</summary>
+    private bool _sessionReleased;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="OnnxPiperSynthesisEngine"/> class, taking ownership of
@@ -125,26 +136,87 @@ internal sealed class OnnxPiperSynthesisEngine : IAnnotatedSynthesisBackend
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     Safe to call from any thread and any number of times. The native session is never released while a run is
+    ///     active: disposal first stops new runs (they fail with <see cref="ObjectDisposedException"/>), then waits for
+    ///     the runs already in progress to finish, then disposes the session exactly once. Every caller returns only
+    ///     after the session has been released. Do not call it from inside a run on the same thread (for example from a
+    ///     callback), because it would wait for itself.
+    /// </remarks>
     public void Dispose()
     {
-        if (_disposed)
+        lock (_lifetimeLock)
         {
-            return;
-        }
+            // Stop admitting new runs first, so the wait below can only be for runs that already hold a lease.
+            _disposed = true;
+            while (_activeRuns > 0)
+            {
+                Monitor.Wait(_lifetimeLock);
+            }
 
-        // Mark disposed before releasing the native session so a concurrent Generate or Dispose observes the flag
-        // rather than racing the release.
-        _disposed = true;
-        _session.Dispose();
+            // Release the session inside the lock: a concurrent second Dispose finds the flag already set and the
+            // session released, so it neither disposes it again nor returns before it is gone.
+            if (_sessionReleased)
+            {
+                return;
+            }
+
+            _sessionReleased = true;
+            _session.Dispose();
+        }
     }
 
     /// <summary>
-    ///     Phonemizes <paramref name="text"/> and runs the graph once per utterance.
+    ///     Takes a lease on the session for one run, so disposal waits for the run instead of releasing the session
+    ///     under it.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The engine has been disposed.</exception>
+    private void EnterRun()
+    {
+        lock (_lifetimeLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _activeRuns++;
+        }
+    }
+
+    /// <summary>
+    ///     Returns the lease taken by <see cref="EnterRun"/> and wakes a disposer waiting for the last run to finish.
+    /// </summary>
+    private void ExitRun()
+    {
+        lock (_lifetimeLock)
+        {
+            _activeRuns--;
+            if (_activeRuns == 0)
+            {
+                Monitor.PulseAll(_lifetimeLock);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Phonemizes <paramref name="text"/> and runs the graph once per utterance, holding a lease on the session for
+    ///     the whole call.
     /// </summary>
     private BackendAudio Synthesize(string text, IReadOnlyList<SegmentAnnotation>? annotations, float speed, int speakerId)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        EnterRun();
+        try
+        {
+            return SynthesizeLeased(text, annotations, speed, speakerId);
+        }
+        finally
+        {
+            ExitRun();
+        }
+    }
 
+    /// <summary>
+    ///     The body of <see cref="Synthesize"/>; runs only while the caller holds a lease on the session.
+    /// </summary>
+    private BackendAudio SynthesizeLeased(string text, IReadOnlyList<SegmentAnnotation>? annotations, float speed, int speakerId)
+    {
         var effectiveSpeed = speed > 0f && float.IsFinite(speed) ? speed : 1.0f;
         float[] scales = [_config.NoiseScale, _config.LengthScale / effectiveSpeed, _config.NoiseW];
         var speaker = Math.Clamp(speakerId, 0, Math.Max(0, _config.NumSpeakers - 1));

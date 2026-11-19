@@ -210,13 +210,15 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
     ///     created, cannot fail. The selector disposes a candidate session whose probe fails.
     /// </remarks>
     /// <inheritdoc/>
-    /// <exception cref="InvalidDataException">The voice configuration is unusable, or does not describe this voice.</exception>
+    /// <exception cref="InvalidDataException">
+    ///     The voice configuration is unusable, or does not describe this voice (exactly 904 speakers at 22,050 Hz).
+    /// </exception>
     public ISynthesisBackend CreateBackend(string installedModelDirectory)
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
         var config = PiperVoiceConfig.Load(Path.Combine(installedModelDirectory, ConfigFileName));
-        if (config.SampleRate != PreferredSampleRate || config.NumSpeakers <= MaxSpeakerId)
+        if (config.SampleRate != PreferredSampleRate || config.NumSpeakers != MaxSpeakerId + 1)
         {
             throw new InvalidDataException(
                 $"The voice configuration describes {config.NumSpeakers} speakers at {config.SampleRate} Hz; " +

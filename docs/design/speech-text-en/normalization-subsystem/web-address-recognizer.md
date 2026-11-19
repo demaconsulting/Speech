@@ -26,10 +26,12 @@ Fixed limits (code constants): a token has at least 6 and at most 512 characters
 
 **Key Methods**:
 
-- **Recognize(token, tokenStart)**: returns `null` for a token outside the length limits or without a `.` or
-  `@`. Otherwise it accepts a scheme URL (`scheme://` followed by a letter or digit), a leading `www.`
+- **Recognize(token, tokenStart)**: returns `null` for a token outside the length limits, or without a scheme
+  and without a `.` or `@`. Otherwise it accepts a scheme URL (`scheme://` followed by a letter or digit; the
+  host needs no dot, so `http://localhost`, `ftp://server/path` and `https://localhost:8080/x` are URLs, while a
+  scheme with nothing after it, `http://`, is not an address), a leading `www.`
   followed by a letter or digit, an e-mail address, or a bare domain, and then produces one span per separator
-  after the scheme and `www`
+  after the scheme and `www`. The dot-or-`@` requirement belongs to the paths without a scheme only
 - **E-mail address**: a local part of ASCII letters, digits and `. _ % + -` (not starting or ending with a dot,
   no two dots in a row), exactly one `@`, and a domain of two or more labels whose last label is two or more
   letters (any such label, not only the known list)

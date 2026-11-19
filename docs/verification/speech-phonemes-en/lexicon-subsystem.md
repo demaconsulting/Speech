@@ -3,13 +3,14 @@
 ### Verification Approach
 
 The SpeechPhonemesEn LexiconSubsystem is verified by deterministic tests in
-`test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs`, `LexiconSubsystemTests.Morphology.cs` and
-`LexiconSubsystemTests.Readings.cs` (one partial test class), with the real embedded lexicon, the real reading tables
-and the real reading inventory of SpeechTextEn; nothing is mocked. The subsystem-level tests (`LexiconSubsystem_*`)
-check what only the combination can show: that the lexicon returns every entry it enumerates, that the reading table and
-the rules resolve every pair of the inventory, and that the morphology rules agree with the lexicon's own inflected
-entries. The units are verified by their own `CmuLexicon_*`, `Pronunciation_*`, `Morphology_*` and
-`ReadingPronunciations_*` tests in the same files (see the unit verification documents).
+`test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs`, `LexiconSubsystemTests.Morphology.cs`,
+`LexiconSubsystemTests.Readings.cs` and `LexiconSubsystemTests.Images.cs` (one partial test class), with the real
+embedded lexicon, the real reading tables and the real reading inventory of SpeechTextEn; nothing is mocked. The
+subsystem-level tests (`LexiconSubsystem_*`) check what only the combination can show: that the lexicon returns every
+entry it enumerates, that the reading table and the rules resolve every pair of the inventory, and that the morphology
+rules agree with the lexicon's own inflected entries. The units are verified by their own `CmuLexicon_*`,
+`Pronunciation_*`, `Morphology_*` and `ReadingPronunciations_*` tests in the same files (see the unit verification
+documents).
 
 The pinned content of the dictionary (that the embedded image is the pinned CMUdict filtered as documented) is verified
 by the tools command `build-lexicon --check`, which needs the pinned download, and not by a test of the package; the

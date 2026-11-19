@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Piper.SynthesisSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -236,7 +237,119 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
         // Assert
         Assert.Null(secondDispose);
         Assert.True(session.WasDisposed);
+        Assert.Equal(1, session.DisposeCount);
         Assert.Throws<ObjectDisposedException>(() => engine.Generate("Hello.", 1.0f, 0));
+    }
+
+    /// <summary>
+    ///     Proves a disposal that starts while a synthesis is running waits for it: the running synthesis still returns
+    ///     its audio, a synthesis started after the disposal began is refused, and the session is released only after the
+    ///     running synthesis has finished, exactly once even though two callers disposed concurrently.
+    /// </summary>
+    [Fact]
+    public async Task OnnxPiperSynthesisEngine_Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce()
+    {
+        // Arrange: a synthesis held inside the engine, so the overlap with the disposals is deterministic
+        var session = new DisposalTrackingInferenceSession(_echoModelPath);
+        var engine = new OnnxPiperSynthesisEngine(session, _config, new PiperPhonemePipeline(_config));
+        var gate = new BlockingAnnotationList();
+        var running = Task.Run(() => engine.GenerateAnnotated("Hello there.", gate, 1.0f, 0), TestContext.Current.CancellationToken);
+        Assert.True(gate.Entered.WaitOne(TimeSpan.FromSeconds(60)));
+
+        // Act: two callers dispose while the synthesis is still running
+        var firstDispose = Task.Run(engine.Dispose, TestContext.Current.CancellationToken);
+        var secondDispose = Task.Run(engine.Dispose, TestContext.Current.CancellationToken);
+        while (Record.Exception(() => engine.Generate("Hello.", 1.0f, 0)) is not ObjectDisposedException)
+        {
+            Thread.Yield();
+        }
+
+        var releasedWhileRunning = session.DisposeCount;
+        gate.Release();
+        var audio = await running.WaitAsync(TimeSpan.FromSeconds(60), TestContext.Current.CancellationToken);
+        await Task.WhenAll(new List<Task> { firstDispose, secondDispose }).WaitAsync(TimeSpan.FromSeconds(60), TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, releasedWhileRunning);
+        Assert.NotEmpty(audio.Samples);
+        Assert.Equal(1, session.DisposeCount);
+    }
+
+    /// <summary>Proves concurrent disposals release the session exactly once and none of them throws.</summary>
+    [Fact]
+    public void OnnxPiperSynthesisEngine_Dispose_ConcurrentCallers_ReleaseTheSessionOnce()
+    {
+        // Arrange
+        var session = new DisposalTrackingInferenceSession(_echoModelPath);
+        var engine = new OnnxPiperSynthesisEngine(session, _config, new PiperPhonemePipeline(_config));
+
+        // Act
+        var exceptions = new ConcurrentBag<Exception>();
+        Parallel.For(0, 16, _ =>
+        {
+            var exception = Record.Exception(engine.Dispose);
+            if (exception is not null)
+            {
+                exceptions.Add(exception);
+            }
+        });
+
+        // Assert
+        Assert.Empty(exceptions);
+        Assert.Equal(1, session.DisposeCount);
+    }
+
+    /// <summary>
+    ///     Proves synthesis racing a disposal either completes with audio or is refused with
+    ///     <see cref="ObjectDisposedException"/>, never anything else, and the session is released exactly once.
+    /// </summary>
+    [Fact]
+    public async Task OnnxPiperSynthesisEngine_Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed()
+    {
+        // Arrange
+        var session = new DisposalTrackingInferenceSession(_echoModelPath);
+        var engine = new OnnxPiperSynthesisEngine(session, _config, new PiperPhonemePipeline(_config));
+        using var start = new ManualResetEventSlim(false);
+        var outcomes = new ConcurrentBag<object>();
+        var workers = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+        {
+            start.Wait();
+            for (var i = 0; i < 25; i++)
+            {
+                try
+                {
+                    outcomes.Add(engine.Generate("Hello there.", 1.0f, 0).Samples.Length);
+                }
+                catch (Exception exception)
+                {
+                    outcomes.Add(exception);
+                }
+            }
+        }, TestContext.Current.CancellationToken)).ToList();
+        var disposer = Task.Run(() =>
+        {
+            start.Wait();
+            engine.Dispose();
+        }, TestContext.Current.CancellationToken);
+
+        // Act
+        start.Set();
+        await Task.WhenAll(new List<Task>(workers) { disposer }).WaitAsync(TimeSpan.FromSeconds(120), TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(200, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            if (outcome is int length)
+            {
+                Assert.True(length > 0);
+            }
+            else
+            {
+                Assert.IsType<ObjectDisposedException>(outcome);
+            }
+        });
+        Assert.Equal(1, session.DisposeCount);
     }
 
     /// <summary>

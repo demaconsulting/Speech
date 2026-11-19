@@ -37,13 +37,19 @@ sections:
                 title: >-
                   The PiperVoiceConfig class shall reject with an invalid-data error a configuration that is not
                   JSON, is not an object, has no phoneme map, has no positive sample rate, uses a phoneme type other
-                  than espeak, has a non-numeric id, or lacks the framing symbol ^, _ or $ (the message naming the
-                  missing symbol), and shall reject a null text or an empty path with an argument error.
+                  than the string espeak, has a field of a JSON type or range other than the one documented for it
+                  (the sample rate and speaker count positive integers, the scales finite numbers, the espeak voice a
+                  string, each symbol a non-empty, non-repeated key with a non-empty array of non-negative integer
+                  ids), or lacks the framing symbol ^, _ or $ (the message naming the missing symbol), and shall
+                  reject a null text or an empty path with an argument error.
                 justification: |
                   A configuration that cannot give the symbol table must fail loudly at load time instead of
                   producing silent or garbled audio later, and the message has to say what is wrong so that a
-                  broken installation can be diagnosed.
+                  broken installation can be diagnosed. Accepting a wrong-typed value by coercion would hide a
+                  damaged or hand-edited file.
                 tests:
                   - PiperVoiceConfig_Parse_MissingFramingSymbol_ThrowsNamingTheSymbol
                   - PiperVoiceConfig_Parse_UnusableConfiguration_ThrowsInvalidData
+                  - PiperVoiceConfig_Parse_FieldOfTheWrongTypeOrRange_ThrowsNamingTheField
+                  - PiperVoiceConfig_Parse_EmptyOrRepeatedSymbol_ThrowsNamingTheProblem
                   - PiperVoiceConfig_ParseAndLoad_InvalidArguments_Throw

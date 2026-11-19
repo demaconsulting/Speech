@@ -25,7 +25,9 @@ ONNX Runtime over the phoneme ids of the `PiperPhonemePipeline`.
 - **RunProbeInference(session, config, pipeline)** (internal static): one run of the graph with the utterance of a
   sentence-sized probe text, so that a shape-dependent operator failure of an execution provider surfaces as an
   `OnnxRuntimeException`; throws `InvalidOperationException` when the voice's table cannot encode the probe text
-- **Dispose()**: marks the engine disposed, then disposes the session; a second call does nothing
+- **Dispose()**: stops new runs (they throw `ObjectDisposedException`), waits for the runs in progress to finish, then
+  disposes the session exactly once; concurrent and repeated calls are safe and each returns after the session is
+  released
 
 **Inference Contract.** A single forward pass: `input` (`int64`, `[1, N]`, the framed ids), `input_lengths` (`int64`,
 `[1]`, N), `scales` (`float`, `[3]`) and `sid` (`int64`, `[1]`); the output is the waveform, its first output tensor
@@ -33,8 +35,10 @@ flattened. The input names are the standard Piper export's, read from the loaded
 graph with the same four inputs whose output echoes what it was fed (the ids, the three scales, the speaker and N).
 
 **Error Handling**: null arguments throw `ArgumentNullException`; use after disposal throws `ObjectDisposedException`;
-an ONNX Runtime failure of a run propagates to the caller. The disposed flag is set before the session is released so
-that a concurrent call sees the flag instead of racing the release.
+an ONNX Runtime failure of a run propagates to the caller. Every synthesis call holds a lease on the session (a counter
+under a lock) from its start to its end; `Dispose` sets the disposed flag under the same lock, waits until no lease is
+held and only then releases the session, so the native session is never released under a running inference and is
+released exactly once. `Dispose` must not be called from inside a run on the same thread, which would wait for itself.
 
 **Dependencies**: `PiperPhonemePipeline`, `PiperVoiceConfig`, `OnnxExecutionProviderSelector` (the caller of the probe),
 the ONNX Runtime managed API.

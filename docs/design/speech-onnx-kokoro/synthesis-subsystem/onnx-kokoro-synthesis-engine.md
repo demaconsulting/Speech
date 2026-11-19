@@ -10,7 +10,8 @@ forward pass, so the engine gets the token ids of every segment from its constru
 for every part the pipeline returns.
 
 **Data Model**: Holds one loaded `InferenceSession`, a `KokoroPhonemePipeline`, every installed voice's raw
-style-vector bytes keyed by speaker id (`IReadOnlyDictionary<int, float[]>`), and a disposed flag. `SampleRate`
+style-vector bytes keyed by speaker id (`IReadOnlyDictionary<int, float[]>`), and the disposal state (a disposed flag,
+a count of the syntheses in progress and a lock that guards them). `SampleRate`
 (`24000`) and `StyleVectorWidth` (`256`) are fixed constants confirmed from the model's own README and this
 package's validation spike. `InputIdsTensorName` (`"input_ids"`), `StyleTensorName` (`"style"`), and
 `SpeedTensorName` (`"speed"`) are shared `const string` fields used by both the generation and the static
@@ -60,7 +61,11 @@ package's validation spike. `InputIdsTensorName` (`"input_ids"`), `StyleTensorNa
   execution provider can run the graph at all matters. Propagates `OnnxRuntimeException` for a
   provider that cannot run this model, matching `OnnxExecutionProviderSelector.Create`'s expected
   "try the next candidate" signal.
-- **Dispose()**: releases the loaded `InferenceSession`. Safe to call more than once.
+- **Dispose()**: stops new runs (they throw `ObjectDisposedException`), waits for the runs in progress to finish, then
+  releases the loaded `InferenceSession` exactly once. Safe to call more than once and from several threads at once;
+  each call returns after the session is released. Every synthesis holds a lease (a counter under a lock) on the
+  session for its whole duration, which is what the disposal waits for. It must not be called from inside a run on the
+  same thread, which would wait for itself.
 
 **Error Handling**: Construction loads the model into ONNX Runtime and therefore throws when the
 requested execution provider is unavailable or the model file is unusable; that exception

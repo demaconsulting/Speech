@@ -19,7 +19,9 @@ sections:
               - id: SpeechTextEn-Normalization-WebAddressRecognizer-Pieces
                 title: >-
                   The WebAddressRecognizer class shall recognize a URL with an http, https or ftp
-                  scheme in any letter case, a leading www, an e-mail address and a bare domain
+                  scheme in any letter case (whether or not its host contains a dot, so a local or
+                  server name such as localhost is accepted, while a scheme with nothing after it is
+                  not), a leading www, an e-mail address and a bare domain
                   whose last label is a known top-level domain, and shall give the scheme letters
                   and a leading www as spelled letters, the two slashes after the scheme as a
                   dropped replacement and each separator (dot, slash, at sign, dash, underscore,
@@ -35,6 +37,7 @@ sections:
                   sentence chunker.
                 tests:
                   - WebAddressRecognizer_Recognize_UrlWithScheme_SpellsSchemeAndDropsSlashes
+                  - WebAddressRecognizer_Recognize_SchemeWithDotlessHost_IsAnAddressOnlyWithAHost
                   - WebAddressRecognizer_Recognize_LeadingWww_IsSpelledAndSeparatorsAreSpoken
                   - WebAddressRecognizer_Recognize_EmailAddress_SpeaksDotsAndAtSign
                   - WebAddressRecognizer_Recognize_BareDomainWithKnownTopLevelDomain_SpeaksEverySeparator

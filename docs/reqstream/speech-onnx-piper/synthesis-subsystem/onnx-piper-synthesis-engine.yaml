@@ -66,11 +66,17 @@ sections:
                 title: >-
                   The OnnxPiperSynthesisEngine class shall provide a probe that runs one sentence-sized inference on
                   a given session and succeeds on a session that can run the graph, shall dispose the session it owns
-                  exactly once when it is disposed, shall accept a second disposal, and shall throw
-                  ObjectDisposedException for synthesis after disposal.
+                  exactly once when it is disposed (also when several callers dispose it at once), shall accept a
+                  second disposal, shall throw ObjectDisposedException for synthesis after disposal, and shall not
+                  release the session while a synthesis is running: a synthesis that overlaps a disposal either
+                  completes with its audio or is refused with ObjectDisposedException, and the disposal waits for it.
                 justification: |
                   The probe is how the execution-provider selector rejects a provider that loads yet cannot run the
-                  graph, and the native session must be released by its owner exactly once.
+                  graph, and the native session must be released by its owner exactly once and never under a running
+                  inference, which could crash the process.
                 tests:
                   - OnnxPiperSynthesisEngine_RunProbeInference_RunnableSession_DoesNotThrow
                   - OnnxPiperSynthesisEngine_Dispose_Engine_ReleasesTheSessionOnceAndEndsUse
+                  - OnnxPiperSynthesisEngine_Dispose_WhileSynthesisRuns_WaitsForTheRunAndReleasesTheSessionOnce
+                  - OnnxPiperSynthesisEngine_Dispose_ConcurrentCallers_ReleaseTheSessionOnce
+                  - OnnxPiperSynthesisEngine_Generate_ConcurrentWithDispose_CompletesOrThrowsObjectDisposed

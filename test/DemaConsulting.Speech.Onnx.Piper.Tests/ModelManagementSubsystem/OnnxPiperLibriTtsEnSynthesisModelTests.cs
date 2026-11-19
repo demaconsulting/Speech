@@ -374,6 +374,30 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.NotEmpty(echo.Ids);
     }
 
+    /// <summary>Proves a configuration that does not describe exactly this voice (904 speakers at 22,050 Hz) is refused, whether it has fewer speakers, more speakers or another rate.</summary>
+    [Theory]
+    [InlineData(1, 22050)]
+    [InlineData(903, 22050)]
+    [InlineData(905, 22050)]
+    [InlineData(904, 16000)]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_ConfigurationOfAnotherVoice_Throws(int speakers, int sampleRate)
+    {
+        // Arrange
+        ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel();
+        PiperTestFixtures.WriteInstalledEchoVoice(_root);
+        File.WriteAllText(
+            Path.Combine(_root, "en_US-libritts_r-medium.onnx.json"),
+            PiperTestFixtures.TrimmedConfigJson
+                .Replace("\"num_speakers\": 904", $"\"num_speakers\": {speakers}", StringComparison.Ordinal)
+                .Replace("\"sample_rate\": 22050", $"\"sample_rate\": {sampleRate}", StringComparison.Ordinal));
+
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() => model.CreateBackend(_root));
+
+        // Assert
+        Assert.Contains("904 speakers at 22050 Hz", error.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves loading fails clearly for an unusable installation: a missing directory argument, a configuration for another voice, a configuration that is not usable, and a missing graph.</summary>
     [Fact]
     public void OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnusableInstallation_Throws()

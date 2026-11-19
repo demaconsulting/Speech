@@ -34,8 +34,10 @@ project uses the same code, through `InternalsVisibleTo`, so the two cannot disa
   same features
 
 **Error Handling**: a damaged image (wrong header, a chunk table that is empty or too large, a chunk with more than two
-phones or an unknown phone id, networks with the wrong outputs, a truncated or over-long image) throws
-`InvalidDataException`; a null argument throws `ArgumentNullException`. `Convert` cannot fail for any input.
+phones or an unknown phone id, a chunk table or network layer sizes that the remaining data cannot hold (checked in
+64-bit arithmetic before anything is allocated from them), networks with the wrong outputs, a truncated or over-long
+image) throws `InvalidDataException`; a null argument throws `ArgumentNullException`. `Convert` cannot fail for any
+input.
 
 **Dependencies**: `Phone`/`Pronunciation` (the output) and the framework.
 

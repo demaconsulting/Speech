@@ -108,6 +108,98 @@ public sealed class PiperVoiceConfigTests
         Assert.Throws<InvalidDataException>(() => PiperVoiceConfig.Parse(json));
     }
 
+    /// <summary>
+    ///     Proves every field that is present must have exactly its documented JSON type and range: a wrong-typed or
+    ///     out-of-range value (number, string, boolean, array, object or null where another type is required) is
+    ///     rejected with an error that names the field, rather than being coerced or silently ignored.
+    /// </summary>
+    [Theory]
+    [InlineData("phoneme_type", "1")]
+    [InlineData("phoneme_type", "true")]
+    [InlineData("phoneme_type", """["espeak"]""")]
+    [InlineData("phoneme_type", """{ "name": "espeak" }""")]
+    [InlineData("phoneme_type", "null")]
+    [InlineData("phoneme_type", "\"ESPEAK\"")]
+    [InlineData("audio", "5")]
+    [InlineData("audio.sample_rate", "\"22050\"")]
+    [InlineData("audio.sample_rate", "22050.5")]
+    [InlineData("audio.sample_rate", "true")]
+    [InlineData("audio.sample_rate", "[22050]")]
+    [InlineData("audio.sample_rate", "{}")]
+    [InlineData("audio.sample_rate", "null")]
+    [InlineData("audio.sample_rate", "-22050")]
+    [InlineData("num_speakers", "\"904\"")]
+    [InlineData("num_speakers", "904.5")]
+    [InlineData("num_speakers", "true")]
+    [InlineData("num_speakers", "[904]")]
+    [InlineData("num_speakers", "{}")]
+    [InlineData("num_speakers", "null")]
+    [InlineData("num_speakers", "0")]
+    [InlineData("num_speakers", "-3")]
+    [InlineData("inference", "[]")]
+    [InlineData("inference.noise_scale", "\"0.3\"")]
+    [InlineData("inference.noise_scale", "true")]
+    [InlineData("inference.noise_scale", "[0.3]")]
+    [InlineData("inference.noise_scale", "{}")]
+    [InlineData("inference.noise_scale", "null")]
+    [InlineData("inference.noise_scale", "-0.1")]
+    [InlineData("inference.length_scale", "\"1\"")]
+    [InlineData("inference.length_scale", "null")]
+    [InlineData("inference.length_scale", "0")]
+    [InlineData("inference.length_scale", "-1")]
+    [InlineData("inference.noise_w", "\"0.3\"")]
+    [InlineData("inference.noise_w", "false")]
+    [InlineData("inference.noise_w", "[]")]
+    [InlineData("espeak", "\"en-us\"")]
+    [InlineData("espeak.voice", "1")]
+    [InlineData("espeak.voice", "true")]
+    [InlineData("espeak.voice", """["en-us"]""")]
+    [InlineData("espeak.voice", "{}")]
+    [InlineData("espeak.voice", "null")]
+    [InlineData("phoneme_id_map.a", "5")]
+    [InlineData("phoneme_id_map.a", "\"5\"")]
+    [InlineData("phoneme_id_map.a", "null")]
+    [InlineData("phoneme_id_map.a", "{}")]
+    [InlineData("phoneme_id_map.a", "[]")]
+    [InlineData("phoneme_id_map.a", """["5"]""")]
+    [InlineData("phoneme_id_map.a", "[1.5]")]
+    [InlineData("phoneme_id_map.a", "[-1]")]
+    [InlineData("phoneme_id_map.a", "[null]")]
+    [InlineData("phoneme_id_map.a", "[true]")]
+    [InlineData("phoneme_id_map.a", "[[5]]")]
+    public void PiperVoiceConfig_Parse_FieldOfTheWrongTypeOrRange_ThrowsNamingTheField(string field, string valueJson)
+    {
+        // Arrange
+        var document = JsonNode.Parse(PiperTestFixtures.TrimmedConfigJson)!;
+        var path = field.Split('.');
+        var parent = document;
+        foreach (var segment in path[..^1])
+        {
+            parent = parent[segment]!;
+        }
+
+        parent[path[^1]] = JsonNode.Parse(valueJson);
+
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() => PiperVoiceConfig.Parse(document.ToJsonString()));
+
+        // Assert
+        Assert.Contains(path[^1], error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a symbol table with an empty symbol or a repeated symbol is rejected rather than silently keeping one of the entries.</summary>
+    [Theory]
+    [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "": [7] } }""", "empty symbol")]
+    [InlineData("""{ "audio": { "sample_rate": 22050 }, "phoneme_id_map": { "^": [1], "_": [0], "$": [2], "a": [5], "a": [6] } }""", "more than once")]
+    public void PiperVoiceConfig_Parse_EmptyOrRepeatedSymbol_ThrowsNamingTheProblem(string json, string expectedMessage)
+    {
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() => PiperVoiceConfig.Parse(json));
+
+        // Assert
+        Assert.Contains(expectedMessage, error.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves a configuration file is read from its path.</summary>
     [Fact]
     public void PiperVoiceConfig_Load_ConfigurationFile_ReadsIt()

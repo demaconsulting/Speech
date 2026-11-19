@@ -23,15 +23,15 @@ its tokens (the next token processed is the one after it):
 - **1. Dropped**: the token contains an invisible format character, or is a standalone bullet. One `Dropped`
   span (empty replacement) per maximal run of invisible characters, or for the whole bullet; no other rule looks
   at the token
-- **1b. Web address**: `WebAddressRecognizer.Recognize` accepts a token that is a URL (`http://`, `https://` or
-  `ftp://` scheme, or a leading `www.`), an e-mail address, or a bare domain whose last label is a known
-  top-level domain. The tokenizer keeps such an address in one token, so the spans are inside it: the scheme
-  letters and `www` are spelled (`H T T P S`, `W W W`), the two slashes after the scheme are `Dropped`, and each
-  separator is a `Symbol` span (`.` is `dot`, `/` is `slash`, `@` is `at`, `-` is `dash`, `_` is `underscore`,
-  `?` is `question mark`, `=` is `equals`, `&` is `and`, `#` is `hash`, `+` is `plus`, `%` is `percent`, `~` is
-  `tilde`). The words between the separators are left for the phonemizer. No span contains a colon (A5'), so the
-  colon after the scheme and before a port stays as a pause mark. Runs before the clitic rule so that an address
-  is never taken for a clitic or an abbreviation
+- **1b. Web address**: `WebAddressRecognizer.Recognize` accepts a token that is a URL (`http://`, `https://` or `ftp://`
+  scheme, whose host needs no dot, or a leading `www.`), an e-mail address, or a bare domain whose last label is a known
+  top-level domain. The tokenizer keeps such an address in one token, so the spans are inside it: the scheme letters and
+  `www` are spelled (`H T T P S`, `W W W`), the two slashes after the scheme are `Dropped`, and each separator is a
+  `Symbol` span (`.` is `dot`, `/` is `slash`, `@` is `at`, `-` is `dash`, `_` is `underscore`, `?` is `question mark`,
+  `=` is `equals`, `&` is `and`, `#` is `hash`, `+` is `plus`, `%` is `percent`, `~` is `tilde`). The words between the
+  separators are left for the phonemizer. No span contains a colon (A5'), so the colon after the scheme and before a
+  port stays as a pause mark. Runs before the clitic rule so that an address is never taken for a clitic or an
+  abbreviation
 - **2. Clitic**: `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case). A typographic
   apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested, the role is
   recorded

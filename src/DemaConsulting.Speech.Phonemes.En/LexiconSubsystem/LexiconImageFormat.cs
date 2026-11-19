@@ -23,6 +23,13 @@ internal static class LexiconImageFormat
     /// <summary>The size of the header in bytes: magic, version, block size and word count.</summary>
     public const int HeaderSize = 10;
 
+    /// <summary>
+    ///     The smallest possible entry in bytes: the prefix and suffix lengths, the variant count and one variant of a
+    ///     phone count and a single phone, with an empty suffix. A reader uses it to refuse a declared word count that the
+    ///     image is too short to hold.
+    /// </summary>
+    public const int MinEntrySize = 5;
+
     /// <summary>The format version.</summary>
     public const byte Version = 1;
 

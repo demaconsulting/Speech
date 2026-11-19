@@ -18,9 +18,11 @@ inference scales.
 **Key Methods**:
 
 - **Parse(json)**: reads the text; throws `InvalidDataException` when it is not JSON, is not an object, has no
-  `phoneme_id_map` object, has no positive `audio.sample_rate`, has a `phoneme_type` other than `espeak`, has an id that
-  is not a number, or lacks `^`, `_` or `$` (the message names the missing symbol). The wrapped JSON errors keep the
-  original exception as the inner exception
+  `phoneme_id_map` object, has no positive `audio.sample_rate`, has a `phoneme_type` other than the string `espeak`, has
+  any field that is present with another JSON type or range than the documented one (positive integers for the sample
+  rate and speaker count, finite numbers for the scales, a string for the espeak voice, non-negative integer arrays for
+  the symbols' ids; nothing is coerced), has an empty or repeated symbol, or lacks `^`, `_` or `$` (the message names
+  the missing symbol). The wrapped JSON errors keep the original exception as the inner exception
 - **Load(path)**: reads the file as UTF-8 and parses it
 - **TryGetIds(symbol, out ids)**: the ids of a symbol, or false
 

@@ -109,6 +109,13 @@ internal sealed class LtsModel
             {
                 var length = reader.ReadByte();
                 _chunks[i] = reader.ReadBytes(length);
+
+                // ReadBytes returns fewer bytes at the end of the data instead of throwing, so check the count read
+                if (_chunks[i].Length != length)
+                {
+                    throw new InvalidDataException("The letter-to-sound image is truncated.");
+                }
+
                 if (length > 2 || _chunks[i].Any(id => id >= BasePhoneCount))
                 {
                     throw new InvalidDataException("The letter-to-sound chunk table is not valid.");

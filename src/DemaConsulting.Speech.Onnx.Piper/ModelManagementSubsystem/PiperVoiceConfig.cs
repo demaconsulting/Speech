@@ -85,9 +85,20 @@ internal sealed class PiperVoiceConfig
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="json"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidDataException">
     ///     Thrown when the text is not a usable voice configuration: not JSON, no <c>phoneme_id_map</c>, a missing or
-    ///     non-positive <c>audio.sample_rate</c>, a phoneme type other than <c>espeak</c>, or a map without the
-    ///     <c>^</c>, <c>_</c> or <c>$</c> symbol. The message names what is wrong.
+    ///     non-positive <c>audio.sample_rate</c>, a phoneme type other than the string <c>espeak</c>, a map without the
+    ///     <c>^</c>, <c>_</c> or <c>$</c> symbol, or any field present with a JSON type other than the one documented
+    ///     for it (see the remarks). The message names what is wrong.
     /// </exception>
+    /// <remarks>
+    ///     Every field that is present must have exactly its documented JSON type and range, so a configuration that
+    ///     was damaged or hand-edited fails at load time rather than being coerced: <c>phoneme_type</c> a string equal
+    ///     to <c>espeak</c>; <c>audio.sample_rate</c> and <c>num_speakers</c> positive JSON integers;
+    ///     <c>inference.noise_scale</c>, <c>inference.length_scale</c> and <c>inference.noise_w</c> finite JSON numbers
+    ///     (the length scale positive, the others not negative); <c>espeak.voice</c> a string; <c>audio</c>,
+    ///     <c>inference</c> and <c>espeak</c> objects; each <c>phoneme_id_map</c> entry a non-empty key mapped to a
+    ///     non-empty array of non-negative JSON integers, with no duplicated key. Absent optional fields take their
+    ///     defaults.
+    /// </remarks>
     public static PiperVoiceConfig Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -103,35 +114,30 @@ internal sealed class PiperVoiceConfig
                 throw new InvalidDataException("The Piper voice configuration has no 'phoneme_id_map' object.");
             }
 
+            // Only the string "espeak" is accepted; any other value, of any JSON type, is a different phoneme scheme
+            // (or a damaged file) that the phonemizer cannot serve.
             if (root.TryGetProperty("phoneme_type", out var phonemeType) &&
-                phonemeType.ValueKind == JsonValueKind.String &&
-                !string.Equals(phonemeType.GetString(), "espeak", StringComparison.Ordinal))
+                !(phonemeType.ValueKind == JsonValueKind.String &&
+                  string.Equals(phonemeType.GetString(), "espeak", StringComparison.Ordinal)))
             {
                 throw new InvalidDataException(
-                    $"The Piper voice uses phoneme type '{phonemeType.GetString()}'; only espeak-style phonemes are supported.");
+                    $"The Piper voice configuration has phoneme_type {Describe(phonemeType)}; only the string 'espeak' is supported.");
             }
 
-            var idMap = new Dictionary<string, long[]>(StringComparer.Ordinal);
-            foreach (var entry in mapElement.EnumerateObject())
+            var idMap = ReadIdMap(mapElement);
+            var missingSymbol = new[] { BeginSymbol, PadSymbol, EndSymbol }.FirstOrDefault(required => !idMap.ContainsKey(required));
+            if (missingSymbol is not null)
             {
-                idMap[entry.Name] = [.. entry.Value.EnumerateArray().Select(id => id.GetInt64())];
-            }
-
-            foreach (var required in new[] { BeginSymbol, PadSymbol, EndSymbol })
-            {
-                if (!idMap.TryGetValue(required, out var ids) || ids.Length == 0)
-                {
-                    throw new InvalidDataException($"The Piper phoneme_id_map has no entry for the required symbol '{required}'.");
-                }
+                throw new InvalidDataException($"The Piper phoneme_id_map has no entry for the required symbol '{missingSymbol}'.");
             }
 
             return new PiperVoiceConfig(idMap)
             {
                 SampleRate = ReadSampleRate(root),
-                NumSpeakers = root.TryGetProperty("num_speakers", out var speakers) ? speakers.GetInt32() : 1,
-                NoiseScale = ReadScale(root, "noise_scale", DefaultNoiseScale),
-                LengthScale = ReadScale(root, "length_scale", DefaultLengthScale),
-                NoiseW = ReadScale(root, "noise_w", DefaultNoiseW),
+                NumSpeakers = ReadNumSpeakers(root),
+                NoiseScale = ReadScale(root, "noise_scale", DefaultNoiseScale, allowZero: true),
+                LengthScale = ReadScale(root, "length_scale", DefaultLengthScale, allowZero: false),
+                NoiseW = ReadScale(root, "noise_w", DefaultNoiseW, allowZero: true),
                 EspeakVoice = ReadEspeakVoice(root),
             };
         }
@@ -172,34 +178,156 @@ internal sealed class PiperVoiceConfig
         return false;
     }
 
-    /// <summary>Reads <c>audio.sample_rate</c>, which every usable configuration has.</summary>
+    /// <summary>
+    ///     Reads <c>phoneme_id_map</c>: every key a non-empty symbol, every value a non-empty array of non-negative
+    ///     integers, no key repeated.
+    /// </summary>
+    private static Dictionary<string, long[]> ReadIdMap(JsonElement mapElement)
+    {
+        var idMap = new Dictionary<string, long[]>(StringComparer.Ordinal);
+        foreach (var entry in mapElement.EnumerateObject())
+        {
+            if (entry.Name.Length == 0)
+            {
+                throw new InvalidDataException("The Piper phoneme_id_map has an entry with an empty symbol.");
+            }
+
+            if (entry.Value.ValueKind != JsonValueKind.Array || entry.Value.GetArrayLength() == 0)
+            {
+                throw new InvalidDataException(
+                    $"The Piper phoneme_id_map entry for '{entry.Name}' is {Describe(entry.Value)}; expected a non-empty array of integer ids.");
+            }
+
+            var ids = new List<long>();
+            foreach (var id in entry.Value.EnumerateArray())
+            {
+                if (id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var value) || value < 0)
+                {
+                    throw new InvalidDataException(
+                        $"The Piper phoneme_id_map entry for '{entry.Name}' has the id {Describe(id)}; expected a non-negative integer.");
+                }
+
+                ids.Add(value);
+            }
+
+            if (!idMap.TryAdd(entry.Name, [.. ids]))
+            {
+                throw new InvalidDataException($"The Piper phoneme_id_map lists the symbol '{entry.Name}' more than once.");
+            }
+        }
+
+        return idMap;
+    }
+
+    /// <summary>Reads <c>audio.sample_rate</c>, which every usable configuration has, as a positive integer.</summary>
     private static int ReadSampleRate(JsonElement root)
     {
-        if (!root.TryGetProperty("audio", out var audio) ||
-            audio.ValueKind != JsonValueKind.Object ||
-            !audio.TryGetProperty("sample_rate", out var rate) ||
-            rate.GetInt32() <= 0)
+        if (!root.TryGetProperty("audio", out var audio))
         {
             throw new InvalidDataException("The Piper voice configuration has no positive 'audio.sample_rate'.");
         }
 
-        return rate.GetInt32();
+        if (audio.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidDataException($"The Piper voice configuration has 'audio' as {Describe(audio)}; expected an object.");
+        }
+
+        if (!audio.TryGetProperty("sample_rate", out var rate))
+        {
+            throw new InvalidDataException("The Piper voice configuration has no positive 'audio.sample_rate'.");
+        }
+
+        return ReadPositiveInteger(rate, "audio.sample_rate");
     }
 
-    /// <summary>Reads one of the <c>inference</c> scales, falling back to <paramref name="fallback"/> when it is absent.</summary>
-    private static float ReadScale(JsonElement root, string name, float fallback) =>
-        root.TryGetProperty("inference", out var inference) &&
-        inference.ValueKind == JsonValueKind.Object &&
-        inference.TryGetProperty(name, out var value)
-            ? value.GetSingle()
-            : fallback;
+    /// <summary>Reads <c>num_speakers</c> as a positive integer, or 1 when it is absent.</summary>
+    private static int ReadNumSpeakers(JsonElement root) =>
+        root.TryGetProperty("num_speakers", out var speakers) ? ReadPositiveInteger(speakers, "num_speakers") : 1;
 
-    /// <summary>Reads <c>espeak.voice</c>, or an empty string when it is absent.</summary>
-    private static string ReadEspeakVoice(JsonElement root) =>
-        root.TryGetProperty("espeak", out var espeak) &&
-        espeak.ValueKind == JsonValueKind.Object &&
-        espeak.TryGetProperty("voice", out var voice) &&
-        voice.ValueKind == JsonValueKind.String
-            ? voice.GetString() ?? string.Empty
-            : string.Empty;
+    /// <summary>Reads <paramref name="value"/> as a positive JSON integer that fits <see cref="int"/>.</summary>
+    private static int ReadPositiveInteger(JsonElement value, string name)
+    {
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number) || number <= 0)
+        {
+            throw new InvalidDataException(
+                $"The Piper voice configuration has '{name}' as {Describe(value)}; expected a positive integer.");
+        }
+
+        return number;
+    }
+
+    /// <summary>
+    ///     Reads one of the <c>inference</c> scales as a finite JSON number (positive, or also zero when
+    ///     <paramref name="allowZero"/>), falling back to <paramref name="fallback"/> when it is absent.
+    /// </summary>
+    private static float ReadScale(JsonElement root, string name, float fallback, bool allowZero)
+    {
+        if (!root.TryGetProperty("inference", out var inference))
+        {
+            return fallback;
+        }
+
+        if (inference.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidDataException($"The Piper voice configuration has 'inference' as {Describe(inference)}; expected an object.");
+        }
+
+        if (!inference.TryGetProperty(name, out var value))
+        {
+            return fallback;
+        }
+
+        if (value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetSingle(out var scale) ||
+            !float.IsFinite(scale) ||
+            scale < 0f ||
+            (scale == 0f && !allowZero))
+        {
+            throw new InvalidDataException(
+                $"The Piper voice configuration has 'inference.{name}' as {Describe(value)}; expected a finite " +
+                (allowZero ? "non-negative" : "positive") + " number.");
+        }
+
+        return scale;
+    }
+
+    /// <summary>Reads <c>espeak.voice</c> as a string, or an empty string when it is absent.</summary>
+    private static string ReadEspeakVoice(JsonElement root)
+    {
+        if (!root.TryGetProperty("espeak", out var espeak))
+        {
+            return string.Empty;
+        }
+
+        if (espeak.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidDataException($"The Piper voice configuration has 'espeak' as {Describe(espeak)}; expected an object.");
+        }
+
+        if (!espeak.TryGetProperty("voice", out var voice))
+        {
+            return string.Empty;
+        }
+
+        if (voice.ValueKind != JsonValueKind.String)
+        {
+            throw new InvalidDataException($"The Piper voice configuration has 'espeak.voice' as {Describe(voice)}; expected a string.");
+        }
+
+        return voice.GetString() ?? string.Empty;
+    }
+
+    /// <summary>
+    ///     Describes <paramref name="value"/> for an error message by its JSON type and, for a short scalar, its text.
+    /// </summary>
+    private static string Describe(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => $"the string '{value.GetString()}'",
+        JsonValueKind.Number => $"the number {value.GetRawText()}",
+        JsonValueKind.True or JsonValueKind.False => $"the boolean {value.GetRawText()}",
+        JsonValueKind.Null => "null",
+        JsonValueKind.Array => "an array",
+        JsonValueKind.Object => "an object",
+        _ => "of an unexpected type",
+    };
 }

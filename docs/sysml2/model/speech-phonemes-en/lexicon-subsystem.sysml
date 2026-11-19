@@ -11,7 +11,7 @@ package SpeechPhonemesEn {
         comment designRef /* Design: docs/design/speech-phonemes-en/lexicon-subsystem.md */
         comment verificationRef /* Verification: docs/verification/speech-phonemes-en/lexicon-subsystem.md */
         comment reqRef /* Requirements: docs/reqstream/speech-phonemes-en/lexicon-subsystem.yaml */
-        comment testRef /* Test: test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs, test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Morphology.cs, test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.cs, test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Morphology.cs, test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs, test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Images.cs */
 
         part cmuLexicon : CmuLexicon;
         part phone : Phone;

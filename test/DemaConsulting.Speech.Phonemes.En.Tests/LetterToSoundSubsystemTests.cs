@@ -56,6 +56,116 @@ public sealed class LetterToSoundSubsystemTests
         Assert.All(results, r => Assert.Equal(1, r.Pronunciation.Split(' ').Count(p => p.EndsWith('1') && p.Length == 3)));
     }
 
+    /// <summary>
+    ///     Proves a damaged model image is refused with an invalid-data error that names the damage, whatever header
+    ///     count or length is damaged: the chunk count, a chunk length, a network's layer sizes (which would otherwise
+    ///     decide an allocation), truncation at several points and trailing data. Each case is the real image with one
+    ///     thing mutated in memory.
+    /// </summary>
+    [Theory]
+    [InlineData("bad-magic", "header")]
+    [InlineData("empty", "header")]
+    [InlineData("truncated-after-magic", "truncated")]
+    [InlineData("truncated-in-chunk-table", "truncated")]
+    [InlineData("truncated-in-the-middle", "truncated")]
+    [InlineData("truncated-last-byte", "truncated")]
+    [InlineData("chunk-count-zero", "chunk table")]
+    [InlineData("chunk-count-too-large", "chunk table")]
+    [InlineData("chunk-count-65535", "chunk table")]
+    [InlineData("chunk-length-too-large", "chunk table")]
+    [InlineData("first-layer-width-65535", "cannot hold")]
+    [InlineData("second-layer-width-65535", "cannot hold")]
+    [InlineData("first-layer-width-zero", "empty layer")]
+    [InlineData("trailing-byte", "trailing")]
+    public void LtsModel_FromImage_DamagedHeaderCountOrLength_ThrowsInvalidDataNamingTheDamage(string damage, string expectedMessagePart)
+    {
+        // Arrange
+        var image = DamageLtsImage(damage);
+
+        // Act
+        var error = Assert.Throws<InvalidDataException>(() => LtsModel.FromImage(image));
+
+        // Assert
+        Assert.Contains(expectedMessagePart, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Proves a compressed stream that is not gzip is refused with an invalid-data error.</summary>
+    [Fact]
+    public void LtsModel_FromGZipStream_NotGZip_ThrowsInvalidData()
+    {
+        // Arrange
+        using var notGzip = new MemoryStream([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+
+        // Act and assert
+        Assert.Throws<InvalidDataException>(() => LtsModel.FromGZipStream(notGzip));
+    }
+
+    /// <summary>Builds a damaged copy of the real model image.</summary>
+    private static byte[] DamageLtsImage(string damage)
+    {
+        byte[] image;
+        using (var stream = typeof(LtsModel).Assembly.GetManifestResourceStream(LtsModel.ResourceName)!)
+        using (var gzip = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Decompress))
+        using (var buffer = new MemoryStream())
+        {
+            gzip.CopyTo(buffer);
+            image = buffer.ToArray();
+        }
+
+        // The layout is documented on LtsModel.FromImage: the magic, the 16-bit chunk count at offset 4, the chunk table
+        // from offset 6 (a length byte and that many ids per chunk), then the networks, each starting with its group
+        // count byte and the 16-bit group sizes, then the 16-bit widths of the two hidden layers and the output count
+        var chunkCount = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(4));
+        var network = 6;
+        for (var i = 0; i < chunkCount; i++)
+        {
+            network += 1 + image[network];
+        }
+
+        var firstWidth = network + 1 + (2 * image[network]);
+        switch (damage)
+        {
+            case "bad-magic":
+                image[0] = (byte)'X';
+                return image;
+            case "empty":
+                return [];
+            case "truncated-after-magic":
+                return image[..4];
+            case "truncated-in-chunk-table":
+                return image[..8];
+            case "truncated-in-the-middle":
+                return image[..(image.Length / 2)];
+            case "truncated-last-byte":
+                return image[..^1];
+            case "chunk-count-zero":
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(4), 0);
+                return image;
+            case "chunk-count-too-large":
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(4), (ushort)(LtsModel.MaxClasses + 1));
+                return image;
+            case "chunk-count-65535":
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(4), ushort.MaxValue);
+                return image;
+            case "chunk-length-too-large":
+                image[6] = 200;
+                return image;
+            case "first-layer-width-65535":
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(firstWidth), ushort.MaxValue);
+                return image;
+            case "second-layer-width-65535":
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(firstWidth + 2), ushort.MaxValue);
+                return image;
+            case "first-layer-width-zero":
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(firstWidth), 0);
+                return image;
+            case "trailing-byte":
+                return [.. image, 0];
+            default:
+                throw new ArgumentOutOfRangeException(nameof(damage), damage, "Unknown damage.");
+        }
+    }
+
     /// <summary>Proves a damaged model image is rejected with an invalid-data error instead of being used: a wrong header, a truncated image and a missing stream.</summary>
     [Fact]
     public void LtsModel_FromImage_DamagedImage_IsRejected()

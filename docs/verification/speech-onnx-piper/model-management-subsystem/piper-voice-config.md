@@ -22,7 +22,10 @@ The real configuration parses to the sample rate 22,050, 904 speakers, the scale
 and a Chinese character is absent; a minimal configuration gets the speaker count 1, the scales 0.667, 1.0 and 0.8 and
 an empty espeak voice; a configuration without `^`, `_` or `$` throws `InvalidDataException` naming the symbol; non-JSON
 text, an array, a missing map, a missing or zero sample rate, the phoneme type `text` and a non-numeric id throw
-`InvalidDataException`; a null text and an empty path throw argument errors; the file is read from its path.
+`InvalidDataException`; a field of the wrong JSON type or range (a theory over the phoneme type, the sample rate, the
+speaker count, each scale, the espeak voice and the symbol table's ids, each given as a string, number, boolean, array,
+object or null where it does not belong) throws `InvalidDataException` naming the field, as do an empty or repeated
+symbol; a null text and an empty path throw argument errors; the file is read from its path.
 
 #### Test Scenarios
 
@@ -35,4 +38,7 @@ text, an array, a missing map, a missing or zero sample rate, the phoneme type `
 ##### Rejection
 
 **Tests**: `PiperVoiceConfig_Parse_MissingFramingSymbol_ThrowsNamingTheSymbol`,
-`PiperVoiceConfig_Parse_UnusableConfiguration_ThrowsInvalidData`, `PiperVoiceConfig_ParseAndLoad_InvalidArguments_Throw`
+`PiperVoiceConfig_Parse_UnusableConfiguration_ThrowsInvalidData`,
+`PiperVoiceConfig_Parse_FieldOfTheWrongTypeOrRange_ThrowsNamingTheField`,
+`PiperVoiceConfig_Parse_EmptyOrRepeatedSymbol_ThrowsNamingTheProblem`,
+`PiperVoiceConfig_ParseAndLoad_InvalidArguments_Throw`

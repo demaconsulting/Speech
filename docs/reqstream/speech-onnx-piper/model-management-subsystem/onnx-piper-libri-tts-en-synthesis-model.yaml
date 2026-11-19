@@ -81,7 +81,8 @@ sections:
                 title: >-
                   The OnnxPiperLibriTtsEnSynthesisModel class shall create a synthesis backend from an installed
                   directory that runs at 22,050 Hz, shall fail with an invalid-data error when the voice
-                  configuration is unusable or describes a voice other than the 904-speaker, 22,050 Hz voice, shall
+                  configuration is unusable or does not describe exactly the 904-speaker, 22,050 Hz voice (a different
+                  speaker count, more or fewer, is refused), shall
                   reject an empty directory argument, shall fail when the graph is missing, and shall create the
                   inference session with the model's preferred execution providers in order and the CPU provider as
                   the fallback when a preferred provider is unavailable.
@@ -92,4 +93,5 @@ sections:
                 tests:
                   - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_InstalledDirectory_ReturnsBackendAtVoiceRate
                   - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnusableInstallation_Throws
+                  - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_ConfigurationOfAnotherVoice_Throws
                   - OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnavailablePreferredProvider_FallsBackToCpu

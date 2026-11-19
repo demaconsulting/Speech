@@ -12,6 +12,9 @@ internal sealed class DisposalTrackingInferenceSession : InferenceSession
     /// <summary>Non-zero once <see cref="Dispose(bool)"/> has been called with <c>disposing</c> true.</summary>
     private int _disposed;
 
+    /// <summary>How many times <see cref="Dispose(bool)"/> has been called with <c>disposing</c> true.</summary>
+    private int _disposeCount;
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="DisposalTrackingInferenceSession"/> class over the model at
     ///     <paramref name="modelPath"/>.
@@ -25,12 +28,16 @@ internal sealed class DisposalTrackingInferenceSession : InferenceSession
     /// <summary>Gets a value indicating whether the session has been disposed.</summary>
     public bool WasDisposed => Volatile.Read(ref _disposed) != 0;
 
+    /// <summary>Gets how many times the session has been disposed, so a test can prove its owner released it exactly once.</summary>
+    public int DisposeCount => Volatile.Read(ref _disposeCount);
+
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
             Volatile.Write(ref _disposed, 1);
+            Interlocked.Increment(ref _disposeCount);
         }
 
         base.Dispose(disposing);

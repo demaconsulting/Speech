@@ -80,4 +80,8 @@ archives that hold only the graph, only the configuration or only the token tabl
 
 **Tests**: `OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_InstalledDirectory_ReturnsBackendAtVoiceRate`,
 `OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnusableInstallation_Throws`,
+`OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_ConfigurationOfAnotherVoice_Throws`,
 `OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_UnavailablePreferredProvider_FallsBackToCpu`
+
+The configuration-of-another-voice test is a theory over speaker counts of 1, 903 and 905 and a sample rate of 16,000
+Hz; each is refused, because only exactly 904 speakers at 22,050 Hz describes this voice.

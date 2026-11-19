@@ -96,6 +96,22 @@ public sealed class SpeechPhonemesEnTests
         Assert.True((double)endToEnd.Count / cases.Count >= MinimumClassifierHitRate, $"hit rate {endToEnd.Count}/{cases.Count}");
     }
 
+    /// <summary>
+    ///     Proves a URL whose host has no dot (the text analysis now recognizes it through its scheme) is spoken sensibly
+    ///     end to end: the scheme letters are spelled, the host stays a word and the separators are spoken.
+    /// </summary>
+    [Theory]
+    [InlineData("Open http://localhost now.", "Open=OW1 P AH0 N | H=EY1 CH | T=T IY1 | T=T IY1 | P=P IY1 | : | localhost=L OW1 K AH0 L HH OW2 S T !oov | now=N AW1 | .")]
+    [InlineData("Fetch ftp://server/path today.", "Fetch=F EH1 CH | F=EH1 F | T=T IY1 | P=P IY1 | : | server=S ER1 V ER0 | slash=S L AE1 SH | path=P AE1 TH | today=T AH0 D EY1 | .")]
+    public void SpeechPhonemesEn_Phonemize_UrlWithDotlessHost_SpellsTheSchemeAndSpeaksTheHost(string sentence, string expected)
+    {
+        // Act
+        var actual = GoldenCorpus.Format(GoldenCorpus.RunEndToEnd(sentence));
+
+        // Assert
+        Assert.Equal(expected, actual);
+    }
+
     /// <summary>Proves that without an analysis every spelling of the inventory is pronounced as its default reading: the first variant of the dictionary, taken from the dictionary and from nothing else.</summary>
     [Fact]
     public void SpeechPhonemesEn_Phonemize_NoAnnotations_EveryInventoryFormGetsItsDefaultReading()

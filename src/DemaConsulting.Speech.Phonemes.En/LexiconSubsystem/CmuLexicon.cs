@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
 
@@ -55,17 +56,29 @@ internal sealed class CmuLexicon
             throw new InvalidDataException("The lexicon image header is not valid.");
         }
 
-        WordCount = BitConverter.ToInt32(image, 6);
+        WordCount = BinaryPrimitives.ReadInt32LittleEndian(image.AsSpan(6, 4));
+
+        // Validate the declared word count against the data before walking: it must not be negative and the image
+        // must be able to hold that many entries at their smallest, so no later step trusts a count the data cannot back
+        if (WordCount < 0 || WordCount > (image.Length - LexiconImageFormat.HeaderSize) / LexiconImageFormat.MinEntrySize)
+        {
+            throw new InvalidDataException($"The lexicon image declares {WordCount} words, which its {image.Length} bytes cannot hold.");
+        }
 
         // Walk every entry once to validate it and learn the block starts
         var blockWords = new List<string>();
         var blockOffsets = new List<int>();
         var position = LexiconImageFormat.HeaderSize;
         var buffer = new byte[LexiconImageFormat.MaxWordLength];
+        var previous = new byte[LexiconImageFormat.MaxWordLength];
+        var previousLength = 0;
         for (var index = 0; index < WordCount; index++)
         {
             var offset = position;
             var length = ReadWord(image, ref position, buffer, index % LexiconImageFormat.BlockSize == 0);
+            ValidateEntry(image, offset, position, buffer.AsSpan(0, length), previous.AsSpan(0, previousLength));
+            buffer.AsSpan(0, length).CopyTo(previous);
+            previousLength = length;
             if (index % LexiconImageFormat.BlockSize == 0)
             {
                 blockWords.Add(Encoding.ASCII.GetString(buffer, 0, length));
@@ -262,6 +275,59 @@ internal sealed class CmuLexicon
 
         position = p;
         return prefix + suffix;
+    }
+
+    /// <summary>
+    ///     Validates one entry that <see cref="ReadWord"/> has already walked: the word is non-empty, made only of the
+    ///     lexicon's key alphabet, sorts strictly after the previous word (the binary search depends on it) and shares no
+    ///     more with it than it has; every variant has at least one phone and only valid phone codes.
+    /// </summary>
+    /// <param name="image">The image.</param>
+    /// <param name="entryStart">The offset of the entry.</param>
+    /// <param name="entryEnd">The offset just past the entry.</param>
+    /// <param name="word">The decoded word.</param>
+    /// <param name="previous">The previous word, empty for the first entry.</param>
+    /// <exception cref="InvalidDataException">Thrown when the entry is inconsistent.</exception>
+    private static void ValidateEntry(byte[] image, int entryStart, int entryEnd, ReadOnlySpan<byte> word, ReadOnlySpan<byte> previous)
+    {
+        // The shared prefix can only come from the previous word, and the word must be a real, strictly later headword
+        if (image[entryStart] > previous.Length || word.Length == 0 || (previous.Length > 0 && word.SequenceCompareTo(previous) <= 0))
+        {
+            throw new InvalidDataException("The lexicon image has a word that is empty, out of order or repeated.");
+        }
+
+        foreach (var character in word)
+        {
+            if (character is not ((>= (byte)'a' and <= (byte)'z') or (byte)'\''))
+            {
+                throw new InvalidDataException("The lexicon image has a word outside the lexicon's alphabet.");
+            }
+        }
+
+        // Skip the prefix and suffix lengths and the suffix to reach the variants; ReadWord has proven they fit
+        var p = entryStart + 2 + image[entryStart + 1];
+        var variantCount = image[p++];
+        for (var v = 0; v < variantCount; v++)
+        {
+            int phoneCount = image[p++];
+            if (phoneCount == 0)
+            {
+                throw new InvalidDataException("The lexicon image has a pronunciation with no phones.");
+            }
+
+            for (var i = 0; i < phoneCount; i++)
+            {
+                if (image[p++] is 0 or > Phone.MaxCode)
+                {
+                    throw new InvalidDataException("The lexicon image has an invalid phone code.");
+                }
+            }
+        }
+
+        if (p != entryEnd)
+        {
+            throw new InvalidDataException("The lexicon image has an inconsistent entry.");
+        }
     }
 
     /// <summary>

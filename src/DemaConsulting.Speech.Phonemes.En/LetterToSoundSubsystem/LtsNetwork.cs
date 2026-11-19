@@ -102,6 +102,17 @@ internal sealed class LtsNetwork
             throw new InvalidDataException("The network has an empty layer.");
         }
 
+        // The layer sizes decide how much is allocated and read next, so check that the data that follows can hold them
+        // (in 64-bit arithmetic, which these 16-bit sizes cannot overflow) before trusting them
+        var requiredBytes =
+            (2L * _groupRows[groupCount] * _hidden1) + (4L * _hidden1) + 4 +
+            ((long)_hidden2 * _hidden1) + (4L * _hidden2) + 4 +
+            ((long)Outputs * _hidden2) + (4L * Outputs);
+        if (reader.BaseStream.CanSeek && requiredBytes > reader.BaseStream.Length - reader.BaseStream.Position)
+        {
+            throw new InvalidDataException("The network declares layer sizes that the remaining data cannot hold; the letter-to-sound image is truncated or damaged.");
+        }
+
         // First layer: embedding rows and biases, then the rescale
         _embedding = new int[_groupRows[groupCount] * _hidden1];
         for (var i = 0; i < _embedding.Length; i++)
