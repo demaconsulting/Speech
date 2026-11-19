@@ -1,0 +1,195 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DemaConsulting.Speech.Proofreader"
+        xmlns:settings="clr-namespace:DemaConsulting.Speech.Proofreader.Settings"
+        x:Class="DemaConsulting.Speech.Proofreader.MainWindow"
+        x:DataType="local:MainViewModel"
+        Title="DEMA Consulting Speech Proofreader"
+        Width="1280" Height="780" MinWidth="1000" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Styles>
+    <!-- The status banner turns red for problems. -->
+    <Style Selector="TextBlock.error">
+      <Setter Property="Foreground" Value="IndianRed" />
+    </Style>
+    <Style Selector="TextBox.mono">
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, monospace" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Toolbar: file operations -->
+    <Border Grid.Row="0" Padding="8" BorderThickness="0,0,0,1" BorderBrush="Gray">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="Open text... (Ctrl+O)" Click="OnOpenTextClick" />
+        <Button Content="Open session... (Ctrl+Shift+O)" Click="OnOpenSessionClick" />
+        <Button Content="Save session (Ctrl+S)" Click="OnSaveSessionClick" />
+        <Button Content="Export TSV (Ctrl+E)" Click="OnExportTsvClick" />
+        <TextBlock Text="{Binding SourceName}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Width="80" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,540">
+
+      <!-- Left: text, current sentence, transport, flag editor, sentence list -->
+      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="8">
+
+        <Expander Grid.Row="0" Header="Paste text" IsExpanded="{Binding !HasSentences, Mode=OneWay}">
+          <StackPanel Spacing="4">
+            <TextBox Text="{Binding SourceText}"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     Height="140"
+                     PlaceholderText="Paste text here, then press Load (Ctrl+Enter)." />
+            <Button Content="Load pasted text" Command="{Binding LoadPastedTextCommand}" />
+          </StackPanel>
+        </Expander>
+
+        <Border Grid.Row="1" Margin="0,6,0,0" IsVisible="{Binding HasStatus}"
+                BorderThickness="1" BorderBrush="Gray" CornerRadius="4" Padding="8">
+          <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Classes.error="{Binding StatusIsError}" />
+        </Border>
+
+        <!-- Current sentence; select a word to flag just that word -->
+        <Border Grid.Row="2" Margin="0,6,0,0" Padding="12" BorderThickness="2" BorderBrush="SteelBlue" CornerRadius="6">
+          <StackPanel Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+              <TextBlock Text="{Binding PositionText}" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding StateText}" Opacity="0.8" />
+              <TextBlock Text="{Binding ActiveSlotName, StringFormat='Model slot {0}'}" Opacity="0.8" />
+            </StackPanel>
+            <SelectableTextBlock x:Name="CurrentSentenceBlock"
+                                 Text="{Binding CurrentSentenceText}"
+                                 FontSize="22"
+                                 TextWrapping="Wrap"
+                                 MinHeight="60" />
+          </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+          <Button Content="Previous (Left)" Command="{Binding PreviousCommand}" />
+          <Button Content="{Binding PlayPauseLabel}" Command="{Binding PlayPauseCommand}" MinWidth="80" />
+          <Button Content="Next (Right)" Command="{Binding NextCommand}" />
+          <Button Content="Replay (R)" Command="{Binding ReplayCommand}" />
+          <Button Content="Stop (Esc)" Command="{Binding StopCommand}" />
+          <Button Content="Flag (F)" Click="OnFlagClick" />
+          <ToggleButton Content="A/B (A)" IsChecked="{Binding AbMode}" />
+        </StackPanel>
+
+        <!-- Flag editor -->
+        <Border Grid.Row="4" Margin="0,6,0,0" IsVisible="{Binding IsEditingFlag}"
+                BorderThickness="2" BorderBrush="DarkOrange" CornerRadius="6" Padding="8">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{Binding EditorHeader}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <ComboBox ItemsSource="{Binding FlagCategoryChoices}"
+                      SelectedItem="{Binding EditorCategory}"
+                      DisplayMemberBinding="{Binding Label}"
+                      Width="240" />
+            <TextBox x:Name="FlagNoteBox"
+                     Text="{Binding EditorNote}"
+                     PlaceholderText="Note (optional). Enter saves, Esc cancels.">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding SaveFlagCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Content="Save flag (Enter)" Command="{Binding SaveFlagCommand}" />
+              <Button Content="Cancel (Esc)" Command="{Binding CancelFlagCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Sentence list: the selection is the current sentence; a click jumps there and plays -->
+        <ListBox Grid.Row="5" x:Name="SentenceList" Margin="0,6,0,0"
+                 ItemsSource="{Binding Sentences}"
+                 SelectedIndex="{Binding CurrentIndex}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="local:SentenceItemViewModel">
+              <Grid ColumnDefinitions="44,20,*">
+                <TextBlock Grid.Column="0" Text="{Binding Number}" Opacity="0.55" />
+                <TextBlock Grid.Column="1" Text="{Binding Marker}" Foreground="DarkOrange" />
+                <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="Wrap" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+      </Grid>
+
+      <!-- Right: models, diagnostics, flags -->
+      <Grid Grid.Column="1" RowDefinitions="*,260" Margin="0,8,8,8">
+
+        <TabControl Grid.Row="0">
+
+          <TabItem Header="Models">
+            <ScrollViewer>
+              <StackPanel Spacing="4" Margin="4">
+                <CheckBox Content="A/B mode (key A): play each sentence through model A, then model B"
+                          IsChecked="{Binding AbMode}" />
+                <settings:ModelSlotView DataContext="{Binding SlotA}" />
+                <settings:ModelSlotView DataContext="{Binding SlotB}" />
+                <TextBlock Text="Playback device" FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding PlaybackDevices}"
+                          SelectedItem="{Binding SelectedDevice}"
+                          DisplayMemberBinding="{Binding Label}"
+                          HorizontalAlignment="Stretch" />
+                <TextBlock Text="{Binding DeviceStatus}" TextWrapping="Wrap" Opacity="0.75" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Button Content="Refresh devices" Command="{Binding RefreshDevicesCommand}" />
+                  <Button Content="Refresh models" Command="{Binding RefreshModelsCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <TabItem Header="Analysis">
+            <TextBox Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                     Text="{Binding AnalysisText, Mode=OneWay}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+          </TabItem>
+
+          <TabItem Header="Phonemes">
+            <TextBox Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                     Text="{Binding PhonemeText, Mode=OneWay}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+          </TabItem>
+
+        </TabControl>
+
+        <!-- Flags -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+          <TextBlock Grid.Row="0" Text="Flags (click to jump, F2 edit, Del delete)" FontWeight="SemiBold" />
+          <ListBox Grid.Row="1" x:Name="FlagList" ItemsSource="{Binding Flags}" SelectedItem="{Binding SelectedFlag}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:FlagItemViewModel">
+                <StackPanel>
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Subtitle}" TextWrapping="Wrap" Opacity="0.8" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+            <Button Content="Edit (F2)" Command="{Binding EditFlagCommand}" />
+            <Button Content="Delete (Del)" Command="{Binding DeleteFlagCommand}" />
+          </StackPanel>
+        </Grid>
+
+      </Grid>
+    </Grid>
+
+    <!-- Shortcut cheat sheet -->
+    <Border Grid.Row="2" Padding="8,4" BorderThickness="0,1,0,0" BorderBrush="Gray">
+      <TextBlock Opacity="0.8" TextWrapping="Wrap"
+                 Text="Space play/pause   Left/Up/K previous   Right/Down/J next   R replay   F flag (select a word first to flag just that word)   A A/B mode   Esc stop / cancel   Ctrl+O open text   Ctrl+Shift+O open session   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+E export TSV   F2 edit flag   Del delete flag" />
+    </Border>
+
+  </Grid>
+
+</Window>

@@ -25,9 +25,11 @@
     <Project Path="test/DemaConsulting.Speech.Demo.Tests/DemaConsulting.Speech.Demo.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Cli.Tests/DemaConsulting.Speech.Cli.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Text.En.Trainer.Tests/DemaConsulting.Speech.Text.En.Trainer.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Proofreader.Tests/DemaConsulting.Speech.Proofreader.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/ModelDownloader/ModelDownloader.csproj" />
+    <Project Path="tools/DemaConsulting.Speech.Proofreader/DemaConsulting.Speech.Proofreader.csproj" />
     <Project Path="tools/DemaConsulting.Speech.Text.En.Trainer/DemaConsulting.Speech.Text.En.Trainer.csproj" />
     <Project Path="tools/DemaConsulting.Speech.Phonemes.En.Tools/DemaConsulting.Speech.Phonemes.En.Tools.csproj" />
   </Folder>

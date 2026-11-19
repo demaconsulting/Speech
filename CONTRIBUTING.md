@@ -79,6 +79,19 @@ We follow a standard GitHub workflow for contributions:
    dotnet test --configuration Release
    ```
 
+### Developer Tools
+
+The `tools/` folder holds developer-only tools that are never packed or shipped. They are listening and data aids, not
+part of the library's public surface.
+
+- **Proofreader** (`tools/DemaConsulting.Speech.Proofreader`): a desktop tool for listening to long-form
+  text-to-speech output sentence by sentence, comparing models side by side, and flagging pronunciation problems with
+  front-end diagnostics. See its [README][proofreader-readme] for the shortcuts and the session and TSV formats.
+
+  ```bash
+  dotnet run -c Release --project tools/DemaConsulting.Speech.Proofreader
+  ```
+
 ## Coding Standards
 
 ### General Guidelines
@@ -300,3 +313,4 @@ Thank you for contributing to Speech!
 [discussions]: https://github.com/demaconsulting/Speech/discussions
 [issues]: https://github.com/demaconsulting/Speech/issues
 [security]: https://github.com/demaconsulting/Speech/blob/main/SECURITY.md
+[proofreader-readme]: tools/DemaConsulting.Speech.Proofreader/README.md

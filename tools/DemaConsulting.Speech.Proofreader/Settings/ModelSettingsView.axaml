@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:settings="clr-namespace:DemaConsulting.Speech.Proofreader.Settings"
+             x:Class="DemaConsulting.Speech.Proofreader.Settings.ModelSettingsView"
+             x:DataType="settings:ModelSettingsViewModel">
+
+  <UserControl.DataTemplates>
+
+    <!-- Numeric: slider (continuous) or numeric up-down (integer, for example a speaker number) -->
+    <DataTemplate DataType="settings:NumericParameterViewModel">
+      <StackPanel Spacing="2" Margin="0,4">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Slider IsVisible="{Binding !IsInteger}"
+                  Minimum="{Binding Minimum}"
+                  Maximum="{Binding Maximum}"
+                  TickFrequency="{Binding Step}"
+                  Value="{Binding Value}"
+                  Width="200" />
+          <NumericUpDown IsVisible="{Binding IsInteger}"
+                         Minimum="{Binding Minimum}"
+                         Maximum="{Binding Maximum}"
+                         Increment="{Binding Step}"
+                         Value="{Binding Value}"
+                         FormatString="0"
+                         Width="200" />
+          <TextBlock Text="{Binding Value}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Unit}" VerticalAlignment="Center" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Choice: dropdown of the declared options -->
+    <DataTemplate DataType="settings:ChoiceParameterViewModel">
+      <StackPanel Spacing="2" Margin="0,4">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
+        <ComboBox ItemsSource="{Binding Options}"
+                  SelectedItem="{Binding SelectedOption}"
+                  DisplayMemberBinding="{Binding Label}"
+                  Width="200" />
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Boolean: checkbox -->
+    <DataTemplate DataType="settings:BooleanParameterViewModel">
+      <StackPanel Spacing="2" Margin="0,4">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
+        <CheckBox Content="Enabled" IsChecked="{Binding Value}" />
+      </StackPanel>
+    </DataTemplate>
+
+  </UserControl.DataTemplates>
+
+  <StackPanel Spacing="4">
+    <TextBlock TextWrapping="Wrap" Opacity="0.7"
+               IsVisible="{Binding IsEmpty}"
+               Text="{Binding EmptyMessage}" />
+    <ItemsControl ItemsSource="{Binding Parameters}"
+                  IsVisible="{Binding HasParameters}" />
+  </StackPanel>
+
+</UserControl>
