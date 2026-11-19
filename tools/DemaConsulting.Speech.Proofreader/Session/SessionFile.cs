@@ -192,7 +192,7 @@ internal static class SessionFile
         }
 
         var typed = new Dictionary<string, object>(StringComparer.Ordinal);
-        foreach (var (key, value) in model.Parameters)
+        foreach (var (key, value) in model.Parameters ?? [])
         {
             object? converted = value is JsonElement element
                 ? element.ValueKind switch

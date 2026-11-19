@@ -71,14 +71,38 @@ internal sealed class UserSettingsStore
             }
 
             var settings = SessionFile.DeserializeValue<UserSettings>(File.ReadAllText(Path, Encoding.UTF8)) ?? new UserSettings();
-            SessionFile.NormalizeParameters(settings.SlotA);
-            SessionFile.NormalizeParameters(settings.SlotB);
-            return settings;
+            return new UserSettings
+            {
+                SlotA = Sanitize(settings.SlotA),
+                SlotB = Sanitize(settings.SlotB),
+                AbMode = settings.AbMode,
+                LastCategory = settings.LastCategory is { } category && Enum.IsDefined(category) ? category : null,
+            };
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or FormatException)
         {
+            // A file that cannot be read or has the wrong shape is treated as absent.
             return new UserSettings();
         }
+    }
+
+    /// <summary>
+    ///     Makes a loaded slot usable: a slot without a model id is dropped, missing parameters become empty,
+    ///     and parameter values are converted to string, double, or bool.
+    /// </summary>
+    /// <param name="model">The loaded slot, or <see langword="null"/>.</param>
+    /// <returns>The usable slot, or <see langword="null"/> when there is none.</returns>
+    private static SessionModel? Sanitize(SessionModel? model)
+    {
+        if (model is null || string.IsNullOrEmpty(model.ModelId))
+        {
+            return null;
+        }
+
+        model.Parameters ??= [];
+        model.DisplayName ??= string.Empty;
+        SessionFile.NormalizeParameters(model);
+        return model;
     }
 
     /// <summary>
