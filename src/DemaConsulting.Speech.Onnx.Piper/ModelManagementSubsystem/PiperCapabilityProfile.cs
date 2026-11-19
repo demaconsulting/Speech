@@ -26,7 +26,9 @@ namespace DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 ///     joined text no longer than <see cref="SentenceChunker.DefaultMaxChunkLength"/> characters (the budget of the core
 ///     chunker), so a long sentence still reaches the engine in playback-sized segments. The engine itself splits what
 ///     still phonemizes to more than 256 symbols, preferably after a clause mark. Sentence ends, ellipses, tags and
-///     pauses stay boundaries. The profile needs nothing of the core library but its public chunking and plan types.
+///     pauses stay boundaries, and so does every sentence boundary an analyzer declared: the spans are cut into one
+///     group per authoritative sentence first, so a sentence that ends in a clause mark (<c>Consider this:</c>)
+///     is never joined to the next sentence. The profile needs nothing of the core library but its public chunking and plan types.
 ///     </para>
 ///     <para>The class is stateless and thread-safe.</para>
 /// </remarks>
@@ -53,8 +55,112 @@ internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
         ArgumentNullException.ThrowIfNull(spans);
         ArgumentNullException.ThrowIfNull(model);
 
-        return new SpeechPlan(JoinClauses(DefaultModelCapabilityProfile.Instance.Render(spans, model).Segments));
+        // Analyzer sentence breaks are authoritative: clause pieces are joined only within one sentence, so the
+        // spans are cut into one group per sentence, each rendered by the default profile on its own.
+        var segments = new List<SpeechSegment>();
+        foreach (var group in SplitAtSentenceBreaks(spans, model))
+        {
+            segments.AddRange(JoinClauses(DefaultModelCapabilityProfile.Instance.Render(group, model).Segments));
+        }
+
+        return new SpeechPlan(segments);
     }
+
+    /// <summary>
+    ///     Cuts the spans into groups at every authoritative analyzer sentence break, so no group holds two sentences.
+    /// </summary>
+    /// <param name="spans">The tagged spans, with the analysis the session attached.</param>
+    /// <param name="model">The model, whose tag support decides whether a tag contributes text.</param>
+    /// <returns>
+    ///     The groups in order; a single group holding the spans as given when no span carries a sentence break list.
+    ///     A group never ends before it holds text, so tags that only set parameters stay with the text they apply to.
+    /// </returns>
+    private static List<List<TaggedTextSpan>> SplitAtSentenceBreaks(IReadOnlyList<TaggedTextSpan> spans, ISpeechModel model)
+    {
+        var groups = new List<List<TaggedTextSpan>>();
+        var current = new List<TaggedTextSpan>();
+        var hasText = false;
+
+        void Close()
+        {
+            if (hasText)
+            {
+                groups.Add(current);
+                current = [];
+                hasText = false;
+            }
+        }
+
+        foreach (var span in spans)
+        {
+            if (span.Kind != TaggedTextSpanKind.PlainText)
+            {
+                var breaks = span.SentenceBreaks;
+                if (breaks is not null && breaks.Contains(0))
+                {
+                    Close();
+                }
+
+                current.Add(span with { SentenceBreaks = null });
+                hasText |= model.AudioTagSupport == SpeechModelAudioTagSupport.Native;
+                if (breaks is not null && breaks.Contains(1))
+                {
+                    Close();
+                }
+
+                continue;
+            }
+
+            if (span.Text.Length == 0 || span.SentenceBreaks is null)
+            {
+                current.Add(span);
+                hasText |= span.Text.Length > 0;
+                continue;
+            }
+
+            var position = 0;
+            foreach (var cut in span.SentenceBreaks.Where(b => b <= span.Text.Length).Distinct().OrderBy(b => b))
+            {
+                if (cut == 0)
+                {
+                    Close();
+                    continue;
+                }
+
+                current.Add(Slice(span, position, cut));
+                hasText = true;
+                position = cut;
+                Close();
+            }
+
+            if (position < span.Text.Length)
+            {
+                current.Add(Slice(span, position, span.Text.Length));
+                hasText = true;
+            }
+        }
+
+        if (current.Count > 0)
+        {
+            groups.Add(current);
+        }
+
+        return groups;
+    }
+
+    /// <summary>
+    ///     Takes the part of a plain-text span from <paramref name="start"/> to <paramref name="end"/>, keeping the
+    ///     annotations wholly inside it, re-based, and keeping the span authoritative with no further breaks.
+    /// </summary>
+    /// <param name="span">The plain-text span, which carries a sentence break list.</param>
+    /// <param name="start">The offset the part starts at.</param>
+    /// <param name="end">The offset the part ends at.</param>
+    /// <returns>The part as its own span.</returns>
+    private static TaggedTextSpan Slice(TaggedTextSpan span, int start, int end) =>
+        TaggedTextSpan.PlainText(
+            span.Text[start..end],
+            [.. span.Annotations.Where(a => a.Start >= start && a.End <= end).Select(a => a with { Start = a.Start - start })],
+            []);
 
     /// <summary>
     ///     Joins every segment that ends in a clause mark to the segment after it, where nothing sets the two apart.

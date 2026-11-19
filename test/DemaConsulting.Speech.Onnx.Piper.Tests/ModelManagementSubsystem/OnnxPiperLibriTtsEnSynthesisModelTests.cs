@@ -154,6 +154,70 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Throws<ArgumentNullException>(() => profile.Render(spans, null!));
     }
 
+    /// <summary>
+    ///     Proves an analyzer sentence boundary stays a boundary even when the sentence before it ends in a clause mark: the sentence
+    ///     <c>Consider this:</c> is not joined to the paragraph that follows it (so its first word keeps its own utterance start), while
+    ///     the clause pieces inside each sentence still join, and the annotations of both sentences stay on their own words.
+    /// </summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_AnalyzerSentenceBreakAfterClauseMark_StaysABoundary()
+    {
+        // Arrange
+        var model = new OnnxPiperLibriTtsEnSynthesisModel();
+        var profile = ((ISynthesisModel)model).CapabilityProfile;
+        const string text = "Consider 5 options:\n\nShould we pick 7, or wait?";
+        var analysis = model.TextAnalyzer!.Analyze(text, CancellationToken.None);
+        IReadOnlyList<TaggedTextSpan> spans = [TaggedTextSpan.PlainText(text, analysis.Annotations, analysis.SentenceBreaks)];
+
+        // Act
+        var plan = profile.Render(spans, model);
+        var defaultPlan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert: the analyzer put a break between the two sentences, the profile kept it, and joined the clauses of the second
+        Assert.NotNull(analysis.SentenceBreaks);
+        Assert.Contains(21, analysis.SentenceBreaks);
+        Assert.Equal(["Consider 5 options:", "Should we pick 7, or wait?"], plan.Segments.Select(s => s.Text));
+        Assert.Equal(3, defaultPlan.Segments.Count);
+
+        // Assert: the annotations (the two numbers) stay on their own words in their own sentence
+        var covered = plan.Segments.Select(s => s.Annotations.Select(a => s.Text.Substring(a.Start, a.Length)).ToArray()).ToArray();
+        Assert.Equal(["5"], covered[0]);
+        Assert.Equal(["7"], covered[1]);
+    }
+
+    /// <summary>
+    ///     Proves an analyzer break that falls right after a tag (where no text holds it) is kept too, that a stripped tag inside a
+    ///     sentence does not separate its clauses, and that a long sentence is still delivered in budget-sized segments.
+    /// </summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_TagsAndLongSentences_KeepTheBoundariesAndTheBudget()
+    {
+        // Arrange
+        var model = new OnnxPiperLibriTtsEnSynthesisModel();
+        var profile = ((ISynthesisModel)model).CapabilityProfile;
+        var withBreak = TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Excited) with { SentenceBreaks = [1] };
+        IReadOnlyList<TaggedTextSpan> spans =
+        [
+            TaggedTextSpan.PlainText("First we wait,", [], []),
+            withBreak,
+            TaggedTextSpan.PlainText("Then we go, quickly.", [], []),
+            TaggedTextSpan.TagSpan(NaturalLanguageAudioTag.Excited),
+            TaggedTextSpan.PlainText(" and, again.", [], []),
+        ];
+        var longSentence = string.Join(", ", Enumerable.Repeat("one clause of some length", 12)) + ".";
+        IReadOnlyList<TaggedTextSpan> longSpans = [TaggedTextSpan.PlainText(longSentence, [], [])];
+
+        // Act
+        var plan = profile.Render(spans, model);
+        var longPlan = profile.Render(longSpans, model);
+
+        // Assert: the break after the first tag is kept (the stripped tag adds no text); the second tag sits mid-sentence and joins
+        Assert.Equal(["First we wait,", "Then we go, quickly. and, again."], plan.Segments.Select(s => s.Text));
+        Assert.True(longPlan.Segments.Count > 1);
+        Assert.All(longPlan.Segments, s => Assert.True(s.Text.Length <= SentenceChunker.DefaultMaxChunkLength));
+        Assert.Equal(longSentence, string.Join(' ', longPlan.Segments.Select(s => s.Text)));
+    }
+
     /// <summary>Proves the only parameter is an integer speaker selection from 0 to 903 whose default is 0.</summary>
     [Fact]
     public void OnnxPiperLibriTtsEnSynthesisModel_Parameters_AreTheSpeakerSelectionOnly()

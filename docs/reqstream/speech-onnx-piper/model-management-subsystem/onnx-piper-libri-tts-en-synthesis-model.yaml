@@ -23,7 +23,8 @@ sections:
                   text analyzer (the same instance for every model instance), and a capability profile that joins
                   the clause pieces of a sentence (the core chunker splits at every comma, semicolon and colon)
                   into one segment, with their annotations moved to their place, so that the voice speaks a
-                  sentence as one utterance, while a sentence end, a pause, silence, different parameter
+                  sentence as one utterance, while a sentence end (including a sentence boundary an analyzer
+                  declared, even after a clause mark), a pause, silence, different parameter
                   overrides and a joined text beyond the core chunker's 200-character budget remain boundaries.
                 justification: |
                   The identifier is what a host stores and a catalog lists; the license is an attribution license
@@ -38,7 +39,8 @@ sections:
                   - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_SentenceClauses_AreOneSegmentWithTheirAnnotations
                   - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_JoinsOnlyWhereNothingSetsTheClausesApart
                   - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_PauseTag_StaysABoundary
-
+                  - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_AnalyzerSentenceBreakAfterClauseMark_StaysABoundary
+                  - OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_TagsAndLongSentences_KeepTheBoundariesAndTheBudget
               - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-SpeakerSelection
                 title: >-
                   The OnnxPiperLibriTtsEnSynthesisModel class shall declare exactly one parameter, an integer
