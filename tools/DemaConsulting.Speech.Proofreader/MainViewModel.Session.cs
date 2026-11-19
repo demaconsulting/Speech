@@ -155,7 +155,8 @@ internal sealed partial class MainViewModel
 
         MarkFlaggedSentences();
         SessionPath = path;
-        SetCurrent(Math.Clamp(session.CurrentSentence, 0, Math.Max(sentenceTexts.Count - 1, 0)));
+        // A session whose text yields no sentences has no current sentence (-1), not index 0.
+        SetCurrent(sentenceTexts.Count == 0 ? -1 : Math.Clamp(session.CurrentSentence, 0, sentenceTexts.Count - 1));
         CurrentSentenceText = CurrentIndex >= 0 ? sentenceTexts[CurrentIndex] : string.Empty;
         RefreshDiagnostics(CurrentIndex, ActiveSlotName, null);
 

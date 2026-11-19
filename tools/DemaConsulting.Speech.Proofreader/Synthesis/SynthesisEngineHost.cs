@@ -130,14 +130,21 @@ internal sealed class SynthesisEngineHost : IAsyncDisposable
 
             task = existing;
 
-            // Evict the least recently used engines beyond the limit. An engine that is still
-            // loading counts as the newest, so a load in flight is never evicted.
+            // Evict the least recently used engines beyond the limit. Only completed entries are
+            // candidates: a load still in flight is never evicted (the requested entry is excluded
+            // too), so the count may exceed the limit until those loads finish and a later request
+            // trims it.
             while (_entries.Count > MaxEngines)
             {
-                var oldest = _entries
-                    .Where(pair => pair.Key != selection.Key)
-                    .OrderBy(pair => pair.Value.IsCompletedSuccessfully ? pair.Value.Result.LastUsedTicks : long.MaxValue)
-                    .First();
+                var candidates = _entries
+                    .Where(pair => pair.Key != selection.Key && pair.Value.IsCompletedSuccessfully)
+                    .ToList();
+                if (candidates.Count == 0)
+                {
+                    break;
+                }
+
+                var oldest = candidates.MinBy(pair => pair.Value.Result.LastUsedTicks);
                 _entries.Remove(oldest.Key);
                 evicted.Add(oldest.Value);
             }

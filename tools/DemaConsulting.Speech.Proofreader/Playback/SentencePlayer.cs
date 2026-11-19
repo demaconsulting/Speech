@@ -60,6 +60,12 @@ internal sealed class SentencePlayer
     /// <summary>Whether a sentence is currently being played by <see cref="PlayAsync"/>.</summary>
     private bool _playing;
 
+    /// <summary>Guards <see cref="_playing"/> and <see cref="_playGeneration"/> against overlapping runs.</summary>
+    private readonly object _playSync = new();
+
+    /// <summary>Identifies the most recent <see cref="PlayAsync"/> invocation; only it may clear <see cref="_playing"/>.</summary>
+    private int _playGeneration;
+
     /// <summary>The next frame of the current sentence to write.</summary>
     private int _position;
 
@@ -191,8 +197,16 @@ internal sealed class SentencePlayer
         var maxQueuedSamples = (long)audio.SampleRate * channels * MaxQueuedMilliseconds / 1000;
         var total = audio.FrameCount;
 
-        _position = 0;
-        _playing = true;
+        // Each invocation takes a generation under the lock, so a canceled run that unwinds after a
+        // newer run has started cannot clear the newer run's playing flag.
+        int generation;
+        lock (_playSync)
+        {
+            generation = ++_playGeneration;
+            _position = 0;
+            _playing = true;
+        }
+
         try
         {
             while (true)
@@ -238,7 +252,13 @@ internal sealed class SentencePlayer
         }
         finally
         {
-            _playing = false;
+            lock (_playSync)
+            {
+                if (generation == _playGeneration)
+                {
+                    _playing = false;
+                }
+            }
         }
     }
 

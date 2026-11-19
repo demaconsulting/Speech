@@ -75,12 +75,14 @@ internal static partial class TsvExporter
         // Each run of tabs and line breaks becomes one space, so a row stays one line.
         var flat = ControlRunRegex().Replace(value, " ");
 
-        if (flat.Contains('"'))
+        // The formula guard comes first so it composes with quoting: a spreadsheet strips the
+        // quotes and would otherwise still see a leading formula character.
+        if (flat.Length > 0 && flat[0] is '=' or '+' or '-' or '@')
         {
-            return string.Concat("\"", flat.Replace("\"", "\"\""), "\"");
+            flat = "'" + flat;
         }
 
-        return flat.Length > 0 && flat[0] is '=' or '+' or '-' or '@' ? "'" + flat : flat;
+        return flat.Contains('"') ? string.Concat("\"", flat.Replace("\"", "\"\""), "\"") : flat;
     }
 
     /// <summary>Matches a run of tab, CR, and LF characters.</summary>

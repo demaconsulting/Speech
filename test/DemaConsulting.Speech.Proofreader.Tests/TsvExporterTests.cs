@@ -88,6 +88,23 @@ public class TsvExporterTests
     }
 
     /// <summary>
+    ///     Validates that the formula guard also applies to a field that contains a double quote, so the
+    ///     leading apostrophe survives inside the quotes.
+    /// </summary>
+    [Fact]
+    public void TsvExporter_Export_FormulaLikeNoteWithQuote_IsPrefixedAndQuoted()
+    {
+        // Arrange
+        var flag = CreateFlag(1, 0, 0, "=HYPERLINK(\"http://example.test\")");
+
+        // Act
+        var fields = TsvExporter.Export([flag]).Split('\n')[1].Split('\t');
+
+        // Assert
+        Assert.Equal("\"'=HYPERLINK(\"\"http://example.test\"\")\"", fields[5]);
+    }
+
+    /// <summary>
     ///     Validates that rows are ordered by sentence and then span, and that a whole-sentence flag has an empty span and word.
     /// </summary>
     [Fact]
