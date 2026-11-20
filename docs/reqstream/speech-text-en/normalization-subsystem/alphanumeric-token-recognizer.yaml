@@ -43,7 +43,9 @@ sections:
                   joined by a hyphen to one to three digits (one to four after one to three capitals),
                   shall give the hyphen and the digits one span read by the identifier convention so
                   that the name and the number are two words, shall spell a name of one to three
-                  capitals letter by letter and leave any other name as written, and shall not
+                  capitals letter by letter and leave any other name as written, shall read later
+                  hyphenated groups after spelled capitals group by group (each first span taking its
+                  hyphen), shall leave a possessive 's after either shape as written, and shall not
                   recognize more digits, no digits, letters mixed into the digits, a leading hyphen,
                   digits before the hyphen or an ordinary compound word.
                 justification: |
@@ -51,8 +53,12 @@ sections:
                   hyphenated word: the listener heard "SCP-184" as "S-C-P-one" run together, with the
                   S read as a sound. Capitals before the number are an identifier's letter run (F-16,
                   B-52, A-1, SCP-184) and are spelled like the letter runs of MP3. Ordinary compounds
-                  and longer digit runs (years such as "mid-1990s") belong to other rules.
+                  and longer digit runs (years such as "mid-1990s") belong to other rules. A listener
+                  also heard "SCP-093's" end in the letter S and "SCP-093-T2" with its parts run
+                  together.
                 tests:
                   - AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_Name_ReadsTheNumberInPlaceOfTheHyphen
                   - AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_Capitals_AreSpelledThenTheNumber
+                  - AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_PossessiveAndLaterGroups_AreSpokenWithoutAJoint
+                  - AlphanumericTokenRecognizer_RecognizeIdentifier_Possessive_IsLeftAfterTheLastWord
                   - AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_OtherShapes_ReturnNull

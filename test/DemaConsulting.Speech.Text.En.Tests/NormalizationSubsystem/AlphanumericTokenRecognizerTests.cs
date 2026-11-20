@@ -128,6 +128,45 @@ public sealed class AlphanumericTokenRecognizerTests
         Assert.Equal((5 + hyphen, token.Length - hyphen, number, NormalizationKind.Number), (spans[1].Start, spans[1].Length, spans[1].Spoken, spans[1].Kind));
     }
 
+    /// <summary>
+    ///     Proves a possessive on an identifier is left as written after the last spoken word, and that the later groups of
+    ///     an identifier after spelled capitals are spoken group by group, each taking the hyphen before it, so no hyphen is
+    ///     left between two spoken groups.
+    /// </summary>
+    /// <param name="token">The token.</param>
+    /// <param name="spoken">The expected spoken spans, joined by a bar.</param>
+    /// <param name="covered">The expected covered source characters, joined by a bar.</param>
+    [Theory]
+    [InlineData("SCP-093's", "S C P|zero nine three", "SCP|-093")]
+    [InlineData("F-16\u2019s", "F|sixteen", "F|-16")]
+    [InlineData("SCP-093-T2", "S C P|zero nine three|T|two", "SCP|-093|-T|2")]
+    [InlineData("SCP-093-EX", "S C P|zero nine three|E X", "SCP|-093|-EX")]
+    [InlineData("SCP-093-7", "S C P|zero nine three|seven", "SCP|-093|-7")]
+    [InlineData("SCP-093-T2's", "S C P|zero nine three|T|two", "SCP|-093|-T|2")]
+    public void AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_PossessiveAndLaterGroups_AreSpokenWithoutAJoint(string token, string spoken, string covered)
+    {
+        // Act
+        var spans = AlphanumericTokenRecognizer.RecognizeHyphenatedNumber(token, 0);
+
+        // Assert
+        Assert.NotNull(spans);
+        Assert.Equal(spoken, string.Join('|', spans.Select(span => span.Spoken)));
+        Assert.Equal(covered, string.Join('|', spans.Select(span => token.Substring(span.Start, span.Length))));
+    }
+
+    /// <summary>Proves a possessive on a letter-and-digit identifier is left as written after its last spoken word.</summary>
+    [Fact]
+    public void AlphanumericTokenRecognizer_RecognizeIdentifier_Possessive_IsLeftAfterTheLastWord()
+    {
+        // Act
+        var spans = AlphanumericTokenRecognizer.RecognizeIdentifier("B12's", 0);
+
+        // Assert
+        Assert.NotNull(spans);
+        Assert.Equal("B|twelve", string.Join('|', spans.Select(span => span.Spoken)));
+        Assert.Equal(3, spans[^1].Start + spans[^1].Length);
+    }
+
     /// <summary>Proves other hyphenated shapes are left alone: four digits, no digits, letters mixed into the digits, a leading hyphen, digits before the hyphen and ordinary compounds.</summary>
     /// <param name="token">The token.</param>
     [Theory]
@@ -140,6 +179,11 @@ public sealed class AlphanumericTokenRecognizerTests
     [InlineData("well-known")]
     [InlineData("a-b-12")]
     [InlineData("mid-1990s")]
+    [InlineData("COVID-19-related")]
+    [InlineData("COVID-19-T2")]
+    [InlineData("SCP-T2")]
+    [InlineData("SCP-093-t2")]
+    [InlineData("SCP-093--7")]
     public void AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_OtherShapes_ReturnNull(string token)
     {
         // Act

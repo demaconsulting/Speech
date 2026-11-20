@@ -110,6 +110,15 @@ internal static class ReferenceNumberWords
         "milliliter", "milliliters", "kilobyte", "kilobytes", "megabyte", "megabytes", "gigabyte", "gigabytes",
         "terabyte", "terabytes", "hertz", "kilohertz", "megahertz", "gigahertz", "millisecond", "milliseconds",
         "minute", "minutes", "degree", "degrees", "Celsius", "Fahrenheit",
+        "approximately", "by", "meter", "meters", "gram", "grams", "second", "seconds", "liter", "liters", "volt", "volts",
+        "joule", "joules", "nanometer", "nanometers", "micrometer", "micrometers", "revolution", "revolutions",
+        "microgram", "micrograms", "centiliter", "centiliters", "deciliter", "deciliters", "pascal", "pascals",
+        "hectopascal", "hectopascals", "kilopascal", "kilopascals", "megapascal", "megapascals", "gigapascal",
+        "gigapascals", "square", "milliwatt", "milliwatts", "kilowatt", "kilowatts", "megawatt", "megawatts", "gigawatt",
+        "gigawatts", "watt", "millivolt", "millivolts", "kilovolt", "kilovolts", "milliampere", "milliamperes",
+        "kilojoule", "kilojoules", "megajoule", "megajoules", "kilonewton", "kilonewtons", "kilocalorie", "kilocalories",
+        "decibel", "decibels", "microsecond", "microseconds", "nanosecond", "nanoseconds", "petabyte", "petabytes",
+        "megabit", "megabits", "gigabit", "gigabits",
     ];
 
     /// <summary>

@@ -99,6 +99,8 @@ dec-sentence	It is 3.5 miles.	It is three point five miles.	It is 3.5 miles.	0	0
 dec-sentence-2	Pi is 3.14. Then 2.71 follows.	Pi is three point one four. Then two point seven one follows.	Pi is 3.14.¦Then 2.71 follows.	0	0	two decimals, one real break
 ord-1st	1st	first	1st	0	0	first
 ord-2nd	2nd	second	2nd	0	0	second
+ord-bracket	June 12th(?), then the 3rd) and 2nd.	June twelfth, then the third) and second.	June 12th(?), then the 3rd) and 2nd.	0	0	an ordinal before a glued bracket; an editorial (?) is dropped
+num-possessive	The 747's wings and 3's.	The seven hundred forty seven's wings and three's.	The 747's wings and 3's.	0	0	a possessive stays on the number's last word
 ord-3rd	3rd	third	3rd	0	0	third
 ord-4th	4th	fourth	4th	0	0	fourth
 ord-5th	5th	fifth	5th	0	0	fifth
@@ -277,8 +279,18 @@ unit-in-preposition-ratio	in 4 in 10 cases	in four in ten cases	in 4 in 10 cases
 unit-in-preposition-time	at 4 in the morning	at four in the morning	at 4 in the morning	0	0	the preposition before its object stays
 unit-in-preposition-row	2 in a row	two in a row	2 in a row	0	0	the preposition before its object stays
 unit-in-preposition-total	3 in total	three in total	3 in total	0	0	the preposition before its object stays
-unit-m-excluded	5 m	five m	5 m	0	0	single-letter units are excluded
-unit-g-excluded	5 g	five g	5 g	0	0	single-letter units are excluded
+unit-m-end	5 m	five meters	5 m	0	0	a single-letter unit at the end of the text is the unit
+unit-m-bracket	300 m (~1000 ft) of rope	three hundred meters (approximately one thousand feet) of rope	300 m (~1000 ft) of rope	0	0	a letter before a bracket is the unit; a tilde before a number is approximately
+unit-m-dimensions	5 m x 5 m x 5 m.	five meters by five meters by five meters.	5 m x 5 m x 5 m.	0	0	a letter before a dimension sign and a measure is the unit; the sign is by
+unit-m-word	5 m of rope	five m of rope	5 m of rope	0	0	a letter before a word is left alone
+unit-g-end	5 g	five grams	5 g	0	0	a single-letter unit at the end of the text is the unit
+unit-a-excluded	Plan A had 5 A and 5 a day.	Plan A had five A and five a day.	Plan A had 5 A and 5 a day.	0	0	the article, the grade and the ampere letter are left alone
+unit-kpa	at 205 kPa.	at two hundred five kilopascals.	at 205 kPa.	0	0	a prefixed SI unit
+unit-dimensions-glued	5x5 and 1920x1080 and 10 × 20.	five by five and one thousand nine hundred twenty by one thousand eighty and ten by twenty.	5x5 and 1920x1080 and 10 × 20.	0	0	dimensions, glued or spaced, are by
+unit-dimensions-math	3 x 4 = 12	three times four equals twelve	3 x 4 = 12	0	0	the sign before an operator is times
+restated-words	One (1) light and twenty-five (25) men	One  light and twenty-five  men	One (1) light and twenty-five (25) men	0	0	a restated numeral in brackets is dropped
+restated-digits	3 (three) boys	three  boys	3 (three) boys	0	0	a restated number word in brackets is dropped
+restated-mismatch	three (4) girls	three (four) girls	three (4) girls	0	0	a different value is left alone
 unit-case-sensitive	5 Kg	five Kg	5 Kg	0	0	units are case-sensitive
 unit-year-like	1500 kg	one thousand five hundred kilograms	1500 kg	0	0	a unit after four digits makes a quantity
 unit-no-number	kg	kg	kg	0	0	a unit alone stays

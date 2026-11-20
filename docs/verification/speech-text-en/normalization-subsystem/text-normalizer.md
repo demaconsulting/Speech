@@ -122,19 +122,26 @@ shouting rows (`The US team won. LET US GO NOW.`) are golden rows.
 `TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets`,
 `TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords` (a three-row theory),
 `TextNormalizer_Normalize_NumberSign_IsTheWordNumberOnlyAfterAWordBeforeAColonOrNumber` (a seven-row theory),
+`TextNormalizer_Normalize_EditorialMarkInBrackets_IsDropped` (a six-row theory),
+`TextNormalizer_Normalize_RestatedNumberInBrackets_IsDroppedOnlyWhenTheValuesMatch` (an eight-row theory),
+`TextNormalizer_Normalize_DimensionSign_IsByBetweenMeasures` (an eight-row theory),
 `TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords` (a four-row theory),
 `TextNormalizer_Normalize_Clitics_AreClassifiedFromContext` (one row per role plus negatives),
 `TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes`
 
-Examples: `Item #: SCP-184` becomes `Item number: S C P one hundred eighty four` and `Case # 12` `Case number twelve`,
-while `# 5 Reasons`, `Item # Title`, a `#` at the start of a line and `5 # 6` keep the sign; `a & b` becomes `a and b`
-but `a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks`; the two replacements of `A™®B` are
-`" trademark"` and `" registered "` at offsets 1 and 2 with no double space; `he/she` becomes `he slash she` while
-`km/h` and `24/7` stay. Contractions and elisions get the plain apostrophe while a trailing `dogs’` and `‘quoted’` stay.
-The classification theory asserts exactly one clitic mark per row, on the expected token, with the documented role
-(`n't` Not, `'re` Are, `'ve` Have, `'ll` Will, `'m` Am, `'d` Would or Had, `'s` as Us, Is, Has and Possessive). When
-roles are not requested no mark is recorded but the apostrophes are still canonicalized. The remaining operator, mark,
-slash and apostrophe forms are golden rows.
+Examples: `Date:  June 12th(?), done` becomes `Date:  June twelfth, done` and `(!)` is dropped while `(not?)` stays;
+`One (1) wrist` becomes `One  wrist` and `3 (three) boys` `three  boys` while `three (4) girls` keeps both;
+`5 m x 5 m x 5 m.` becomes `five meters by five meters by five meters.` and `3 x 4 = 12`
+`three times four equals twelve` while `Let x = 5.`, `Malcolm X`, `X-ray` and `5 cats x 3` keep the letter;
+`Item #: SCP-184` becomes `Item number: S C P one hundred eighty four` and `Case # 12` `Case number twelve`, while
+`# 5 Reasons`, `Item # Title`, a `#` at the start of a line and `5 # 6` keep the sign; `a & b` becomes `a and b` but
+`a=b` and `(+)` stay; `Brand™ rocks` becomes `Brand trademark rocks`; the two replacements of `A™®B` are `" trademark"`
+and `" registered "` at offsets 1 and 2 with no double space; `he/she` becomes `he slash she` while `km/h` and `24/7`
+stay. Contractions and elisions get the plain apostrophe while a trailing `dogs’` and `‘quoted’` stay. The
+classification theory asserts exactly one clitic mark per row, on the expected token, with the documented role (`n't`
+Not, `'re` Are, `'ve` Have, `'ll` Will, `'m` Am, `'d` Would or Had, `'s` as Us, Is, Has and Possessive). When roles are
+not requested no mark is recorded but the apostrophes are still canonicalized. The remaining operator, mark, slash and
+apostrophe forms are golden rows.
 
 ##### Directives
 

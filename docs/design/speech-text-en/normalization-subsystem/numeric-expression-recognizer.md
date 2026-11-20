@@ -60,7 +60,8 @@ scan.
 - **Fraction denominators**: 2 to 10, 16, 32, 64, 100; **vulgar fractions**: `½ ⅓ ⅔ ¼ ¾ ⅛ ⅜ ⅝ ⅞`
 - **Currencies**: `$` and `USD` (dollar(s), cent(s)); `€` and `EUR` (euro(s), cent(s)); `£` and `GBP`
   (pound(s), penny/pence); `¥` and `JPY` (yen, yen; no minor unit)
-- **Units** (single-letter and word-like units `m`, `g`, `l`, `s`, `in` are excluded as ambiguous):
+- **Units** (the word-like and single-letter units `in`, `m`, `g`, `s`, `l`, `L`, `V`, `J` are in the strict table
+  below):
 
 | Written | Singular | Plural | Written | Singular | Plural |
 | --- | --- | --- | --- | --- | --- |
@@ -77,10 +78,34 @@ scan.
 | `lb`, `lbs` | pound | pounds | `°` | degree | degrees |
 | `oz` | ounce | ounces | `°C` | degree Celsius | degrees Celsius |
 | `ml` | milliliter | milliliters | `°F` | degree Fahrenheit | degrees Fahrenheit |
-| `KB` | kilobyte | kilobytes | | | |
+| `KB`, `kB` | kilobyte | kilobytes | `PB` | petabyte | petabytes |
+| `nm` | nanometer | nanometers | `µm`, `μm` | micrometer | micrometers |
+| `m/s` | meter per second | meters per second | `km/s` | kilometer per second | kilometers per second |
+| `kph` | kilometer per hour | kilometers per hour | `rpm` | revolution per minute | revolutions per minute |
+| `µg`, `μg` | microgram | micrograms | `mL` | milliliter | milliliters |
+| `cL` | centiliter | centiliters | `dL` | deciliter | deciliters |
+| `Pa` | pascal | pascals | `hPa` | hectopascal | hectopascals |
+| `kPa` | kilopascal | kilopascals | `MPa` | megapascal | megapascals |
+| `GPa` | gigapascal | gigapascals | `dB` | decibel | decibels |
+| `psi` | pound per square inch | pounds per square inch | `mA` | milliampere | milliamperes |
+| `mW` | milliwatt | milliwatts | `kW` | kilowatt | kilowatts |
+| `MW` | megawatt | megawatts | `GW` | gigawatt | gigawatts |
+| `Wh` | watt hour | watt hours | `kWh` | kilowatt hour | kilowatt hours |
+| `MWh` | megawatt hour | megawatt hours | `GWh` | gigawatt hour | gigawatt hours |
+| `mV` | millivolt | millivolts | `kV` | kilovolt | kilovolts |
+| `kJ` | kilojoule | kilojoules | `MJ` | megajoule | megajoules |
+| `kN` | kilonewton | kilonewtons | `kcal` | kilocalorie | kilocalories |
+| `µs`, `μs` | microsecond | microseconds | `ns` | nanosecond | nanoseconds |
+| `sec`, `secs` | second | seconds | `Mbps` | megabit per second | megabits per second |
+| `Gbps` | gigabit per second | gigabits per second | | | |
 
-The units `ft`, `Ft`, `yd`, `mi`, `lb`, `lbs`, `oz`, `hr`, `hrs` and `min` may carry an abbreviation period
-(`ft.`). A unit is singular only for exactly `1` (no fraction, no leading zero); `1.0` and `1.5` are plural.
+The units `ft`, `Ft`, `yd`, `mi`, `lb`, `lbs`, `oz`, `hr`, `hrs`, `min`, `sec` and `secs` may carry an abbreviation
+period (`ft.`). A unit is singular only for exactly `1` (no fraction, no leading zero); `1.0` and `1.5` are plural.
+
+- **Strict units** (written like a word or a letter; read only where nothing but a unit can stand, see *Percent and
+  units*): `in` (inch), `m` (meter), `g` (gram), `s` (second), `l` and `L` (liter), `V` (volt), `J` (joule). `A` (the
+  article and the grade), `K` (the thousand of `50K`), `N` and `W` (the compass points of `40 N, 74 W`) are not
+  units: the letter is left as written.
 
 **Span shapes (normative).** Every span the unit produces has one of these shapes, none contains whitespace,
 and a `,` or `:` appears only between two ASCII digits:
@@ -92,6 +117,9 @@ and a `,` or `:` appears only between two ASCII digits:
 | S3 | A currency symbol token and its adjacent number token | `$` `5.50` |
 | S4 | An apostrophe token and its adjacent decade token | `'` `90s` |
 | S5 | The two halves of one glued-meridiem token | `5pm`: `5`, `pm` |
+| S6 | The part of a token before glued brackets or a possessive | `12th(`: `12th` |
+| S7 | The tilde and the number of a glued approximation (a unit may follow) | `~1000`: `~`, `1000` |
+| S8 | The numbers and the sign (a `Symbol`, `by`) of glued dimensions | `5x5`: `5`, `x`, `5` |
 
 A construct of several tokens becomes several spans in source order, one per token or S3/S4 pair, never
 reordered and never merged across a gap; a unit or currency word is attached to the unit token or the magnitude
@@ -141,6 +169,16 @@ separators decide the shape, and the shape decides the reader, in this order:
   written, **fallback**
 - `#5`, `#007`: `number five`, `number zero zero seven`; a hash glued to the digits; `# 5` leaves the hash alone
   and reads `five`
+- A token that ends with glued brackets (the tokenizer's `12th(` of `12th(?)`, `5)`) is read without them, with the
+  same context (`June 12th(` is the day `twelfth`); the brackets are not covered and stay as written
+- A possessive on a number (`747's`, `3’s`): the number is read over the digits and the `'s` stays as written after
+  it (`seven hundred forty seven's`); a decade (`1990's`) is still the decade
+- A tilde before a number, glued or as its own token joined to a number token (`~1000 ft`, `~ 5`): the tilde is
+  `approximately` and the number (with its unit) is read as if the tilde were not there. The sign of approximate
+  equality `≈` is the symbol rule's `approximately equal to`
+- Two integers joined by a dimension sign in one token (`5x5`, `1920x1080`, `10×20`): three spans, the first
+  number, `by` over the sign, the second number (`one thousand nine hundred twenty by one thousand eighty`); a first
+  number that is a lone `0` is a hexadecimal prefix (`0x10`) and is left alone
 
 **Years and decades (policy Y1).** The policy applies to an unsigned, separator-free, decimal-free four-digit
 integer from 1000 to 2099; everything else is a cardinal (`2100` is `two thousand one hundred`). The first
@@ -208,14 +246,17 @@ by `s` or `'s`, is a decade; `5s`, `10000s`, `1995s`, `2100s`, `00s` and `rock'9
   the number, then the unit as its own span): `5 kg` is `five` and `kilograms`; `1 kg` is `one` and
   `kilogram`; `1.5 kg` is `one point five` and `kilograms`; `60 mph` is `sixty` and `miles per hour`;
   `-5°C` is `minus five degrees Celsius`; `6 ft.` is `six` and `feet`
-- The unit table is case-sensitive: `5 Kg`, `5 m`, `5 g` are identity
-- The inch is written like the preposition, so it is not in the table: `in` (or `in.`) right after a number is the
-  inch only where the preposition cannot stand, which always has its object after it: at the end of the text, before
-  a closing bracket or a sentence or clause mark, before a dimension word (`tall`, `wide`, `long`, `high`, `deep`,
-  `thick`, `across`) or before `in diameter`, never across a line break. `10 cm (4 in) tall` is `four inches`, `1 in
-  wide` is `one inch`, `10in tall` is `ten inches`; `4 in 10 cases`, `4 in the morning`, `2 in a row` and `3 in total`
-  keep the preposition. `pt` is not added: after a number it is a pint or a typographic point, and the text does not
-  say which
+- The unit table is case-sensitive: `5 Kg` and `5 MHZ` are identity
+- The strict units are written like the preposition `in` or like a letter, so they are read only where nothing else
+  can stand: with their abbreviation period (`in.`, `m.`), at the end of the text, before a bracket (opening or
+  closing) or a sentence or clause mark, before a dimension or rate word (`tall`, `wide`, `long`, `high`, `deep`,
+  `thick`, `across`, `away`, `apart`, `per`), before `in diameter`, or before a dimension sign and another number
+  (`5 m x 5 m`), never across a line break. The preposition always has its object after it and a letter goes on with
+  its words: `10 cm (4 in) tall` is `four inches`, `300 m (~1000 ft)` is `three hundred meters (approximately one
+  thousand feet)`, `5 m x 5 m x 5 m.` is `meters` three times, `1 in wide` is `one inch`, `10in tall` is `ten inches`;
+  `4 in 10 cases`, `4 in the morning`, `2 in a row`, `3 in total`, `5 m of rope` and `5 s and` keep the word or the
+  letter. Glued, only the inch is read (`5m` is as often five million, and `5s` the plural of five). `pt` is not
+  added: after a number it is a pint or a typographic point, and the text does not say which
 - The optional abbreviation period of the period-bearing units uses the suffix period rules of `TextNormalizer`:
   `He is 6 ft. tall.` consumes the period, `He is 6 ft.` and `He is 6 ft. Then he left.` keep it (and force a
   break before the capitalized word), `5ft. tall` is `five feet tall`, and `5 Ft. Worth` is `five feet. Worth`

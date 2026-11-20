@@ -22,7 +22,13 @@ text order, or `null`; every span indexes the text (`tokenStart` plus the offset
   compound (which ran the letters into the number, `S-C-P-one`) nor a pause. One to three capitals are an
   identifier's letter run and get a spelled `Initialism` span (`SCP-184` is `S C P one hundred eighty four`, `A-1`
   is `A one`, not the article; `SCP-049` is `S C P zero four nine`, `SCP-1234` reads its digits one by one); any
-  other name (`COVID`, `Catch`) is left as written (`COVID nineteen`)
+  other name (`COVID`, `Catch`) is left as written (`COVID nineteen`). After spelled capitals and their number, more
+  hyphenated groups may follow, each digits, one to three capitals or an identifier (`SCP-093-T2` is `S C P zero nine
+  three T two`, `SCP-093-EX` ends `E X`); the first span of each group covers its hyphen, so no hyphen is left between
+  two spoken groups
+- **Possessive** (`SCP-093's`, `B12's`): an `'s` (straight or typographic apostrophe) at the end of either shape is
+  not covered; it stays as written after the last spoken word (`zero nine three's`), which the phonemizer reads as the
+  possessive of that word (*three's*), not as the letter `S`
 
 **Key Methods**:
 

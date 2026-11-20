@@ -179,12 +179,59 @@ internal static class NumericExpressionRecognizer
     /// <summary>The magnitude words that follow a number (<c>5 million</c>).</summary>
     private static readonly string[] MagnitudeWords = ["thousand", "million", "billion", "trillion"];
 
-    /// <summary>The units that may follow a number; matching is case-sensitive.</summary>
+    /// <summary>
+    ///     The units that may follow a number; matching is case-sensitive. Each written form here is not an English word
+    ///     after a number, so it is read wherever it follows one; the single letters and <c>in</c> are in
+    ///     <see cref="StrictUnitTable"/>.
+    /// </summary>
     private static readonly UnitEntry[] UnitTable =
     [
+        new("nm", "nanometer", "nanometers", false),
+        new("\u00B5m", "micrometer", "micrometers", false),
+        new("\u03BCm", "micrometer", "micrometers", false),
         new("mm", "millimeter", "millimeters", false),
         new("cm", "centimeter", "centimeters", false),
         new("km", "kilometer", "kilometers", false),
+        new("m/s", "meter per second", "meters per second", false),
+        new("km/s", "kilometer per second", "kilometers per second", false),
+        new("kph", "kilometer per hour", "kilometers per hour", false),
+        new("rpm", "revolution per minute", "revolutions per minute", false),
+        new("\u00B5g", "microgram", "micrograms", false),
+        new("\u03BCg", "microgram", "micrograms", false),
+        new("mL", "milliliter", "milliliters", false),
+        new("cL", "centiliter", "centiliters", false),
+        new("dL", "deciliter", "deciliters", false),
+        new("Pa", "pascal", "pascals", false),
+        new("hPa", "hectopascal", "hectopascals", false),
+        new("kPa", "kilopascal", "kilopascals", false),
+        new("MPa", "megapascal", "megapascals", false),
+        new("GPa", "gigapascal", "gigapascals", false),
+        new("psi", "pound per square inch", "pounds per square inch", false),
+        new("mW", "milliwatt", "milliwatts", false),
+        new("kW", "kilowatt", "kilowatts", false),
+        new("MW", "megawatt", "megawatts", false),
+        new("GW", "gigawatt", "gigawatts", false),
+        new("Wh", "watt hour", "watt hours", false),
+        new("kWh", "kilowatt hour", "kilowatt hours", false),
+        new("MWh", "megawatt hour", "megawatt hours", false),
+        new("GWh", "gigawatt hour", "gigawatt hours", false),
+        new("mV", "millivolt", "millivolts", false),
+        new("kV", "kilovolt", "kilovolts", false),
+        new("mA", "milliampere", "milliamperes", false),
+        new("kJ", "kilojoule", "kilojoules", false),
+        new("MJ", "megajoule", "megajoules", false),
+        new("kN", "kilonewton", "kilonewtons", false),
+        new("kcal", "kilocalorie", "kilocalories", false),
+        new("dB", "decibel", "decibels", false),
+        new("\u00B5s", "microsecond", "microseconds", false),
+        new("\u03BCs", "microsecond", "microseconds", false),
+        new("ns", "nanosecond", "nanoseconds", false),
+        new("sec", "second", "seconds", true),
+        new("secs", "second", "seconds", true),
+        new("kB", "kilobyte", "kilobytes", false),
+        new("PB", "petabyte", "petabytes", false),
+        new("Mbps", "megabit per second", "megabits per second", false),
+        new("Gbps", "gigabit per second", "gigabits per second", false),
         new("ft", "foot", "feet", true),
         new("Ft", "foot", "feet", true),
         new("yd", "yard", "yards", true),
@@ -214,14 +261,35 @@ internal static class NumericExpressionRecognizer
         new("\u00B0F", "degree Fahrenheit", "degrees Fahrenheit", false),
     ];
 
-    /// <summary>
-    ///     The inch, written <c>in</c> like the preposition, so it is not in <see cref="UnitTable"/>: it is read only where
-    ///     <see cref="IsInchesAt"/> finds that the preposition cannot stand.
-    /// </summary>
+    /// <summary>The inch, written <c>in</c> like the preposition.</summary>
     private static readonly UnitEntry Inch = new("in", "inch", "inches", true);
 
-    /// <summary>The words of a dimension that make a preceding <c>in</c> after a number the inch (<c>4 in tall</c>).</summary>
-    private static readonly string[] DimensionWords = ["tall", "wide", "long", "high", "deep", "thick", "across"];
+    /// <summary>
+    ///     The units written like a word or a letter (<c>in</c>, <c>m</c>, <c>g</c>, <c>s</c>, <c>l</c>, <c>L</c>, <c>V</c>,
+    ///     <c>J</c>), so they are not in <see cref="UnitTable"/>: each is read only where <see cref="TryGetStrictUnitAt"/> finds
+    ///     that nothing but a unit can stand there (<c>4 in tall</c>, <c>300 m (</c>, <c>5 m x 5 m</c>, <c>10 s.</c>).
+    /// </summary>
+    /// <remarks>
+    ///     <c>A</c> (the article and the grade), <c>K</c> (the thousand of <c>50K</c>), <c>N</c> and <c>W</c> (the compass
+    ///     points of <c>40 N, 74 W</c>) are deliberately not units at all: the letter is spelled.
+    /// </remarks>
+    private static readonly UnitEntry[] StrictUnitTable =
+    [
+        Inch,
+        new("m", "meter", "meters", true),
+        new("g", "gram", "grams", true),
+        new("s", "second", "seconds", true),
+        new("l", "liter", "liters", true),
+        new("L", "liter", "liters", true),
+        new("V", "volt", "volts", true),
+        new("J", "joule", "joules", true),
+    ];
+
+    /// <summary>
+    ///     The words of a dimension or a rate that make a preceding word-like unit after a number the unit
+    ///     (<c>4 in tall</c>, <c>5 m away</c>, <c>3 m per second</c>).
+    /// </summary>
+    private static readonly string[] DimensionWords = ["tall", "wide", "long", "high", "deep", "thick", "across", "away", "apart", "per"];
 
     /// <summary>The currencies, by symbol and code.</summary>
     private static readonly CurrencyEntry[] CurrencyTable =
@@ -396,6 +464,30 @@ internal static class NumericExpressionRecognizer
     }
 
     /// <summary>
+    ///     Tells whether a word is the written form of a unit, of either table, with or without its period.
+    /// </summary>
+    /// <param name="word">The word.</param>
+    /// <returns><see langword="true"/> for <c>m</c>, <c>cm</c>, <c>ft.</c>, <c>kPa</c> and the other units.</returns>
+    internal static bool IsUnitWord(ReadOnlySpan<char> word)
+    {
+        if (TryGetUnit(word, out _, out _))
+        {
+            return true;
+        }
+
+        var core = word.Length > 1 && word[^1] == '.' ? word[..^1] : word;
+        foreach (var entry in StrictUnitTable)
+        {
+            if (core.SequenceEqual(entry.Written))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     ///     Tells whether a token is a month: a Title Case full name, or a Title Case abbreviation
     ///     with or without one trailing period.
     /// </summary>
@@ -441,6 +533,20 @@ internal static class NumericExpressionRecognizer
         var token = ValidToken(text, tokens, index);
         var span = text.AsSpan(token.Start, token.Length);
         var first = span[0];
+
+        // A tilde before a number (~1000, ~ 5): "approximately", then the number read without it. The sign of
+        // approximate equality between two numbers (3 ≈ 6) is the symbol rule's "approximately equal to".
+        if (first == '~')
+        {
+            return TryApproximately(text, tokens, index, out match);
+        }
+
+        // Brackets glued to the end of a numeric token (the tokenizer's "12th(" of "12th(?)"): the number is read without
+        // them, and they stay as written after it.
+        if (token.Length > 1 && IsBracket(span[^1]) && ParsePrefix(span, true, out _, out _, out _) >= 0)
+        {
+            return TryWithoutTrailingBrackets(text, tokens, index, out match);
+        }
 
         // Single-character tokens that start an expression of their own.
         if (token.Length == 1)
@@ -488,6 +594,116 @@ internal static class NumericExpressionRecognizer
         Scan(ref context, true);
         return Dispatch(ref context, out match);
     }
+
+    /// <summary>
+    ///     Reads an approximation sign before a number: a lone sign joined to a number token (<c>~ 5</c>) is
+    ///     <i>approximately</i>; a sign glued to the number (<c>~1000 ft</c>) is <i>approximately</i> over the sign and the
+    ///     number (with its follow-up tokens) read as if the sign were not there.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="tokens">The tokens.</param>
+    /// <param name="index">The index of the token that starts with the sign.</param>
+    /// <param name="match">The match when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> when a number follows the sign.</returns>
+    private static bool TryApproximately(string text, ReadOnlySpan<NormalizationToken> tokens, int index, out NumericMatch match)
+    {
+        match = default;
+        var token = tokens[index];
+        if (token.Length == 1)
+        {
+            var nextIndex = NextJoined(text, tokens, index);
+            if (nextIndex < 0 || ParsePrefix(text.AsSpan(tokens[nextIndex].Start, tokens[nextIndex].Length), true, out _, out _, out _) < 0)
+            {
+                return false;
+            }
+
+            var lone = new Builder { Consumed = 1 };
+            lone.Add(token.Start, 1, "approximately", NormalizationKind.Number);
+            match = lone.ToMatch();
+            return true;
+        }
+
+        // The number without the sign, with the tokens around it for its context
+        var shifted = new NormalizationToken(token.Start + 1, token.Length - 1, token.StartsSentence);
+        if (ParsePrefix(text.AsSpan(shifted.Start, shifted.Length), true, out _, out _, out _) < 0)
+        {
+            return false;
+        }
+
+        var window = Window(tokens, index, shifted, keepFollowing: true, out var windowIndex);
+        if (!TryRecognize(text, window, windowIndex, out var number) || number.SpanCount == 0)
+        {
+            return false;
+        }
+
+        var builder = new Builder { Consumed = number.TokensConsumed, Ambiguous = number.Ambiguous, Fallback = number.Fallback, PeriodUnit = number.PeriodUnit };
+        builder.Add(token.Start, 1, "approximately", NormalizationKind.Number);
+        for (var s = 0; s < number.SpanCount; s++)
+        {
+            var span = number[s];
+            builder.Add(span.Start, span.Length, span.Spoken, span.Kind);
+        }
+
+        match = builder.ToMatch();
+        return true;
+    }
+
+    /// <summary>
+    ///     Reads a numeric token that ends with glued brackets (<c>12th(</c>, <c>5)</c>) as the token without them; the
+    ///     brackets are not covered and stay as written.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="tokens">The tokens.</param>
+    /// <param name="index">The index of the token.</param>
+    /// <param name="match">The match when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> when the token without its brackets is a numeric expression.</returns>
+    private static bool TryWithoutTrailingBrackets(string text, ReadOnlySpan<NormalizationToken> tokens, int index, out NumericMatch match)
+    {
+        var token = tokens[index];
+        var length = token.Length;
+        while (length > 0 && IsBracket(text[token.Start + length - 1]))
+        {
+            length--;
+        }
+
+        match = default;
+        if (length == 0)
+        {
+            return false;
+        }
+
+        // Nothing after a bracket is joined to the number, so the following tokens are left out
+        var window = Window(tokens, index, new NormalizationToken(token.Start, length, token.StartsSentence), keepFollowing: false, out var windowIndex);
+        return TryRecognize(text, window, windowIndex, out match);
+    }
+
+    /// <summary>
+    ///     Copies the tokens around one token, with that token replaced, for reading it in the same context (the bounded
+    ///     look-behind and look-ahead of the readers).
+    /// </summary>
+    /// <param name="tokens">The tokens.</param>
+    /// <param name="index">The index of the replaced token.</param>
+    /// <param name="replacement">The token in its place.</param>
+    /// <param name="keepFollowing">Whether the tokens after it are kept.</param>
+    /// <param name="windowIndex">The index of the replacement in the window.</param>
+    /// <returns>The window.</returns>
+    private static NormalizationToken[] Window(ReadOnlySpan<NormalizationToken> tokens, int index, NormalizationToken replacement, bool keepFollowing, out int windowIndex)
+    {
+        const int Context = 3;
+        var start = Math.Max(0, index - Context);
+        var end = keepFollowing ? Math.Min(tokens.Length, index + Context + 1) : index + 1;
+        var window = tokens[start..end].ToArray();
+        windowIndex = index - start;
+        window[windowIndex] = replacement;
+        return window;
+    }
+
+    /// <summary>
+    ///     Tells whether a character is a round, square or curly bracket.
+    /// </summary>
+    /// <param name="character">The character.</param>
+    /// <returns><see langword="true"/> for <c>( ) [ ] { }</c>.</returns>
+    private static bool IsBracket(char character) => character is '(' or ')' or '[' or ']' or '{' or '}';
 
     /// <summary>
     ///     Routes a scanned token to the reader of its shape.
@@ -893,14 +1109,40 @@ internal static class NumericExpressionRecognizer
         }
 
         // A unit or a currency glued to the number: 5kg, 72°F, 5USD, 5$; inches by the rule of the separate form (4in tall).
+        // The other word-like units are not read glued: 5m is as often five million, and 5s the plural of five.
         if (TryGetUnit(rest, out var unit, out _))
         {
             return TryGluedWord(ref c, integerDigits, fraction, unit.Singular, unit.Plural, unit.AllowsPeriod, NormalizationKind.Unit, out match);
         }
 
-        if (IsInchesAt(c.Text, c.Tokens, c.Index, rest))
+        if (TryGetStrictUnitAt(c.Text, c.Tokens, c.Index, rest, out var strictUnit) && strictUnit == Inch)
         {
             return TryGluedWord(ref c, integerDigits, fraction, Inch.Singular, Inch.Plural, Inch.AllowsPeriod, NormalizationKind.Unit, out match);
+        }
+
+        // Two numbers joined by a dimension sign (5x5, 1920x1080, 10×20): each number, and the sign read "by". A first
+        // number that is a lone zero is the prefix of a hexadecimal number (0x1F) and is left alone.
+        if (unsignedInteger && !hasThousands && c.GroupCount == 1 && rest.Length > 1 && rest[0] is 'x' or '\u00D7'
+            && !(integerDigits.Length == 1 && integerDigits[0] == '0') && AllDigits(rest[1..]) && rest.Length - 1 <= NumberVerbalizer.MaxCardinalDigits)
+        {
+            return TryDimensions(ref c, integerDigits, rest[1..], out match);
+        }
+
+        // A possessive on a number (3's, the 747's wings): the number is read and the 's is left to the word it ends.
+        if (unsignedInteger && c.GroupCount == 1 && rest.Length == 2 && rest[1] == 's' && rest[0] is '\'' or '\u2019')
+        {
+            var writer = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+            var fallback = false;
+            if (!TryAppendInteger(ref writer, integerDigits, ref fallback))
+            {
+                match = FallbackMatch();
+                return true;
+            }
+
+            var builder = new Builder { Consumed = 1, Fallback = fallback };
+            builder.Add(c.Token.Start, c.RestStart, writer.ToString(), NormalizationKind.Number);
+            match = builder.ToMatch();
+            return true;
         }
 
         if (TryGetCurrencySuffix(rest, out var currency))
@@ -999,6 +1241,35 @@ internal static class NumericExpressionRecognizer
         writer.Append(IsExactlyOne(integerDigits, fraction) ? singular : plural);
         var builder = new Builder { Consumed = 1, Fallback = fallback, PeriodUnit = periodUnit };
         builder.Add(c.Token.Start, c.Token.Length, writer.ToString(), kind);
+        match = builder.ToMatch();
+        return true;
+    }
+
+    /// <summary>
+    ///     Reads two numbers joined by a dimension sign in one token (<c>5x5</c>, <c>1920x1080</c>, <c>10×20</c>): three
+    ///     spans, the first number, <i>by</i> over the sign and the second number.
+    /// </summary>
+    /// <param name="c">The scanned token, a plain integer whose rest is the sign and digits.</param>
+    /// <param name="integerDigits">The digits of the first number.</param>
+    /// <param name="second">The digits of the second number.</param>
+    /// <param name="match">The match when this method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> always (a number beyond the limits is a fallback).</returns>
+    private static bool TryDimensions(ref Ctx c, ReadOnlySpan<char> integerDigits, ReadOnlySpan<char> second, out NumericMatch match)
+    {
+        match = default;
+        var firstWriter = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        var secondWriter = new SpokenWriter(stackalloc char[NumberVerbalizer.MaxSpokenLength]);
+        var fallback = false;
+        if (!TryAppendInteger(ref firstWriter, integerDigits, ref fallback) || !TryAppendInteger(ref secondWriter, second, ref fallback))
+        {
+            match = FallbackMatch();
+            return true;
+        }
+
+        var builder = new Builder { Consumed = 1, Fallback = fallback };
+        builder.Add(c.Token.Start, c.RestStart, firstWriter.ToString(), NormalizationKind.Number);
+        builder.Add(c.Token.Start + c.RestStart, 1, "by", NormalizationKind.Symbol);
+        builder.Add(c.Token.Start + c.RestStart + 1, second.Length, secondWriter.ToString(), NormalizationKind.Number);
         match = builder.ToMatch();
         return true;
     }
@@ -1177,12 +1448,12 @@ internal static class NumericExpressionRecognizer
             return;
         }
 
-        // Inches, written like the preposition: only where the preposition cannot stand (4 in), 4 in tall, 4 in.
-        if (IsInchesAt(c.Text, c.Tokens, nextIndex, word))
+        // A unit written like a word or a letter: only where nothing else can stand (4 in), 4 in tall, 300 m (, 5 m x 5 m.
+        if (TryGetStrictUnitAt(c.Text, c.Tokens, nextIndex, word, out var strict))
         {
-            builder.Add(next.Start, next.Length, one ? Inch.Singular : Inch.Plural, NormalizationKind.Unit);
+            builder.Add(next.Start, next.Length, one ? strict.Singular : strict.Plural, NormalizationKind.Unit);
             builder.Consumed = 2;
-            builder.PeriodUnit = Inch.AllowsPeriod;
+            builder.PeriodUnit = strict.AllowsPeriod;
             return;
         }
 
@@ -2365,32 +2636,52 @@ internal static class NumericExpressionRecognizer
     }
 
     /// <summary>
-    ///     Tells whether an <c>in</c> right after a number is the inch rather than the preposition.
+    ///     Tells whether a word right after a number is a unit written like a word or a letter (<c>in</c>, <c>m</c>,
+    ///     <c>s</c> ...) rather than the word or the letter.
     /// </summary>
     /// <param name="text">The text.</param>
     /// <param name="tokens">The tokens.</param>
-    /// <param name="index">The index of the token that ends with <paramref name="word"/> (the <c>in</c> token, or the number it is glued to).</param>
-    /// <param name="word">The written form: <c>in</c>, or <c>in.</c> with the abbreviation period.</param>
+    /// <param name="index">The index of the token that ends with <paramref name="word"/> (the unit token, or the number it is glued to).</param>
+    /// <param name="word">The written form, with or without an abbreviation period.</param>
+    /// <param name="unit">The unit when this method returns <see langword="true"/>.</param>
     /// <returns>
-    ///     <see langword="true"/> for <c>in.</c>, and for <c>in</c> at the end of the text or followed by a closing bracket,
-    ///     a sentence or clause mark, a dimension word (<c>tall</c>, <c>wide</c>, <c>long</c>, <c>high</c>, <c>deep</c>,
-    ///     <c>thick</c>, <c>across</c>) or <c>in diameter</c>; <see langword="false"/> otherwise.
+    ///     <see langword="true"/> for a form of <see cref="StrictUnitTable"/> written with its period (<c>in.</c>, <c>m.</c>),
+    ///     or at the end of the text, or followed by a bracket, a sentence or clause mark, a dimension or rate word
+    ///     (<c>tall</c>, <c>wide</c>, <c>long</c>, <c>high</c>, <c>deep</c>, <c>thick</c>, <c>across</c>, <c>away</c>,
+    ///     <c>apart</c>, <c>per</c>), <c>in diameter</c>, or a dimension sign and a number (<c>5 m x 5 m</c>);
+    ///     <see langword="false"/> otherwise.
     /// </returns>
     /// <remarks>
     ///     The preposition after a number always has its object after it (<i>4 in 10 cases</i>, <i>4 in the morning</i>,
-    ///     <i>2 in a row</i>, <i>3 in total</i>), so an <c>in</c> with nothing after it, or only a bracket, a mark or a
-    ///     dimension, is the unit. A line break after it is not the end of the text: a wrapped line may go on with the object.
+    ///     <i>2 in a row</i>, <i>3 in total</i>), and a letter after a number goes on with the words it belongs to
+    ///     (<i>5 m tall</i> is the unit, <i>part 5 s of the list</i> is not), so a form with nothing after it, or only a
+    ///     bracket, a mark, a dimension or another measure, is the unit. A line break after it is not the end of the text: a
+    ///     wrapped line may go on with the object.
     /// </remarks>
-    private static bool IsInchesAt(string text, ReadOnlySpan<NormalizationToken> tokens, int index, ReadOnlySpan<char> word)
+    private static bool TryGetStrictUnitAt(string text, ReadOnlySpan<NormalizationToken> tokens, int index, ReadOnlySpan<char> word, out UnitEntry unit)
     {
-        if (word.SequenceEqual("in."))
+        unit = default;
+        var core = word.Length > 1 && word[^1] == '.' ? word[..^1] : word;
+        var found = false;
+        foreach (var entry in StrictUnitTable)
         {
-            return true;
+            if (core.SequenceEqual(entry.Written))
+            {
+                unit = entry;
+                found = true;
+                break;
+            }
         }
 
-        if (!word.SequenceEqual("in"))
+        if (!found)
         {
             return false;
+        }
+
+        // The abbreviation period, or the period of the sentence: nothing follows the unit in its clause
+        if (core.Length != word.Length)
+        {
+            return true;
         }
 
         // Nothing after it: the end of the text
@@ -2407,11 +2698,18 @@ internal static class NumericExpressionRecognizer
             return false;
         }
 
-        // A closing bracket, a mark or a dimension after it
+        // A bracket, a mark or a dimension after it
         var followingWord = text.AsSpan(following.Start, following.Length);
-        if (followingWord[0] is ')' or ']' or '}' or '.' or ',' or ';' or ':' or '!' or '?' || IsOneOf(followingWord, DimensionWords, ignoreCase: true))
+        if (followingWord[0] is '(' or ')' or '[' or ']' or '{' or '}' or '.' or ',' or ';' or ':' or '!' or '?' || IsOneOf(followingWord, DimensionWords, ignoreCase: true))
         {
             return true;
+        }
+
+        // Another measure after a dimension sign: 5 m x 5 m
+        if (after + 1 < tokens.Length && followingWord.Length == 1 && followingWord[0] is 'x' or '\u00D7')
+        {
+            var measure = ValidToken(text, tokens, after + 1);
+            return IsDigit(text[measure.Start]);
         }
 
         // in diameter
@@ -2423,7 +2721,6 @@ internal static class NumericExpressionRecognizer
         var third = ValidToken(text, tokens, after + 1);
         return text.AsSpan(third.Start, third.Length).Equals("diameter", StringComparison.OrdinalIgnoreCase);
     }
-
     /// <summary>
     ///     Finds the unit a written form names.
     /// </summary>

@@ -32,6 +32,20 @@ its tokens (the next token processed is the one after it):
   separators are left for the phonemizer. No span contains a colon (A5'), so the colon after the scheme and before a
   port stays as a pause mark. Runs before the clitic rule so that an address is never taken for a clitic or an
   abbreviation
+- **1c. Editorial mark**: one to three question or exclamation marks in brackets, `(?)`, `(!)`, `(?!)`, each token
+  touching the one before, the opening bracket its own token or glued to the end of the token before (the tokenizer's
+  `12th(` of `12th(?)`, when that bracket is not covered yet). Every character of it is `Dropped`: an editor's doubt is
+  neither read nor a pause (`June 12th(?), done` is `June twelfth, done`); a bracket that holds words is left alone
+- **1d. Restated number**: an opening bracket set apart by one space from a number, holding only the same number in the
+  other form and closed at once: `One (1)`, `three (3)`, `twenty-five (25)`, `one hundred and five (105)` (number words,
+  capitalized or hyphenated, up to six tokens before) or `3 (three)` (digits before words). The brackets and the
+  restatement are `Dropped`, so the number is read once, with no pause; a different value (`three (4)`) is left alone.
+  Number words are read by a small parser of cardinals below a billion that rejects an ill-formed run (`three two`)
+- **1e. Dimension sign**: a lone `x` or `×` with one space on each side, after a number or after a unit word (either
+  table of the numeric rule) that follows a number, and before a number (`2 x 4`, `5 m x 5 m`, `10 × 20`), is `by`
+  (`Symbol` span), or `times` when an arithmetic operator or relation follows the second number (`3 x 4 = 12`,
+  `3 × 4 ÷ 2`). A variable (`x = 5`), a letter of a name (`Malcolm X`), a word (`X-ray`) and a count (`5 cats x 3`) are
+  left alone
 - **2. Clitic**: `n't`, `'re`, `'ve`, `'ll`, `'m`, `'s` or `'d` (any apostrophe style, any case). A typographic
   apostrophe becomes an `Apostrophe` span with the replacement `'`; when roles are requested, the role is
   recorded
@@ -49,7 +63,9 @@ its tokens (the next token processed is the one after it):
   `Initialism` span, each digit run a `Number` span (a cardinal for up to three digits without a leading zero,
   digit by digit otherwise); for the hyphenated name the hyphen and the digits get one span, so the name and the
   number are two words (`COVID nineteen`), and one to three capitals before the hyphen are spelled (`S C P one hundred
-  eighty four`). It runs after the lexicons so that an entry of either wins
+  eighty four`), with later groups after spelled capitals spoken group by group (`SCP-093-T2` is `S C P zero nine three
+  T two`). A possessive `'s` on either shape stays as written after the last spoken word (`zero nine three's`). It runs
+  after the lexicons so that an entry of either wins
 - **4c. Number sign**: a lone `#` set apart by a space from a word of letters before it, followed directly by a colon
   (`Item #:`) or by a number after one space (`Case # 12`), is the word `number` (`Symbol` span); a `#` at the start
   of a line or before a word is a heading mark or a hashtag and is left alone, and a sign glued to its number (`#5`)

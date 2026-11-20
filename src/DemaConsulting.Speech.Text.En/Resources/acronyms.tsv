@@ -9,7 +9,10 @@
 #   spoken     the letters spoken one by one, separated by single spaces
 #   ambiguous  yes when the form is also an ordinary English word written in capitals
 #              (it is then left alone inside an all-capital sentence)
-# Acronyms spoken as words (NASA, NATO) are deliberately not listed.
+# Acronyms spoken as words (NASA, NATO) are deliberately not listed. The initialisms that the pronunciation
+# dictionary has as a word or a name (KIA as the car brand, MIA and IRA as names, POW and GED as words, AKA read as a
+# word) are listed so the dictionary's word is not read for them; the casualty and status initialisms (KIA, MIA, WIA, POW,
+# DOA) and the common ones with a vowel that the dictionary lacks (ETA, ICU, IED, EOD) are listed with them.
 form	spoken	ambiguous
 US	U S	yes
 USA	U S A	no
@@ -67,3 +70,15 @@ FAQ	F A Q	no
 ASAP	A S A P	no
 DIY	D I Y	no
 FYI	F Y I	no
+KIA	K I A	no
+MIA	M I A	no
+WIA	W I A	no
+POW	P O W	yes
+DOA	D O A	no
+AKA	A K A	no
+GED	G E D	no
+IRA	I R A	no
+ETA	E T A	no
+ICU	I C U	no
+IED	I E D	no
+EOD	E O D	no

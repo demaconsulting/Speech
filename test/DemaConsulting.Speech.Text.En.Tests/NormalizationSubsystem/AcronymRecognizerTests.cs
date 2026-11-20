@@ -46,6 +46,10 @@ public sealed class AcronymRecognizerTests
     [InlineData("FBI", "F B I")]
     [InlineData("ASAP", "A S A P")]
     [InlineData("NYC", "N Y C")]
+    [InlineData("KIA", "K I A")]
+    [InlineData("MIA", "M I A")]
+    [InlineData("POW", "P O W")]
+    [InlineData("ETA", "E T A")]
     public void AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter(string token, string spoken)
     {
         // Act
