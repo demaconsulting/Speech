@@ -154,9 +154,8 @@ public class MainViewModelPlaybackMarksTests
 
         // Act: the listener clicks sentence 2
         viewModel.CurrentIndex = 1;
-        await Task.Delay(200, TestContext.Current.CancellationToken);
 
-        // Assert: the old run is stopped, nothing started by itself, and F is for the clicked sentence
+        // Assert: the old run is stopped on the spot, nothing started by itself, and F is for the clicked sentence
         Assert.Equal(PlaybackState.Stopped, viewModel.State);
         Assert.Equal(1, viewModel.CurrentIndex);
         Assert.Equal(writes, device.WriteCount);
@@ -190,11 +189,12 @@ public class MainViewModelPlaybackMarksTests
         viewModel.PlayPause();
         viewModel.PlayPause();
         Assert.Equal(PlaybackState.Paused, viewModel.State);
-        var before = viewModel.DiagnosticsTask;
         release.SetResult();
-        await WaitUntilAsync(() => !ReferenceEquals(viewModel.DiagnosticsTask, before));
+
+        // The player has the prepared audio and is waiting behind the pause: the point where the old code
+        // already called the sentence audible.
+        await WaitUntilAsync(() => context.Player.IsPlaying);
         await viewModel.DiagnosticsTask;
-        await Task.Delay(200, TestContext.Current.CancellationToken);
 
         // Act: flag while the prepared audio is waiting behind the pause
         viewModel.BeginFlag(0, 0);
@@ -213,6 +213,40 @@ public class MainViewModelPlaybackMarksTests
 
         // Assert: now that it sounds, a flag describes the audio that was heard
         Assert.NotEqual(string.Empty, viewModel.Flags[1].Flag.Readings);
+    }
+
+    /// <summary>
+    ///     Validates that a sentence whose prepared buffer has no samples is never treated as heard: it is neither
+    ///     audible nor finished, and its snapshot never reaches the history.
+    /// </summary>
+    /// <returns>A task that completes when the check is done.</returns>
+    [Fact]
+    public async Task MainViewModel_BeginFlag_EmptyAudioBuffer_IsNeverTreatedAsHeard()
+    {
+        var device = new FakePlaybackDevice();
+        using var context = new ViewModelContext(null, null, (_, _, _) => Task.FromResult(new SentenceAudio([], [])), device);
+        var viewModel = context.ViewModel;
+        await LoadAsync(viewModel);
+
+        // Arrange: both sentences run through the real controller with nothing to play
+        viewModel.PlayPause();
+        await WaitUntilAsync(() => viewModel.State == PlaybackState.Stopped && viewModel.CurrentIndex == 1);
+        Assert.Equal(0, device.WriteCount);
+
+        // Act: the slot's model changes, then the listener flags the previous sentence
+        var changed = viewModel.SlotA.Models[^1];
+        viewModel.SlotA.SelectedModel = changed;
+        viewModel.BeginFlagPrevious();
+        viewModel.SaveFlag();
+
+        // Assert: no audio was heard for sentence 1, so the flag records the slot's current model, not a snapshot
+        var flag = Assert.Single(viewModel.Flags).Flag;
+        Assert.Equal(0, flag.SentenceIndex);
+        Assert.Equal(changed.Descriptor.Id, flag.Model.ModelId);
+
+        // And a plain flag is not pulled back to a sentence that never finished sounding
+        viewModel.BeginFlag(0, 0);
+        Assert.Contains("sentence 2 of 2", viewModel.EditorHeader, StringComparison.Ordinal);
     }
 
     /// <summary>

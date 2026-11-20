@@ -317,20 +317,22 @@ internal sealed class PlaybackController
             }
 
             // The sentence is audible only when its samples actually start playing (after any pause),
-            // not when its audio is merely ready; audio without samples is announced at its end.
+            // not when its audio is merely ready. The player raises the callback just before the first
+            // block is written, for every buffer that has samples; a buffer with none (silence only, or
+            // nothing) is never heard, so it is neither audible nor finished.
             var announced = false;
-            void Announce()
-            {
-                if (!announced)
+            await _player.PlayAsync(
+                prepared,
+                token,
+                () =>
                 {
                     announced = true;
                     _host.OnSentenceAudible(index, target.Name);
-                }
+                });
+            if (announced)
+            {
+                _host.OnSentenceFinished(index, target.Name);
             }
-
-            await _player.PlayAsync(prepared, token, Announce);
-            Announce();
-            _host.OnSentenceFinished(index, target.Name);
 
             if (slot < targets.Count - 1)
             {

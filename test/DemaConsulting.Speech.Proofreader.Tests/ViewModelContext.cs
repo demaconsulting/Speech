@@ -40,11 +40,12 @@ internal sealed class ViewModelContext : IDisposable
         _catalog = ProofreaderCatalog.Create(Path.Combine(Directory, "models"), null);
         _host = new SynthesisEngineHost(_catalog.Catalog);
         Diagnostics = new DiagnosticsBuilder(SentenceSplitter.CreateAnalyzer());
+        Player = device is null ? new SentencePlayer(new AudioDeviceFactory()) : new SentencePlayer(new AudioDeviceFactory(), _ => device);
         ViewModel = new MainViewModel(
             _catalog,
             _host,
             synthesize is null ? new SentenceAudioCache(_host) : new SentenceAudioCache(synthesize),
-            device is null ? new SentencePlayer(new AudioDeviceFactory()) : new SentencePlayer(new AudioDeviceFactory(), _ => device),
+            Player,
             new SentenceSplitter(),
             Diagnostics,
             settingsPath is null ? null : new UserSettingsStore(settingsPath),
@@ -59,6 +60,9 @@ internal sealed class ViewModelContext : IDisposable
 
     /// <summary>Gets the view model.</summary>
     public MainViewModel ViewModel { get; }
+
+    /// <summary>Gets the audio player the view model plays through.</summary>
+    public SentencePlayer Player { get; }
 
     /// <inheritdoc/>
     public void Dispose()
