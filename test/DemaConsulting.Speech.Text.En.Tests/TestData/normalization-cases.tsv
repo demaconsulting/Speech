@@ -84,6 +84,8 @@ acr-shouting	LET US GO NOW.	LET US GO NOW.	LET US GO NOW.	0	shouted sentence lea
 acr-shouting-fbi	THE FBI IS HERE.	THE F B I IS HERE.	THE FBI IS HERE.	0	unambiguous listed form still spelled
 acr-rule	The NYC office uses HTTP.	The N Y C office uses H T T P.	The NYC office uses HTTP.	0	vowel-less capitals
 acr-word	NASA and NATO met.	NASA and NATO met.	NASA and NATO met.	0	read as words
+acr-collision	He was presumed KIA, his friend MIA and one a POW.	He was presumed K I A, his friend M I A and one a P O W.	He was presumed KIA, his friend MIA and one a POW.	0	reviewed initialisms that the dictionary has as words or names
+acr-collision-shouting	POW, IT HIT HIM.	POW, IT HIT HIM.	POW, IT HIT HIM.	0	the interjection in a shouted sentence is left alone
 acr-roman	Chapter CDXL ends.	Chapter CDXL ends.	Chapter CDXL ends.	0	roman numeral shape
 acr-dotted	He lives in the U.S. now.	He lives in the U S now.	He lives in the U.S. now.	0	dotted initialism mid sentence
 acr-dotted-end	He lives in the U.S. He works.	He lives in the U S. He works.	He lives in the U.S.¦He works.	0	dotted initialism at a sentence end
@@ -166,6 +168,10 @@ web-url-dotless-host-path	Fetch ftp://server/path today.	Fetch F T P:server slas
 web-url-dotless-host-port	Try https://localhost:8080/x now.	Try H T T P S:localhost:8080 slash x now.	Try https://localhost:8080/x now.	0	a dotless host with a port and a path: the colon of the port stays
 web-scheme-only	Type http:// then press enter.	Type http:// then press enter.	Type http:// then press enter.	0	a scheme with nothing after it is not an address and is left as written
 id-letter-digit	Use paper A4 and vitamin B12 with H2O and MP3.	Use paper A four and vitamin B twelve with H two O and M P three.	Use paper A4 and vitamin B12 with H2O and MP3.	0	identifiers of capital letters and digits: letters spelled, digits read
-id-name-number	COVID-19 and Catch-22 spread.	COVID-nineteen and Catch-twenty two spread.	COVID-19 and Catch-22 spread.	0	a name joined to a number by a hyphen: the number is read
+id-name-number	COVID-19 and Catch-22 spread.	COVID nineteen and Catch twenty two spread.	COVID-19 and Catch-22 spread.	0	a name joined to a number by a hyphen: the number is read as a word of its own
+id-letters-number	Item SCP-184 and A-1 and SCP-049.	Item S C P one hundred eighty four and A one and S C P zero four nine.	Item SCP-184 and A-1 and SCP-049.	0	capitals joined to a number by a hyphen are spelled, then the number
+id-number-sign	Item #: 5 and Case # 12 and # Title.	Item number: five and Case number twelve and # Title.	Item #: 5 and Case # 12 and # Title.	0	a lone number sign after a word, before a colon or a number, is the word number; a heading mark is not
+id-possessive	The SCP-093's door and the B12's dose.	The S C P zero nine three's door and the B twelve's dose.	The SCP-093's door and the B12's dose.	0	a possessive stays on the last spoken word
+id-groups	Test SCP-093-T2 now.	Test S C P zero nine three T two now.	Test SCP-093-T2 now.	0	a later identifier group after spelled capitals
 num-hyphen-compound-and-k	Her 12-year-old ran 10K in 24-hour heat.	Her twelve-year-old ran ten K in twenty four-hour heat.	Her 12-year-old ran 10K in 24-hour heat.	0	the number of a hyphenated compound, and a number with a capital letter glued to it
 abbr-square-feet	The 200 sq. ft. room is big.	The two hundred square feet room is big.	The 200 sq. ft. room is big.	0	sq. and ft. after a number

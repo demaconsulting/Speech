@@ -17,6 +17,10 @@
     <IsPackable>false</IsPackable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Embeds the DEMA Consulting logo (repository-root Icon.ico) as the Windows executable's
+         icon (Explorer, taskbar, Alt-Tab). The Win32 icon resource only affects the Windows exe;
+         Linux and macOS hosts ignore it, and the window icon below covers every platform. -->
+    <ApplicationIcon>..\..\Icon.ico</ApplicationIcon>
 
     <!-- Code Quality Configuration (mirrors DemaConsulting.Speech.csproj) -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -36,6 +40,15 @@
          in a Release build, so it is conditioned on the Debug configuration. -->
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.22" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <!-- Application Icon.
+       The DEMA Consulting logo, sourced from the repository-root Icon.png (one shared copy, also
+       the NuGet package icon), is embedded into the assembly as an Avalonia resource so the
+       window and taskbar icon resolve on every platform via
+       avares://DemaConsulting.Speech.Demo/Assets/Icon.png. -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\Icon.png" Link="Assets\Icon.png" />
   </ItemGroup>
 
   <!-- Speech Engine Native Runtime Dependencies.

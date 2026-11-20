@@ -234,8 +234,8 @@ public sealed class SpeechOnnxPiperTests : IDisposable
         var whole = backend.Generate(text, 1.0f, 0);
         var silent = backend.Generate("\U0001F600", 1.0f, 0);
 
-        // Assert: the ids of one sentence minus its two framing ids, forty times, with a tenth of slack for the cuts
-        Assert.True(whole.Samples.Length >= 0.9 * 40 * (single.Ids.Length - 2), "No sentence may be lost.");
+        // Assert: the ids of one sentence minus its three framing ids, forty times, with a tenth of slack for the cuts
+        Assert.True(whole.Samples.Length >= 0.9 * 40 * (single.Ids.Length - 3), "No sentence may be lost.");
         Assert.Empty(silent.Samples);
         Assert.Equal(22050, silent.SampleRate);
     }

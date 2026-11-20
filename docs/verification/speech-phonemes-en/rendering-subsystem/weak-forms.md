@@ -23,7 +23,9 @@ reduced form of `to` has no form right after `close` (a voicing-alternating word
 `but` stays demoted after `close`; the voicing-alternating words are derived from the data
 (`close use house excuse abuse diffuse misuse reuse versus` are in; `with the to cat record read refuse` are not). The
 form of the first word of a text gets a secondary stress mark before its first full vowel only when it is an unmarked
-full-vowel form (not `the`, `for`, a reduced form or a form that has a mark).
+full-vowel form (not `the`, `for`, a reduced form or a form that has a mark). A word tagged `NOUN` or `PROPN`, and
+`will` or `can` tagged `VERB`, is a content use; the auxiliary, `have` and `was` tagged `VERB` and an untagged word are
+not. The group `of a` has the forms `əv` and `ə`; `was a`, `of the` and a marked `ˌʌv` keep their forms.
 
 #### Test Scenarios
 
@@ -45,3 +47,12 @@ full-vowel form (not `the`, `for`, a reduced form or a form that has a mark).
 
 `he` `hiː` becomes `hˌiː`, `should` `ʃʊd` becomes `ʃˌʊd`, `I` `aɪ` becomes `ˌaɪ`, `and` `ænd` becomes `ˌænd`; the
 reduced `ðə`, `ðɪ`, `ɐn` and `tə`, the marked `ˌɔn` and `bɪkˈʌz`, and the words `the` and `for` are unchanged.
+
+##### Content use and groups
+
+**Tests**: `WeakForms_IsContentUse_NounOrMainVerbModal_IsAContentUse`,
+`WeakForms_InGroup_OfAIsReducedAndOtherGroupsKeepTheirForms`
+
+Items built with a tag: `will` (`NOUN`), `Will` (`PROPN`), `will` and `can` (`VERB`) and `must` (`NOUN`) are content
+uses; `will` (`AUX`), `have` and `was` (`VERB`) and an untagged `will` are not. `of` and `a` with `ʌv` and `ɐ` give `əv`
+and `ə` in any case of the letters; `was a`, `of the` and an `of` that carries a mark are returned unchanged.

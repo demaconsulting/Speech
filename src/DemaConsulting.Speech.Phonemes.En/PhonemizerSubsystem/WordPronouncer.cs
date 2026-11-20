@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using DemaConsulting.Speech.Phonemes.En.LetterToSoundSubsystem;
 using DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 
@@ -87,6 +88,54 @@ internal sealed class WordPronouncer
     private static readonly Dictionary<string, Pronunciation> CompoundPrefixForms = BuildCompoundPrefixForms();
 
     /// <summary>
+    ///     The combining forms (<c>bio-</c>, <c>micro-</c>, <c>electro-</c> ...) with their sound as a first element, the
+    ///     stressed vowel secondary. Before a root of three or more syllables, or one whose primary stress is not on its
+    ///     first syllable, the root keeps the primary stress and the combining form has the secondary (<c>bio-mechanical</c>:
+    ///     <c>B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L</c>); before a shorter root with its stress first the word is a compound
+    ///     like any other (<c>biomass</c>, <c>microchip</c>: the first element primary). In the dictionary the root has
+    ///     the primary stress in 92 percent of the 188 words of an <c>-o</c> combining form and a root of three or more
+    ///     syllables (90 percent of 60 for the others such as <c>mega-</c> and <c>ultra-</c>) and in 1.4 percent of the 145
+    ///     with a root of one syllable.
+    /// </summary>
+    private static readonly Dictionary<string, Pronunciation> CombiningForms = new(StringComparer.Ordinal)
+    {
+        ["aero"] = Pronunciation.Parse("EH2 R OW0"),
+        ["astro"] = Pronunciation.Parse("AE2 S T R OW0"),
+        ["auto"] = Pronunciation.Parse("AO2 T OW0"),
+        ["bio"] = Pronunciation.Parse("B AY2 OW0"),
+        ["cardio"] = Pronunciation.Parse("K AA2 R D IY0 OW0"),
+        ["electro"] = Pronunciation.Parse("IH0 L EH2 K T R OW0"),
+        ["geo"] = Pronunciation.Parse("JH IY2 OW0"),
+        ["hydro"] = Pronunciation.Parse("HH AY2 D R OW0"),
+        ["hyper"] = Pronunciation.Parse("HH AY2 P ER0"),
+        ["hypo"] = Pronunciation.Parse("HH AY2 P OW0"),
+        ["immuno"] = Pronunciation.Parse("IH2 M Y AH0 N OW0"),
+        ["infra"] = Pronunciation.Parse("IH2 N F R AH0"),
+        ["macro"] = Pronunciation.Parse("M AE2 K R OW0"),
+        ["mega"] = Pronunciation.Parse("M EH2 G AH0"),
+        ["micro"] = Pronunciation.Parse("M AY2 K R OW0"),
+        ["mono"] = Pronunciation.Parse("M AA2 N OW0"),
+        ["multi"] = Pronunciation.Parse("M AH2 L T IY0"),
+        ["nano"] = Pronunciation.Parse("N AE2 N OW0"),
+        ["neo"] = Pronunciation.Parse("N IY2 OW0"),
+        ["neuro"] = Pronunciation.Parse("N UH2 R OW0"),
+        ["paleo"] = Pronunciation.Parse("P EY2 L IY0 OW0"),
+        ["photo"] = Pronunciation.Parse("F OW2 T OW0"),
+        ["poly"] = Pronunciation.Parse("P AA2 L IY0"),
+        ["proto"] = Pronunciation.Parse("P R OW2 T OW0"),
+        ["pseudo"] = Pronunciation.Parse("S UW2 D OW0"),
+        ["psycho"] = Pronunciation.Parse("S AY2 K OW0"),
+        ["retro"] = Pronunciation.Parse("R EH2 T R OW0"),
+        ["socio"] = Pronunciation.Parse("S OW2 S IY0 OW0"),
+        ["techno"] = Pronunciation.Parse("T EH2 K N OW0"),
+        ["thermo"] = Pronunciation.Parse("TH ER2 M OW0"),
+        ["ultra"] = Pronunciation.Parse("AH2 L T R AH0"),
+    };
+
+    /// <summary>The fewest syllables of a root that keeps its primary stress after a combining form.</summary>
+    private const int MinStressKeepingRootSyllables = 3;
+
+    /// <summary>
     ///     Builds the prefix table of hyphenated words: the productive prefixes whose root keeps the primary stress.
     /// </summary>
     /// <returns>The sound of each such prefix.</returns>
@@ -108,6 +157,40 @@ internal sealed class WordPronouncer
         return forms;
     }
 
+    /// <summary>The most British-spelling rules combined in one respelling.</summary>
+    private const int MaxSpellingRules = 3;
+
+    /// <summary>The shortest first element of a place name in <c>-mouth</c>.</summary>
+    private const int MinPlaceNameStem = 2;
+
+    /// <summary>The reduced last element of an English place name in <c>-mouth</c>.</summary>
+    private static readonly Pronunciation ReducedMouth = Pronunciation.Parse("M AH0 TH");
+
+    /// <summary>The time any one spelling rule may take on one word (the words are short; this only bounds a pathological input).</summary>
+    private static readonly TimeSpan SpellingRuleTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    ///     The correspondences between British and American spellings, each a pattern on the lower-case word and its
+    ///     replacement (see <see cref="TryAmericanSpelling"/>). The contexts (a consonant before, a minimum length) keep
+    ///     each rule to the words where the letters are the spelling convention and not part of the root.
+    /// </summary>
+    private static readonly (Regex Pattern, string Replacement)[] BritishSpellingRules =
+    [
+        (SpellingRule("oeu"), "eu"),
+        (SpellingRule("(?<=^(?=.{7}).*[bcdfghjklmnpqrstvwxz])ae(?=[bcdfghjklmnpqrstvwxz])"), "e"),
+        (SpellingRule("^oe(?=[bcdfghjklmnpqrstvwxz])|(?<=rh)oe(?=a)"), "e"),
+        (SpellingRule("(?<=[a-z]{2}[bcdfghjklmnpqrstvwxz])our(?=$|s$|ed$|ing$|ite|ful|able|ably|less|ism|ist)"), "or"),
+        (SpellingRule("(?<=[a-z]{3}[tbv])re$"), "er"),
+        (SpellingRule("(?<=[a-z]{3}[tbv])res$"), "ers"),
+        (SpellingRule("(?<=[a-z]{3}[tbv])red$"), "ered"),
+        (SpellingRule("(?<=[a-z]{3}[tbv])ring$"), "ering"),
+        (SpellingRule("(?<=[a-z]{3}[bcdfghjklmnpqrstvwxz])is(?=(e|es|ed|ing|ation|ations)$)"), "iz"),
+        (SpellingRule("(?<=[a-z]{3})ys(?=(e|ed|ing)$)"), "yz"),
+        (SpellingRule("(?<=[a-z]{2}[bcdfghjklmnpqrstvwxz][ae])ll(?=(ed|ing|er|ers)$)"), "l"),
+        (SpellingRule("(?<=[a-z]{2}[fc])ence(?=s?$)"), "ense"),
+        (SpellingRule("(?<=[a-z]{3})ogue(?=s?$)"), "og"),
+        (SpellingRule("(?<=[a-z]{4})amme(?=s?$)"), "am"),
+    ];
     /// <summary>The lexicon.</summary>
     private readonly CmuLexicon _lexicon;
 
@@ -116,6 +199,9 @@ internal sealed class WordPronouncer
 
     /// <summary>The reviewed corrections of wrong dictionary entries.</summary>
     private readonly LexiconCorrections _corrections;
+
+    /// <summary>The reviewed additions: words the dictionary lacks, consulted after it.</summary>
+    private readonly LexiconCorrections _additions;
 
     /// <summary>The out-of-vocabulary fallback.</summary>
     private readonly LetterToSound _letterToSound;
@@ -127,12 +213,14 @@ internal sealed class WordPronouncer
     /// <param name="readings">The reading tables.</param>
     /// <param name="letterToSound">The fallback for words the lexicon and the morphology cannot pronounce.</param>
     /// <param name="corrections">The reviewed corrections of wrong dictionary entries, or <see langword="null"/> for the embedded table.</param>
-    public WordPronouncer(CmuLexicon lexicon, ReadingPronunciations readings, LetterToSound letterToSound, LexiconCorrections? corrections = null)
+    /// <param name="additions">The reviewed additions of words the dictionary lacks, or <see langword="null"/> for the embedded table.</param>
+    public WordPronouncer(CmuLexicon lexicon, ReadingPronunciations readings, LetterToSound letterToSound, LexiconCorrections? corrections = null, LexiconCorrections? additions = null)
     {
         _lexicon = lexicon;
         _readings = readings;
         _letterToSound = letterToSound;
         _corrections = corrections ?? LexiconCorrections.Default;
+        _additions = additions ?? LexiconCorrections.Additions;
     }
 
     /// <summary>
@@ -149,7 +237,9 @@ internal sealed class WordPronouncer
             return null;
         }
 
-        return normalized.Contains('-') ? PronounceCompound(normalized) : PronounceSimple(normalized, readingId);
+        // A word written with a capital is treated as a name by the rules that read the spelling of an unknown word
+        var capitalized = word.Length > 0 && char.IsUpper(word[0]);
+        return normalized.Contains('-') ? PronounceCompound(normalized, capitalized) : PronounceSimple(normalized, readingId, capitalized, IsInitialismShape(word));
     }
 
     /// <summary>
@@ -184,8 +274,10 @@ internal sealed class WordPronouncer
     /// </summary>
     /// <param name="word">The normalized word (lower case, ASCII letters and apostrophes).</param>
     /// <param name="readingId">The reading id, or <see langword="null"/>.</param>
+    /// <param name="capitalized">Whether the word was written with a capital letter (a name, or the first word of a sentence).</param>
+    /// <param name="initialism">Whether the word was written like an initialism (see <see cref="IsInitialismShape"/>).</param>
     /// <returns>The pronounced word.</returns>
-    private PronouncedWord PronounceSimple(string word, string? readingId)
+    private PronouncedWord PronounceSimple(string word, string? readingId, bool capitalized, bool initialism = false)
     {
         // The reading the text analysis chose, when the table can resolve this spelling under it
         if (readingId is not null && _readings.TryResolve(word, readingId, out var read) && read is not null)
@@ -206,6 +298,12 @@ internal sealed class WordPronouncer
             return new PronouncedWord(Morphology.OrderVariants(word, listed, _lexicon)[0], PronunciationSource.Lexicon);
         }
 
+        // A word the dictionary lacks whose pronunciation was reviewed and added (agave, aquiver)
+        if (_additions.TryGet(word, out var added))
+        {
+            return new PronouncedWord(added, PronunciationSource.Lexicon);
+        }
+
         // A form the dictionary lacks, derived from its stem (cats, unfollowed, zebra's)
         if (Morphology.TryDerive(word, _lexicon, out var derivation))
         {
@@ -219,6 +317,27 @@ internal sealed class WordPronouncer
             return new PronouncedWord(prefixed, PronunciationSource.Morphology);
         }
 
+        // A British spelling of a dictionary word (manoeuvring, analyse, civilisation); not for a name, whose letters
+        // are not a spelling convention (Kraemer is not Kremer)
+        var american = capitalized ? null : TryAmericanSpelling(word);
+        if (american is not null)
+        {
+            return new PronouncedWord(american, PronunciationSource.Morphology);
+        }
+
+        // An English place name in -mouth, whose last element is reduced (Portsmouth, Plymouth: M AH0 TH)
+        var placeName = capitalized ? TryPlaceNameInMouth(word) : null;
+        if (placeName is not null)
+        {
+            return new PronouncedWord(placeName, PronunciationSource.Morphology);
+        }
+
+        // An initialism the dictionary lacks (USGS, NBER, ASPCA): spelled by the letter names, not guessed as a word
+        if (initialism)
+        {
+            return new PronouncedWord(SpellLetters(word), PronunciationSource.Spelled);
+        }
+
         // Out of vocabulary: never silent
         if (_letterToSound.TryConvert(word, out var guessed))
         {
@@ -226,6 +345,79 @@ internal sealed class WordPronouncer
         }
 
         return new PronouncedWord(Pronunciation.Empty, PronunciationSource.LetterToSound);
+    }
+
+    /// <summary>
+    ///     Tells whether a word as written has the shape of an initialism: two to five capital letters with a vowel, not
+    ///     only the letters of Roman numerals.
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns><see langword="true"/> for <c>USGS</c>, <c>NBER</c>, <c>ASPCA</c>; <see langword="false"/> for <c>Usgs</c>, <c>NSFW</c> (no vowel: the text analysis spells it), <c>VII</c> and <c>CIVIC</c> (Roman numeral letters only) and words of six letters or more.</returns>
+    /// <remarks>
+    ///     A word that the dictionary, the reviewed additions and the rules do not know, written this way, is far more often
+    ///     an initialism than a shouted word: on the repository's text corpora the letter names were right for most such
+    ///     words, while the letter-to-sound guess for them is a nonsense word (<c>USGS</c> as <c>ʌsɡz</c>). The vowel-less
+    ///     ones never reach here (the text analysis spells them outside shouted text).
+    /// </remarks>
+    private static bool IsInitialismShape(string word)
+    {
+        if (word.Length is < 2 or > 5)
+        {
+            return false;
+        }
+
+        var vowel = false;
+        var roman = true;
+        foreach (var character in word)
+        {
+            if (character is not (>= 'A' and <= 'Z'))
+            {
+                return false;
+            }
+
+            vowel |= character is 'A' or 'E' or 'I' or 'O' or 'U';
+            roman &= character is 'I' or 'V' or 'X' or 'L' or 'C' or 'D' or 'M';
+        }
+
+        return vowel && !roman;
+    }
+
+    /// <summary>
+    ///     Spells a word by the names of its letters, each with its own primary stress, as the dictionary writes many of
+    ///     its initialisms (<c>ESPN</c> is <c>IY1 EH1 S P IY1 EH1 N</c>), so no letter loses its full vowel.
+    /// </summary>
+    /// <param name="word">The normalized (lower-case) word of ASCII letters.</param>
+    /// <returns>The pronunciation.</returns>
+    private static Pronunciation SpellLetters(string word)
+    {
+        var phones = new List<Phone>(word.Length * 3);
+        foreach (var letter in word)
+        {
+            LetterNames.TryGet(letter, out var name);
+            phones.AddRange(name.Phones);
+        }
+
+        return new Pronunciation(phones.ToArray());
+    }
+
+    /// <summary>
+    ///     Makes the secondary stress of a combining form primary, for a first element that carries the main stress.
+    /// </summary>
+    /// <param name="form">The combining form's sound, its stressed vowel secondary.</param>
+    /// <returns>The sound with that vowel primary.</returns>
+    private static Pronunciation WithPrimaryStress(Pronunciation form)
+    {
+        var phones = form.Phones.ToArray();
+        for (var i = 0; i < phones.Length; i++)
+        {
+            if (phones[i].IsVowel && phones[i].Stress == 2)
+            {
+                phones[i] = phones[i].WithStress(1);
+                break;
+            }
+        }
+
+        return new Pronunciation(phones);
     }
 
     /// <summary>
@@ -260,15 +452,169 @@ internal sealed class WordPronouncer
             }
         }
 
+        // A combining form before a dictionary word that keeps its own stress (biomechanical, geopolitically)
+        foreach (var (form, phones) in CombiningForms)
+        {
+            if (word.Length - form.Length < MinPrefixedRemainder || !word.StartsWith(form, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var listed = _lexicon.Lookup(word[form.Length..]);
+            if (listed.Count > 0 && KeepsItsStress(listed[0]))
+            {
+                return phones.Append(listed[0].Phones);
+            }
+        }
+
         return null;
     }
 
     /// <summary>
+    ///     Tells whether a root keeps its primary stress after a combining form: it has at least
+    ///     <see cref="MinStressKeepingRootSyllables"/> syllables, or its primary stress is not on its first syllable.
+    /// </summary>
+    /// <param name="root">The root's pronunciation.</param>
+    /// <returns><see langword="true"/> for <c>mechanical</c>, <c>electric</c>; <see langword="false"/> for <c>mass</c>, <c>weapon</c>.</returns>
+    private static bool KeepsItsStress(Pronunciation root)
+    {
+        var syllables = 0;
+        var firstIsPrimary = false;
+        foreach (var phone in root.Phones)
+        {
+            if (!phone.IsVowel)
+            {
+                continue;
+            }
+
+            if (syllables == 0)
+            {
+                firstIsPrimary = phone.Stress == 1;
+            }
+
+            syllables++;
+        }
+
+        return syllables >= MinStressKeepingRootSyllables || (syllables > 1 && !firstIsPrimary);
+    }
+
+    /// <summary>
+    ///     Pronounces a word written in a British spelling as the dictionary's American spelling of it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///     The dictionary is American, so a British spelling it lacks (<i>manoeuvring</i>, <i>analyse</i>, <i>civilisation</i>,
+    ///     <i>labours</i>, <i>quarrelling</i>) would go to the letter-to-sound model, which reads the unfamiliar letters
+    ///     literally (<i>manoeuvring</i> as <c>M AE1 N OW0 UW2 V R IH0 NG</c>). The two spellings of these words sound the
+    ///     same, so the word is respelled by the systematic correspondences (<c>oeu</c> to <c>eu</c>, <c>ae</c> and <c>oe</c>
+    ///     to <c>e</c> in the classical words, <c>-our</c> to <c>-or</c>, <c>-tre</c>, <c>-bre</c> and <c>-vre</c> to
+    ///     <c>-ter</c>, <c>-ber</c> and <c>-ver</c>, <c>-ise</c> and <c>-yse</c> to <c>-ize</c> and <c>-yze</c>, the doubled
+    ///     <c>l</c> of <i>travelled</i>, <c>-ence</c> to <c>-ense</c> after <c>f</c> or <c>c</c>, <c>-ogue</c> to
+    ///     <c>-og</c>, <c>-amme</c> to <c>-am</c>), alone and up to three together, and the first respelling that is a
+    ///     dictionary word is taken.
+    ///     </para>
+    ///     <para>
+    ///     A respelling is accepted only when it is itself a dictionary word, so a word that merely contains the letters
+    ///     is never changed into a non-word. The rules are measured in <c>docs/evaluation/phonemes-en/renderers.md</c>:
+    ///     on the lower-case words of the repository's text corpora that the dictionary lacks they rewrite 23 words, 22 of
+    ///     them right; the wrong rewrites on dictionary words are names (<i>Kraemer</i>, <i>Oehler</i>), which is why the
+    ///     caller does not apply them to a capitalized word.
+    ///     </para>
+    /// </remarks>
+    /// <param name="word">The normalized word (lower case).</param>
+    /// <returns>The pronunciation of the American spelling, or <see langword="null"/> when no respelling is a dictionary word.</returns>
+    private Pronunciation? TryAmericanSpelling(string word)
+    {
+        // The rules that change this word, in table order
+        var applicable = BritishSpellingRules.Where(rule => rule.Pattern.IsMatch(word)).ToList();
+
+        // Fewer changes first: every single rule, then every pair, then every triple, in table order
+        for (var size = 1; size <= Math.Min(MaxSpellingRules, applicable.Count); size++)
+        {
+            foreach (var combination in Combinations(applicable.Count, size))
+            {
+                var respelled = word;
+                foreach (var index in combination)
+                {
+                    respelled = applicable[index].Pattern.Replace(respelled, applicable[index].Replacement);
+                }
+
+                var listed = respelled == word ? [] : _lexicon.Lookup(respelled);
+                if (listed.Count > 0)
+                {
+                    return Morphology.OrderVariants(respelled, listed, _lexicon)[0];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Enumerates the combinations of a size from the indexes 0 to <paramref name="count"/> - 1, in lexicographic order.
+    /// </summary>
+    /// <param name="count">The number of items.</param>
+    /// <param name="size">The size of each combination, at most <paramref name="count"/>.</param>
+    /// <returns>The combinations, each an ascending array of indexes.</returns>
+    private static IEnumerable<int[]> Combinations(int count, int size)
+    {
+        var indexes = Enumerable.Range(0, size).ToArray();
+        while (true)
+        {
+            yield return (int[])indexes.Clone();
+
+            // Advance the rightmost index that can still move, then reset the ones after it
+            var position = size - 1;
+            while (position >= 0 && indexes[position] == count - size + position)
+            {
+                position--;
+            }
+
+            if (position < 0)
+            {
+                yield break;
+            }
+
+            indexes[position]++;
+            for (var next = position + 1; next < size; next++)
+            {
+                indexes[next] = indexes[next - 1] + 1;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Pronounces a capitalized word in <c>-mouth</c> that the dictionary lacks as an English place name.
+    /// </summary>
+    /// <remarks>
+    ///     The <c>-mouth</c> of an English place name is reduced: the dictionary lists every such place name it has with
+    ///     <c>M AH0 TH</c> (<i>Dartmouth</i>, <i>Falmouth</i>, <i>Monmouth</i>, <i>Plymouth</i>, <i>Portsmouth</i>,
+    ///     <i>Weymouth</i>) and its only common nouns in <c>-mouth</c> with the full vowel (<i>cottonmouth</i>,
+    ///     <i>frogmouth</i>). The letter-to-sound model gives an unknown one the full diphthong (<i>Rhinemouth</i> as
+    ///     <c>R AY1 N M AW2 TH</c>), which the voice reads as two words, <i>Rhine</i> and <i>mouth</i>, lengthened and
+    ///     with a pause between them. The first element is pronounced as a word of its own (dictionary, morphology or
+    ///     letter-to-sound) and keeps its stress.
+    /// </remarks>
+    /// <param name="word">The normalized word (lower case).</param>
+    /// <returns>The pronunciation, or <see langword="null"/> when the word does not end in <c>mouth</c> after at least two letters.</returns>
+    private Pronunciation? TryPlaceNameInMouth(string word)
+    {
+        const string suffix = "mouth";
+        if (word.Length < suffix.Length + MinPlaceNameStem || !word.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var stem = PronounceSimple(word[..^suffix.Length], null, capitalized: false).Pronunciation;
+        return stem.Count == 0 ? null : stem.Append(ReducedMouth.Phones);
+    }
+    /// <summary>
     ///     Pronounces a hyphenated compound.
     /// </summary>
     /// <param name="word">The normalized word with at least one hyphen.</param>
+    /// <param name="capitalized">Whether the word was written with a capital letter; it applies to the first part only.</param>
     /// <returns>The pronounced word.</returns>
-    private PronouncedWord PronounceCompound(string word)
+    private PronouncedWord PronounceCompound(string word, bool capitalized)
     {
         var parts = word.Split('-', StringSplitOptions.RemoveEmptyEntries);
 
@@ -291,7 +637,13 @@ internal sealed class WordPronouncer
         {
             var part = parts[i];
             var prefixForm = i == 0 && parts.Length > 1 && CompoundPrefixForms.TryGetValue(part, out var form0) ? form0 : null;
-            var pronounced = prefixForm is null ? PronounceSimple(part, null) : new PronouncedWord(prefixForm, PronunciationSource.Lexicon);
+            // A combining form has its own sound as a first element (bio- is not the word bio, B AY2 OW1): secondary before a
+            // root that keeps its stress (bio-mechanical), primary before any other (bio-weapon, the root then secondary)
+            if (i == 0 && prefixForm is null && parts.Length > 1 && CombiningForms.TryGetValue(part, out var combining))
+            {
+                prefixForm = KeepsItsStress(PronounceSimple(parts[1], null, capitalized: false).Pronunciation) ? combining : WithPrimaryStress(combining);
+            }
+            var pronounced = prefixForm is null ? PronounceSimple(part, null, capitalized && i == 0) : new PronouncedWord(prefixForm, PronunciationSource.Lexicon);
             source = (PronunciationSource)Math.Max((int)source, (int)pronounced.Source);
             var phones = pronounced.Pronunciation.Phones;
             if (i > 0 && UnstressedCompoundParts.Contains(part))
@@ -388,6 +740,12 @@ internal sealed class WordPronouncer
         return true;
     }
 
+    /// <summary>
+    ///     Builds one British-spelling pattern.
+    /// </summary>
+    /// <param name="pattern">The regular expression on the lower-case word.</param>
+    /// <returns>The compiled pattern, culture-invariant and bounded in time.</returns>
+    private static Regex SpellingRule(string pattern) => new(pattern, RegexOptions.CultureInvariant, SpellingRuleTimeout);
     /// <summary>
     ///     Removes every stress from a pronunciation.
     /// </summary>

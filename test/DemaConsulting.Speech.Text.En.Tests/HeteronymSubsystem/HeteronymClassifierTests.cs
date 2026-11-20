@@ -364,6 +364,176 @@ public sealed class HeteronymClassifierTests
     }
 
     /// <summary>
+    ///     Proves the adjective cue: a word the tagger reads as an adjective, right after a degree adverb or coordinated with
+    ///     another adjective, gets its adjective reading even when the model leans weakly toward another reading, while
+    ///     the same model keeps that other reading when the grammar does not mark an adjective.
+    /// </summary>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The tag of each token.</param>
+    /// <param name="expected">The reading the classifier must choose for <c>minute</c>.</param>
+    [Theory]
+    [InlineData("very minute and clear", "ADV ADJ CCONJ ADJ", "minute.tiny")]
+    [InlineData("so minute that", "ADV ADJ SCONJ", "minute.tiny")]
+    [InlineData("grey and minute", "ADJ CCONJ ADJ", "minute.tiny")]
+    [InlineData("minute and very clear", "ADJ CCONJ ADV ADJ", "minute.tiny")]
+    [InlineData("wait a minute", "VERB DET NOUN", "minute.time")]
+    [InlineData("the very minute he came", "DET ADJ NOUN PRON VERB", "minute.time")]
+    [InlineData("very minute", "ADV NOUN", "minute.time")]
+    [InlineData("a minute and clear", "DET ADJ CCONJ NOUN", "minute.time")]
+    public void HeteronymClassifier_Classify_AdjectiveCue_DecidesAWeaklyContestedAdjective(string sentence, string tags, string expected)
+    {
+        // Arrange: a model that prefers the time reading by a small margin (a quarter of the cue's odds)
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, sentence, tags.Split(' '), "minute");
+        var margin = (short)(Scale * HeteronymClassifier.AdjectiveCueLogOdds / 4);
+        var (_, classifier) = Create([BiasWeight(inventory, "minute.time", margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal(expected, inventory.ReadingIdAt(prediction.ReadingIndex));
+        Assert.InRange(prediction.Confidence, 0.5, 1.0);
+    }
+
+    /// <summary>Proves the adjective cue is a prior, not a rule: a model that is sure of another reading keeps it.</summary>
+    [Fact]
+    public void HeteronymClassifier_Classify_AdjectiveCueAgainstAConfidentModel_ModelWins()
+    {
+        // Arrange: the time reading is preferred by twice the cue's odds
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, "very minute", ["ADV", "ADJ"], "minute");
+        var margin = (short)(Scale * HeteronymClassifier.AdjectiveCueLogOdds * 2);
+        var (_, classifier) = Create([BiasWeight(inventory, "minute.time", margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal("minute.time", inventory.ReadingIdAt(prediction.ReadingIndex));
+    }
+
+    /// <summary>
+    ///     Proves the noun-form cue: <i>wound</i> tagged as a noun gets the injury reading when the model leans weakly toward
+    ///     the past of <i>wind</i> (which is never a noun in this form), while the same model keeps the coil reading when the
+    ///     word is tagged as a verb, and a form whose readings are both nouns (<i>tear</i>) gets no cue.
+    /// </summary>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The tag of each token.</param>
+    /// <param name="word">The target word.</param>
+    /// <param name="leaning">The reading the model prefers by a small margin.</param>
+    /// <param name="expected">The reading the classifier must choose.</param>
+    [Theory]
+    [InlineData("a knife wound or", "DET NOUN NOUN CCONJ", "wound", "wind.coil", "wound.injury")]
+    [InlineData("she wound the clock", "PRON VERB DET NOUN", "wound", "wind.coil", "wind.coil")]
+    [InlineData("a paper tear and", "DET NOUN NOUN CCONJ", "tear", "tear.drop", "tear.drop")]
+    public void HeteronymClassifier_Classify_NounFormCue_DecidesAFormThatOnlyOneReadingMakesANoun(string sentence, string tags, string word, string leaning, string expected)
+    {
+        // Arrange: a model that prefers one reading by a small margin (half of the cue's odds)
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, sentence, tags.Split(' '), word);
+        var margin = (short)(Scale * HeteronymClassifier.NounFormCueLogOdds / 2);
+        var (_, classifier) = Create([BiasWeight(inventory, leaning, margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal(expected, inventory.ReadingIdAt(prediction.ReadingIndex));
+    }
+
+    /// <summary>
+    ///     Proves the context cue: <i>tear</i> near a word of the body or of a material (<i>muscle</i>, <i>fabric</i>,
+    ///     <i>wear</i>) gets the rip reading when the model leans weakly toward the drop from the eye, while the same model
+    ///     keeps the drop reading when no such word is within three words.
+    /// </summary>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The tag of each token.</param>
+    /// <param name="expected">The reading the classifier must choose for <c>tear</c>.</param>
+    [Theory]
+    [InlineData("a deep muscle tear and", "DET ADJ NOUN NOUN CCONJ", "tear.rip")]
+    [InlineData("a tear in the fabric", "DET NOUN ADP DET NOUN", "tear.rip")]
+    [InlineData("wear and tear", "NOUN CCONJ NOUN", "tear.rip")]
+    [InlineData("a tear ran down her cheek", "DET NOUN VERB ADV DET NOUN", "tear.drop")]
+    [InlineData("a tear fell and later the muscle relaxed", "DET NOUN VERB CCONJ ADV DET NOUN VERB", "tear.drop")]
+    public void HeteronymClassifier_Classify_ContextCue_DecidesAReadingTheTrainingDataSeldomShows(string sentence, string tags, string expected)
+    {
+        // Arrange: a model that prefers the drop reading by a small margin (a quarter of the cue's odds)
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, sentence, tags.Split(' '), "tear");
+        var margin = (short)(Scale * HeteronymClassifier.ContextCueLogOdds / 4);
+        var (_, classifier) = Create([BiasWeight(inventory, "tear.drop", margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal(expected, inventory.ReadingIdAt(prediction.ReadingIndex));
+    }
+
+    /// <summary>
+    ///     Proves the past-time cue: <i>read</i> in a sentence placed in the past by <i>yesterday</i>, <i>ago</i> or <i>last</i>
+    ///     and a word of time gets the past reading when the model leans weakly toward the present, but not after an
+    ///     auxiliary or a particle (which take the base form) or without such a word.
+    /// </summary>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The tag of each token.</param>
+    /// <param name="expected">The reading the classifier must choose for <c>read</c>.</param>
+    [Theory]
+    [InlineData("yesterday I read the book", "ADV PRON VERB DET NOUN", "read.past")]
+    [InlineData("two days ago she read it", "NUM NOUN ADV PRON VERB PRON", "read.past")]
+    [InlineData("last night we read aloud", "ADJ NOUN PRON VERB ADV", "read.past")]
+    [InlineData("yesterday I wanted to read", "ADV PRON VERB PART VERB", "read.present")]
+    [InlineData("last night I did not read", "ADJ NOUN PRON AUX PART VERB", "read.present")]
+    [InlineData("I read the book", "PRON VERB DET NOUN", "read.present")]
+    [InlineData("at last we read it", "ADP ADJ PRON VERB PRON", "read.present")]
+    [InlineData("she read it two days ago", "PRON VERB PRON NUM NOUN ADV", "read.past")]
+    [InlineData("last night , I read it", "ADJ NOUN PUNCT PRON VERB PRON", "read.past")]
+    [InlineData("I read books , and yesterday she slept", "PRON VERB NOUN PUNCT CCONJ ADV PRON VERB", "read.present")]
+    [InlineData("I read books because last week it rained", "PRON VERB NOUN SCONJ ADJ NOUN PRON VERB", "read.present")]
+    [InlineData("I read books ; yesterday it rained", "PRON VERB NOUN PUNCT ADV PRON VERB", "read.present")]
+    public void HeteronymClassifier_Classify_PastTimeCue_DecidesTheTenseOfAWeaklyContestedVerb(string sentence, string tags, string expected)
+    {
+        // Arrange: a model that prefers the present reading by a small margin (a quarter of the cue's odds)
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, sentence, tags.Split(' '), "read");
+        var margin = (short)(Scale * HeteronymClassifier.PastTimeCueLogOdds / 4);
+        var (_, classifier) = Create([BiasWeight(inventory, "read.present", margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal(expected, inventory.ReadingIdAt(prediction.ReadingIndex));
+    }
+
+    /// <summary>
+    ///     Builds a tagged context from a sentence of space-separated tokens and finds the target word.
+    /// </summary>
+    /// <param name="inventory">The inventory.</param>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The Universal Dependencies tag of each token.</param>
+    /// <param name="word">The target word.</param>
+    /// <returns>The context, the target index and the target's form index.</returns>
+    private static (ContextToken[] Context, int Target, int Form) PrepareTagged(ReadingInventory inventory, string sentence, string[] tags, string word)
+    {
+        var parts = sentence.Split(' ');
+        Assert.Equal(parts.Length, tags.Length);
+        var starts = new List<int>();
+        var offset = 0;
+        foreach (var part in parts)
+        {
+            starts.Add(offset);
+            offset += part.Length + 1;
+        }
+
+        var context = parts.Select((part, i) => HeteronymContext.Create(sentence, starts[i], part.Length, tags[i], 1.0)).ToArray();
+        var target = Array.IndexOf(parts, word);
+        Assert.True(target >= 0);
+        Assert.True(inventory.TryFindForm(word, out var form));
+        return (context, target, form);
+    }
+    /// <summary>
     ///     Builds an inventory and a classifier over a model made of weights.
     /// </summary>
     /// <param name="weights">The (bucket, weight) pairs.</param>

@@ -99,6 +99,8 @@ dec-sentence	It is 3.5 miles.	It is three point five miles.	It is 3.5 miles.	0	0
 dec-sentence-2	Pi is 3.14. Then 2.71 follows.	Pi is three point one four. Then two point seven one follows.	Pi is 3.14.¦Then 2.71 follows.	0	0	two decimals, one real break
 ord-1st	1st	first	1st	0	0	first
 ord-2nd	2nd	second	2nd	0	0	second
+ord-bracket	June 12th(?), then the 3rd) and 2nd.	June twelfth, then the third) and second.	June 12th(?), then the 3rd) and 2nd.	0	0	an ordinal before a glued bracket; an editorial (?) is dropped
+num-possessive	The 747's wings and 3's.	The seven hundred forty seven's wings and three's.	The 747's wings and 3's.	0	0	a possessive stays on the number's last word
 ord-3rd	3rd	third	3rd	0	0	third
 ord-4th	4th	fourth	4th	0	0	fourth
 ord-5th	5th	fifth	5th	0	0	fifth
@@ -269,9 +271,26 @@ unit-lbs-mid	180 lbs. now	one hundred eighty pounds now	180 lbs. now	0	0	separat
 unit-min-mid	a 5 min. read	a five minutes read	a 5 min. read	0	0	period consumed
 unit-glued-ft	5ft. tall	five feet tall	5ft. tall	0	0	glued unit with its period
 unit-glued-ft-end	Height: 5ft.	Height: five feet.	Height: 5ft.	0	0	glued unit, period kept
-unit-in-excluded	5 in	five in	5 in	0	0	ambiguous word units are excluded
-unit-m-excluded	5 m	five m	5 m	0	0	single-letter units are excluded
-unit-g-excluded	5 g	five g	5 g	0	0	single-letter units are excluded
+unit-in-end	5 in	five inches	5 in	0	0	in after a number at the end of the text is the inch
+unit-in-bracket	10 cm (4 in) tall	ten centimeters (four inches) tall	10 cm (4 in) tall	0	0	in before a closing bracket is the inch
+unit-in-one-dimension	1 in wide	one inch wide	1 in wide	0	0	the singular for one, before a dimension word
+unit-in-diameter	3 in in diameter	three inches in diameter	3 in in diameter	0	0	in diameter after the unit
+unit-in-preposition-ratio	in 4 in 10 cases	in four in ten cases	in 4 in 10 cases	0	0	the preposition before a number stays
+unit-in-preposition-time	at 4 in the morning	at four in the morning	at 4 in the morning	0	0	the preposition before its object stays
+unit-in-preposition-row	2 in a row	two in a row	2 in a row	0	0	the preposition before its object stays
+unit-in-preposition-total	3 in total	three in total	3 in total	0	0	the preposition before its object stays
+unit-m-end	5 m	five meters	5 m	0	0	a single-letter unit at the end of the text is the unit
+unit-m-bracket	300 m (~1000 ft) of rope	three hundred meters (approximately one thousand feet) of rope	300 m (~1000 ft) of rope	0	0	a letter before a bracket is the unit; a tilde before a number is approximately
+unit-m-dimensions	5 m x 5 m x 5 m.	five meters by five meters by five meters.	5 m x 5 m x 5 m.	0	0	a letter before a dimension sign and a measure is the unit; the sign is by
+unit-m-word	5 m of rope	five m of rope	5 m of rope	0	0	a letter before a word is left alone
+unit-g-end	5 g	five grams	5 g	0	0	a single-letter unit at the end of the text is the unit
+unit-a-excluded	Plan A had 5 A and 5 a day.	Plan A had five A and five a day.	Plan A had 5 A and 5 a day.	0	0	the article, the grade and the ampere letter are left alone
+unit-kpa	at 205 kPa.	at two hundred five kilopascals.	at 205 kPa.	0	0	a prefixed SI unit
+unit-dimensions-glued	5x5 and 1920x1080 and 10 × 20.	five by five and one thousand nine hundred twenty by one thousand eighty and ten by twenty.	5x5 and 1920x1080 and 10 × 20.	0	0	dimensions, glued or spaced, are by
+unit-dimensions-math	3 x 4 = 12	three times four equals twelve	3 x 4 = 12	0	0	the sign before an operator is times
+restated-words	One (1) light and twenty-five (25) men	One  light and twenty-five  men	One (1) light and twenty-five (25) men	0	0	a restated numeral in brackets is dropped
+restated-digits	3 (three) boys	three  boys	3 (three) boys	0	0	a restated number word in brackets is dropped
+restated-mismatch	three (4) girls	three (four) girls	three (4) girls	0	0	a different value is left alone
 unit-case-sensitive	5 Kg	five Kg	5 Kg	0	0	units are case-sensitive
 unit-year-like	1500 kg	one thousand five hundred kilograms	1500 kg	0	0	a unit after four digits makes a quantity
 unit-no-number	kg	kg	kg	0	0	a unit alone stays
@@ -467,7 +486,7 @@ lim-fraction-32	0.12345678901234567890123456789012	zero point one two three four
 lim-ordinal-16	1234567890123456th	1234567890123456th	1234567890123456th	0	1	ordinal beyond 15 digits
 id-hyphen-compound	5-year-old	five-year-old	5-year-old	0	0	the number of a hyphenated compound is read, the compound is left as written
 id-3d	3-D	three-D	3-D	0	0	a number and a hyphenated letter
-id-f16	F-16	F-sixteen	F-16	0	0	the number of a name joined to it by a hyphen is read
+id-f16	F-16	F sixteen	F-16	0	0	the letter of a name joined to a number by a hyphen is spelled and the number read as a word of its own
 id-seven-eleven	7-Eleven	seven-Eleven	7-Eleven	0	0	the number of a hyphenated name is read
 id-mid-1990s	mid-1990s	mid-1990s	mid-1990s	0	0	deferred
 id-20-something	20-something	twenty-something	20-something	0	0	the number of a hyphenated compound is read

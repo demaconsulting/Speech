@@ -240,3 +240,71 @@ pairs for `axes`, `does`, `dove`, `wound` and `bass`).
   coverage of 162 plus 30 of 207 words, the unverified bench labels, sentence-level clusters) are in the record README.
   The low-confidence threshold of 0.60 is not changed by this run; `confidence.tsv` is the evidence for a later
   decision.
+
+## Adjective cue (2026-11-20)
+
+**Trigger.** A listener flagged *these little boats were grey and very minute and clear*: the analyzer chose
+`minute.time` at 0.59 although the tagger tagged *minute* `ADJ`. The construction (a degree adverb before the word, an
+adjective coordinated with it) is grammar that the sparse features see too rarely to weigh.
+
+**Change.** No data, setting or model changed. `HeteronymClassifier` adds a fixed prior of
+`round(scale * temperature * 2.2)` (odds of about 9 to 1 on the model's calibrated scale) to every candidate whose
+`pos_hint` includes `ADJ` when the tagger tags the word `ADJ` and a degree adverb tagged `ADV` stands right before it or
+a coordinating conjunction joins it to a word tagged `ADJ`. The prior, the list of 29 degree adverbs and the two
+constructions were fixed from the flag and from linguistic reasoning before any set was read; the size (ln 9) was not
+tuned. `train --check` exits 0: the training never sees the prior, so the model and `training.json` are unchanged (image
+SHA-256 `73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0`).
+
+**Development set** (read first, the only set that could have changed the design): the cue fired on 22 words, all
+already right, raising their confidence; no decision changed (3,083 of 3,235 before and after). Nothing was changed
+after this run.
+
+**Gate run** (the only holdout read for this change, then the record writer): `evaluate --gate` passed with the same
+figures as before, 96.23 percent (1,123 of 1,167) on the natural holdout, improvement +5.57 points (+3.16 to +8.15). The
+independent holdout is unchanged for the shipped model (1,882 of 1,972); seeds 3 to 5 each read one word fewer
+(`seeds.tsv`), and the confidence strata moved (`confidence.tsv`). `evaluate --write` and `evaluate --check` exit 0.
+
+**External record** (regenerated because the analyzer changed; informational, nothing chosen from it): `whd-eval` 1,502
+to 1,501 of 1,615 (93.00 to 92.94 percent; one `frequent.verb` row on which the cue fired, the tagger having tagged the
+verb `ADJ`), `whd-train` 13,270 of 14,487 unchanged (one `mobile.movable` row gained, one `live.verb` row lost), `bench`
+unchanged.
+
+**Flagged sentence after the change:** `minute.tiny` at 0.861. *They were very close* (`close.adj-noun`), *She was so
+content* (`content.satisfied`), *Wait a minute* (`minute.time`) and *Most content is free* (`content.noun`) are read as
+before.
+
+## Noun-form, past-time and context cues (2026-11-20)
+
+**Trigger.** A listener flagged *It has been compared to a knife wound or a deep muscle tear*: the analyzer chose
+`wind.coil` for *wound* at 0.55 (the tagger tagged it `NOUN`) and `tear.drop` for *tear* at 0.72.
+
+**Experiments, not kept.** (1) A part-of-speech cue for every word whose `NOUN` or `VERB` tag allows exactly one
+candidate, at log-odds 2.2, 4.6 and a hard constraint: development 3,083 to 3,050, 3,028 and 3,017 of 3,235, and
+`whd-eval` 1,501 to 1,490 of 1,615 (tagging errors on noun/verb heteronyms); `NOUN` only 3,049, `VERB` only 3,062. (2)
+The same cue limited to forms that rule a reading out by themselves (*wound* under `wind.coil`) at log-odds 4.6: one
+development row lost (*The tape wound onto the spool*, the verb tagged `NOUN`). (3) A fourth synthetic round of 110
+reviewed rows (noun uses of `tear.rip`, *wound* after a modifier, *tear gas*) and retraining: development 3,091, natural
+holdout 1,128 (seed mean 96.43 to 97.02 percent), independent holdout 1,894, but the retrained single-epoch model
+re-rolled readings of the golden sentences (*The bass player caught a bass*, *He had a tear in his eye*, *I read every
+night*, *this minute detail*) and of the analyzer test *Yesterday I read the whole book*; 30 more rows for *read* made
+it worse. The data, the model and the records were restored.
+
+**Change.** No data, setting or model changed (`train --check` exits 0, image SHA-256
+`73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0`). `HeteronymClassifier` adds three priors on the
+model's calibrated scale: the noun-form cue (log-odds 1.0) to the only candidate that can be a noun of the form when
+the word is tagged `NOUN` and the form rules out another candidate's noun use (`ReadingInventory.CanBeNoun`); the
+past-time cue (2.2) to a past-tense candidate when the sentence has *yesterday*, *ago*, *previously* or *last* before
+a word of time and the word does not follow an auxiliary or a particle; and context cues (2.2) to `tear.rip` when one
+of 23 words of the body or of materials is within three words.
+
+**Development set and gate run:** 3,083 of 3,235 unchanged; `evaluate --gate` passed with the same figures, 96.23
+percent (1,123 of 1,167) on the natural holdout; the independent holdout is 1,882 of 1,972 unchanged; the confidence
+strata moved by one development word. `evaluate --write` and `evaluate --check` exit 0.
+
+**External record** (informational): `whd-eval` 1,501 to 1,502 (`tear.rip` 3 to 4 of 9), `whd-train` 13,270 to 13,278
+(`tear.rip` 39 to 44 of 57, `wound.injury` 56 to 59 of 61), `bench` 278 to 279 (`tear.rip` 7 to 8 of 8); no reading
+lost a row.
+
+**Flagged sentence after the change:** `wound.injury` at 0.689 and `tear.rip` at 0.774. *A tear ran down her cheek*
+(`tear.drop`), *The tape wound onto the spool* (`wind.coil`) and *Yesterday I read the whole book* (`read.past`) are
+read as expected.

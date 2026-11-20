@@ -66,6 +66,8 @@ sections:
               classifier and heteronym feature extractor designs.
             children:
               - SpeechTextEn-Heteronym-HeteronymClassifier-Decision
+              - SpeechTextEn-Heteronym-HeteronymClassifier-AdjectiveCue
+              - SpeechTextEn-Heteronym-HeteronymClassifier-FormTenseAndContextCues
               - SpeechTextEn-Heteronym-HeteronymClassifier-ThreadSafetyAndCancellation
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-DeterministicFeatures
               - SpeechTextEn-Heteronym-HeteronymFeatureExtractor-TokenDescription

@@ -53,9 +53,9 @@ trailing silence and the shared overrides, and joins pieces cut at a dash (`--`,
 em dash) or inside a long clause into one text. A pause tag stays its own segment with the clauses on each side joined
 within themselves only; a null argument is rejected. `Consider 5 options:` followed by a paragraph break and
 `Should we pick 7, or wait?` stays two segments (an analyzer sentence boundary after a clause mark is kept, and each
-number's annotation stays in its own sentence); an analyzer break next to a tag is kept, a stripped tag inside a
-sentence does not separate its clauses, and a long sentence of twelve clauses arrives in segments of at most 300
-characters that read back as the same text.
+number's replacement stays in its own sentence, and every part-of-speech annotation stays inside its segment); an
+analyzer break next to a tag is kept, a stripped tag inside a sentence does not separate its clauses, and a long
+sentence of twelve clauses arrives in segments of at most 300 characters that read back as the same text.
 
 ##### Speaker parameter
 

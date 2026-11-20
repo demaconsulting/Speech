@@ -1,4 +1,4 @@
 set	rows	correct	accuracy_bp	accuracy_ci_lower_bp	accuracy_ci_upper_bp	upos_baseline_correct	upos_baseline_bp	majority_baseline_correct	majority_baseline_bp	first_baseline_correct	first_baseline_bp	difference_bp	ci_lower_bp	ci_upper_bp	ci_lower_positive	clusters	parity_compared	parity_mismatched	parity_suppressed
-whd-eval	1615	1502	9300	9170	9418	1463	9059	1118	6923	1078	6675	241	105	378	yes	1615	1590	0	0
-whd-train	14487	13270	9160	9114	9205	13001	8974	10075	6955	9857	6804	186	137	235	yes	14474	14173	0	0
-bench	299	278	9298	8997	9565	240	8027	120	4013	131	4381	1271	836	1706	yes	299	299	0	0
+whd-eval	1615	1502	9300	9170	9418	1463	9059	1118	6923	1078	6675	241	105	384	yes	1615	1590	0	0
+whd-train	14487	13278	9165	9120	9210	13001	8974	10075	6955	9857	6804	191	142	240	yes	14474	14173	0	0
+bench	299	279	9331	9030	9599	240	8027	120	4013	131	4381	1304	870	1739	yes	299	299	0	0

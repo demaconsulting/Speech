@@ -26,6 +26,16 @@ stream, and the real fixture model for the success path. No fake of the classifi
   weights; the confidence equals the temperature-calibrated softmax of the top candidate for two and three candidates
   (to twelve decimals); a form with one candidate returns that reading with confidence 1; a target outside the
   sentence is rejected for both kinds of form
+- **Adjective cue**: with a model that prefers the time reading of `minute` by a quarter of the cue's odds, a word
+  tagged `ADJ` after a degree adverb or coordinated with an adjective gets `minute.tiny`, while the same model keeps
+  `minute.time` when the word is tagged `NOUN`, when the word before it is a degree word tagged `ADJ` or when the
+  coordinated word is not an adjective; a model that prefers the time reading by twice the cue's odds keeps it
+- **Noun-form, past-time and context cues**: with a model that leans weakly toward one reading, `wound` tagged `NOUN`
+  gets `wound.injury` while `wound` tagged `VERB` keeps `wind.coil` and `tear` (both readings nouns) gets no noun-form
+  cue; `read` with *yesterday*, *ago* or *last night* in its clause gets `read.past` but not after an auxiliary or a
+  particle, not without a past-time word, not after *at last* and not when the past-time word is in another clause;
+  `tear` within three words of *muscle*, *fabric* or *wear* gets `tear.rip`, while a cue word four words away or none
+  keeps `tear.drop`
 - **Model compatibility**: a model for a newer inventory is rejected while an older or equal one is accepted; null
   arguments are rejected
 - **Thread safety and observer**: concurrent callers obtain the single-threaded results; the observer receives the
@@ -56,6 +66,31 @@ of 128 on the middle candidate makes it win with the confidence e^2 / (e^2 + 2).
 returns its only reading with confidence exactly 1. A target that is negative, equal to the sentence length or
 `int.MaxValue` throws `ArgumentOutOfRangeException` naming `target` for an ambiguous form, and a target equal to the
 length does so for a single-candidate form.
+
+##### Adjective cue
+
+**Tests**: `HeteronymClassifier_Classify_AdjectiveCue_DecidesAWeaklyContestedAdjective`,
+`HeteronymClassifier_Classify_AdjectiveCueAgainstAConfidentModel_ModelWins`
+
+The contexts are built with explicit tags. A bias weight of a quarter of the cue's odds (scale 64, temperature 1) for
+`minute.time`: `very minute and clear` (`ADV ADJ CCONJ ADJ`), `so minute that`, `grey and minute` and
+`minute and very clear` give `minute.tiny` with a confidence above one half; `wait a minute` (`NOUN`),
+`the very minute he came` (`very` tagged `ADJ`, `minute` tagged `NOUN`), `very minute` with `minute` tagged `NOUN` and
+`a minute and clear` with a noun after the conjunction keep `minute.time`. A bias of twice the cue's odds keeps
+`minute.time` for `very minute` (`ADV ADJ`).
+
+##### Noun-form, past-time and context cues
+
+**Tests**: `HeteronymClassifier_Classify_NounFormCue_DecidesAFormThatOnlyOneReadingMakesANoun`,
+`HeteronymClassifier_Classify_PastTimeCue_DecidesTheTenseOfAWeaklyContestedVerb`,
+`HeteronymClassifier_Classify_ContextCue_DecidesAReadingTheTrainingDataSeldomShows`
+
+The contexts are built with explicit tags and a bias weight for one reading below the cue's odds: `a knife wound or`
+(`DET NOUN NOUN CCONJ`) gets `wound.injury` and `she wound the clock` keeps `wind.coil`; `yesterday I read the book`,
+`two days ago she read it`, `last night we read aloud`, `she read it two days ago` and `last night , I read it` get
+`read.past`, while `yesterday I wanted to read`, `last night I did not read`, `I read the book`, `at last we read it`
+and a past-time word after `and`, `because` or `;` keep `read.present`; `a deep muscle tear and`, `a tear in the fabric`
+and `wear and tear` get `tear.rip`, while `a tear ran down her cheek` and a cue word four words away keep `tear.drop`.
 
 ##### Model compatibility
 

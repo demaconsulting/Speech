@@ -359,6 +359,27 @@ internal sealed class TextNormalizer
                 return index + 1;
             }
 
+            // Rule 1c: an editorial question or exclamation mark in brackets, (?) or (!), is not read: it is dropped
+            // whole, so it is neither spoken nor a pause.
+            if (TryDropEditorialMark(index, out var afterMark))
+            {
+                return afterMark;
+            }
+
+            // Rule 1d: a numeral in brackets that restates the number before it, One (1) or 3 (three), is not read
+            // twice: the brackets and the restatement are dropped.
+            if (TryDropRestatedNumber(index, out var afterRestatement))
+            {
+                return afterRestatement;
+            }
+
+            // Rule 1e: a dimension sign between two measures, 5 m x 5 m or 2 x 4, is "by" ("times" before an equals sign).
+            if (IsDimensionSign(index, out var dimensionWord))
+            {
+                Emit(token.Start, token.Length, dimensionWord, NormalizationKind.Symbol);
+                return index + 1;
+            }
+
             // Rule 2: clitics ('s, n't, ...) get their apostrophe canonicalized and, on request, a role.
             if (TryGetClitic(span, out var cliticKind, out var apostropheOffset))
             {
@@ -403,6 +424,13 @@ internal sealed class TextNormalizer
                 return index + 1;
             }
 
+            // Rule 4c: a standalone number sign after a word, before a colon or a number (Item #: 5, Item # 5).
+            if (IsNumberSign(index))
+            {
+                Emit(token.Start, token.Length, "number", NormalizationKind.Symbol);
+                return index + 1;
+            }
+
             // Rule 5: symbols and marks, standalone or inside a word.
             if (TryApplySymbol(token, span))
             {
@@ -412,6 +440,280 @@ internal sealed class TextNormalizer
             // Rule 6: elision apostrophes inside a word; everything else is identity.
             EmitElisionApostrophes(index, span);
             return index + 1;
+        }
+
+        /// <summary>
+        ///     Drops an editorial mark: <c>(?)</c>, <c>(!)</c>, <c>(?!)</c> and the like, the bracket either its own token or
+        ///     glued to the end of the token before (the tokenizer's <c>12th(</c>).
+        /// </summary>
+        /// <param name="index">The token's index: the opening bracket, or the first mark when the bracket is glued.</param>
+        /// <param name="next">The index of the token after the closing bracket when this method returns <see langword="true"/>.</param>
+        /// <returns><see langword="true"/> when the token starts an editorial mark, which is then dropped.</returns>
+        private bool TryDropEditorialMark(int index, out int next)
+        {
+            next = index;
+            var token = _tokens[index];
+            int bracket;
+            int first;
+            if (token.Length == 1 && _text[token.Start] == '(')
+            {
+                bracket = token.Start;
+                first = index + 1;
+            }
+            else if (token.Start > 0 && _text[token.Start - 1] == '(' && _builder.CoveredEnd < token.Start && IsMarkRun(token.In(_text)))
+            {
+                bracket = token.Start - 1;
+                first = index;
+            }
+            else
+            {
+                return false;
+            }
+
+            // One to three marks, each token touching the one before, then the closing bracket
+            var end = bracket + 1;
+            var marks = 0;
+            var position = first;
+            while (position < _tokens.Length && _tokens[position].Start == end && IsMarkRun(_tokens[position].In(_text)))
+            {
+                marks += _tokens[position].Length;
+                end = _tokens[position].End;
+                position++;
+            }
+
+            if (marks is 0 or > 3 || position >= _tokens.Length || _tokens[position].Start != end || _tokens[position].Length != 1 || _text[end] != ')')
+            {
+                return false;
+            }
+
+            Emit(bracket, 1, string.Empty, NormalizationKind.Dropped);
+            for (var i = first; i <= position; i++)
+            {
+                Emit(_tokens[i].Start, _tokens[i].Length, string.Empty, NormalizationKind.Dropped);
+            }
+
+            next = position + 1;
+            return true;
+        }
+
+        /// <summary>
+        ///     Tells whether a token is only question and exclamation marks.
+        /// </summary>
+        /// <param name="span">The token's characters.</param>
+        /// <returns><see langword="true"/> for <c>?</c>, <c>!</c>, <c>?!</c> and the like.</returns>
+        private static bool IsMarkRun(ReadOnlySpan<char> span)
+        {
+            foreach (var character in span)
+            {
+                if (character is not ('?' or '!'))
+                {
+                    return false;
+                }
+            }
+
+            return span.Length > 0;
+        }
+
+        /// <summary>
+        ///     Drops a bracketed numeral that restates the number just before it: <c>One (1)</c>, <c>twenty-five (25)</c>,
+        ///     <c>3 (three)</c>.
+        /// </summary>
+        /// <param name="index">The index of the opening bracket.</param>
+        /// <param name="next">The index of the token after the closing bracket when this method returns <see langword="true"/>.</param>
+        /// <returns>
+        ///     <see langword="true"/> when the bracket, set apart by one space from a number (digits, or number words), holds
+        ///     only the same number in the other form and is closed at once; the bracket, the numeral and the closing bracket
+        ///     are then dropped. A different value (<c>three (4)</c>) is left alone.
+        /// </returns>
+        private bool TryDropRestatedNumber(int index, out int next)
+        {
+            next = index;
+            var open = _tokens[index];
+            if (open.Length != 1 || _text[open.Start] != '(' || index == 0 || index + 2 >= _tokens.Length)
+            {
+                return false;
+            }
+
+            // The restatement: digits, or up to four number words, touching the brackets
+            var close = index + 1;
+            var expected = open.End;
+            while (close < _tokens.Length && close - index <= 4 && _tokens[close].Start <= expected + 1 && !(_tokens[close].Length == 1 && _text[_tokens[close].Start] == ')'))
+            {
+                expected = _tokens[close].End;
+                close++;
+            }
+
+            if (close >= _tokens.Length || close == index + 1 || _tokens[close].Start != expected || _tokens[close].Length != 1 || _text[_tokens[close].Start] != ')'
+                || _tokens[index + 1].Start != open.End)
+            {
+                return false;
+            }
+
+            if (!TryReadNumber(index + 1, close, out var inside, out var insideIsDigits))
+            {
+                return false;
+            }
+
+            // The number before: one space before the bracket, digits or a run of number words
+            var previous = _tokens[index - 1];
+            if (open.Start - previous.End != 1 || _text[previous.End] != ' ')
+            {
+                return false;
+            }
+
+            var matched = false;
+            for (var first = index - 1; first >= Math.Max(0, index - 6) && !matched; first--)
+            {
+                if (first < index - 1 && _tokens[first + 1].Start - _tokens[first].End != 1)
+                {
+                    break;
+                }
+
+                // The other form only: words before digits, digits before words
+                matched = TryReadNumber(first, index, out var before, out var beforeIsDigits) && beforeIsDigits != insideIsDigits && before == inside;
+            }
+
+            if (!matched)
+            {
+                return false;
+            }
+
+            for (var i = index; i <= close; i++)
+            {
+                Emit(_tokens[i].Start, _tokens[i].Length, string.Empty, NormalizationKind.Dropped);
+            }
+
+            next = close + 1;
+            return true;
+        }
+
+        /// <summary>
+        ///     Reads the value of a run of tokens that is one number: a single token of ASCII digits, or number words
+        ///     (<c>three</c>, <c>Twenty-five</c>, <c>one hundred and five</c>).
+        /// </summary>
+        /// <param name="first">The index of the first token.</param>
+        /// <param name="end">The index after the last token.</param>
+        /// <param name="value">The value when this method returns <see langword="true"/>.</param>
+        /// <param name="isDigits">Whether the number is written in digits.</param>
+        /// <returns><see langword="true"/> when the tokens are exactly one number.</returns>
+        private readonly bool TryReadNumber(int first, int end, out long value, out bool isDigits)
+        {
+            value = 0;
+            isDigits = false;
+            var span = _tokens[first].In(_text);
+            if (end - first == 1 && span.Length <= 9 && char.IsAsciiDigit(span[0]))
+            {
+                isDigits = true;
+                return long.TryParse(span, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out value);
+            }
+
+            var words = new List<string>();
+            for (var i = first; i < end; i++)
+            {
+                foreach (var part in _tokens[i].In(_text).ToString().Split('-'))
+                {
+                    words.Add(part.ToLowerInvariant());
+                }
+            }
+
+            return TryParseNumberWords(words, out value);
+        }
+
+        /// <summary>
+        ///     Tells whether a token is a dimension sign between two measures and how it is read.
+        /// </summary>
+        /// <param name="index">The token's index.</param>
+        /// <param name="word">The word, <i>by</i> or <i>times</i>, when this method returns <see langword="true"/>.</param>
+        /// <returns>
+        ///     <see langword="true"/> for a lone <c>x</c> or <c>×</c> with one space on each side, after a number or after a
+        ///     unit word after a number (<c>2 x 4</c>, <c>5 m x 5 m</c>), and before a number; <i>times</i> when an
+        ///     arithmetic operator or relation follows the second number (<c>3 x 4 = 12</c>, <c>3 × 4 ÷ 2</c>), otherwise
+        ///     <i>by</i>.
+        /// </returns>
+        private readonly bool IsDimensionSign(int index, out string word)
+        {
+            word = "by";
+            var token = _tokens[index];
+            if (token.Length != 1 || _text[token.Start] is not ('x' or '\u00D7') || index == 0 || index + 1 >= _tokens.Length
+                || !SpacedBy(index - 1, index) || !SpacedBy(index, index + 1) || !char.IsAsciiDigit(_text[_tokens[index + 1].Start]))
+            {
+                return false;
+            }
+
+            // A number, or a short unit word after a number, before the sign
+            var previous = _tokens[index - 1].In(_text);
+            var afterNumber = char.IsAsciiDigit(previous[^1])
+                || (index >= 2 && SpacedBy(index - 2, index - 1) && char.IsAsciiDigit(_text[_tokens[index - 2].End - 1]) && NumericExpressionRecognizer.IsUnitWord(previous));
+            if (!afterNumber)
+            {
+                return false;
+            }
+
+            // Arithmetic: an operator or a relation after the second number (3 x 4 = 12, 3 × 4 ÷ 2)
+            if (index + 2 < _tokens.Length && _tokens[index + 2].Length == 1 && _text[_tokens[index + 2].Start] is '=' or '+' or '-' or '*' or '/' or '\u00F7' or '\u2212' or '\u2248' or '<' or '>' or '\u2264' or '\u2265' or '\u2260' or '\u00D7')
+            {
+                word = "times";
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        ///     Tells whether two adjacent tokens are separated by exactly one space.
+        /// </summary>
+        /// <param name="left">The index of the left token.</param>
+        /// <param name="right">The index of the right token.</param>
+        /// <returns><see langword="true"/> when one space lies between them.</returns>
+        private readonly bool SpacedBy(int left, int right) =>
+            _tokens[right].Start - _tokens[left].End == 1 && _text[_tokens[left].End] == ' ';
+
+        /// <summary>
+        ///     Tells whether a token is a number sign standing for the word <i>number</i>.
+        /// </summary>
+        /// <param name="index">The token's index.</param>
+        /// <returns>
+        ///     <see langword="true"/> when the token is a lone <c>#</c> set apart by a space from a word of letters before it
+        ///     and followed either directly by a colon (<c>Item #:</c>) or, after one space, by a token that starts with a
+        ///     digit (<c>Item # 5</c>); otherwise <see langword="false"/>.
+        /// </returns>
+        /// <remarks>
+        ///     A sign glued to its number (<c>#5</c>) is read by the numeric rule already. A sign that does not follow a word is
+        ///     left alone, because at the start of a line it is a heading mark (<c>## 5 steps</c>, <c># 5 Reasons</c>), and a
+        ///     sign before a word is a hashtag or a heading (<c># Title</c>), not a number.
+        /// </remarks>
+        private readonly bool IsNumberSign(int index)
+        {
+            var token = _tokens[index];
+            if (token.Length != 1 || _text[token.Start] != '#' || index == 0 || index + 1 >= _tokens.Length)
+            {
+                return false;
+            }
+
+            // A word of letters before it, set apart by whitespace on the same line
+            var previous = _tokens[index - 1];
+            var gapBefore = _text.AsSpan(previous.End, token.Start - previous.End);
+            if (gapBefore.Length == 0 || gapBefore.ContainsAny('\n', '\r') || !gapBefore.IsWhiteSpace())
+            {
+                return false;
+            }
+
+            foreach (var character in previous.In(_text))
+            {
+                if (!char.IsLetter(character))
+                {
+                    return false;
+                }
+            }
+
+            // A colon right after it, or a number after one space
+            var next = _tokens[index + 1];
+            var nextText = next.In(_text);
+            if (next.Start == token.End && nextText.Length > 0 && nextText[0] == ':')
+            {
+                return true;
+            }
+
+            return next.Start == token.End + 1 && _text[token.End] == ' ' && char.IsAsciiDigit(nextText[0]);
         }
 
         /// <summary>
@@ -1195,6 +1497,109 @@ internal sealed class TextNormalizer
         /// <returns><see langword="true"/> for a single closing character.</returns>
         private readonly bool IsClosingMark(NormalizationToken token) =>
             token.Length == 1 && _text[token.Start] is ')' or ']' or '}' or '"' or '\'' or '\u201D' or '\u2019' or '\u00BB';
+    }
+
+    /// <summary>The values of the number words below twenty.</summary>
+    private static readonly string[] SmallNumberWords =
+    [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+        "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen",
+    ];
+
+    /// <summary>The number words of the tens, twenty first (index 0 is twenty).</summary>
+    private static readonly string[] TensNumberWords = ["twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+    /// <summary>
+    ///     Reads the value of a cardinal number written in words, below a billion.
+    /// </summary>
+    /// <param name="words">The lower-case words (the parts of a hyphenated word are separate words).</param>
+    /// <param name="value">The value when this method returns <see langword="true"/>.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the words are one well-formed number (<c>three</c>, <c>twenty five</c>,
+    ///     <c>one hundred and five</c>, <c>two thousand</c>); <see langword="false"/> for any other word or order
+    ///     (<c>three two</c>, <c>hundred</c>).
+    /// </returns>
+    internal static bool TryParseNumberWords(IReadOnlyList<string> words, out long value)
+    {
+        value = 0;
+        long total = 0;
+        long group = 0;
+        long lastScale = 0;
+
+        // What the previous word was: start, unit or teen, ten, hundred, and, scale
+        var last = 's';
+        foreach (var word in words)
+        {
+            var small = Array.IndexOf(SmallNumberWords, word);
+            var tens = Array.IndexOf(TensNumberWords, word);
+            var opensPlace = last is 's' or 'h' or 'a' or 'k';
+            if (small >= 0)
+            {
+                // Zero only alone; a unit after a ten (twenty five); never after another unit or a teen
+                var allowed = small == 0 ? words.Count == 1 : opensPlace || (last == 't' && small < 10);
+                if (!allowed)
+                {
+                    return false;
+                }
+
+                group += small;
+                last = 'u';
+            }
+            else if (tens >= 0)
+            {
+                if (!opensPlace)
+                {
+                    return false;
+                }
+
+                group += (tens + 2) * 10;
+                last = 't';
+            }
+            else if (word == "hundred")
+            {
+                if (last != 'u' || group is < 1 or > 9)
+                {
+                    return false;
+                }
+
+                group *= 100;
+                last = 'h';
+            }
+            else if (word == "and")
+            {
+                if (last is not ('h' or 'k'))
+                {
+                    return false;
+                }
+
+                last = 'a';
+            }
+            else if (word is "thousand" or "million")
+            {
+                long scale = word == "thousand" ? 1_000 : 1_000_000;
+                if (last is not ('u' or 't' or 'h') || group == 0 || (lastScale != 0 && scale >= lastScale))
+                {
+                    return false;
+                }
+
+                total += group * scale;
+                group = 0;
+                lastScale = scale;
+                last = 'k';
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        if (last is 's' or 'a')
+        {
+            return false;
+        }
+
+        value = total + group;
+        return true;
     }
 
     /// <summary>

@@ -28,9 +28,10 @@ token offset.
 A word of four or more capitals before digits, more than four digits, lower case, a leading digit, no digits, a single
 letter and an over-long token are not identifiers.
 
-**Hyphenated names.** Letters, a hyphen and one to three digits give one `Number` span over the digits as a
-cardinal; four digits, no digits, mixed letters, a leading hyphen, digits before the hyphen and ordinary compounds are
-not recognized.
+**Hyphenated names.** Letters, a hyphen and one to three digits (one to four after one to three capitals) give one
+`Number` span over the hyphen and the digits, read by the identifier convention, and one to three capitals before the
+hyphen a spelled `Initialism` span; more digits, no digits, mixed letters, a leading hyphen, digits before the hyphen
+and ordinary compounds are not recognized.
 
 #### Test Scenarios
 
@@ -47,9 +48,18 @@ fourteen-character token and the empty string return nothing.
 
 ##### Hyphenated names
 
-**Tests**: `AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_ReadsOnlyTheDigits` (a four-row theory),
-`AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_OtherShapes_ReturnNull` (an eight-row theory)
+**Tests**: `AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_Name_ReadsTheNumberInPlaceOfTheHyphen` (a four-row
+theory), `AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_Capitals_AreSpelledThenTheNumber` (a six-row theory),
+`AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_PossessiveAndLaterGroups_AreSpokenWithoutAJoint` (a six-row
+theory), `AlphanumericTokenRecognizer_RecognizeIdentifier_Possessive_IsLeftAfterTheLastWord`,
+`AlphanumericTokenRecognizer_RecognizeHyphenatedNumber_OtherShapes_ReturnNull` (a fourteen-row theory)
 
-`COVID-19`, `Catch-22`, `Boeing-737` and `F-16` at offset 5 give one span over the digits only, at the digits' offset,
-read `nineteen`, `twenty two`, `seven hundred thirty seven` and `sixteen`. `COVID-1234`, `COVID-`, `COVID-1a`, `-19`,
-`co2-19`, `well-known`, `a-b-12` and `mid-1990s` return nothing.
+`COVID-19`, `Catch-22`, `Boeing-737` and `Scp-184` at offset 5 give one span over the hyphen and the digits, at the
+hyphen's offset, read `nineteen`, `twenty two`, `seven hundred thirty seven` and `one hundred eighty four`. `SCP-184`,
+`F-16`, `B-52`, `A-1`, `SCP-049` and `SCP-1234` give a spelled span over the capitals (`S C P`, `F`, `B`, `A`) and a
+number span over the hyphen and the digits (`one hundred eighty four`, `sixteen`, `fifty two`, `one`, `zero four nine`,
+`one two three four`). `SCP-093's` and `F-16` with a typographic possessive leave the possessive uncovered;
+`SCP-093-T2`, `SCP-093-EX`, `SCP-093-7` and `SCP-093-T2's` give `S C P|zero nine three` and then `T|two`, `E X` or
+`seven`, each group's first span covering its hyphen; `B12's` gives `B|twelve` ending before the apostrophe.
+`COVID-1234`, `SCP-12345`, `COVID-`, `COVID-1a`, `-19`, `co2-19`, `well-known`, `a-b-12`, `mid-1990s`,
+`COVID-19-related`, `COVID-19-T2`, `SCP-T2`, `SCP-093-t2` and `SCP-093--7` return nothing.

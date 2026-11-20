@@ -45,6 +45,50 @@ once, then scores every candidate with integers only:
 The decision uses integers only, so it is identical on every platform and runtime. A form with exactly one candidate is
 not ambiguous: the result is that reading with confidence 1 and neither the extractor nor the model is touched.
 
+**Adjective cue.** Grammar that marks the word as an adjective is added to the model's evidence as a fixed prior. When
+the tagger tags the target `ADJ` and either a degree adverb tagged `ADV` stands right before it (`very`, `so`, `too`,
+`quite`, `extremely`, `most` and 23 more: *very minute*, *so close*, *quite content*) or a coordinating conjunction
+joins it to a word tagged `ADJ` (*minute and clear*, *grey and minute*, also after one degree adverb on the right:
+*minute and very clear*), every candidate whose part-of-speech hint includes `ADJ` (see *ReadingInventory Design*,
+`IsAdjective`) gets the integer bonus `round(scale * temperature * 2.2)` added to its score: odds of about 9 to 1 on the
+model's own calibrated scale (`AdjectiveCueLogOdds`). Both signals must agree, the tag and the construction, so a degree
+word in another role (*the very minute he came*, where *very* is tagged `ADJ` and *minute* `NOUN`) does not trigger it.
+It is a prior, not a rule: a model that is confident of another reading keeps it. Decision: the sparse features see
+these constructions too rarely to weigh them (the listener-flagged *grey and very minute and clear* got the time reading
+at 0.59), while a degree adverb before a word that the tagger reads as an adjective leaves almost no room for a noun or
+a verb. The bonus is computed once from the model's header, so the decision stays integer-only, and the trainer never
+sees it: the model and its training record are unchanged, and the evaluation (which runs the analyzer and the
+classifier) measures it. The measured effect is in `tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md`.
+
+**Noun-form cue.** A reading can be a noun of its lemma and never a noun of a given form: `wind.coil` is a noun as *a
+wind* (a bend), but *wound* is only its past tense (see *ReadingInventory Design*, `CanBeNoun`). When the tagger tags
+the target `NOUN`, exactly one candidate can be a noun of the form, and another candidate is ruled out by the form
+itself, that candidate gets `round(scale * temperature * 1.0)` (`NounFormCueLogOdds`, odds of about 2.7 to 1). Decision:
+the flagged *a knife wound* got the coil reading at 0.55. The prior is small on purpose: the tagger tags a verb `NOUN`
+now and then (*the tape wound onto the spool*), and a prior of ln 9 or more, or a hard constraint, lost that development
+row; a cue for every noun or verb tag over all heteronyms was measured too and lost 1 to 2 points of development
+accuracy and 11 rows of the external `whd-eval` set, so the cue is limited to the forms that rule a reading out by
+themselves.
+
+**Past-time cue.** When the target's clause has *yesterday*, *ago*, *previously* or *last* before a word of time (*last
+night*, *last week*), before or after the target, and the target does not follow an auxiliary or a particle (*did not
+read*, *to read*, *will read* take the base form whatever the time; one adverb may stand between), every past-tense
+candidate (role `past`, see `IsPastTense`) gets `round(scale * temperature * 2.2)` (`PastTimeCueLogOdds`). The clause
+ends at a coordinating or subordinating conjunction or a semicolon, so the time of another clause does not decide the
+word (*I read the book, and yesterday she read it*); a comma does not end it, so a fronted adverbial counts (*Last
+night, I read it*). Decision: the tense of *read* depends on words the sparse features often do not see together with
+it.
+
+**Context cues.** A short table of cue words per reading marks a use the training data seldom shows: for `tear.rip`,
+words of the body and of materials (*muscle*, *ligament*, *tendon*, *hamstring*, *fabric*, *canvas*, *seam*, *wear*
+and 15 more). A candidate with a cue word within three words of the target (`ContextCueWindow`) gets
+`round(scale * temperature * 2.2)` (`ContextCueLogOdds`). Decision: the training data has one noun use of the rip
+reading against its verb uses and the noun uses of the drop from the eye, so the flagged *a deep muscle tear* got the
+drop at 0.72. Adding training rows was tried (a fourth synthetic round of 110 rows): it fixed the flagged words, but
+retraining the single-epoch model re-rolled other readings (*the bass player caught a bass*, *a tear in his eye*, *I
+read every night*), so the data round was not kept. All three cues, like the adjective cue, are priors that the trainer
+never sees and that leave a confident model its reading.
+
 **Confidence.** With the candidate scores `s`, the top score `m`, and the model's `scale` and `temperature`, the
 confidence is `1 / sum(exp((s - m) / (scale * temperature)))` over the candidates, computed in `double` and clamped to
 the range 0 to 1; it is the softmax probability of the winning candidate at the model's temperature. With no weights at

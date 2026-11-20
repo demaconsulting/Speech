@@ -43,6 +43,87 @@ public sealed class TextNormalizerTests
         Assert.Equal(spoken, Spoken(text));
     }
 
+    /// <summary>
+    ///     Proves a lone number sign after a word is the word <i>number</i> before a colon or a number, and is left alone at the
+    ///     start of a line, before a word or with no word before it.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("Item #: SCP-184", "Item number: S C P one hundred eighty four")]
+    [InlineData("Case # 12 is open.", "Case number twelve is open.")]
+    [InlineData("See item #12 now.", "See item number twelve now.")]
+    [InlineData("# 5 Reasons", "# five Reasons")]
+    [InlineData("Item # Title", "Item # Title")]
+    [InlineData("Item\n# 5", "Item\n# five")]
+    [InlineData("5 # 6", "five # six")]
+    public void TextNormalizer_Normalize_NumberSign_IsTheWordNumberOnlyAfterAWordBeforeAColonOrNumber(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
+    /// <summary>
+    ///     Proves an editorial question or exclamation mark in brackets is dropped whole (not spoken and not a pause), with
+    ///     the bracket its own token or glued to an ordinal before it, while a bracket that holds words is kept.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("Date:  June 12th(?), done", "Date:  June twelfth, done")]
+    [InlineData("He was 12 (?) years old.", "He was twelve  years old.")]
+    [InlineData("It worked (!) at once.", "It worked  at once.")]
+    [InlineData("Really (?!) yes.", "Really  yes.")]
+    [InlineData("Why (not?) now.", "Why (not?) now.")]
+    [InlineData("Is it (? no", "Is it (? no")]
+    public void TextNormalizer_Normalize_EditorialMarkInBrackets_IsDropped(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
+    /// <summary>
+    ///     Proves a bracketed numeral that restates the number before it is dropped, for words before digits and digits
+    ///     before words, capitalized or hyphenated or of several words, and only when the values match.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("One (1) wrist mounted light", "One  wrist mounted light")]
+    [InlineData("with three (3) hours", "with three  hours")]
+    [InlineData("twenty-five (25) men", "twenty-five  men")]
+    [InlineData("one hundred and five (105) days", "one hundred and five  days")]
+    [InlineData("3 (three) boys", "three  boys")]
+    [InlineData("three (4) girls", "three (four) girls")]
+    [InlineData("page one (2) here", "page one (two) here")]
+    [InlineData("in 2024 (one) case", "in twenty twenty four (one) case")]
+    public void TextNormalizer_Normalize_RestatedNumberInBrackets_IsDroppedOnlyWhenTheValuesMatch(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
+    /// <summary>
+    ///     Proves a lone dimension sign between measures is <i>by</i>, <i>times</i> before an arithmetic operator, and that
+    ///     an <c>x</c> that is a variable, a letter of a name or the start of a word is left alone.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("5 m x 5 m x 5 m.", "five meters by five meters by five meters.")]
+    [InlineData("a 2 x 4 board", "a two by four board")]
+    [InlineData("10 \u00D7 20 cm", "ten by twenty centimeters")]
+    [InlineData("3 x 4 = 12", "three times four equals twelve")]
+    [InlineData("Let x = 5.", "Let x equals five.")]
+    [InlineData("Malcolm X spoke.", "Malcolm X spoke.")]
+    [InlineData("An X-ray of 5 x-rays.", "An X-ray of five x-rays.")]
+    [InlineData("5 cats x 3", "five cats x three")]
+    public void TextNormalizer_Normalize_DimensionSign_IsByBetweenMeasures(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
     /// <summary>Proves adjacent word-producing replacements are separated by exactly one space, with the source offsets unchanged.</summary>
     [Fact]
     public void TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets()
@@ -353,7 +434,8 @@ public sealed class TextNormalizerTests
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("Use paper A4 and vitamin B12 with H2O and MP3.", "Use paper A four and vitamin B twelve with H two O and M P three.")]
-    [InlineData("COVID-19 and Catch-22 spread.", "COVID-nineteen and Catch-twenty two spread.")]
+    [InlineData("COVID-19 and Catch-22 spread.", "COVID nineteen and Catch twenty two spread.")]
+    [InlineData("Item SCP-184 and the F-16.", "Item S C P one hundred eighty four and the F sixteen.")]
     [InlineData("The COVID19 wave.", "The COVID19 wave.")]
     public void TextNormalizer_Normalize_LettersAndDigits_AreSpelledAndRead(string text, string spoken)
     {

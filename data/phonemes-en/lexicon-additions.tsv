@@ -1,0 +1,9 @@
+word	arpabet	note
+agave	AH0 G AA1 V IY0	not in CMUdict; the letter-to-sound model says a-GAVE; the plant is a-GAH-vee, three syllables with the final e sounded
+aquiver	AH0 K W IH1 V ER0	not in CMUdict; the letter-to-sound model says a-QUIVE-er; the predicative a- (as in aglow, afire, abuzz) before the dictionary word quiver (K W IH1 V ER0)
+covid	K OW1 V IH0 D	not in CMUdict (later than its last release); an acronym read as a word, which an unknown word written in capitals would otherwise be spelled as
+hvac	EY1 CH V AE2 K	not in CMUdict; read H-vac, the letter name and then a word, which an unknown word written in capitals would otherwise be spelled as
+iso	AY1 S OW0	not in CMUdict; the standards body and the camera setting are read EYE-so, which an unknown word written in capitals would otherwise be spelled as
+jpeg	JH EY1 P EH2 G	not in CMUdict; read JAY-peg, which an unknown word written in capitals would otherwise be spelled as
+lidar	L AY1 D AA2 R	not in CMUdict; read like radar, which an unknown word written in capitals would otherwise be spelled as
+uefa	Y UW0 EY1 F AH0	not in CMUdict; the football body is read you-AY-fa, which an unknown word written in capitals would otherwise be spelled as

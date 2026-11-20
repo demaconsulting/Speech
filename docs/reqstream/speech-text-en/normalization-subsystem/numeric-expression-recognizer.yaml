@@ -27,7 +27,8 @@ sections:
                   grouping is exactly one to three digits followed by groups of three, a decimal
                   with a period, a hash number, and a number with a leading zero digit by digit,
                   shall read an ordinal only when its two-letter suffix is the one its number
-                  requires (in any letter case), shall read a decade only for a two-digit number
+                  requires (in any letter case), shall read a numeric token with glued brackets or a
+                  possessive as the token without them, leaving them as written, shall read a decade only for a two-digit number
                   from 10 to 90 or a four-digit number from 1000 to 2099 that ends in zero and is
                   followed by s or 's (an apostrophe token directly before such a decade as one span
                   covering both tokens), and shall read an unsigned four-digit number from 1000 to
@@ -68,18 +69,30 @@ sections:
                   sign only when a number precedes it, shall read a unit of its closed
                   case-sensitive table glued to or one space after a plain number as the unit's
                   words (singular for exactly one), flagging a unit that may carry an abbreviation
-                  period, and shall leave an excluded or unknown unit unchanged.
+                  period, shall read a unit written like a word or a letter (in, m, g, s, l, L, V, J)
+                  after a number only with its period, at the end of the text or before a bracket, a
+                  sentence or clause mark, a dimension or rate word, "in diameter" or a dimension sign
+                  and a number, shall read two integers glued by a dimension sign with "by" between
+                  them, shall read a tilde before a number as "approximately" and the number as if the
+                  tilde were not there, and shall leave an unlisted or ambiguous letter (A, K, N, W)
+                  and an unknown unit unchanged.
                 justification: |
                   "$5.50" is "five dollars and fifty cents" while "5.50 EUR" is read per token as a
                   decimal; reading a suffix code with cents would need the unit and the amount in
                   one span across a space, which a chunk cut could split, and the prefix code is
                   deferred for the same reason. "50%" and "5 kg" are spoken with their words, but
-                  "5 m", "5 g" and "5 in" are too ambiguous to read and a unit in the wrong case
+                  "5 m" and "5 g" are too ambiguous to read and a unit in the wrong case
                   ("Kg") is not the unit. The period flag lets the normalizer apply the abbreviation
-                  period rules to "ft.".
+                  period rules to "ft.". "in" is the preposition before its object ("4 in 10 cases",
+                  "4 in the morning") but the inch where no object can follow ("10 cm (4 in) tall");
+                  the same holds for a letter after a number ("5 m x 5 m" against "5 m of rope"). A
+                  listener flagged "300 m (~1000 ft)" read as letters and digits and "205 kPa" read as
+                  a word, so the common SI units with their prefixes are listed, while A, K, N and W
+                  collide with the article, the thousand and the compass points.
                 tests:
                   - NumericExpressionRecognizer_Currency_SymbolsCentsAndSingular
                   - NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod
+                  - NumericExpressionRecognizer_TildeBracketsDimensionsAndPossessive_AreReadAroundTheNumber
 
               - id: SpeechTextEn-Normalization-NumericExpressionRecognizer-TimesAndDates
                 title: >-

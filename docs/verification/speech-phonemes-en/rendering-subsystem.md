@@ -35,15 +35,17 @@ The subsystem tests pass when: the inventories are the voices' own (159 Piper sy
 every weak form, mark and renderer mode render only to symbols of both tables; `Hello, world!` renders as
 `həlˈoʊ, wˈɜːld!` for Piper and `həlˈO, wˈɜɹld!` for Kokoro; quotation marks and dashes are a pause for Piper and
 Kokoro's own marks for Kokoro; an ellipsis is three dots for Piper and `…` for Kokoro; a hyphenated compound keeps every
-stress for Piper and only the first for Kokoro; the flap, the linking r and the stress rules give the documented
-strings; function words are weak only when weak forms are enabled (on by default for the Piper renderer, off by default
-for the Kokoro renderer, which the Kokoro model package switches on; see *SpeechOnnxKokoro KokoroPhonemePipeline
-Verification*); a host IPA override is translated into the symbols of each voice (`bɝd` is `bɜːd` for Piper and `bɜɹd`
-for Kokoro, `ɹˈaɪt` is `ɹˈIt` for Kokoro, `tʃˈɛk` is `ʧˈɛk`), one that a voice cannot represent completely (a symbol
-outside its table) is replaced by the word's normal pronunciation, and every symbol of both tables, alone or next to a
-diphthong or r-colored vowel, yields only symbols of each voice; an ARPAbet override renders like the dictionary word
-with the same phones; only the seven numbers thirteen to nineteen take the first-syllable number stress for Piper
-(`routine` and `canteen` do not); and a long text is rendered as parts within the limit that lose nothing.
+stress for Piper and only the first for Kokoro; an unstressed i that ends a prefix before the stressed syllable is lax
+for Piper and no prefixed or compound word has a space or a pause mark inside it in either voice; the flap, the linking
+r and the stress rules give the documented strings; function words are weak only when weak forms are enabled (on by
+default for the Piper renderer, off by default for the Kokoro renderer, which the Kokoro model package switches on; see
+*SpeechOnnxKokoro KokoroPhonemePipeline Verification*); a host IPA override is translated into the symbols of each voice
+(`bɝd` is `bɜːd` for Piper and `bɜɹd` for Kokoro, `ɹˈaɪt` is `ɹˈIt` for Kokoro, `tʃˈɛk` is `ʧˈɛk`), one that a voice
+cannot represent completely (a symbol outside its table) is replaced by the word's normal pronunciation, and every
+symbol of both tables, alone or next to a diphthong or r-colored vowel, yields only symbols of each voice; an ARPAbet
+override renders like the dictionary word with the same phones; only the seven numbers thirteen to nineteen take the
+first-syllable number stress for Piper (`routine` and `canteen` do not); and a long text is rendered as parts within the
+limit that lose nothing.
 
 ### Test Scenarios
 
@@ -66,11 +68,15 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel`,
 `RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel`,
 `RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices`,
+`RenderingSubsystem_Analyzed_IdentifiersLettersAndInches_AreSpokenAsWords`,
 `RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes`,
 `RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements`,
 `RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions`,
 `RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`,
 `RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped`,
+`RenderingSubsystem_SoundRules_UnstressedIBeforeTheStressInsideAWord_IsLaxWithoutAWordBreak`,
+`RenderingSubsystem_Layout_PrefixedWordInASentence_IsOneWordBetweenItsNeighbors`,
+`RenderingSubsystem_SoundRules_NasalBeforeAVelarAcrossACompoundJoint_StaysAnN`,
 `RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
 `RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones`,
 `RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice`
@@ -78,6 +84,12 @@ reported by name. The precondition test shows that the tables are the real ones 
 Short texts are rendered by both renderers and compared with the documented strings: `city` and `water` (flap),
 `ability`, `identity` and `reality` (the flap before a final `-y` that the dictionary stresses secondarily), `number is`
 (linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
+the prefixed and compound words `semicircle`, `semi-circle`, `semicolon`, `multicolored`, `multimedia`, `anticlimax`,
+`anti-war`, `anymore` and `rebuild` (the unstressed i before the stressed syllable is lax for Piper, `sˌɛmɪsˈɜːkəl`,
+and neither voice has a space or a pause mark inside the word) against `happiness`, `everybody` and `email` (the tense
+`i` after the primary stress and at the start of a word), and the sentence of the owner's listening test, in which
+`semicircle` is one word between `the` and `above` in both voices; `vine-clad` (`vˈaɪnklˌæd`) and `sun-glasses` keep
+the `n` of their first element before the velar stop of the next, while `sunken` and `ink` keep the velar nasal;
 `a well-known author` and `a battle-field and twenty-one self-evident ones` (one primary stress, the later parts
 secondary, next to the primary or not); the compound golden (`compounds-golden.tsv`: `co-operate`, `non-fiction`,
 `re-enter`, `pre-war`, `anti-war`, `ex-wife`, `self-evident`, `battle-field`, `well-known`, `e-mail` with the stress of
@@ -86,15 +98,19 @@ the design, and `free-range`, `tea-room`, `blue-ribbon` with their long vowels k
 `square`, `north`, `start`, `nurse`) as the espeak-ng en-us voice renders them; the numbers `thirteen` to `nineteen` and
 their neighbors `routine`, `canteen`, `thirteenth`; ARPAbet and IPA overrides of `record` against the dictionary words
 with the same phones; the groups of `555-0147`, each replaced on its own, are separated by a pause
-(`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for Kokoro) while the hyphen of `COVID-19` stays inside
-its word.
+(`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for Kokoro) while the hyphen of `COVID-19` is neither a
+pause nor a letter (`kˈoʊvɪd nˈaɪntiːn`); with the real text analysis `Item #: SCP-184`, `F-16`, `B-52` and `A-1` are
+spoken as the letter names and then the number as separate words (`ˈaɪɾəm nˈʌmbɚ: ˈɛs sˈiː pˈiː wˈʌn hˈʌndɹɪd ˈeɪɾi
+fˈɔːɹ`), the lone letters `S`, `F`, `H` and `X` keep their names, and `10 cm (4 in) tall` reads the inch.
 
 #### Weak forms
 
 **Tests**: `RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled`,
 `RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices`,
 `RenderingSubsystem_WeakForms_FirstWordOfTheText_HasASecondaryStressOnItsFullVowel`,
-`RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt`
+`RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt`,
+`RenderingSubsystem_WeakForms_ContentUseOfAFunctionWord_IsStressed`,
+`RenderingSubsystem_WeakForms_OfAGroup_HasReducedVowels`
 
 `a cup of the tea` renders `ɐ kˈʌp ʌvðə tˈiː` for Piper with weak forms and `ɐ kˈʌp ˈʌv ðə tˈiː` without; the stress of
 `of` stays for Kokoro by default and goes when weak forms are enabled. Every word of the table, alone, before a
@@ -104,7 +120,10 @@ first word of an utterance of the Piper voice, keeps a full-vowel weak form with
 is `hˌiː wˈɪspɚd`, `Should we go` is `ʃˌʊd wiː ɡˈoʊ`, a word after an opening quote is first too), while `The cat`,
 `A cat`, `An apple`, `For years`, `Because of this` and every word after the first (`Well, he said that he left`) keep
 their forms; the first word of each part of a long text is treated the same way, the rule is off with the weak forms
-switched off, and Kokoro's rendering of `He left` is unchanged.
+switched off, and Kokoro's rendering of `He left` is unchanged. With the tags of the real text analysis, the noun
+`will` of `my will was all the other way` and `She has a strong will`, `can` of `Put it in the can` and `must` of
+`It is a must` are stressed in both voices (`maɪ wˈɪl wʌz` for Piper), while the auxiliary of `He will go` stays weak
+(`wɪl ɡˈoʊ`). `the wall of a gallery` renders `wˈɔːl əvə ɡˈælɚɹi` and `It was a one-time offer` keeps `wʌzɐ`.
 
 #### Parts
 

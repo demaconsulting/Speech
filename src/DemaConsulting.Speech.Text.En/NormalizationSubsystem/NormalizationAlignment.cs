@@ -465,6 +465,11 @@ internal sealed class AlignedTextBuilder
     internal bool TouchesPreviousSpokenLetter(int start) => _lastSpokenEndsWithLetter && start == _lastSpanEnd;
 
     /// <summary>
+    ///     Gets the end of the last span or pronunciation mark added; a new span may start there or later.
+    /// </summary>
+    internal int CoveredEnd => _lastCoveredEnd;
+
+    /// <summary>
     ///     Requests a sentence break immediately before the token that starts at
     ///     <paramref name="offset"/>.
     /// </summary>

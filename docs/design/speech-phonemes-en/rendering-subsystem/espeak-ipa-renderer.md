@@ -32,7 +32,17 @@ word) and not lists of words, and their choices were decided by measuring agains
 the evaluation record) and then frozen into the golden corpus. The vowels before `r` follow that engine: `IY` before `r`
 is the lax `ɪ` (`hˈɪɹ`, never `hˈiːɹ`, which the voice hears as *he*), `AY` and `AW` before `r` are followed by a schwa
 that carries the `r` (`aɪɚ`, `aʊɚ`, and `aɪɚɹɪŋ` before a high front vowel), `UW` before `r` is the vowel of *cure*
-(`pʊɹ`) and `EY` before `r` and a consonant or the end is the vowel of *square*. The stress of a compound written with a
+(`pʊɹ`) and `EY` before `r` and a consonant or the end is the vowel of *square*. The tense `i` of an unstressed `IY` is
+the voice's word-final vowel (*happy*): inside a word, after a consonant and before a consonant and the primary stress
+(the end of a prefix or of the first element of a compound), the voice lengthens it and pauses after it as if the word
+ended there, so it is written lax, as the training engine writes it (`sˌɛmɪsˈɜːkəl`, `mˌʌltɪkˈʌlɚd`, `ˌæntɪwˈɔːɹ`;
+`ᵻ` after `r`: `ɹᵻbˈɪld`); after the primary stress, at the start and at the end of a word it stays `i`
+(`hˈæpinəs`, `ˈɛvɹibˌɑːdi`). A compound element boundary is never written as a word boundary: the elements of a word
+are joined without a space or a mark, and the `n` before a velar stop is the velar nasal `ŋ` only inside one element
+(`sˈʌŋkən`), never across the joint (`vine-clad` is `vˈaɪnklˌæd`, not *vying-clad*; espeak-ng assimilates there too,
+but the first element then no longer sounds like its word). A word of the weak-form table that the text analysis tags as
+a noun is rendered from its phones with its stress (see *WeakForms*, `IsContentUse`), and the forms of a grouped pair
+are those of the group (`InGroup`: `of a` is `əvə`). The stress of a compound written with a
 hyphen is read from the pronunciation's element starts: a secondary stress of a compound is always written, even next to
 the primary stress (`wˈɛlnˌoʊn`, `ˌɛkswˈaɪf`), where the stress-clash rule of a single word would drop it, and the
 vowel-before-`r` rules look only at the phones of the element the vowel is in (`free-range` is `fɹˈiːɹˌeɪndʒ`,

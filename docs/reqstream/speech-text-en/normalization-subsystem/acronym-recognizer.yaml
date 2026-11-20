@@ -35,7 +35,9 @@ sections:
                   as a word and "XIV" as a numeral. In an all-capital sentence "IT" is an ordinary
                   word in capitals while "FBI" remains an initialism. The period of "U.S.A." decides
                   the sentence handling, so the recognizer must say whether it is part of the
-                  token.
+                  token. The listed forms include initialisms with a vowel that the pronunciation
+                  dictionary has as a word or a name: a listener heard "presumed KIA" as the car
+                  brand, and no rule tells KIA from NASA.
                 tests:
                   - AcronymRecognizer_TryRecognize_CaseVariants_AreCaseSensitive
                   - AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter

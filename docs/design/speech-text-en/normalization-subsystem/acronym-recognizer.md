@@ -16,11 +16,15 @@ line has three columns:
 - `ambiguous`: `yes` when the form is also an ordinary English word in capitals (`US`, `IT`, `AM`): it is then left
   alone inside an all-capital sentence; otherwise `no`
 
-The listed forms are US, USA, UK, EU, UN, UAE, FBI, CIA, NSA, IRS, DOJ, TV, PC, CEO, CFO, CTO, HR, PR, ID, IT,
-AI, ML, API, URL, HTML, CSS, SQL, PDF, CPU, GPU, USB, LED, LCD, DVD, CD, GPS, ATM, SUV, DNA, RNA, HIV, MRI,
-AM, PM, BBC, CNN, NBC, NPR, HBO, MBA, LLC, VIP, FAQ, ASAP, DIY and FYI; `US`, `IT` and `AM` are marked
-ambiguous. `AcronymMatch(Spoken, TokenEndsWithPeriod)` is the result: the letters to speak, and whether the
-token itself ends with the period of a dotted form.
+The listed forms are US, USA, UK, EU, UN, UAE, FBI, CIA, NSA, IRS, DOJ, TV, PC, CEO, CFO, CTO, HR, PR, ID, IT, AI, ML,
+API, URL, HTML, CSS, SQL, PDF, CPU, GPU, USB, LED, LCD, DVD, CD, GPS, ATM, SUV, DNA, RNA, HIV, MRI, AM, PM, BBC, CNN,
+NBC, NPR, HBO, MBA, LLC, VIP, FAQ, ASAP, DIY, FYI, KIA, MIA, WIA, POW, DOA, AKA, GED, IRA, ETA, ICU, IED and EOD; `US`,
+`IT`, `AM` and `POW` are marked ambiguous. The last twelve are initialisms with a vowel that the pronunciation
+dictionary has as a word or a name (`KIA` the car brand, `MIA` and `IRA` names, `POW` and `GED` words, `AKA` read as a
+word) or lacks; a reviewed list rather than a rule decides them, because no rule tells `KIA` from `NASA`. An unlisted
+capital word with a vowel that the dictionary also lacks is spelled by the phonemizer (see *WordPronouncer Design* of
+`DemaConsulting.Speech.Phonemes.En`). `AcronymMatch(Spoken, TokenEndsWithPeriod)` is the result: the letters to speak,
+and whether the token itself ends with the period of a dotted form.
 
 Fixed limits (code constants): an initialism has at least two and at most six upper-case letters, a
 rule-spelled one at most five, and a group beside an ampersand at most four.

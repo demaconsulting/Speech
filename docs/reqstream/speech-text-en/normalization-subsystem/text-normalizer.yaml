@@ -129,8 +129,12 @@ sections:
                   The TextNormalizer class shall speak an operator symbol only when whitespace or
                   the text edge sets it apart on both sides, shall speak the copyright, registered,
                   trademark, section and paragraph marks alone or touching a word (separating two
-                  adjacent marks that both produce words by exactly one space) and a slash only
-                  between two plain words, leaving every other use of these characters unchanged,
+                  adjacent marks that both produce words by exactly one space), a slash only
+                  between two plain words, and a lone number sign as the word "number" only after a
+                  word and before a colon or a number, a lone x or multiplication sign between measures as
+                  "by" (or "times" before an arithmetic operator), shall drop an editorial question or
+                  exclamation mark in brackets and a bracketed numeral that restates the number before it
+                  with the same value, leaving every other use of these characters unchanged,
                   shall canonicalize a typographic apostrophe inside a clitic or a word while
                   keeping quotation marks unchanged, and shall classify each clitic from the
                   neighboring words only when classification is requested.
@@ -139,12 +143,19 @@ sections:
                   where rewording them would damage the text, so only the clear word-like uses are
                   spoken, and adjacent marks would otherwise run together into one unreadable word.
                   The role of a clitic is a result for the detailed analysis only, so the lean path
-                  skips it, but the canonical apostrophe is needed in both.
+                  skips it, but the canonical apostrophe is needed in both. Listeners flagged "5 m x 5
+                  m" read with the letter x, "June 12th(?)" read with the stray marks and "One (1)"
+                  read twice: legal and technical text restates numbers and editors mark doubts, and
+                  neither is meant to be read aloud.
                 tests:
                   - TextNormalizer_Normalize_Operators_AreSpokenOnlyWhenSetApart
                   - TextNormalizer_Normalize_Marks_AreSpoken
                   - TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets
                   - TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords
+                  - TextNormalizer_Normalize_NumberSign_IsTheWordNumberOnlyAfterAWordBeforeAColonOrNumber
+                  - TextNormalizer_Normalize_EditorialMarkInBrackets_IsDropped
+                  - TextNormalizer_Normalize_RestatedNumberInBrackets_IsDroppedOnlyWhenTheValuesMatch
+                  - TextNormalizer_Normalize_DimensionSign_IsByBetweenMeasures
                   - TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords
                   - TextNormalizer_Normalize_Clitics_AreClassifiedFromContext
                   - TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes

@@ -37,14 +37,14 @@ the documented recognitions.
 ##### Recognition
 
 **Tests**: `AcronymRecognizer_TryRecognize_CaseVariants_AreCaseSensitive` (a five-row theory),
-`AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter` (`FBI`, `ASAP`, `NYC`),
+`AcronymRecognizer_TryRecognize_Initialism_IsSpokenLetterByLetter` (`FBI`, `ASAP`, `NYC` and the reviewed initialisms
+that the pronunciation dictionary has as words or names, `KIA`, `MIA`, `POW`, `ETA`),
 `AcronymRecognizer_TryRecognize_ShoutingSentence_LeavesAmbiguousAndRuleSpelledForms`,
-`AcronymRecognizer_TryRecognize_TokensThatAreNotInitialisms_AreNotRecognized` (an eleven-row theory: `NASA`,
-two Roman-numeral shapes (`MMMM` among them), `A`, a six- and a seven-letter vowel-less token, `Nyc`, `U..S`, `U,S.`,
-`a&b` and `ABCDE&F`),
-`AcronymRecognizer_TryRecognize_DottedLetters_AreSpelled` (`U.S.`, `p.m.` and `U.S`, with the period flag),
-`AcronymRecognizer_TryRecognize_AmpersandForms_AreSpelledWithAnd` (`AT&T`, the typographic possessive `AT&T’s` and
-`A&B&C`)
+`AcronymRecognizer_TryRecognize_TokensThatAreNotInitialisms_AreNotRecognized` (an eleven-row theory: `NASA`, two
+Roman-numeral shapes (`MMMM` among them), `A`, a six- and a seven-letter vowel-less token, `Nyc`, `U..S`, `U,S.`, `a&b`
+and `ABCDE&F`), `AcronymRecognizer_TryRecognize_DottedLetters_AreSpelled` (`U.S.`, `p.m.` and `U.S`, with the period
+flag), `AcronymRecognizer_TryRecognize_AmpersandForms_AreSpelledWithAnd` (`AT&T`, the typographic possessive `AT&T’s`
+and `A&B&C`)
 
 With the shouting guard on, `US`, `IT`, `AM` and `NYC` are not recognized while `FBI` and `U.S.` are; with it off, `US`
 is recognized.

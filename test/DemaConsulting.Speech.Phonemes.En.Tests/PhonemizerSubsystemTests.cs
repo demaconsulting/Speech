@@ -489,6 +489,139 @@ public sealed class PhonemizerSubsystemTests
     }
 
     /// <summary>
+    ///     Proves the reviewed additions pronounce words the dictionary lacks that the letter-to-sound model gets wrong
+    ///     (<i>agave</i> a-GAH-vee, <i>aquiver</i> with the vowel of <i>quiver</i>), from the lexicon step of the priority
+    ///     list, and that a pronouncer with no additions falls back to the letter-to-sound model for them.
+    /// </summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_LexiconAddition_PronouncesAWordTheDictionaryLacks()
+    {
+        // Arrange
+        var added = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+        var none = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default, additions: LexiconCorrections.Parse(new StringReader("word\tarpabet\tnote\n")));
+
+        // Act
+        var agave = added.Pronounce("agave", null);
+        var aquiver = added.Pronounce("aquiver", null);
+        var guessed = none.Pronounce("agave", null);
+
+        // Assert
+        Assert.Equal("AH0 G AA1 V IY0", agave!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.Lexicon, agave.Source);
+        Assert.Equal("AH0 K W IH1 V ER0", aquiver!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.LetterToSound, guessed!.Source);
+    }
+
+    /// <summary>
+    ///     Proves a word the dictionary lacks that is written as two to five capitals with a vowel is spelled by the letter
+    ///     names (each letter keeping its stressed vowel), while the same letters in lower case or title case, letters of
+    ///     Roman numerals only, a dictionary word written in capitals (<i>NASA</i>) and a reviewed addition (<i>COVID</i>) are
+    ///     not.
+    /// </summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_UnknownCapitals_AreSpelledByTheLetterNames()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var usgs = pronouncer.Pronounce("USGS", null);
+        var title = pronouncer.Pronounce("Usgs", null);
+        var roman = pronouncer.Pronounce("VII", null);
+        var nasa = pronouncer.Pronounce("NASA", null);
+        var covid = pronouncer.Pronounce("COVID", null);
+
+        // Assert
+        Assert.Equal("Y UW1 EH1 S JH IY1 EH1 S", usgs!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.Spelled, usgs.Source);
+        Assert.Equal(PronunciationSource.LetterToSound, title!.Source);
+        Assert.Equal(PronunciationSource.LetterToSound, roman!.Source);
+        Assert.Equal("N AE1 S AH0", nasa!.Pronunciation.ToString());
+        Assert.Equal("K OW1 V IH0 D", covid!.Pronunciation.ToString());
+    }
+
+    /// <summary>
+    ///     Proves a combining form (<i>bio-</i>, <i>electro-</i>, <i>micro-</i> ...) before a root of three or more syllables
+    ///     or one stressed after its first syllable has the secondary stress and the root keeps the primary, hyphenated or
+    ///     closed, while before a short root stressed first it carries the primary stress like the first element of any
+    ///     compound, and a compound of two words keeps its first-element stress.
+    /// </summary>
+    /// <param name="word">The word.</param>
+    /// <param name="expected">The expected pronunciation.</param>
+    [Theory]
+    [InlineData("bio-mechanical", "B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L")]
+    [InlineData("biomechanical", "B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L")]
+    [InlineData("neuro-imaging", "N UH2 R OW0 IH1 M IH0 JH IH0 NG")]
+    [InlineData("ultra-modern", "AH2 L T R AH0 M AA1 D ER0 N")]
+    [InlineData("bio-weapon", "B AY1 OW0 W EH2 P AH0 N")]
+    [InlineData("bookshelf", "B UH1 K SH EH2 L F")]
+    [InlineData("sun-light", "S AH1 N L AY2 T")]
+    public void WordPronouncer_Pronounce_CombiningForm_LeavesTheStressOnALongRoot(string word, string expected)
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var pronounced = pronouncer.Pronounce(word, null);
+
+        // Assert
+        Assert.Equal(expected, pronounced!.Pronunciation.ToString());
+    }
+
+    /// <summary>
+    ///     Proves a British spelling the dictionary lacks is pronounced as the dictionary's American spelling of the word
+    ///     (one rule or several together), while a capitalized word, which may be a name, is not respelled.
+    /// </summary>
+    /// <param name="word">The British spelling.</param>
+    /// <param name="expected">The dictionary pronunciation of its American spelling.</param>
+    [Theory]
+    [InlineData("manoeuvring", "M AH0 N UW1 V ER0 IH0 NG")]
+    [InlineData("manoeuvre", "M AH0 N UW1 V ER0")]
+    [InlineData("analyse", "AE1 N AH0 L AY2 Z")]
+    [InlineData("civilisation", "S IH2 V AH0 L IH0 Z EY1 SH AH0 N")]
+    [InlineData("oesophagus", "IH0 S AA1 F AH0 G AH0 S")]
+    [InlineData("paediatric", "P IY2 D IY0 AE1 T R IH0 K")]
+    [InlineData("calibre", "K AE1 L AH0 B ER0")]
+    [InlineData("anaemia", "AH0 N IY1 M IY0 AH0")]
+    public void WordPronouncer_Pronounce_BritishSpelling_IsTheAmericanDictionaryWord(string word, string expected)
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var british = pronouncer.Pronounce(word, null);
+        var capitalized = pronouncer.Pronounce(char.ToUpperInvariant(word[0]) + word[1..], null);
+
+        // Assert
+        Assert.Equal(expected, british!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.Morphology, british.Source);
+        Assert.Equal(PronunciationSource.LetterToSound, capitalized!.Source);
+    }
+
+    /// <summary>
+    ///     Proves a capitalized word in <i>-mouth</i> that the dictionary lacks is an English place name with the reduced last
+    ///     element of <i>Portsmouth</i> (<c>M AH0 TH</c>) after its first element, while a lower-case one keeps the full vowel.
+    /// </summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_PlaceNameInMouth_HasTheReducedLastElement()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var rhinemouth = pronouncer.Pronounce("Rhinemouth", null);
+        var tynemouth = pronouncer.Pronounce("Tynemouth", null);
+        var listed = pronouncer.Pronounce("Portsmouth", null);
+        var common = pronouncer.Pronounce("loudmouth", null);
+
+        // Assert
+        Assert.Equal("R AY1 N M AH0 TH", rhinemouth!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.Morphology, rhinemouth.Source);
+        Assert.EndsWith("M AH0 TH", tynemouth!.Pronunciation.ToString(), StringComparison.Ordinal);
+        Assert.Equal("P AO1 R T S M AH0 TH", listed!.Pronunciation.ToString());
+        Assert.DoesNotContain("AH0 TH", common!.Pronunciation.ToString(), StringComparison.Ordinal);
+    }
+    /// <summary>
     ///     Proves every word of the dictionary (all 124,926 headwords) is pronounced by the phonemizer exactly as the
     ///     dictionary lists it (its first variant, the velar comparative first for the adjectives in <i>ng</i>), whatever
     ///     the morphology rules, the prefix rule or the letter-to-sound model would derive, with the reviewed corrections

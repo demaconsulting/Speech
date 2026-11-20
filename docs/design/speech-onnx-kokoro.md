@@ -126,7 +126,7 @@ safety role.
 **Synthesis path (text to audio)**:
 
 1. **Analysis**: Speech's `SynthesisSession` runs the model's shared `TextAnalyzer` (the Text.En
-   `EnglishTextAnalyzer`, with the normalization and reading annotations) over the whole request,
+   `EnglishTextAnalyzer`, with the normalization, reading and part-of-speech annotations) over the whole request,
    splits the text into sentence-sized segments and hands each segment, speed, the model-resolved
    speaker id and, when the segment carries annotations, those annotations to
    `OnnxKokoroSynthesisEngine.GenerateAnnotated` (or the segment alone to `Generate`)

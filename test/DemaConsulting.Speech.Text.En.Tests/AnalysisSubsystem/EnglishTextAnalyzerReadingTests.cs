@@ -76,6 +76,34 @@ public sealed class EnglishTextAnalyzerReadingTests
             Readings(defaultResult.Annotations).Select(reading => (reading.Id, reading.ConfidenceText)));
     }
 
+    /// <summary>
+    ///     Proves the embedded model reads an adjective heteronym after a degree adverb or next to a coordinated adjective
+    ///     as the adjective, including the listener-flagged <i>very minute and clear</i> (tiny, not the time unit),
+    ///     while the noun stays a noun.
+    /// </summary>
+    /// <param name="text">The sentence.</param>
+    /// <param name="word">The heteronym in it.</param>
+    /// <param name="expected">The reading the word must get.</param>
+    [Theory]
+    [InlineData("To the eastward, of course, these little boats were grey and very minute and clear, but to the westward they were little boats of gold.", "minute", "minute.tiny")]
+    [InlineData("The difference was extremely minute.", "minute", "minute.tiny")]
+    [InlineData("They were very close.", "close", "close.adj-noun")]
+    [InlineData("She was so content.", "content", "content.satisfied")]
+    [InlineData("Wait a minute and then go.", "minute", "minute.time")]
+    [InlineData("Most content is free.", "content", "content.noun")]
+    public void EnglishTextAnalyzer_Analyze_DegreeAdverbOrCoordinatedAdjective_ReadsTheAdjective(string text, string word, string expected)
+    {
+        // Arrange
+        var analyzer = new EnglishTextAnalyzer();
+        var start = text.IndexOf(word, StringComparison.Ordinal);
+
+        // Act
+        var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
+
+        // Assert: the reading on the word's span
+        var reading = Assert.Single(result.Annotations, annotation => annotation.Kind == TextEnAnnotations.Reading && annotation.Start == start);
+        Assert.Equal(expected, reading.Value);
+    }
     /// <summary>Proves an analyzer given no model source emits no classified readings, also when only normalization and readings are selected.</summary>
     [Fact]
     public void EnglishTextAnalyzer_Analyze_NoModelSource_EmitsNoReadings()

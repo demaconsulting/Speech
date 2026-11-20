@@ -179,7 +179,7 @@ public sealed class MisakiRenderer
 
         var demoted = false;
         var weak = string.Empty;
-        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord: null, previousWord, espeakStyle: false, out weak, out demoted);
+        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && !WeakForms.IsContentUse(item) && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord: null, previousWord, espeakStyle: false, out weak, out demoted);
         if (known && weak.Length > 0)
         {
             return ToMisaki(weak);

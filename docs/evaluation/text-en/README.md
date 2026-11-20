@@ -59,8 +59,17 @@ are percentages of the words of the set.
 - **Gate: passed.** The improvement over the own-part-of-speech baseline on the natural holdout is +5.57 points, with a
   95 percent interval of +3.16 to +8.15 points (266 clusters). The accuracy threshold was 93.0 percent. The gate was
   fixed before any holdout was read (see `RUN-LOG.md`).
+- **Adjective cue.** The classifier adds a fixed prior to an adjective reading after a degree adverb or next to a
+  coordinated adjective (see *HeteronymClassifier Design*; added 2026-11-20 for the flagged *very minute and clear*).
+  For the shipped model it changed no decision on the development set (it raised the confidence of 22 words, all already
+  right) or on either holdout; the accuracies above are unchanged, and the record changed only in the confidence strata
+  and in three seed models' independent-holdout counts (one word fewer each).
+- **Noun-form, past-time and context cues.** Three more priors of the classifier (see *HeteronymClassifier Design*;
+  added 2026-11-20 for the flagged *a knife wound or a deep muscle tear*). For the shipped model they changed no
+  decision on the development set or on either holdout; externally `whd-eval` gained 1 row, `whd-train` 8 and `bench` 1
+  (`tear.rip` and `wound.injury`), and no reading lost a row (see `RUN-LOG.md`).
 - **Seeds.** Five training runs with seeds 1 to 5 and the same settings give 95.46 to 97.00 percent on the natural
-  holdout (mean 96.43) and 95.44 to 97.11 percent on the independent holdout (mean 96.37). The shipped model is seed 1,
+  holdout (mean 96.43) and 95.44 to 97.06 percent on the independent holdout (mean 96.34). The shipped model is seed 1,
   chosen before any holdout was evaluated, not the best seed.
 - **Confidence.** On the natural holdout the reading was right for 99.33 percent of the words at a confidence of 0.90 or
   more (1,035 of 1,042), for 75.00 percent between 0.60 and 0.90 (78 of 104) and for 47.62 percent below 0.60 (10 of

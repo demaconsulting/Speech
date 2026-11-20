@@ -40,3 +40,10 @@ is not ARPAbet, or with a repeated reading id is rejected with a format error.
 A good table parses and looks a word up; a row with two columns, an upper-case word, a phone that is not ARPAbet or a
 repeated word is rejected with a format error, a null table with `ArgumentNullException`; every row of the shipped table
 (`nobly`, `novelly`) names a word the dictionary lists with a pronunciation that differs from the correction.
+
+##### Lexicon additions
+
+**Test**: `ReadingPronunciations_LexiconAdditions_ShippedTable_AddsOnlyWordsTheDictionaryLacks`
+
+The shipped additions table holds `agave` and `aquiver`; every row has a pronunciation and names a word the dictionary
+does not list.

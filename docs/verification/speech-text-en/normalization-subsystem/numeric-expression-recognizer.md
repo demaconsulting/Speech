@@ -35,7 +35,9 @@ cardinal, and the guess is counted only where the two readings differ.
 **Currency and units.** Currency symbols read dollars and cents (singular only for exactly one, cents only for exactly
 two fraction digits), a magnitude word or letter is a follow-up span, a suffix code or symbol is per token without cents
 and a prefix code is left alone. Percent is read only after a number; a unit of the closed, case-sensitive table is read
-with its singular and plural and period flag; excluded or unknown units are left alone.
+with its singular and plural and period flag; a strict unit (`in`, `m`, `g`, `s`, `l`, `L`, `V`, `J`) only where nothing
+but a unit can stand; unlisted letters and unknown units are left alone. A tilde before a number is `approximately`,
+glued dimensions are read with `by`, and a number with glued brackets or a possessive is read without them.
 
 **Times and dates.** Valid `h:mm` times are read with the glued, separate and dotted meridiem forms and invalid shapes
 are identity without a fallback. Numeric dates follow the three orders with the ambiguity flag where month and day could
@@ -82,13 +84,23 @@ while `2000` to `2009` and `1000` are never counted.
 ##### Currency and units
 
 **Tests**: `NumericExpressionRecognizer_Currency_SymbolsCentsAndSingular`,
-`NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod`
+`NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod`,
+`NumericExpressionRecognizer_TildeBracketsDimensionsAndPossessive_AreReadAroundTheNumber`
 
 The currency test checks `$5`, `$1`, `$5.50`, `$5.5`, `$5.123`, `€5.50`, `¥5.25`, a magnitude word and letter after a
 symbol amount, the per-token suffix code (`5 USD`, `5.50 EUR`, `5 million USD`) without cents, and `USD 5` left alone.
 The unit test goes through every unit of the table for the singular for `1` and the plural for `5` and `1.0`, the glued
-and the joined forms, that exactly the period-bearing units set the period flag, and that `5 m`, `5 g`, `5 in`, `5 Kg`
-and a unit with no number before it are left alone; the percent forms (`50%`, `50 %`, a `%` alone) are part of it.
+and the joined forms, that exactly the period-bearing units set the period flag, and that `5 m`, `5 g`, `5 Kg` and a
+unit with no number before it are left alone; `5 in`, `1 in`, `4 in. long` and `5in` are inches (singular for one),
+while `4 in 10 cases`, `4 in the morning`, `2 in a row`, `3 in total`, `in` before a line break and `5in the` keep the
+preposition; `5 m`, `1 m.`, `300 m (`, `5 m x 5 m`, `5 m away`, `3 g,`, `10 s)`, `2 L.`, `5 l per day`, `12 V` and `1 J`
+are the strict units, and `205 kPa`, `1 kWh`, `30 psi`, `60 dB`, `3000 rpm`, `9 m/s`, `5 mA` and `3 sec.` table units,
+while `5 m of rope`, `5 g of it`, `5 l is`, `5 s and`, `5 A`, `5 A.`, `5 a day`, `5 K`, `5 N,`, `74 W.` and `5 m` before
+a line break keep the letter; the percent forms (`50%`, `50 %`, a `%` alone) are part of it. The fourth test reads
+`~1000 ft` as `approximately`, `one thousand` and `feet`, a lone `~` before `5` as `approximately` and leaves `~ word`
+and `~x` alone; `June 12th(` gives `twelfth` over the four characters of `12th`, `50)` gives `fifty`; `5x5`,
+`1920x1080` and `10×20` give the two numbers and `by`, while `0x10` and `2x` are left alone; `747's` and `3’s` give the
+number over the digits only.
 
 ##### Times and dates
 

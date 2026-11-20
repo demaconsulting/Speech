@@ -24,16 +24,16 @@ to a requirement.
 
 #### Acceptance Criteria
 
-For the first sentence of the renderer's Piper golden the graph is fed the begin id 1, each pinned id followed by the
-pad id 0, the end id 2, the length equal to the id count, the scales 0.333, 1.0 and 0.333 and speaker 0; the speeds 2,
-0.5 and 1 give the length scales 0.5, 2.0 and 1.0 and the speeds 0, -1, NaN and infinity give 1.0; the speakers 0, 5,
-903, 5000 and -3 reach the graph as 0, 5, 903, 903 and 0; an empty, a blank and an emoji text give empty audio at 22,050
-Hz; null arguments are rejected; the annotated heteronym sentence feeds other ids than the plain one; forty sentences
-give an audio of exactly the length that their utterances predict, with at least three utterances; with the symbol `ɑ`
-removed from the table the count and the list report exactly that symbol for `hot` and nothing for `Hello there.`; the
-probe does not throw on a runnable session; and a second disposal does not throw, the session was disposed once and a
-synthesis after disposal throws `ObjectDisposedException`; a disposal that overlaps a running synthesis waits for it,
-and concurrent disposals and syntheses give only audio or `ObjectDisposedException`.
+For the first sentence of the renderer's Piper golden the graph is fed the begin id 1 and the pad id 0, each pinned id
+followed by the pad id 0, the end id 2, the length equal to the id count, the scales 0.333, 1.0 and 0.333 and speaker 0;
+the speeds 2, 0.5 and 1 give the length scales 0.5, 2.0 and 1.0 and the speeds 0, -1, NaN and infinity give 1.0; the
+speakers 0, 5, 903, 5000 and -3 reach the graph as 0, 5, 903, 903 and 0; an empty, a blank and an emoji text give empty
+audio at 22,050 Hz; null arguments are rejected; the annotated heteronym sentence feeds other ids than the plain one;
+forty sentences give an audio of exactly the length that their utterances predict, with at least three utterances; with
+the symbol `ɑ` removed from the table the count and the list report exactly that symbol for `hot` and nothing for
+`Hello there.`; the probe does not throw on a runnable session; and a second disposal does not throw, the session was
+disposed once and a synthesis after disposal throws `ObjectDisposedException`; a disposal that overlaps a running
+synthesis waits for it, and concurrent disposals and syntheses give only audio or `ObjectDisposedException`.
 
 #### Test Scenarios
 

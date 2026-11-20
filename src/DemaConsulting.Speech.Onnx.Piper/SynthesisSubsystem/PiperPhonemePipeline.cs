@@ -82,6 +82,12 @@ internal sealed class PiperPhonemePipeline
     /// <summary>
     ///     Encodes a phoneme string with Piper's framing.
     /// </summary>
+    /// <remarks>
+    ///     The framing is exactly Piper's own (<c>phonemes_to_ids</c>): the begin symbol and a pad, then each symbol
+    ///     followed by a pad, then the end symbol. The pad after the begin symbol matters: without it the first sound
+    ///     of every utterance follows the begin symbol directly, an input the voice never saw in training, and a
+    ///     sentence-initial stop such as the t of <i>Top</i> or <i>Testing</i> loses most of its burst.
+    /// </remarks>
     /// <param name="phonemes">The IPA phoneme string. Must not be null.</param>
     /// <returns>The utterance: the framed ids and the distinct symbols the voice's table does not contain.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="phonemes"/> is <see langword="null"/>.</exception>
@@ -89,7 +95,7 @@ internal sealed class PiperPhonemePipeline
     {
         ArgumentNullException.ThrowIfNull(phonemes);
 
-        List<long> ids = [.. _config.BeginIds];
+        List<long> ids = [.. _config.BeginIds, .. _config.PadIds];
         List<string> unknown = [];
         var symbolCount = 0;
         foreach (var rune in phonemes.EnumerateRunes())
@@ -116,7 +122,7 @@ internal sealed class PiperPhonemePipeline
 ///     One utterance for the Piper graph: the phoneme string and its framed ids.
 /// </summary>
 /// <param name="Phonemes">The IPA phoneme string the ids were made from.</param>
-/// <param name="Ids">The framed model input ids: begin, each known symbol followed by pad, end.</param>
+/// <param name="Ids">The framed model input ids: begin and pad, each known symbol followed by pad, end.</param>
 /// <param name="SymbolCount">The number of symbols that were encoded (the symbols that are not pad or framing).</param>
 /// <param name="UnknownSymbols">The distinct symbols the voice's table does not contain, in first-seen order; they are not in <paramref name="Ids"/>.</param>
 internal sealed record PiperUtterance(

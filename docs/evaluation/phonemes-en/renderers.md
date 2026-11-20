@@ -438,6 +438,145 @@ could have heard. Differences are the unstressed `ɪ` of *dedicate* where espeak
 of *government* (dictionary), the merged *to be* and *not have* of the engine's running speech, and stress marks on
 function words at the start of an utterance (the first-word rule of *Listening Fixes 2*).
 
+### Listening Fixes 4
+
+The fourth round of owner listening (Piper LibriTTS-R, speaker 0) flagged a long pause between *semi* and *circle* in
+*the semicircle above the balcony*. The phoneme string had no space and no mark inside the word (`sˌɛmisˈɜːkəl`): the
+pause came from the vowel at the end of the prefix. The dictionary's unstressed `IY0` was rendered as the tense `i` of
+*happy* wherever it was not before a vowel, and in the espeak-style text the voice was trained on that vowel ends a
+word. Before a consonant and the stressed syllable the voice reads it as the end of a word, lengthens it and pauses
+after it. Rendered with the voice at zero noise inside *the ... above*, the word with the tense `i` was longer than the
+same two elements written as two words with a space between them:
+
+| Word | Before | Milliseconds | After | Milliseconds | Two words |
+| --- | --- | --- | --- | --- | --- |
+| semicircle | `sˌɛmisˈɜːkəl` | 1196 | `sˌɛmɪsˈɜːkəl` | 1057 | 1091 |
+| multicolored | `mˌʌltikˈʌlɚd` | 1405 | `mˌʌltɪkˈʌlɚd` | 1022 | 1057 |
+| anticlimax | `ˌæntiklˈaɪmæks` | 1486 | `ˌæntɪklˈaɪmæks` | 1161 | 1115 |
+| multimedia | `mˌʌltimˈiːdɪə` | 1254 | `mˌʌltɪmˈiːdɪə` | 1045 | 1068 |
+| anymore | `ˌɛnimˈɔːɹ` | 1126 | `ˌɛnɪmˈɔːɹ` | 848 | 859 |
+
+The whole flagged sentence, rendered the same way, took 5.40 s before and 4.85 s after, with nothing changed but that
+one vowel (with the voice's default noise, 5.52 s and 4.97 s on average over six draws).
+
+The rule is now that an unstressed `IY0` after a consonant and before a consonant and the primary stress (the end of a
+prefix or of the first element of a compound) is lax: `ᵻ` after `r` as before, `ɪ` otherwise. espeak-ng writes the same
+lax vowel there (`sˌɛmɪkˈoʊlən`, `mˌʌltɪkˈʌlɚd`, `ˌæntɪklˈaɪmæks`). After the primary stress (*happiness*, *everybody*,
+*everywhere*), at the end of a word, at the start of a word (*email*) and for a secondary stress lost to a stress clash
+(the letter names of *http*) the tense `i` stays. This is narrower than the rejected medial-`ɪ` candidate above, which
+also changed the vowel after the stress (*twenty-one*). Over the whole dictionary 727 words change, nearly all of them
+names; 2 of them agreed with espeak-ng word for word (without stress) before and 137 after. The measurement corpora
+barely move: the 450 tuning sentences and the 3,000 tuning words do not change, and 3 of the 3,000 held-out words
+(*anymore*, *semiconductor*, *antibiotics*) now agree with espeak-ng. The figures were compared with a local comparison
+of the `measure-oracle` export before and after the change, so the recorded figures and gates stand. The other prefixes
+and compounds of the audit (*antisocial*, *overpriced*, *underground*, *nonstop*, *rebuild*, *preheat*, *subcommittee*,
+*interstate*, *superstar*, *everywhere*, *everybody*, *sunlight*, *bookshelf*) already rendered as one word with no
+lengthened vowel at the joint and did not change. Kokoro writes a schwa there (`sˌɛməsˈɜɹkᵊl`) and did not change. The
+Phonemes.En goldens changed in one line of the compound golden (`anti-war`).
+
+### Listening Fixes 5
+
+The fifth round (Piper LibriTTS-R, speaker 0) flagged eight sentences. Durations below are of the voice with the noise
+off (`noise_scale` and `noise_w` 0), so they are deterministic; a phrase is rendered alone, a sentence as the engine
+splits it.
+
+1. **A pause before *a* in *the wall of a gallery*.** The weak forms joined *of a* into `ʌvɐ`: the open `ɐ` is the
+   espeak-style vowel of a word-initial reduced syllable, and joined after a full vowel it reads as the start of a new
+   word. Over five phrases `ʌvɐ` was the longest of five spellings every time (`ʌvɐ`, `ʌv ɐ`, `ʌvə`, `əvə`, `ʌv ə`):
+   *the wall of a gallery high overhead* 1,660 ms against 1,498 to 1,533 ms for the others. espeak-ng writes the group
+   `əvə`, so the group now has those forms (`WeakForms.InGroup`); *was a* keeps the engine's `wʌzɐ`, which the voice
+   does not lengthen. The flagged sentence: 7.06 s to 6.85 s.
+2. ***Rhinemouth* as *Rhine ... mouth*.** The letter-to-sound model gave `R AY1 N M AW2 TH`, and the unstressed full
+   diphthong after the primary stress made the voice say two words: `ɹˈaɪnmaʊθ` in *of the ... were* is 1,324 ms against
+   1,033 ms with a space between the two words. English place names reduce `-mouth` (the dictionary lists `Dartmouth`,
+   `Falmouth`, `Monmouth`, `Plymouth`, `Portsmouth` and `Weymouth` with `M AH0 TH`, and espeak-ng says `ɹˈaɪnməθ`), so a
+   capitalized word the dictionary lacks that ends in `-mouth` is now its first element plus `M AH0 TH`: `ɹˈaɪnməθ`, 929
+   ms. Lower-case *cottonmouth* and *frogmouth* keep the full vowel in the dictionary, so the rule is for capitalized
+   words only.
+3. ***my will* said like the auxiliary.** The weak-form table reduced every *will* (`wɪl`). The text analysis tags the
+   noun `NOUN`; the tag now reaches the renderers (the models' analyzers select the part-of-speech annotations too) and
+   a word of the table tagged `NOUN` or `PROPN`, or *will* and *can* tagged `VERB`, keeps its dictionary form:
+   `maɪ wˈɪl`. The same applies to *the can*, *a must* and *Will* as a name; the auxiliaries are untouched
+   (`hˌiː wɪl ɡˈoʊ`).
+4. ***aquiver* and *agave*.** Neither is in the dictionary; the letter-to-sound model said `ɐkwˈaɪvɚ` and `ɐɡˈeɪv`.
+   A rule for the predicative `a-` plus a dictionary word was measured over the dictionary's own words of that shape
+   and rejected: it gives the listed pronunciation for 195 of 507 (38.5 percent; *above*, *acorn* and *agave* itself
+   are not `a` plus a word). Both words are now reviewed additions (`data/phonemes-en/lexicon-additions.tsv`):
+   `ɐkwˈɪvɚ` and `ɐɡˈɑːvi`.
+5. ***vine-clad* as `vˈaɪŋklˌæd`.** The `n` before a velar stop became `ŋ` across the joint of the compound. espeak-ng
+   assimilates there too (`vˈaɪŋklˈæd`, `sˈʌŋɡlæsᵻz`), but the first element then no longer sounds like its word
+   (*vying-clad*); the rule now applies inside one element only: `vˈaɪnklˌæd`. Hyphenated compounds are not in the
+   measurement corpora, so the figures do not move.
+6. ***Piccola* as *Pi ... cola*.** The unstressed `IY0` before the stress was the tense `i` of *Listening Fixes 4*;
+   that change already gives `pɪkˈoʊlə` (the flagged sentence 10.68 s at the flagged phonemes, 10.23 s now). The stress
+   on the second syllable is the dictionary's (`P IY0 K OW1 L AH0`; Italian stresses the first) and is not changed:
+   foreign words are not special-cased.
+7. ***manoeuvring* (not flagged, same sentence as *Rhinemouth*).** The dictionary is American, so the letter-to-sound
+   model read the British spelling letter by letter (`mˈænoʊˌuːvɹɪŋ`). A word not written with a capital that the
+   dictionary lacks is now respelled by the systematic British to American correspondences, alone and up to three
+   together, and taken when the respelling is a dictionary word: `mənˈuːvɹɪŋ` (*maneuvering*), as espeak-ng says it.
+   On the lower-case words of the repository's text corpora that the dictionary lacks, the rules rewrite 23 word types,
+   22 of them right (*analyse* 112 times, *calibre*, *civilisation*, *labours*, *quarrelling*, *unrivalled* ...; the
+   wrong one is the French *lettres*); over the dictionary's own pairs, the wrong respellings are names (*Kraemer*,
+   *Oehler*), which is why a capitalized word is not respelled. *Capri* (`kˈæpɹi`, the dictionary's first variant;
+   espeak-ng says `kɐpɹˈiː`) is noted and not changed.
+
+**Measured effect on the gates** (Piper against espeak-ng, the local comparison of *Listening Fixes 4* on the
+`measure-oracle` export before and after these changes): the 450 tuning sentences 90.86 to 90.89 percent stress-free
+word match and 2.70 to 2.69 percent PER; the 60 held-out sentences 92.33 to 92.49 and 2.22 to 2.15; the tuning and
+held-out word passes do not change. The only changed items are the one occurrence of *of a* in each sentence set (`ʌv ɐ`
+to `əv ə`). Kokoro's renderings of the corpora do not change. No gated figure gets worse. The Piper golden did not
+change; the Kokoro golden did not change.
+
+### Listening Fixes 6
+
+Three more rounds (Piper LibriTTS-R, speaker 0) flagged words that the phonemizer and the Piper engine read wrong.
+Durations and energies are of the voice with the noise off.
+
+1. ***Top of shaft* heard as *Op*, and *Testing* without its first t.** The phonemes were right (`tˈɑːp`), and the WAV
+   written by the library already lacked most of the burst of the first `t`, so playback was not the cause. The Piper
+   engine framed its input as the begin symbol and then each symbol followed by a pad; Piper's own `phonemes_to_ids`
+   writes a pad after the begin symbol too, so the first sound of every utterance followed the begin symbol directly, an
+   input the voice never saw in training. With Piper's framing the energy before the first vowel (the burst and the
+   aspiration, relative to the loudest 5 ms) is about three times larger: *Top of shaft.* 0.46 to 1.41, *Testing has
+   shown that it works.* 0.33 to 0.97, *Pat sat.* 0.62 to 0.87, *Kate ran.* 0.55 to 0.63, while *The top of the shaft.*
+   (no stop at the start) does not change. The engine now writes the pad (see *PiperPhonemePipeline Design*); every
+   utterance, so every sentence start, is affected. Kokoro already pads both ends. The whole-string comparison of
+   *Refinement After the First End-to-End Audio* compared the phoneme strings, not the model input, so it could not see
+   this.
+2. ***presumed KIA* as the car brand.** An all-capital word the dictionary lists is read from it, and the dictionary has
+   `Kia`. The text analysis now lists the initialisms with a vowel that the dictionary has as words or names (KIA, MIA,
+   WIA, POW, DOA, AKA, GED, IRA, ETA, ICU, IED, EOD; see *AcronymRecognizer Design* of the text analysis). An unknown
+   word of two to five capitals with a vowel (not only Roman-numeral letters) is now spelled by its letter names instead
+   of the letter-to-sound guess (`USGS` `ˈʌsɡz` to `jˈuːˈɛsdʒˈiːˈɛs`). On the repository's text corpora 739 tokens (478
+   types) take that path; 679 (91.9 percent) are initialisms that the letter names read right and 60 are acronyms read
+   as words, of which the common ones are now reviewed additions (`covid`, `hvac`, `iso`, `jpeg`, `lidar`, `uefa`).
+   `NASA`, `NATO`, `SCUBA` and `LASER` are dictionary words and do not change. Initialisms the dictionary has as words
+   and the list lacks (`SIP`, `SOP`) are still read as words.
+3. ***bio-mechanical* with the stress on *bio*.** The first element was the word `bio` (`B AY2 OW1`), whose primary
+   stress then won. A combining form (31 of them, `bio-` to `ultra-`) as the first element now has its own sound, with
+   the secondary stress before a root of three or more syllables or a root stressed after its first syllable (the
+   dictionary agrees in 92 to 94 percent of such words) and the primary stress before any other root (the dictionary
+   agrees in 98.6 percent of the one-syllable roots). Audit, Piper before and after:
+
+| Word | Before | After |
+| --- | --- | --- |
+| bio-mechanical | `bˌaɪˈoʊmɪkˌænɪkəl` | `bˌaɪoʊməkˈænɪkəl` |
+| neuro-imaging | `nˈʊɹɹˌoʊˌɪmɪdʒɪŋ` | `nˌʊɹɹoʊˈɪmɪdʒɪŋ` |
+| bio-weapon | `bˌaɪˈoʊwˌɛpən` | `bˈaɪoʊwˌɛpən` |
+| biomechanical, electromagnetic, microorganism | unchanged | root stressed |
+| hydroelectric, thermodynamic, geopolitical | unchanged | root stressed |
+| photosynthesis, ultraviolet, pseudoscience | unchanged | root stressed |
+| socioeconomic, megastructure, autoimmune | unchanged | root stressed |
+| neuroscience | `njˈʊɹɹoʊsˌaɪəns` | unchanged (first element, as listed) |
+| psychosocial | `sˈaɪkoʊsˌoʊʃəl` | unchanged (first element, as listed) |
+| bookshelf, sunlight, everywhere | `bˈʊkʃɛlf`, `sˈʌnlaɪt`, `ˈɛvɹiwˌɛɹ` | unchanged |
+
+**Measured effect on the gates** (the local comparison of *Listening Fixes 4*): no word of the 450 tuning sentences,
+the 60 held-out sentences or the two word passes changes (90.89 and 92.49 percent stress-free word match, 2.69 and 2.15
+percent PER, before and after); the measurement corpora have no unknown all-capital word and no hyphenated combining
+form. The Piper and Kokoro goldens did not change.
+
 ## Residual Classes
 
 The largest disagreements that remain are idiosyncrasies of the two engines, not renderer faults, and no phone-only rule

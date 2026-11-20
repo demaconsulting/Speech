@@ -78,10 +78,13 @@ are each rejected as having too many rows.
 `ReadingInventory_CandidatesFor_NotAForm_ReturnsEmpty`, `ReadingInventory_CandidatesFor_TurkishCulture_FoldsAsciiOnly`,
 `ReadingInventory_Contains_ExactId_ComparesOrdinally`,
 `ReadingInventory_PublicLookups_NullArgument_ThrowsArgumentNullException`,
-`ReadingInventory_ReadingIdsAndCandidates_AreReadOnly`
+`ReadingInventory_ReadingIdsAndCandidates_AreReadOnly`,
+`ReadingInventory_IsAdjective_ReadsThePartOfSpeechHint`
 
 `READ` gives `read.past` then `read.present` and `record` gives `record.noun` then `record.verb`, the order of the rows
 of the forms table. The empty text, an unknown word, a word with a leading space and the Kelvin sign have no
 candidates. Under `tr-TR`, `RECORD` is found and a word with the dotted capital I is not. `Contains` accepts the exact
 id and rejects another case and an unknown id. A null argument throws. The public id and candidate collections are
-read-only through a cast and throw `NotSupportedException` when written.
+read-only through a cast and throw `NotSupportedException` when written. `minute.tiny` (`ADJ`), `close.adj-noun`
+(`ADJ|NOUN`) and `content.satisfied` (`ADJ|NOUN|VERB`) are adjective readings; `minute.time`, `close.verb` and
+`record.noun` are not.

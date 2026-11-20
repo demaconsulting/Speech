@@ -158,6 +158,27 @@ public sealed partial class LexiconSubsystemTests
             });
     }
 
+    /// <summary>
+    ///     Proves the shipped table of reviewed additions is well formed and adds only words: every row is a word the
+    ///     dictionary does not list (so an addition never shadows a dictionary entry), with a pronunciation.
+    /// </summary>
+    [Fact]
+    public void ReadingPronunciations_LexiconAdditions_ShippedTable_AddsOnlyWordsTheDictionaryLacks()
+    {
+        // Act
+        var additions = LexiconCorrections.Additions.Entries;
+
+        // Assert
+        Assert.Contains("agave", additions.Keys);
+        Assert.Contains("aquiver", additions.Keys);
+        Assert.All(
+            additions,
+            pair =>
+            {
+                Assert.Empty(CmuLexicon.Default.Lookup(pair.Key));
+                Assert.NotEqual(0, pair.Value.Count);
+            });
+    }
     /// <summary>Gets the path of a file in the test data folder beside the test assembly.</summary>
     /// <param name="name">The file name.</param>
     /// <returns>The full path.</returns>

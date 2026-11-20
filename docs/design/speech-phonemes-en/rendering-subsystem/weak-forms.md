@@ -17,7 +17,8 @@ measurement against the voice's training engine (the table records those classes
   `beneath`, `any`, `already`), the flapped `ɪɾ` and `æɾ` of `it` and `at` before a vowel, `ɔn` for `on` before `the`
   and `fɚ` for `for` before `the`
 
-The table holds only words whose unstressed use is by far the most common; it does not know the sense of a word.
+The table holds only words whose unstressed use is by far the most common; it does not know the sense of a word, but the
+part of speech the text analysis gave the word tells a content use of the same spelling apart (see `IsContentUse`).
 
 **Key Methods**:
 
@@ -35,6 +36,18 @@ The table holds only words whose unstressed use is by far the most common; it do
 - **GroupedWithPrevious(items)**: marks the word items that form one group with the word before them (`in the`,
   `of the`, `on the`, `with the`, `from the`, `for the`, `that the`, `was the`, `was a`, `of a`), written without a
   space, except where the first word of the group keeps its full form after a voicing-alternating word
+- **IsContentUse(item)**: whether a word of the table is used here as the content word of the same spelling, which is
+  never weak: tagged `NOUN` or `PROPN` (`my will`, `the can`, `a must`, `Will` as a name), or `VERB` for the modal
+  spellings that are also main verbs (`will`, `can`). Any other tag, and no tag (text that was not analyzed), keeps the
+  table: `VERB` is not enough for the other words because the tagger gives the auxiliaries `be`, `have` and `do` that
+  tag too. Both renderers skip the table for such a word and render its dictionary form with its stress (`maɪ wˈɪl`, not
+  the auxiliary's `maɪ wɪl`)
+- **InGroup(first, firstForm, second, secondForm)**: the forms of a group as one unit: `of a` is `əv` and `ə` (`əvə`, as
+  the training engine writes it) when both have their plain weak forms (`ʌv`, `ɐ`); any other group keeps its words'
+  forms (`was a` stays `wʌzɐ`, as the engine writes it). The word-initial `ɐ` joined after a full vowel reads as the
+  start of a new word: measured with the noise off, *the wall of a gallery* is 127 ms longer with `ʌvɐ` than with `əvə`,
+  and over five phrases `ʌvɐ` was the longest of five spellings every time, while `wʌzɐ` was not lengthened (see the
+  evaluation record). The espeak-style renderer applies it to every grouped pair
 - **AtTextStart(word, form)**: the form of a word that is the first word of a text, which is the first word of an
   utterance of the voice: an unmarked weak form with a full vowel gets a secondary stress mark before its first full
   vowel (`hiː` becomes `hˌiː`, `ʃʊd` becomes `ʃˌʊd`, `aɪ` becomes `ˌaɪ`), because at the start of an utterance the voice

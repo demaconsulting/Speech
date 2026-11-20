@@ -4,7 +4,7 @@ using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 
 /// <summary>
-///     The reading and pronunciation annotations of a segment, indexed by the original span each one covers.
+///     The reading, pronunciation and part-of-speech annotations of a segment, indexed by the original span each one covers.
 /// </summary>
 /// <remarks>
 ///     Both annotation kinds are anchored to one word token of the original text and never overlap a replacement.
@@ -15,7 +15,7 @@ namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 internal sealed class AnnotationIndex
 {
     /// <summary>An index with no annotations.</summary>
-    public static readonly AnnotationIndex Empty = new([], []);
+    public static readonly AnnotationIndex Empty = new([], [], []);
 
     /// <summary>The reading ids by span.</summary>
     private readonly Dictionary<(int Start, int Length), string> _readings;
@@ -23,21 +23,27 @@ internal sealed class AnnotationIndex
     /// <summary>The pronunciation overrides by span.</summary>
     private readonly Dictionary<(int Start, int Length), (PronunciationScheme Scheme, string Phonemes)> _pronunciations;
 
+    /// <summary>The part-of-speech tags (Universal Dependencies names) by span.</summary>
+    private readonly Dictionary<(int Start, int Length), string> _partsOfSpeech;
+
     /// <summary>
     ///     Initializes the index.
     /// </summary>
     /// <param name="readings">The reading ids by span.</param>
     /// <param name="pronunciations">The pronunciation overrides by span.</param>
+    /// <param name="partsOfSpeech">The part-of-speech tags by span.</param>
     private AnnotationIndex(
         Dictionary<(int Start, int Length), string> readings,
-        Dictionary<(int Start, int Length), (PronunciationScheme Scheme, string Phonemes)> pronunciations)
+        Dictionary<(int Start, int Length), (PronunciationScheme Scheme, string Phonemes)> pronunciations,
+        Dictionary<(int Start, int Length), string> partsOfSpeech)
     {
         _readings = readings;
         _pronunciations = pronunciations;
+        _partsOfSpeech = partsOfSpeech;
     }
 
     /// <summary>
-    ///     Indexes the reading and pronunciation annotations.
+    ///     Indexes the reading, pronunciation and part-of-speech annotations.
     /// </summary>
     /// <param name="annotations">The annotations, or <see langword="null"/>.</param>
     /// <returns>The index.</returns>
@@ -50,6 +56,7 @@ internal sealed class AnnotationIndex
 
         var readings = new Dictionary<(int Start, int Length), string>();
         var pronunciations = new Dictionary<(int Start, int Length), (PronunciationScheme Scheme, string Phonemes)>();
+        var partsOfSpeech = new Dictionary<(int Start, int Length), string>();
         foreach (var annotation in annotations)
         {
             var key = (annotation.Start, annotation.Length);
@@ -61,10 +68,24 @@ internal sealed class AnnotationIndex
             {
                 pronunciations.TryAdd(key, (scheme, phonemes));
             }
+            else if (TextEnAnnotations.TryReadPartOfSpeech(annotation, out var partOfSpeech))
+            {
+                partsOfSpeech.TryAdd(key, partOfSpeech);
+            }
         }
 
-        return new AnnotationIndex(readings, pronunciations);
+        return new AnnotationIndex(readings, pronunciations, partsOfSpeech);
     }
+
+    /// <summary>
+    ///     Finds the part of speech the text analysis tagged a token with.
+    /// </summary>
+    /// <param name="start">The token's start in the original text.</param>
+    /// <param name="length">The length of the original span of the token.</param>
+    /// <returns>The Universal Dependencies tag (<c>NOUN</c>, <c>AUX</c> ...) of exactly that span, or <see langword="null"/> when it has none.</returns>
+    /// <remarks>Only an exact span counts: the tag of a headword does not describe a token that carries a clitic after it.</remarks>
+    public string? PartOfSpeechOf(int start, int length) =>
+        _partsOfSpeech.TryGetValue((start, length), out var tag) ? tag : null;
 
     /// <summary>
     ///     Finds the reading annotation of a token.

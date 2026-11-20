@@ -153,6 +153,16 @@ public sealed class ReadingInventory
     /// <summary>Whether each reading (by table index) is active.</summary>
     private readonly bool[] _active;
 
+    /// <summary>Whether each reading's part-of-speech hint (by table index) includes <c>ADJ</c>.</summary>
+    private readonly bool[] _adjective;
+
+    /// <summary>Whether each reading's part-of-speech hint (by table index) includes <c>NOUN</c>.</summary>
+    private readonly bool[] _noun;
+
+
+    /// <summary>The lemma of each reading (by table index).</summary>
+    private readonly string[] _lemmas;
+
     /// <summary>The index of each reading id.</summary>
     private readonly Dictionary<string, int> _indexById;
 
@@ -195,13 +205,21 @@ public sealed class ReadingInventory
     /// <param name="version">The revision.</param>
     /// <param name="ids">The reading ids, unique, in table order.</param>
     /// <param name="active">Whether each reading is active.</param>
+    /// <param name="adjective">Whether each reading's part-of-speech hint includes <c>ADJ</c>.</param>
+    /// <param name="noun">Whether each reading's part-of-speech hint includes <c>NOUN</c>.</param>
+
+    /// <param name="lemmas">The lemma of each reading.</param>
     /// <param name="forms">The distinct forms in order of first appearance.</param>
     /// <param name="candidateLists">For each form, its candidate reading indexes in table order.</param>
-    private ReadingInventory(int version, string[] ids, bool[] active, string[] forms, List<int>[] candidateLists)
+    private ReadingInventory(int version, string[] ids, bool[] active, bool[] adjective, bool[] noun, string[] lemmas, string[] forms, List<int>[] candidateLists)
     {
         _version = version;
         _ids = ids;
         _active = active;
+        _adjective = adjective;
+        _noun = noun;
+
+        _lemmas = lemmas;
         _forms = forms;
 
         // Index and salts of the readings, computed once so the hot path does no hashing of ids.
@@ -411,6 +429,50 @@ public sealed class ReadingInventory
     internal bool IsActive(int readingIndex) => _active[readingIndex];
 
     /// <summary>
+    ///     Tells whether a reading is an adjective use of its lemma.
+    /// </summary>
+    /// <param name="readingIndex">The reading's table index.</param>
+    /// <returns><see langword="true"/> when the reading's part-of-speech hint in <c>readings.tsv</c> includes <c>ADJ</c> (<c>minute.tiny</c>, <c>close.adj-noun</c>).</returns>
+    internal bool IsAdjective(int readingIndex) => _adjective[readingIndex];
+
+    /// <summary>
+    ///     Tells whether a form can be a noun under a reading.
+    /// </summary>
+    /// <param name="formIndex">The form's index.</param>
+    /// <param name="readingIndex">The reading's table index.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the reading's part-of-speech hint includes <c>NOUN</c> and the form is not a past
+    ///     form of a different lemma: <c>wound</c> under <c>wind.coil</c> is the past tense of <i>wind</i>, never a noun,
+    ///     although <i>wind</i> (a bend) is one. A form of another lemma counts as a past form unless it is a plural or
+    ///     third person (<c>-s</c>), a participle (<c>-ing</c>) or a comparative (<c>-er</c>).
+    /// </returns>
+    internal bool CanBeNoun(int formIndex, int readingIndex)
+    {
+        if (!_noun[readingIndex])
+        {
+            return false;
+        }
+
+        var form = _forms[formIndex];
+        var lemma = _lemmas[readingIndex];
+        return form == lemma || form.EndsWith('s') || form.EndsWith("ing", StringComparison.Ordinal) || form.EndsWith("er", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Tells whether a reading is a noun use of its lemma in some form.
+    /// </summary>
+    /// <param name="readingIndex">The reading's table index.</param>
+    /// <returns><see langword="true"/> when the reading's part-of-speech hint includes <c>NOUN</c>.</returns>
+    internal bool IsNounOfItsLemma(int readingIndex) => _noun[readingIndex];
+
+    /// <summary>
+    ///     Tells whether a reading is the past tense of its lemma.
+    /// </summary>
+    /// <param name="readingIndex">The reading's table index.</param>
+    /// <returns><see langword="true"/> when the reading's role is <c>past</c> (<c>read.past</c>, <c>dive.past</c>).</returns>
+    internal bool IsPastTense(int readingIndex) => _ids[readingIndex].EndsWith(".past", StringComparison.Ordinal);
+
+    /// <summary>
     ///     Looks up the table index of a reading id.
     /// </summary>
     /// <param name="readingId">The id, compared exactly.</param>
@@ -460,6 +522,10 @@ public sealed class ReadingInventory
         // Table 1: the readings, unique by id.
         var ids = new List<string>();
         var active = new List<bool>();
+        var adjective = new List<bool>();
+        var noun = new List<bool>();
+
+        var lemmas = new List<string>();
         var indexById = new Dictionary<string, int>(StringComparer.Ordinal);
         var buffer = new char[MaxLineLength];
         ReadTable(readings, "readings.tsv", ReadingsHeader, ReadingsColumns, buffer, MaxReadings, (fields, line) =>
@@ -488,6 +554,10 @@ public sealed class ReadingInventory
 
             ids.Add(id);
             active.Add(status.SequenceEqual("active"));
+            adjective.Add(HasTag(fields[2], "ADJ"));
+            noun.Add(HasTag(fields[2], "NOUN"));
+
+            lemmas.Add(fields[1].ToString());
         });
 
         // Table 2: the forms, grouped by form in order of first appearance, each with its candidates in row order.
@@ -535,7 +605,35 @@ public sealed class ReadingInventory
             list.Add(readingIndex);
         });
 
-        return new ReadingInventory(version, [.. ids], [.. active], [.. formNames], [.. candidateLists]);
+        return new ReadingInventory(version, [.. ids], [.. active], [.. adjective], [.. noun], [.. lemmas], [.. formNames], [.. candidateLists]);
+    }
+
+    /// <summary>
+    ///     Tells whether a part-of-speech hint (tags separated by <c>|</c>, such as <c>ADJ|NOUN</c>) holds a tag.
+    /// </summary>
+    /// <param name="hint">The hint column.</param>
+    /// <param name="tag">The tag, compared exactly.</param>
+    /// <returns><see langword="true"/> when one of the hint's tags is <paramref name="tag"/>.</returns>
+    private static bool HasTag(ReadOnlySpan<char> hint, string tag)
+    {
+        // Walk the tags one separator at a time (allocation-free on every target framework)
+        var rest = hint;
+        while (true)
+        {
+            var separator = rest.IndexOf('|');
+            var current = separator < 0 ? rest : rest[..separator];
+            if (current.SequenceEqual(tag))
+            {
+                return true;
+            }
+
+            if (separator < 0)
+            {
+                return false;
+            }
+
+            rest = rest[(separator + 1)..];
+        }
     }
 
     /// <summary>

@@ -36,6 +36,9 @@ internal static class WeakForms
     /// <summary>The full (not reduced) vowel symbols of the voice's table that open a weak form: a secondary stress mark goes before the first of them.</summary>
     private static readonly char[] FullVowelSymbols = ['a', 'e', 'i', 'o', 'u', 'æ', 'ɑ', 'ɒ', 'ɔ', 'ɛ', 'ɜ', 'ɪ', 'ʊ', 'ʌ'];
 
+    /// <summary>The modal spellings of the table that are also main verbs (<i>to will</i>, <i>to can</i>), stressed when the text analysis tags them as verbs.</summary>
+    private static readonly HashSet<string> MainVerbModals = new(["will", "can"], StringComparer.Ordinal);
+
     /// <summary>The words that keep their dictionary vowels but carry a secondary instead of a primary stress.</summary>
     private static readonly HashSet<string> Demoted = new(
         ["but", "not", "so", "how", "up", "us", "him", "me", "our", "over", "under", "down", "been", "about", "above", "before", "who", "why", "where", "while", "near", "them"],
@@ -97,6 +100,54 @@ internal static class WeakForms
         return grouped;
     }
 
+    /// <summary>
+    ///     Tells whether a word of the table is used here as the content word of the same spelling, which is never weak.
+    /// </summary>
+    /// <param name="item">The word item, with the part of speech the text analysis gave it (if any).</param>
+    /// <returns>
+    ///     <see langword="true"/> when the word is tagged as a noun or a proper noun (<i>my will</i>, <i>the can</i>,
+    ///     <i>a must</i>, <i>Will</i> as a name), or as a main verb when it is a modal spelling that is also a verb
+    ///     (<i>to will</i>, <i>to can fruit</i>); <see langword="false"/> for any other tag and for an untagged word.
+    /// </returns>
+    /// <remarks>
+    ///     The table holds the unstressed function use of each spelling. Several spellings are also content words that
+    ///     carry their own stress: said with the weak form, <i>my will was all the other way</i> sounds like the
+    ///     auxiliary (<c>maɪ wɪl</c>) where it is the noun (<c>maɪ wˈɪl</c>). The tag of the text analysis tells the two
+    ///     apart; without a tag (text that was not analyzed) the table applies as before. An auxiliary or a function-word
+    ///     tag (<c>AUX</c>, <c>ADP</c>, <c>DET</c>, <c>PRON</c>, <c>CCONJ</c> ...) keeps the weak form, and so does
+    ///     <c>VERB</c> for every other word of the table, because the tagger gives the auxiliaries <i>be</i>, <i>have</i>
+    ///     and <i>do</i> that tag too.
+    /// </remarks>
+    public static bool IsContentUse(PhonemizedItem item) => item.PartOfSpeech switch
+    {
+        "NOUN" or "PROPN" => true,
+        "VERB" => MainVerbModals.Contains(item.Text.ToLowerInvariant()),
+        _ => false,
+    };
+
+    /// <summary>
+    ///     Gives the forms a function word and the article joined to it have together, written as one group.
+    /// </summary>
+    /// <param name="first">The function word as spoken (any case).</param>
+    /// <param name="firstForm">The form rendered for it.</param>
+    /// <param name="second">The article as spoken (any case).</param>
+    /// <param name="secondForm">The form rendered for it.</param>
+    /// <returns>
+    ///     The group form of <i>of a</i>, <c>əv</c> and <c>ə</c> (<c>əvə</c>, as the espeak-style training text writes it),
+    ///     when both words have their plain weak forms (<c>ʌv</c> and <c>ɐ</c>); otherwise the two forms unchanged.
+    /// </returns>
+    /// <remarks>
+    ///     The open <c>ɐ</c> is the espeak-style symbol of a reduced vowel at the start of a word (<i>a</i>, <i>above</i>).
+    ///     Joined into <c>ʌvɐ</c>, the article reads as the start of a new word after a full vowel, and the voice lengthens
+    ///     the group and pauses inside it: measured with the noise off, <i>the wall of a gallery</i> is 127 ms longer
+    ///     with <c>ʌvɐ</c> than with <c>əvə</c>, and over five phrases <c>ʌvɐ</c> was the longest of five spellings every time
+    ///     (see <c>docs/evaluation/phonemes-en/renderers.md</c>). <i>was a</i> keeps <c>wʌzɐ</c>: the training text writes it
+    ///     so and the voice does not lengthen it.
+    /// </remarks>
+    public static (string First, string Second) InGroup(string first, string firstForm, string second, string secondForm) =>
+        first.Equals("of", StringComparison.OrdinalIgnoreCase) && second.Equals("a", StringComparison.OrdinalIgnoreCase) && firstForm == "ʌv" && secondForm == "ɐ"
+            ? ("əv", "ə")
+            : (firstForm, secondForm);
     /// <summary>
     ///     Gives a weak form the secondary stress it needs as the first word of a text: the mark goes before its first full vowel.
     /// </summary>

@@ -80,9 +80,10 @@ sections:
                   order of the forms table, matching the whole word with ASCII-only case folding
                   under every culture, shall return an empty list for a word that is not a form (an
                   empty word, a hyphenated compound, a word with a non-ASCII letter), shall compare
-                  reading ids ordinally, shall throw ArgumentNullException for a null argument, and
-                  shall expose its reading ids and candidate lists only as read-only collections
-                  that no caller can change.
+                  reading ids ordinally, shall throw ArgumentNullException for a null argument,
+                  shall tell whether a reading's part-of-speech hint includes ADJ, and shall expose
+                  its reading ids and candidate lists only as read-only collections that no caller
+                  can change.
                 justification: |
                   The order of the candidates is the tie-break rule of the classifier, so it is part
                   of the contract; a lookup that folded case with the current culture would match a
@@ -97,3 +98,4 @@ sections:
                   - ReadingInventory_Contains_ExactId_ComparesOrdinally
                   - ReadingInventory_PublicLookups_NullArgument_ThrowsArgumentNullException
                   - ReadingInventory_ReadingIdsAndCandidates_AreReadOnly
+                  - ReadingInventory_IsAdjective_ReadsThePartOfSpeechHint

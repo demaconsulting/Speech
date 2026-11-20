@@ -147,14 +147,17 @@ cover.
 `NormalizationSubsystem_GoldenFile_NumberCases_EveryRow_MatchesExpectedSpokenTextSentencesAndCounts`,
 `NormalizationSubsystem_AlignmentContract_RandomNumericText_SatisfiesAllInvariants`
 
-The golden rows pin the readings: `Visit https://www.example.com/docs?id=7 today.` gives `Visit H T T P S:W W W dot
-example dot com slash docs question mark id equals 7 today.`, `Mail john.smith@example.com, now.` keeps its comma,
-`Visit example.com. Then relax.` keeps the sentence break after the domain, `Open report.pdf or Node.js now.` is
-unchanged, `Use paper A4 and vitamin B12 with H2O and MP3.` gives `A four`, `B twelve`, `H two O` and `M P three`,
-`COVID-19 and Catch-22 spread.` gives `COVID-nineteen and Catch-twenty two spread.`, and `Her 12-year-old ran 10K in
-24-hour heat.` gives `twelve-year-old` and `ten K`. The random numeric texts include addresses,
-identifiers, compounds and glued letters among their words, so a span of these rules that broke the alignment contract
-(whitespace, a colon, an overlap, a cut surrogate pair) fails there.
+The golden rows pin the readings: `Visit https://www.example.com/docs?id=7 today.` gives
+`Visit H T T P S:W W W dot example dot com slash docs question mark id equals 7 today.`,
+`Mail john.smith@example.com, now.` keeps its comma, `Visit example.com. Then relax.` keeps the sentence break after the
+domain, `Open report.pdf or Node.js now.` is unchanged, `Use paper A4 and vitamin B12 with H2O and MP3.` gives `A four`,
+`B twelve`, `H two O` and `M P three`, `COVID-19 and Catch-22 spread.` gives
+`COVID nineteen and Catch twenty two spread.`, `Item SCP-184 and A-1 and SCP-049.` gives
+`Item S C P one hundred eighty four and A one and S C P zero four nine.`, `Item #: 5 and Case # 12 and # Title.` gives
+`Item number: five and Case number twelve and # Title.`, and `Her 12-year-old ran 10K in 24-hour heat.` gives
+`twelve-year-old` and `ten K`. The random numeric texts include addresses, identifiers, compounds and glued letters
+among their words, so a span of these rules that broke the alignment contract (whitespace, a colon, an overlap, a cut
+surrogate pair) fails there.
 
 #### Alignment contract on hostile and numeric text
 

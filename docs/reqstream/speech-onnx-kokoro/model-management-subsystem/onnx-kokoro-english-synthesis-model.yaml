@@ -46,9 +46,9 @@ sections:
                 justification: |
                   The session hands the analysis result to the annotated engine; the reading
                   annotations are what makes "record" the noun and "record" the verb different
-                  phonemes. The analysis keeps the normalization and reading annotations the engine
-                  uses and leaves out the part-of-speech annotations that only the classifier needs
-                  internally.
+                  phonemes. The analysis keeps the normalization, reading and part-of-speech
+                  annotations the engine uses; the renderer reads the tag to keep a noun such as the
+                  will of "my will" stressed instead of weakening it like the auxiliary.
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_TextAnalyzer_IsSharedAndClassifiesHeteronyms
 
