@@ -8,6 +8,7 @@
         x:Class="DemaConsulting.Speech.Demo.ShellSubsystem.MainWindow"
         x:DataType="shell:MainWindowViewModel"
         Title="{x:Static shell:MainWindowViewModel.Title}"
+        Icon="avares://DemaConsulting.Speech.Demo/Assets/Icon.png"
         Width="900" Height="640">
 
   <Window.DataTemplates>

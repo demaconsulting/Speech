@@ -5,6 +5,7 @@
         x:Class="DemaConsulting.Speech.Proofreader.MainWindow"
         x:DataType="local:MainViewModel"
         Title="DEMA Consulting Speech Proofreader"
+        Icon="avares://DemaConsulting.Speech.Proofreader/Assets/Icon.png"
         Width="1280" Height="780" MinWidth="1000" MinHeight="600"
         WindowStartupLocation="CenterScreen">
 

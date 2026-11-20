@@ -17,6 +17,9 @@
     <IsPackable>false</IsPackable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Embeds the DEMA Consulting logo (repository-root Icon.ico) as the Windows executable's
+         icon, exactly as the Demo does; Linux and macOS hosts ignore the Win32 icon resource. -->
+    <ApplicationIcon>..\..\Icon.ico</ApplicationIcon>
 
     <!-- Code Quality Configuration (mirrors DemaConsulting.Speech.Demo.csproj) -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -33,6 +36,14 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.5" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <!-- Application Icon.
+       The shared repository-root Icon.png (the same DEMA Consulting logo the Demo uses), embedded
+       as an Avalonia resource for the window and taskbar icon on every platform via
+       avares://DemaConsulting.Speech.Proofreader/Assets/Icon.png. -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\Icon.png" Link="Assets\Icon.png" />
   </ItemGroup>
 
   <!-- Speech Engine Native Runtime Dependencies.
