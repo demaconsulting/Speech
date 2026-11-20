@@ -45,13 +45,15 @@ to, one symbol per sound (`tʃ`, `oʊ`, `ɜː`), the flap `ɾ` for a `t` between
 final `-y` that the dictionary stresses secondarily counts as unstressed: *ability*, *identity*), `ŋ` before `k` or `g`,
 a linking `ɹ` after a word-final `ɚ` or `ɜː` before a vowel-initial word, the unstressed `AH0`, `IH0` and `IY0` by
 environment (`ᵻ` for `-ed` after `t` or `d` and `-es` after a sibilant, `ɐ` word-initially, `ɛ` for `ex-` and `en-`, `ɪ`
-for `-ing`, `-ic`, `-age`), `ɔ` before `ŋ f θ s`, the secondary stress dropped next to the primary and on a final `-y`,
-and the numbers thirteen to nineteen (and only those) stressed on the first syllable. Quotation marks, brackets and
-dashes become a comma (a pause) because the voice has no symbol for them, an ellipsis stays three dots, and the clause
-marks `, ; : . ! ?` pass through. The vowels before `r` follow the training engine (`IY` before `r` is the lax `ɪ`:
-`hˈɪɹ`; `AY` and `AW` before `r` take a schwa that carries the `r`: `aɪɚ`, `aʊɚ`; `UW` before `r` is the short vowel of
-*cure*). A hyphenated compound has one primary stress, on its first part, and a secondary stress on each later part,
-written even next to the primary one (`wˈɛlnˌoʊn`, `bˈæɾəlfˌiːld`).
+for `-ing`, `-ic`, `-age`; an `IY0` after a consonant and before a consonant and the primary stress, the end of a prefix
+or of the first element of a compound, is lax, `ᵻ` after `r` and `ɪ` otherwise: `sˌɛmɪsˈɜːkəl`, `mˌʌltɪkˈʌlɚd`, because
+the voice reads the tense `i` as the end of a word and pauses after it inside one), `ɔ` before `ŋ f θ s`, the secondary
+stress dropped next to the primary and on a final `-y`, and the numbers thirteen to nineteen (and only those) stressed
+on the first syllable. Quotation marks, brackets and dashes become a comma (a pause) because the voice has no symbol for
+them, an ellipsis stays three dots, and the clause marks `, ; : . ! ?` pass through. The vowels before `r` follow the
+training engine (`IY` before `r` is the lax `ɪ`: `hˈɪɹ`; `AY` and `AW` before `r` take a schwa that carries the `r`:
+`aɪɚ`, `aʊɚ`; `UW` before `r` is the short vowel of *cure*). A hyphenated compound has one primary stress, on its first
+part, and a secondary stress on each later part, written even next to the primary one (`wˈɛlnˌoʊn`, `bˈæɾəlfˌiːld`).
 
 **Kokoro (misaki) rules.** The same textbook table in the misaki symbols (`A I O W Y ʧ ʤ ɜɹ əɹ`), the flap, `ᵻ`, `ᵊ` for
 a final syllabic `l` after a consonant or `m` and `n` after `t d s z p f`, an unstressed `IH0` as a schwa except in

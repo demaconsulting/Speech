@@ -438,6 +438,42 @@ could have heard. Differences are the unstressed `ɪ` of *dedicate* where espeak
 of *government* (dictionary), the merged *to be* and *not have* of the engine's running speech, and stress marks on
 function words at the start of an utterance (the first-word rule of *Listening Fixes 2*).
 
+### Listening Fixes 4
+
+The fourth round of owner listening (Piper LibriTTS-R, speaker 0) flagged a long pause between *semi* and *circle* in
+*the semicircle above the balcony*. The phoneme string had no space and no mark inside the word (`sˌɛmisˈɜːkəl`): the
+pause came from the vowel at the end of the prefix. The dictionary's unstressed `IY0` was rendered as the tense `i` of
+*happy* wherever it was not before a vowel, and in the espeak-style text the voice was trained on that vowel ends a
+word. Before a consonant and the stressed syllable the voice reads it as the end of a word, lengthens it and pauses
+after it. Rendered with the voice at zero noise inside *the ... above*, the word with the tense `i` was longer than the
+same two elements written as two words with a space between them:
+
+| Word | Before | Milliseconds | After | Milliseconds | Two words |
+| --- | --- | --- | --- | --- | --- |
+| semicircle | `sˌɛmisˈɜːkəl` | 1196 | `sˌɛmɪsˈɜːkəl` | 1057 | 1091 |
+| multicolored | `mˌʌltikˈʌlɚd` | 1405 | `mˌʌltɪkˈʌlɚd` | 1022 | 1057 |
+| anticlimax | `ˌæntiklˈaɪmæks` | 1486 | `ˌæntɪklˈaɪmæks` | 1161 | 1115 |
+| multimedia | `mˌʌltimˈiːdɪə` | 1254 | `mˌʌltɪmˈiːdɪə` | 1045 | 1068 |
+| anymore | `ˌɛnimˈɔːɹ` | 1126 | `ˌɛnɪmˈɔːɹ` | 848 | 859 |
+
+The whole flagged sentence, rendered the same way, took 5.40 s before and 4.85 s after, with nothing changed but that
+one vowel (with the voice's default noise, 5.52 s and 4.97 s on average over six draws).
+
+The rule is now that an unstressed `IY0` after a consonant and before a consonant and the primary stress (the end of a
+prefix or of the first element of a compound) is lax: `ᵻ` after `r` as before, `ɪ` otherwise. espeak-ng writes the same
+lax vowel there (`sˌɛmɪkˈoʊlən`, `mˌʌltɪkˈʌlɚd`, `ˌæntɪklˈaɪmæks`). After the primary stress (*happiness*, *everybody*,
+*everywhere*), at the end of a word, at the start of a word (*email*) and for a secondary stress lost to a stress clash
+(the letter names of *http*) the tense `i` stays. This is narrower than the rejected medial-`ɪ` candidate above, which
+also changed the vowel after the stress (*twenty-one*). Over the whole dictionary 727 words change, nearly all of them
+names; 2 of them agreed with espeak-ng word for word (without stress) before and 137 after. The measurement corpora
+barely move: the 450 tuning sentences and the 3,000 tuning words do not change, and 3 of the 3,000 held-out words
+(*anymore*, *semiconductor*, *antibiotics*) now agree with espeak-ng. The figures were compared with a local comparison
+of the `measure-oracle` export before and after the change, so the recorded figures and gates stand. The other prefixes
+and compounds of the audit (*antisocial*, *overpriced*, *underground*, *nonstop*, *rebuild*, *preheat*, *subcommittee*,
+*interstate*, *superstar*, *everywhere*, *everybody*, *sunlight*, *bookshelf*) already rendered as one word with no
+lengthened vowel at the joint and did not change. Kokoro writes a schwa there (`sˌɛməsˈɜɹkᵊl`) and did not change. The
+Phonemes.En goldens changed in one line of the compound golden (`anti-war`).
+
 ## Residual Classes
 
 The largest disagreements that remain are idiosyncrasies of the two engines, not renderer faults, and no phone-only rule

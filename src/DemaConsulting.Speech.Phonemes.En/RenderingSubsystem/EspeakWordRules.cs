@@ -397,6 +397,15 @@ internal static class EspeakWordRules
     /// <param name="tonic">The ordinal of the primary-stressed vowel.</param>
     /// <param name="stressed">Whether the vowel is stressed (marked).</param>
     /// <returns>The IPA symbols.</returns>
+    /// <remarks>
+    ///     An unstressed <c>IY</c> is the tense <c>i</c> at the end of a word, after the primary stress
+    ///     (<i>happy</i>, <i>happiness</i>, <i>everybody</i>) and at the start of a word (<i>email</i>). Before the
+    ///     primary stress, where it ends a prefix or the first element of a compound after a consonant
+    ///     (<i>semicircle</i>, <i>multicolored</i>, <i>anticlimax</i>), it is lax as espeak-ng writes it: the voice
+    ///     reads a tense <c>i</c> followed by a consonant and a stressed syllable as the end of a word, lengthens it
+    ///     and pauses after it, which splits the word in two. A vowel that lost its secondary stress to a stress clash
+    ///     (the letter names of <i>http</i>) keeps its tense vowel.
+    /// </remarks>
     private static string Iy(ReadOnlySpan<Phone> phones, int index, int ordinal, int tonic, bool stressed)
     {
         if (stressed)
@@ -404,14 +413,27 @@ internal static class EspeakWordRules
             return "iː";
         }
 
-        // Before another vowel (hiatus) the unstressed vowel is lax; in a prefix after r it is the lax i
+        // Before another vowel (hiatus) the unstressed vowel is lax
         if (IsVowelAt(phones, index + 1))
         {
             return "ɪ";
         }
 
-        var prefixAfterR = SymbolAt(phones, index - 1) == "R" && tonic > ordinal && index + 1 < phones.Length;
-        return prefixAfterR ? "ᵻ" : "i";
+        // At the end of the word and after the primary stress the vowel is the tense i of happy
+        var pretonic = tonic > ordinal && index + 1 < phones.Length;
+        if (!pretonic)
+        {
+            return "i";
+        }
+
+        // Before the primary stress and a consonant: the lax i after r (rebuild), and ɪ after any other consonant when
+        // the vowel is a reduced one (semicircle), not a secondary stress lost to a clash or the first sound of the word
+        if (SymbolAt(phones, index - 1) == "R")
+        {
+            return "ᵻ";
+        }
+
+        return phones[index].Stress == 0 && index > 0 && !IsVowelAt(phones, index - 1) ? "ɪ" : "i";
     }
 
     /// <summary>

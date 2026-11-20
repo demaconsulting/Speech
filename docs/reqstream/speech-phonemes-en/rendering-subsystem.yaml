@@ -52,8 +52,11 @@ sections:
               stressed and an unstressed vowel (also before a final -y that the dictionary stresses secondarily),
               the linking r of the espeak-style text, the vowels of the espeak-style text before r (the vowel of
               near before r written with a lax i, the schwa after ay and aw before r, the vowel of cure before r
-              for u), the stress of
-              hyphenated compounds (the first part primary and each later part secondary, in both models), words
+              for u), the unstressed i that ends a prefix or the first element of a compound before the
+              stressed syllable written lax in the espeak-style text (the voice reads the tense i as the end of
+              a word), the stress of
+              hyphenated compounds (the first part primary and each later part secondary, in both models), the
+              elements of a prefixed or compound word joined without a space or a pause mark, words
               separated by one space with a closing mark attached to the word before it, quotation marks and
               dashes as a pause for Piper (which has no symbol for them) and as the model's own marks for
               Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a hyphen
@@ -79,6 +82,8 @@ sections:
               - RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions
               - RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions
               - RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped
+              - RenderingSubsystem_SoundRules_UnstressedIBeforeTheStressInsideAWord_IsLaxWithoutAWordBreak
+              - RenderingSubsystem_Layout_PrefixedWordInASentence_IsOneWordBetweenItsNeighbors
               - RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot
               - RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones
               - RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice

@@ -35,15 +35,17 @@ The subsystem tests pass when: the inventories are the voices' own (159 Piper sy
 every weak form, mark and renderer mode render only to symbols of both tables; `Hello, world!` renders as
 `həlˈoʊ, wˈɜːld!` for Piper and `həlˈO, wˈɜɹld!` for Kokoro; quotation marks and dashes are a pause for Piper and
 Kokoro's own marks for Kokoro; an ellipsis is three dots for Piper and `…` for Kokoro; a hyphenated compound keeps every
-stress for Piper and only the first for Kokoro; the flap, the linking r and the stress rules give the documented
-strings; function words are weak only when weak forms are enabled (on by default for the Piper renderer, off by default
-for the Kokoro renderer, which the Kokoro model package switches on; see *SpeechOnnxKokoro KokoroPhonemePipeline
-Verification*); a host IPA override is translated into the symbols of each voice (`bɝd` is `bɜːd` for Piper and `bɜɹd`
-for Kokoro, `ɹˈaɪt` is `ɹˈIt` for Kokoro, `tʃˈɛk` is `ʧˈɛk`), one that a voice cannot represent completely (a symbol
-outside its table) is replaced by the word's normal pronunciation, and every symbol of both tables, alone or next to a
-diphthong or r-colored vowel, yields only symbols of each voice; an ARPAbet override renders like the dictionary word
-with the same phones; only the seven numbers thirteen to nineteen take the first-syllable number stress for Piper
-(`routine` and `canteen` do not); and a long text is rendered as parts within the limit that lose nothing.
+stress for Piper and only the first for Kokoro; an unstressed i that ends a prefix before the stressed syllable is lax
+for Piper and no prefixed or compound word has a space or a pause mark inside it in either voice; the flap, the linking
+r and the stress rules give the documented strings; function words are weak only when weak forms are enabled (on by
+default for the Piper renderer, off by default for the Kokoro renderer, which the Kokoro model package switches on; see
+*SpeechOnnxKokoro KokoroPhonemePipeline Verification*); a host IPA override is translated into the symbols of each voice
+(`bɝd` is `bɜːd` for Piper and `bɜɹd` for Kokoro, `ɹˈaɪt` is `ɹˈIt` for Kokoro, `tʃˈɛk` is `ʧˈɛk`), one that a voice
+cannot represent completely (a symbol outside its table) is replaced by the word's normal pronunciation, and every
+symbol of both tables, alone or next to a diphthong or r-colored vowel, yields only symbols of each voice; an ARPAbet
+override renders like the dictionary word with the same phones; only the seven numbers thirteen to nineteen take the
+first-syllable number stress for Piper (`routine` and `canteen` do not); and a long text is rendered as parts within the
+limit that lose nothing.
 
 ### Test Scenarios
 
@@ -71,6 +73,8 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions`,
 `RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`,
 `RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped`,
+`RenderingSubsystem_SoundRules_UnstressedIBeforeTheStressInsideAWord_IsLaxWithoutAWordBreak`,
+`RenderingSubsystem_Layout_PrefixedWordInASentence_IsOneWordBetweenItsNeighbors`,
 `RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
 `RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones`,
 `RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice`
@@ -78,6 +82,11 @@ reported by name. The precondition test shows that the tables are the real ones 
 Short texts are rendered by both renderers and compared with the documented strings: `city` and `water` (flap),
 `ability`, `identity` and `reality` (the flap before a final `-y` that the dictionary stresses secondarily), `number is`
 (linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
+the prefixed and compound words `semicircle`, `semi-circle`, `semicolon`, `multicolored`, `multimedia`, `anticlimax`,
+`anti-war`, `anymore` and `rebuild` (the unstressed i before the stressed syllable is lax for Piper, `sˌɛmɪsˈɜːkəl`,
+and neither voice has a space or a pause mark inside the word) against `happiness`, `everybody` and `email` (the tense
+`i` after the primary stress and at the start of a word), and the sentence of the owner's listening test, in which
+`semicircle` is one word between `the` and `above` in both voices;
 `a well-known author` and `a battle-field and twenty-one self-evident ones` (one primary stress, the later parts
 secondary, next to the primary or not); the compound golden (`compounds-golden.tsv`: `co-operate`, `non-fiction`,
 `re-enter`, `pre-war`, `anti-war`, `ex-wife`, `self-evident`, `battle-field`, `well-known`, `e-mail` with the stress of

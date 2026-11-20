@@ -425,6 +425,58 @@ public sealed class RenderingSubsystemTests
         Assert.EndsWith(piper.EndsWith("ɾi", StringComparison.Ordinal) ? "ɾi" : "i", new MisakiRenderer().Render(result), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     Proves a prefix or the first element of a compound that ends in an unstressed <c>i</c> before the stressed
+    ///     syllable stays joined to the rest of its word in both voices (no space and no pause mark inside the word),
+    ///     and that for Piper that <c>i</c> is lax (<c>ɪ</c>, <c>ᵻ</c> after <c>r</c>): the voice reads the tense <c>i</c>
+    ///     as the end of a word and pauses after it. After the primary stress and at the start of a word the tense
+    ///     <c>i</c> stays.
+    /// </summary>
+    /// <param name="word">The word.</param>
+    /// <param name="piper">The expected Piper rendering.</param>
+    [Theory]
+    [InlineData("semicircle", "sˌɛmɪsˈɜːkəl")]
+    [InlineData("semi-circle", "sˌɛmɪsˈɜːkəl")]
+    [InlineData("semicolon", "sˌɛmɪkˈoʊlən")]
+    [InlineData("multicolored", "mˌʌltɪkˈʌlɚd")]
+    [InlineData("multimedia", "mˌʌltɪmˈiːdɪə")]
+    [InlineData("anticlimax", "ˌæntɪklˈaɪmæks")]
+    [InlineData("anti-war", "ˌæntɪwˈɔːɹ")]
+    [InlineData("anymore", "ˌɛnɪmˈɔːɹ")]
+    [InlineData("rebuild", "ɹᵻbˈɪld")]
+    [InlineData("happiness", "hˈæpinəs")]
+    [InlineData("everybody", "ˈɛvɹibˌɑːdi")]
+    [InlineData("email", "imˈeɪl")]
+    public void RenderingSubsystem_SoundRules_UnstressedIBeforeTheStressInsideAWord_IsLaxWithoutAWordBreak(string word, string piper)
+    {
+        // Act
+        var result = Phonemizer.Phonemize(word);
+        var kokoro = new MisakiRenderer().Render(result);
+
+        // Assert: Piper has the vowel of the position; Kokoro, too, renders one word with nothing inside it that pauses
+        Assert.Equal(piper, new EspeakIpaRenderer().Render(result));
+        Assert.DoesNotContain(kokoro, c => char.IsWhiteSpace(c) || ",;:.!?—–-…".Contains(c, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Proves the sentence of the owner's listening test renders <i>semicircle</i> as one word between its neighbors
+    ///     in both voices, with the lax vowel at the end of <i>semi</i> for Piper, so the voice does not pause inside it.
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_Layout_PrefixedWordInASentence_IsOneWordBetweenItsNeighbors()
+    {
+        // Arrange
+        var result = Phonemizer.Phonemize("It was all in shadow except the semicircle above the balcony that showed the sky and sea and the corner where the girl stood.");
+
+        // Act
+        var piper = new EspeakIpaRenderer().Render(result);
+        var kokoro = new MisakiRenderer().Render(result);
+
+        // Assert
+        Assert.Contains(" ðə sˌɛmɪsˈɜːkəl ɐbˌʌv ", piper, StringComparison.Ordinal);
+        Assert.Contains(" ðə sˌɛməsˈɜɹkᵊl əbˈʌv ", kokoro, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves a host IPA pronunciation is translated into the symbols of each voice: the espeak-style diphthongs, affricates, r-colored vowels and length marks become Kokoro's own symbols (<c>I W A O Y ʧ ʤ ɜɹ əɹ</c>) and the Piper symbols, and every symbol emitted is in the voice's symbol table.</summary>
     [Theory]
     [InlineData("bɝd", "bɜːd", "bɜɹd")]
