@@ -102,10 +102,16 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <!-- Flag editor -->
+          <!-- Flag editor: floats over the top of the list (no layout shift). The background is the
+               Fluent window surface brush (SystemRegionBrush), so the panel is opaque and follows the
+               dark/light theme; the non-null background also makes the whole panel hit-testable, so
+               clicks on it stop here instead of reaching the list rows underneath. ZIndex keeps it
+               above the list, and the shadow and margin set it apart from the rows. -->
           <Border IsVisible="{Binding IsEditingFlag}" VerticalAlignment="Top"
-                  Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
-                  BorderThickness="2" BorderBrush="DarkOrange" CornerRadius="6" Padding="8">
+                  ZIndex="1" Margin="4"
+                  Background="{DynamicResource SystemRegionBrush}"
+                  BoxShadow="0 4 12 0 #60000000"
+                  BorderThickness="2" BorderBrush="DarkOrange" CornerRadius="6" Padding="12">
             <StackPanel Spacing="6">
               <TextBlock Text="{Binding EditorHeader}" FontWeight="SemiBold" TextWrapping="Wrap" />
               <TextBlock Text="{Binding EditorTargetText}" TextWrapping="Wrap" FontStyle="Italic" />
