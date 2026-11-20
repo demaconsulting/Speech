@@ -47,8 +47,13 @@ its tokens (the next token processed is the one after it):
   digits (`A4`, `B12`, `H2O`, `R2D2`, `MP3`: alternating runs of one to three letters and one to four digits) or
   a name joined to one to three digits by a hyphen (`COVID-19`, `Catch-22`). Each letter run is a spelled
   `Initialism` span, each digit run a `Number` span (a cardinal for up to three digits without a leading zero,
-  digit by digit otherwise); for the hyphenated name only the digits get a span, so the phonemizer sees
-  `COVID-nineteen`. It runs after the lexicons so that an entry of either wins
+  digit by digit otherwise); for the hyphenated name the hyphen and the digits get one span, so the name and the
+  number are two words (`COVID nineteen`), and one to three capitals before the hyphen are spelled (`S C P one hundred
+  eighty four`). It runs after the lexicons so that an entry of either wins
+- **4c. Number sign**: a lone `#` set apart by a space from a word of letters before it, followed directly by a colon
+  (`Item #:`) or by a number after one space (`Case # 12`), is the word `number` (`Symbol` span); a `#` at the start
+  of a line or before a word is a heading mark or a hashtag and is left alone, and a sign glued to its number (`#5`)
+  is read by the numeric rule
 - **5. Symbol or mark**: a standalone operator or mark, or a mark, `&` or `/` inside a word. `Symbol` spans
 - **6. Elision apostrophe**: a typographic apostrophe between two letters, or leading `'tis`, `'twas`, `'til`,
   `'cause`, `'em`. `Apostrophe` spans

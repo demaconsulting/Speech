@@ -183,7 +183,7 @@ each counted as a numeric fallback, with no value over the documented size.
 Verifies, through the public analyzer and the independent applier, that `Visit https://www.example.com/docs?id=7 today.`
 is spoken with the scheme and `www` spelled, every separator as a word and the colon kept, that
 `Mail john.smith@example.com, now.` keeps its comma, that `report.pdf` and `Node.js` are unchanged, and that `A4`,
-`B12`, `COVID-19`, `12-year-old` and `10K` are spoken as `A four`, `B twelve`, `COVID-nineteen`, `twelve-year-old` and
+`B12`, `COVID-19`, `12-year-old` and `10K` are spoken as `A four`, `B twelve`, `COVID nineteen`, `twelve-year-old` and
 `ten K`, with the source text untouched.
 
 ### Pronunciation Overrides

@@ -580,7 +580,7 @@ public sealed class SpeechTextEnTests
             ("Visit https://www.example.com/docs?id=7 today.", "Visit H T T P S:W W W dot example dot com slash docs question mark id equals 7 today."),
             ("Mail john.smith@example.com, now.", "Mail john dot smith at example dot com, now."),
             ("Open report.pdf or Node.js now.", "Open report.pdf or Node.js now."),
-            ("Paper A4, vitamin B12 and COVID-19 hit the 12-year-old, 10K runner.", "Paper A four, vitamin B twelve and COVID-nineteen hit the twelve-year-old, ten K runner."),
+            ("Paper A4, vitamin B12 and COVID-19 hit the 12-year-old, 10K runner.", "Paper A four, vitamin B twelve and COVID nineteen hit the twelve-year-old, ten K runner."),
         ];
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Annotations = TextEnAnnotationSelection.Normalization });
 

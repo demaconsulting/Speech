@@ -129,8 +129,9 @@ sections:
                   The TextNormalizer class shall speak an operator symbol only when whitespace or
                   the text edge sets it apart on both sides, shall speak the copyright, registered,
                   trademark, section and paragraph marks alone or touching a word (separating two
-                  adjacent marks that both produce words by exactly one space) and a slash only
-                  between two plain words, leaving every other use of these characters unchanged,
+                  adjacent marks that both produce words by exactly one space), a slash only
+                  between two plain words, and a lone number sign as the word "number" only after a
+                  word and before a colon or a number, leaving every other use of these characters unchanged,
                   shall canonicalize a typographic apostrophe inside a clitic or a word while
                   keeping quotation marks unchanged, and shall classify each clitic from the
                   neighboring words only when classification is requested.
@@ -145,6 +146,7 @@ sections:
                   - TextNormalizer_Normalize_Marks_AreSpoken
                   - TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets
                   - TextNormalizer_Normalize_Slash_IsSpokenOnlyBetweenWords
+                  - TextNormalizer_Normalize_NumberSign_IsTheWordNumberOnlyAfterAWordBeforeAColonOrNumber
                   - TextNormalizer_Normalize_Apostrophes_AreCanonicalizedOnlyInsideWords
                   - TextNormalizer_Normalize_Clitics_AreClassifiedFromContext
                   - TextNormalizer_Normalize_CliticsNotRequested_RecordsNoCliticsButStillCanonicalizes

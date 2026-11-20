@@ -467,7 +467,7 @@ lim-fraction-32	0.12345678901234567890123456789012	zero point one two three four
 lim-ordinal-16	1234567890123456th	1234567890123456th	1234567890123456th	0	1	ordinal beyond 15 digits
 id-hyphen-compound	5-year-old	five-year-old	5-year-old	0	0	the number of a hyphenated compound is read, the compound is left as written
 id-3d	3-D	three-D	3-D	0	0	a number and a hyphenated letter
-id-f16	F-16	F-sixteen	F-16	0	0	the number of a name joined to it by a hyphen is read
+id-f16	F-16	F sixteen	F-16	0	0	the letter of a name joined to a number by a hyphen is spelled and the number read as a word of its own
 id-seven-eleven	7-Eleven	seven-Eleven	7-Eleven	0	0	the number of a hyphenated name is read
 id-mid-1990s	mid-1990s	mid-1990s	mid-1990s	0	0	deferred
 id-20-something	20-something	twenty-something	20-something	0	0	the number of a hyphenated compound is read

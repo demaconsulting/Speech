@@ -15,16 +15,22 @@ text order, or `null`; every span indexes the text (`tokenStart` plus the offset
   leading zero (`B12` gives `B twelve`, `A100` gives `A one hundred`) and digit by digit otherwise (`A007` gives
   `A zero zero seven`, `RTX4090` gives `R T X four zero nine zero`). A word of four or more capital letters
   before digits (`COVID19`) is not an identifier
-- **Hyphenated name** (`COVID-19`, `Catch-22`, `Boeing-737`): ASCII letters, a hyphen and one to three ASCII
-  digits, at most 16 characters in all. Only the digits get a span (`Number`, a cardinal); the letters and the
-  hyphen are left as written so that the phonemizer sees one hyphenated word
+- **Hyphenated name** (`SCP-184`, `F-16`, `COVID-19`, `Catch-22`, `Boeing-737`): ASCII letters, a hyphen and one
+  to three ASCII digits (one to four after one to three capitals), at most 16 characters in all. The hyphen and the
+  digits get one `Number` span read by the identifier convention (a cardinal for up to three digits without a
+  leading zero, digit by digit otherwise), so the name and the number are two words: neither one hyphenated
+  compound (which ran the letters into the number, `S-C-P-one`) nor a pause. One to three capitals are an
+  identifier's letter run and get a spelled `Initialism` span (`SCP-184` is `S C P one hundred eighty four`, `A-1`
+  is `A one`, not the article; `SCP-049` is `S C P zero four nine`, `SCP-1234` reads its digits one by one); any
+  other name (`COVID`, `Catch`) is left as written (`COVID nineteen`)
 
 **Key Methods**:
 
 - **RecognizeIdentifier(token, tokenStart)**: a first pass checks that the token is alternating runs within
   the limits; a second pass builds one span per run
 - **RecognizeHyphenatedNumber(token, tokenStart)**: splits at the first hyphen, checks the letters before it
-  and the digits after it, and returns the single digit span
+  and the digits after it, and returns the spelled span of one to three capitals (if they are) and the span of the
+  hyphen and the digits
 
 **Error Handling**: none. A token of any content is simply not recognized: lower case, a leading digit, a
 single letter, digits only, more than four digits in a run, an over-long token and every other shape return

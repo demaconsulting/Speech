@@ -403,6 +403,13 @@ internal sealed class TextNormalizer
                 return index + 1;
             }
 
+            // Rule 4c: a standalone number sign after a word, before a colon or a number (Item #: 5, Item # 5).
+            if (IsNumberSign(index))
+            {
+                Emit(token.Start, token.Length, "number", NormalizationKind.Symbol);
+                return index + 1;
+            }
+
             // Rule 5: symbols and marks, standalone or inside a word.
             if (TryApplySymbol(token, span))
             {
@@ -412,6 +419,55 @@ internal sealed class TextNormalizer
             // Rule 6: elision apostrophes inside a word; everything else is identity.
             EmitElisionApostrophes(index, span);
             return index + 1;
+        }
+
+        /// <summary>
+        ///     Tells whether a token is a number sign standing for the word <i>number</i>.
+        /// </summary>
+        /// <param name="index">The token's index.</param>
+        /// <returns>
+        ///     <see langword="true"/> when the token is a lone <c>#</c> set apart by a space from a word of letters before it
+        ///     and followed either directly by a colon (<c>Item #:</c>) or, after one space, by a token that starts with a
+        ///     digit (<c>Item # 5</c>); otherwise <see langword="false"/>.
+        /// </returns>
+        /// <remarks>
+        ///     A sign glued to its number (<c>#5</c>) is read by the numeric rule already. A sign that does not follow a word is
+        ///     left alone, because at the start of a line it is a heading mark (<c>## 5 steps</c>, <c># 5 Reasons</c>), and a
+        ///     sign before a word is a hashtag or a heading (<c># Title</c>), not a number.
+        /// </remarks>
+        private readonly bool IsNumberSign(int index)
+        {
+            var token = _tokens[index];
+            if (token.Length != 1 || _text[token.Start] != '#' || index == 0 || index + 1 >= _tokens.Length)
+            {
+                return false;
+            }
+
+            // A word of letters before it, set apart by whitespace on the same line
+            var previous = _tokens[index - 1];
+            var gapBefore = _text.AsSpan(previous.End, token.Start - previous.End);
+            if (gapBefore.Length == 0 || gapBefore.ContainsAny('\n', '\r') || !gapBefore.IsWhiteSpace())
+            {
+                return false;
+            }
+
+            foreach (var character in previous.In(_text))
+            {
+                if (!char.IsLetter(character))
+                {
+                    return false;
+                }
+            }
+
+            // A colon right after it, or a number after one space
+            var next = _tokens[index + 1];
+            var nextText = next.In(_text);
+            if (next.Start == token.End && nextText.Length > 0 && nextText[0] == ':')
+            {
+                return true;
+            }
+
+            return next.Start == token.End + 1 && _text[token.End] == ' ' && char.IsAsciiDigit(nextText[0]);
         }
 
         /// <summary>

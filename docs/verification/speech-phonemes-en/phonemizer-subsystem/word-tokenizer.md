@@ -21,7 +21,7 @@ word and `'hello'` is punctuation, word, punctuation; a replacement of `Dr.` by 
 replacement running past the end of the text changes nothing, and a spelled `F B I` before `'s` gives three letter
 tokens and a clitic token; `555-0147` with both digit groups replaced gives the tokens `five five five`, `-`,
 `zero one four seven` with the hyphen as punctuation, while `COVID-nineteen` (a replaced number after an original
-hyphen) and `twelve-year-old` stay one word each.
+hyphen; the text analysis now replaces such a hyphen with the number) and `twelve-year-old` stay one word each.
 
 #### Test Scenarios
 

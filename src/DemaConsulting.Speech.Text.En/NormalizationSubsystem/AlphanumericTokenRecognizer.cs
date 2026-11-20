@@ -15,9 +15,16 @@ namespace DemaConsulting.Speech.Text.En.NormalizationSubsystem;
 ///     letters before digits (<c>COVID19</c>) is not an identifier and is left alone.
 ///     </para>
 ///     <para>
-///     A name joined to a number by a hyphen (<c>COVID-19</c>, <c>Catch-22</c>, <c>Boeing-737</c>) is a token of letters, a
-///     hyphen and one to three digits; the digits are read as a cardinal and the hyphen and the letters are left as they
-///     are, so the phonemizer sees one hyphenated word.
+///     A name joined to a number by a hyphen (<c>SCP-184</c>, <c>F-16</c>, <c>COVID-19</c>, <c>Catch-22</c>) is a token of
+///     letters, a hyphen and digits. The hyphen and the digits are replaced together by the number, so the name and the
+///     number are two words with nothing between them (not one hyphenated compound, which ran the letters into the
+///     number: <i>S-C-P-one</i>, and not a pause). Letters that are one to three capitals are an identifier's letter run
+///     and are spelled, each by its name, like the letter runs of <c>MP3</c> (<c>SCP-184</c> is <i>S C P one hundred eighty
+///     four</i>, <c>A-1</c> is <i>A one</i>, not the article); any other name (<c>COVID</c>, <c>Catch</c>, <c>Boeing</c>) is
+///     left as written. The digits follow the identifier convention: a cardinal for one to three digits without a leading
+///     zero, digit by digit otherwise (<c>SCP-049</c> is <i>zero four nine</i>); four digits are accepted after spelled
+///     capitals only (<c>SCP-1234</c>, read digit by digit like <c>RTX4090</c>); four digits after any other name are
+///     left to the numeric rules, as before.
 ///     </para>
 ///     The class is stateless and thread-safe. Every span has only capital letters or letters, single spaces and no digit,
 ///     comma, colon, semicolon or whitespace.
@@ -101,29 +108,42 @@ internal static class AlphanumericTokenRecognizer
     }
 
     /// <summary>
-    ///     Finds the span of a token that is a name joined to a number by a hyphen.
+    ///     Finds the spans of a token that is a name joined to a number by a hyphen.
     /// </summary>
     /// <param name="token">The token's characters.</param>
-    /// <param name="tokenStart">The offset of the token in the text; the span indexes the text.</param>
-    /// <returns>The span of the digits (read as a cardinal), or <see langword="null"/> when the token is not of the form letters, hyphen, one to three digits.</returns>
+    /// <param name="tokenStart">The offset of the token in the text; the spans index the text.</param>
+    /// <returns>
+    ///     The spans in text order: the spelled letters when the name is one to three capitals, then the hyphen and the
+    ///     digits read as a number; or <see langword="null"/> when the token is not of the form letters, hyphen, one to three
+    ///     digits (one to four after spelled capitals).
+    /// </returns>
     internal static IReadOnlyList<NumericSpan>? RecognizeHyphenatedNumber(ReadOnlySpan<char> token, int tokenStart)
     {
         var hyphen = token.IndexOf('-');
-        if (hyphen < 1 || token.Length - hyphen - 1 is < 1 or > MaxCardinalRun || token.Length > MaxTokenLength + MaxDigitRun)
+        if (hyphen < 1 || token.Length > MaxTokenLength + MaxDigitRun)
         {
             return null;
         }
 
         // Letters before the hyphen, digits after it, nothing else
-        for (var i = 0; i < hyphen; i++)
+        var letters = token[..hyphen];
+        var capitals = letters.Length <= MaxLetterRun;
+        foreach (var character in letters)
         {
-            if (!(token[i] is >= 'a' and <= 'z' or >= 'A' and <= 'Z'))
+            if (!(character is >= 'a' and <= 'z' or >= 'A' and <= 'Z'))
             {
                 return null;
             }
+
+            capitals &= character is >= 'A' and <= 'Z';
         }
 
         var digits = token[(hyphen + 1)..];
+        if (digits.Length < 1 || digits.Length > (capitals ? MaxDigitRun : MaxCardinalRun))
+        {
+            return null;
+        }
+
         foreach (var character in digits)
         {
             if (character is not (>= '0' and <= '9'))
@@ -132,7 +152,11 @@ internal static class AlphanumericTokenRecognizer
             }
         }
 
-        return [new NumericSpan(tokenStart + hyphen + 1, digits.Length, ReadDigits(digits), NormalizationKind.Number)];
+        // The spelled letters of an identifier, then the number in place of the hyphen and the digits: two words, no joint
+        var number = new NumericSpan(tokenStart + hyphen, digits.Length + 1, ReadDigits(digits), NormalizationKind.Number);
+        return capitals
+            ? [new NumericSpan(tokenStart, hyphen, SpelledLetters(letters), NormalizationKind.Initialism), number]
+            : [number];
     }
 
     /// <summary>

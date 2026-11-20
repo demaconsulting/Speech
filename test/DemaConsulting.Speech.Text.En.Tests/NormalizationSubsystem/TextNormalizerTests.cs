@@ -43,6 +43,26 @@ public sealed class TextNormalizerTests
         Assert.Equal(spoken, Spoken(text));
     }
 
+    /// <summary>
+    ///     Proves a lone number sign after a word is the word <i>number</i> before a colon or a number, and is left alone at the
+    ///     start of a line, before a word or with no word before it.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="spoken">The expected spoken form.</param>
+    [Theory]
+    [InlineData("Item #: SCP-184", "Item number: S C P one hundred eighty four")]
+    [InlineData("Case # 12 is open.", "Case number twelve is open.")]
+    [InlineData("See item #12 now.", "See item number twelve now.")]
+    [InlineData("# 5 Reasons", "# five Reasons")]
+    [InlineData("Item # Title", "Item # Title")]
+    [InlineData("Item\n# 5", "Item\n# five")]
+    [InlineData("5 # 6", "five # six")]
+    public void TextNormalizer_Normalize_NumberSign_IsTheWordNumberOnlyAfterAWordBeforeAColonOrNumber(string text, string spoken)
+    {
+        // Act / Assert
+        Assert.Equal(spoken, Spoken(text));
+    }
+
     /// <summary>Proves adjacent word-producing replacements are separated by exactly one space, with the source offsets unchanged.</summary>
     [Fact]
     public void TextNormalizer_Normalize_AdjacentMarks_PadExactlyOneSpaceAndKeepOffsets()
@@ -353,7 +373,8 @@ public sealed class TextNormalizerTests
     /// <param name="spoken">The expected spoken form.</param>
     [Theory]
     [InlineData("Use paper A4 and vitamin B12 with H2O and MP3.", "Use paper A four and vitamin B twelve with H two O and M P three.")]
-    [InlineData("COVID-19 and Catch-22 spread.", "COVID-nineteen and Catch-twenty two spread.")]
+    [InlineData("COVID-19 and Catch-22 spread.", "COVID nineteen and Catch twenty two spread.")]
+    [InlineData("Item SCP-184 and the F-16.", "Item S C P one hundred eighty four and the F sixteen.")]
     [InlineData("The COVID19 wave.", "The COVID19 wave.")]
     public void TextNormalizer_Normalize_LettersAndDigits_AreSpelledAndRead(string text, string spoken)
     {
