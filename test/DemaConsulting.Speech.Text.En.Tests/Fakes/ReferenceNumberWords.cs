@@ -105,7 +105,7 @@ internal static class ReferenceNumberWords
         "half", "halves", "quarter", "quarters",
         "tens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties", "hundreds", "thousands",
         "dollar", "dollars", "cent", "cents", "euro", "euros", "pound", "pounds", "penny", "pence", "yen",
-        "millimeter", "millimeters", "centimeter", "centimeters", "kilometer", "kilometers", "foot", "feet", "yard", "yards",
+        "millimeter", "millimeters", "centimeter", "centimeters", "kilometer", "kilometers", "foot", "feet", "inch", "inches", "yard", "yards",
         "mile", "miles", "per", "hour", "hours", "milligram", "milligrams", "kilogram", "kilograms", "ounce", "ounces",
         "milliliter", "milliliters", "kilobyte", "kilobytes", "megabyte", "megabytes", "gigabyte", "gigabytes",
         "terabyte", "terabytes", "hertz", "kilohertz", "megahertz", "gigahertz", "millisecond", "milliseconds",

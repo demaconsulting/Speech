@@ -68,15 +68,18 @@ sections:
                   sign only when a number precedes it, shall read a unit of its closed
                   case-sensitive table glued to or one space after a plain number as the unit's
                   words (singular for exactly one), flagging a unit that may carry an abbreviation
-                  period, and shall leave an excluded or unknown unit unchanged.
+                  period, shall read "in" after a number as the inch only at the end of the text or
+                  before a closing bracket, a sentence or clause mark, a dimension word or "in
+                  diameter", and shall leave an excluded or unknown unit unchanged.
                 justification: |
                   "$5.50" is "five dollars and fifty cents" while "5.50 EUR" is read per token as a
                   decimal; reading a suffix code with cents would need the unit and the amount in
                   one span across a space, which a chunk cut could split, and the prefix code is
                   deferred for the same reason. "50%" and "5 kg" are spoken with their words, but
-                  "5 m", "5 g" and "5 in" are too ambiguous to read and a unit in the wrong case
+                  "5 m" and "5 g" are too ambiguous to read and a unit in the wrong case
                   ("Kg") is not the unit. The period flag lets the normalizer apply the abbreviation
-                  period rules to "ft.".
+                  period rules to "ft.". "in" is the preposition before its object ("4 in 10 cases",
+                  "4 in the morning") but the inch where no object can follow ("10 cm (4 in) tall").
                 tests:
                   - NumericExpressionRecognizer_Currency_SymbolsCentsAndSingular
                   - NumericExpressionRecognizer_Units_TableSingularPluralAndPeriod

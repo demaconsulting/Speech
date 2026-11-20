@@ -269,7 +269,14 @@ unit-lbs-mid	180 lbs. now	one hundred eighty pounds now	180 lbs. now	0	0	separat
 unit-min-mid	a 5 min. read	a five minutes read	a 5 min. read	0	0	period consumed
 unit-glued-ft	5ft. tall	five feet tall	5ft. tall	0	0	glued unit with its period
 unit-glued-ft-end	Height: 5ft.	Height: five feet.	Height: 5ft.	0	0	glued unit, period kept
-unit-in-excluded	5 in	five in	5 in	0	0	ambiguous word units are excluded
+unit-in-end	5 in	five inches	5 in	0	0	in after a number at the end of the text is the inch
+unit-in-bracket	10 cm (4 in) tall	ten centimeters (four inches) tall	10 cm (4 in) tall	0	0	in before a closing bracket is the inch
+unit-in-one-dimension	1 in wide	one inch wide	1 in wide	0	0	the singular for one, before a dimension word
+unit-in-diameter	3 in in diameter	three inches in diameter	3 in in diameter	0	0	in diameter after the unit
+unit-in-preposition-ratio	in 4 in 10 cases	in four in ten cases	in 4 in 10 cases	0	0	the preposition before a number stays
+unit-in-preposition-time	at 4 in the morning	at four in the morning	at 4 in the morning	0	0	the preposition before its object stays
+unit-in-preposition-row	2 in a row	two in a row	2 in a row	0	0	the preposition before its object stays
+unit-in-preposition-total	3 in total	three in total	3 in total	0	0	the preposition before its object stays
 unit-m-excluded	5 m	five m	5 m	0	0	single-letter units are excluded
 unit-g-excluded	5 g	five g	5 g	0	0	single-letter units are excluded
 unit-case-sensitive	5 Kg	five Kg	5 Kg	0	0	units are case-sensitive

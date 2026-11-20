@@ -534,6 +534,31 @@ public sealed class RenderingSubsystemTests
     }
 
     /// <summary>
+    ///     Proves, with the real text analysis, that capitals joined to a number by a hyphen are spoken letter by letter by
+    ///     their names and then the number as words of their own, that a lone letter keeps its name, that a number sign after
+    ///     a word is <i>number</i> and that <i>in</i> after a number before a closing bracket is the inch.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="piper">A stretch the Piper rendering must contain.</param>
+    [Theory]
+    [InlineData("Item #: SCP-184", "ˈaɪɾəm nˈʌmbɚ: ˈɛs sˈiː pˈiː wˈʌn hˈʌndɹɪd ˈeɪɾi fˈɔːɹ")]
+    [InlineData("The F-16 and the B-52 flew.", "ˈɛf sˈɪkstiːn ænd ðə bˈiː fˈɪfti tˈuː")]
+    [InlineData("It was A-1 and COVID-19.", "ˈeɪ wˈʌn ænd kˈoʊvɪd nˈaɪntiːn")]
+    [InlineData("S, F, H and X.", "ˈɛs, ˈɛf, ˈeɪtʃ ænd ˈɛks")]
+    [InlineData("10 cm (4 in) tall", "tˈɛn sˈɛntɪmˌiːɾɚz, fˈɔːɹ ˈɪntʃᵻz, tˈɔːl")]
+    public void RenderingSubsystem_Analyzed_IdentifiersLettersAndInches_AreSpokenAsWords(string text, string piper)
+    {
+        // Arrange
+        var result = Phonemizer.Phonemize(text, new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken).Annotations);
+
+        // Act
+        var rendered = new EspeakIpaRenderer().Render(result);
+
+        // Assert
+        Assert.Contains(piper, rendered, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Proves <i>of a</i> is one group with reduced vowels in the Piper rendering (<c>əvə</c>, as the training engine
     ///     writes it), not <c>ʌvɐ</c>, whose word-initial <c>ɐ</c> the voice reads as a new word with a pause before it,
     ///     while <i>was a</i> keeps the engine's <c>wʌzɐ</c>.

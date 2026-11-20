@@ -87,8 +87,10 @@ while `2000` to `2009` and `1000` are never counted.
 The currency test checks `$5`, `$1`, `$5.50`, `$5.5`, `$5.123`, `€5.50`, `¥5.25`, a magnitude word and letter after a
 symbol amount, the per-token suffix code (`5 USD`, `5.50 EUR`, `5 million USD`) without cents, and `USD 5` left alone.
 The unit test goes through every unit of the table for the singular for `1` and the plural for `5` and `1.0`, the glued
-and the joined forms, that exactly the period-bearing units set the period flag, and that `5 m`, `5 g`, `5 in`, `5 Kg`
-and a unit with no number before it are left alone; the percent forms (`50%`, `50 %`, a `%` alone) are part of it.
+and the joined forms, that exactly the period-bearing units set the period flag, and that `5 m`, `5 g`, `5 Kg` and a
+unit with no number before it are left alone; `5 in`, `1 in`, `4 in. long` and `5in` are inches (singular for one),
+while `4 in 10 cases`, `4 in the morning`, `2 in a row`, `3 in total`, `in` before a line break and `5in the` keep the
+preposition; the percent forms (`50%`, `50 %`, a `%` alone) are part of it.
 
 ##### Times and dates
 

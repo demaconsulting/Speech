@@ -208,7 +208,14 @@ by `s` or `'s`, is a decade; `5s`, `10000s`, `1995s`, `2100s`, `00s` and `rock'9
   the number, then the unit as its own span): `5 kg` is `five` and `kilograms`; `1 kg` is `one` and
   `kilogram`; `1.5 kg` is `one point five` and `kilograms`; `60 mph` is `sixty` and `miles per hour`;
   `-5°C` is `minus five degrees Celsius`; `6 ft.` is `six` and `feet`
-- The unit table is case-sensitive: `5 Kg` and `5 in`, `5 m`, `5 g` are identity
+- The unit table is case-sensitive: `5 Kg`, `5 m`, `5 g` are identity
+- The inch is written like the preposition, so it is not in the table: `in` (or `in.`) right after a number is the
+  inch only where the preposition cannot stand, which always has its object after it: at the end of the text, before
+  a closing bracket or a sentence or clause mark, before a dimension word (`tall`, `wide`, `long`, `high`, `deep`,
+  `thick`, `across`) or before `in diameter`, never across a line break. `10 cm (4 in) tall` is `four inches`, `1 in
+  wide` is `one inch`, `10in tall` is `ten inches`; `4 in 10 cases`, `4 in the morning`, `2 in a row` and `3 in total`
+  keep the preposition. `pt` is not added: after a number it is a pint or a typographic point, and the text does not
+  say which
 - The optional abbreviation period of the period-bearing units uses the suffix period rules of `TextNormalizer`:
   `He is 6 ft. tall.` consumes the period, `He is 6 ft.` and `He is 6 ft. Then he left.` keep it (and force a
   break before the capitalized word), `5ft. tall` is `five feet tall`, and `5 Ft. Worth` is `five feet. Worth`

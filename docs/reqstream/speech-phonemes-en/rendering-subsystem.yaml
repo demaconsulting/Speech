@@ -79,6 +79,7 @@ sections:
               - RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel
               - RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel
               - RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices
+              - RenderingSubsystem_Analyzed_IdentifiersLettersAndInches_AreSpokenAsWords
               - RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes
               - RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements
               - RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions

@@ -68,6 +68,7 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel`,
 `RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel`,
 `RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices`,
+`RenderingSubsystem_Analyzed_IdentifiersLettersAndInches_AreSpokenAsWords`,
 `RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes`,
 `RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements`,
 `RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions`,
@@ -97,8 +98,10 @@ the design, and `free-range`, `tea-room`, `blue-ribbon` with their long vowels k
 `square`, `north`, `start`, `nurse`) as the espeak-ng en-us voice renders them; the numbers `thirteen` to `nineteen` and
 their neighbors `routine`, `canteen`, `thirteenth`; ARPAbet and IPA overrides of `record` against the dictionary words
 with the same phones; the groups of `555-0147`, each replaced on its own, are separated by a pause
-(`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for Kokoro) while the hyphen of `COVID-19` stays inside
-its word.
+(`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for Kokoro) while the hyphen of `COVID-19` is neither a
+pause nor a letter (`kˈoʊvɪd nˈaɪntiːn`); with the real text analysis `Item #: SCP-184`, `F-16`, `B-52` and `A-1` are
+spoken as the letter names and then the number as separate words (`ˈaɪɾəm nˈʌmbɚ: ˈɛs sˈiː pˈiː wˈʌn hˈʌndɹɪd ˈeɪɾi
+fˈɔːɹ`), the lone letters `S`, `F`, `H` and `X` keep their names, and `10 cm (4 in) tall` reads the inch.
 
 #### Weak forms
 

@@ -214,6 +214,15 @@ internal static class NumericExpressionRecognizer
         new("\u00B0F", "degree Fahrenheit", "degrees Fahrenheit", false),
     ];
 
+    /// <summary>
+    ///     The inch, written <c>in</c> like the preposition, so it is not in <see cref="UnitTable"/>: it is read only where
+    ///     <see cref="IsInchesAt"/> finds that the preposition cannot stand.
+    /// </summary>
+    private static readonly UnitEntry Inch = new("in", "inch", "inches", true);
+
+    /// <summary>The words of a dimension that make a preceding <c>in</c> after a number the inch (<c>4 in tall</c>).</summary>
+    private static readonly string[] DimensionWords = ["tall", "wide", "long", "high", "deep", "thick", "across"];
+
     /// <summary>The currencies, by symbol and code.</summary>
     private static readonly CurrencyEntry[] CurrencyTable =
     [
@@ -883,10 +892,15 @@ internal static class NumericExpressionRecognizer
             return true;
         }
 
-        // A unit or a currency glued to the number: 5kg, 72°F, 5USD, 5$.
+        // A unit or a currency glued to the number: 5kg, 72°F, 5USD, 5$; inches by the rule of the separate form (4in tall).
         if (TryGetUnit(rest, out var unit, out _))
         {
             return TryGluedWord(ref c, integerDigits, fraction, unit.Singular, unit.Plural, unit.AllowsPeriod, NormalizationKind.Unit, out match);
+        }
+
+        if (IsInchesAt(c.Text, c.Tokens, c.Index, rest))
+        {
+            return TryGluedWord(ref c, integerDigits, fraction, Inch.Singular, Inch.Plural, Inch.AllowsPeriod, NormalizationKind.Unit, out match);
         }
 
         if (TryGetCurrencySuffix(rest, out var currency))
@@ -1160,6 +1174,15 @@ internal static class NumericExpressionRecognizer
             builder.Add(next.Start, next.Length, one ? unit.Singular : unit.Plural, NormalizationKind.Unit);
             builder.Consumed = 2;
             builder.PeriodUnit = unit.AllowsPeriod;
+            return;
+        }
+
+        // Inches, written like the preposition: only where the preposition cannot stand (4 in), 4 in tall, 4 in.
+        if (IsInchesAt(c.Text, c.Tokens, nextIndex, word))
+        {
+            builder.Add(next.Start, next.Length, one ? Inch.Singular : Inch.Plural, NormalizationKind.Unit);
+            builder.Consumed = 2;
+            builder.PeriodUnit = Inch.AllowsPeriod;
             return;
         }
 
@@ -2339,6 +2362,66 @@ internal static class NumericExpressionRecognizer
     {
         System.Text.Rune.DecodeLastFromUtf16(text.AsSpan(0, index), out var rune, out _);
         return rune;
+    }
+
+    /// <summary>
+    ///     Tells whether an <c>in</c> right after a number is the inch rather than the preposition.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="tokens">The tokens.</param>
+    /// <param name="index">The index of the token that ends with <paramref name="word"/> (the <c>in</c> token, or the number it is glued to).</param>
+    /// <param name="word">The written form: <c>in</c>, or <c>in.</c> with the abbreviation period.</param>
+    /// <returns>
+    ///     <see langword="true"/> for <c>in.</c>, and for <c>in</c> at the end of the text or followed by a closing bracket,
+    ///     a sentence or clause mark, a dimension word (<c>tall</c>, <c>wide</c>, <c>long</c>, <c>high</c>, <c>deep</c>,
+    ///     <c>thick</c>, <c>across</c>) or <c>in diameter</c>; <see langword="false"/> otherwise.
+    /// </returns>
+    /// <remarks>
+    ///     The preposition after a number always has its object after it (<i>4 in 10 cases</i>, <i>4 in the morning</i>,
+    ///     <i>2 in a row</i>, <i>3 in total</i>), so an <c>in</c> with nothing after it, or only a bracket, a mark or a
+    ///     dimension, is the unit. A line break after it is not the end of the text: a wrapped line may go on with the object.
+    /// </remarks>
+    private static bool IsInchesAt(string text, ReadOnlySpan<NormalizationToken> tokens, int index, ReadOnlySpan<char> word)
+    {
+        if (word.SequenceEqual("in."))
+        {
+            return true;
+        }
+
+        if (!word.SequenceEqual("in"))
+        {
+            return false;
+        }
+
+        // Nothing after it: the end of the text
+        var after = index + 1;
+        if (after >= tokens.Length)
+        {
+            return true;
+        }
+
+        var current = ValidToken(text, tokens, index);
+        var following = ValidToken(text, tokens, after);
+        if (text.AsSpan(current.End, following.Start - current.End).ContainsAny('\n', '\r'))
+        {
+            return false;
+        }
+
+        // A closing bracket, a mark or a dimension after it
+        var followingWord = text.AsSpan(following.Start, following.Length);
+        if (followingWord[0] is ')' or ']' or '}' or '.' or ',' or ';' or ':' or '!' or '?' || IsOneOf(followingWord, DimensionWords, ignoreCase: true))
+        {
+            return true;
+        }
+
+        // in diameter
+        if (!followingWord.Equals("in", StringComparison.OrdinalIgnoreCase) || after + 1 >= tokens.Length)
+        {
+            return false;
+        }
+
+        var third = ValidToken(text, tokens, after + 1);
+        return text.AsSpan(third.Start, third.Length).Equals("diameter", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

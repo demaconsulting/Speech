@@ -418,6 +418,10 @@ public sealed class NumericExpressionRecognizerTests
             ("5 hr", "five|hours", true),
             ("5 yd", "five|yards", true),
             ("5 mi", "five|miles", true),
+            ("5 in", "five|inches", true),
+            ("1 in", "one|inch", true),
+            ("4 in. long", "four|inches", true),
+            ("5in", "five inches", true),
         ];
 
         // Act / Assert
@@ -440,7 +444,7 @@ public sealed class NumericExpressionRecognizerTests
         Assert.Equal(3, separate[1].Length);
 
         // Assert: ambiguous, word-like and single-letter units, wrong case, and a unit with no number are left alone; the number is read, nothing follows it
-        foreach (var excluded in new[] { "5 in", "5 m", "5 g", "5 l", "5 s", "5 Kg", "5 KG", "5 MHZ", "5 Mb", "5 cm2", "5 inch" })
+        foreach (var excluded in new[] { "5 m", "5 g", "5 l", "5 s", "5 Kg", "5 KG", "5 MHZ", "5 Mb", "5 cm2", "5 inch", "4 in 10 cases", "4 in the morning", "2 in a row", "3 in total", "4 in\nthe box" })
         {
             Assert.True(Try(excluded, 0, out var left), excluded);
             Assert.Equal(1, left.SpanCount);
@@ -448,7 +452,7 @@ public sealed class NumericExpressionRecognizerTests
             Assert.False(left.PeriodUnit);
         }
 
-        foreach (var glued in new[] { "5m", "5g", "5in", "5Kg", "5KG" })
+        foreach (var glued in new[] { "5m", "5g", "5in the", "5Kg", "5KG" })
         {
             Assert.False(Try(glued, 0, out _), glued);
         }
