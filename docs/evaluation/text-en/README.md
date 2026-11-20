@@ -104,3 +104,37 @@ State these with every figure from this record:
    neighboring setting is a little better on all development rows. The rule was applied as written.
 6. **Coverage.** The model decides 395 readings of 207 words of US English, one sentence at a time. A heteronym that is
    not in the inventory gets no reading, and the model does not read beyond the sentence.
+
+## Pre-Registered Criterion for Word Clusters
+
+Recorded on 2026-11-20, before the generalization set was written and before any model with word clusters was
+trained; the same text, with the protocol of the generalization set, is in `RUN-LOG.md`. PR A adds the regression
+overlay, the blind generalization set and the word-cluster table without changing the model; PR B trains with the
+clusters and is judged by this criterion.
+
+- **Models.** A is PR B's final pipeline with the committed 512-class word table. B is the identical pipeline (same
+  data, settings, curated-feature configuration and training seed 1) with an empty table. Both are evaluated end to end
+  through the analyzer on `generalization.tsv`.
+- **Primary endpoint.** The difference of accuracy, A minus B, in basis points, with a 95 percent interval from the
+  paired percentile bootstrap that resamples whole families (the `family` column, the cue and template family of a row;
+  10,000 resamples, seed 7).
+- **Pass** if and only if the difference is at least +300 basis points (3.0 points) and the lower bound of the interval
+  is above zero; the mean difference over training seeds 1 to 5 must also be above zero.
+- **Reported, not gating.** The difference on the `novel-vocabulary`, `novel-construction` and cue-unsolvable subsets,
+  and a 2 by 2 ablation (clusters off or on, by the curated cue features off or on) on the generalization set, the
+  regression overlay (seen and unseen rows) and the development set, with the main effect of the clusters and their
+  interaction with the curated cues.
+- **Guards.** The legacy natural holdout stays at or above 1,123 of 1,167; every golden test passes, including the 385
+  end-to-end rows of `readings-golden.tsv`; the final model's generalization accuracy is at least the PR A baseline of
+  the shipped model.
+- **Discipline.** The generalization set is read once for the comparison, with all four models in one run. A data or
+  setting change after that read voids the result. More than 512 clusters need a development-set benefit measured
+  before the read.
+
+## Planned Fresh Natural Audit Set
+
+The natural holdout above was seen by the upstream part-of-speech tagger, and earlier gate runs informed decisions. A
+fresh audit set is planned (not built yet): about 1,200 natural rows stratified by lemma, drawn with a recorded seed
+from public-domain documents published in 1929 or earlier that are in neither the tagger's corpora nor the
+word-cluster corpus, labeled blind by two language-model families with adjudication, frozen before PR B training and
+read once. The existing natural holdout stays as the legacy non-regression gate (at least 1,123 of 1,167).

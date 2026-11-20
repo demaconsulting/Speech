@@ -308,3 +308,126 @@ lost a row.
 **Flagged sentence after the change:** `wound.injury` at 0.689 and `tear.rip` at 0.774. *A tear ran down her cheek*
 (`tear.drop`), *The tape wound onto the spool* (`wind.coil`) and *Yesterday I read the whole book* (`read.past`) are
 read as expected.
+
+## Word-cluster subsystem (PR A): protocol and pre-registration (2026-11-20)
+
+Written on 2026-11-20, before the generalization set was written, before any cluster corpus was fetched and before any
+model with word clusters was trained. Evaluations of the generalization set so far: none (the set does not exist yet).
+Sets read for this entry: none.
+
+**Purpose.** The cue priors of the two entries above were written for single flagged sentences. Word classes induced
+from a large public-domain corpus (hierarchical clusters of words that occur in similar contexts) could let the model
+generalize from *muscle tear* to *hamstring tear* without a hand-written word list. PR A builds the evaluation sets and
+the clustering subsystem only; it changes no feature, setting or model, so `train --check` and `evaluate --check --gate`
+stay exactly as they are. PR B trains with the clusters and is judged by the criterion pre-registered below.
+
+### Decisions fixed for PR A
+
+1. **Corpus.** The 269 Project Gutenberg books of the PartOfSpeech corpora (with their recorded US public-domain
+   checks), minus every book that holds a development or natural-holdout sentence (26 dev and 19 holdout books, 224
+   remain), plus about 50 domain books published in 1929 or earlier (anatomy and first aid, textiles, sport, music,
+   clocks), each with a recorded license check. No US-government source and no CC0 training sentence is part of the
+   corpus.
+2. **Leakage audit.** Before clustering, every corpus sentence is compared with every evaluation sentence
+   (development, natural holdout, independent holdout, regression overlay and generalization set): exact, near
+   duplicate and contained passages are removed and counted.
+3. **Fetching.** Only from an official Project Gutenberg mirror by automated means (never `www.gutenberg.org`), with a
+   polite rate limit; every book body is pinned by its SHA-256, and the normalized corpus is also kept as a
+   byte-reproducible snapshot archive whose SHA-256 is recorded (not published).
+4. **Clustering.** Our own deterministic Brown-style agglomerative clustering in C# with **C = 512 clusters**: integer
+   counts, the trainer's software logarithm, a fixed iteration order, ties broken by the lowest index and explicit
+   barriers, so the result is the same for any thread count and on every operating system. 1,000 clusters are allowed
+   later only after a measured development-set benefit, read before any generalization read.
+5. **Runtime lookup.** When two vocabulary words share a runtime hash, every entry of that hash is dropped, so a word
+   never inherits another word's cluster.
+6. **No feature or model change in PR A.** The classifier, its weights and the cue priors stay exactly as they are.
+
+### Vocabulary preflight rule (fixed before the preflight runs)
+
+- The minimum corpus count of a vocabulary word is 5.
+- The candidate vocabulary sizes are 30,000, 40,000, 50,000, 60,000 and 75,000 words.
+- The vocabulary size is the smallest candidate that contains every nominated cue word with a corpus count of at least
+  5, capped at 75,000. A nominated word beyond the cap is reported as "not in cut", and one with a count below 5 as
+  "too rare"; neither moves the cap.
+- The preflight reports, per candidate, the token coverage and, per nominated word, its count, rank and whether it is
+  in the cut. It never reads `generalization.tsv`.
+
+**Nominated cue words** (fixed list, lower case):
+
+- the 23 context-cue words of the classifier: muscle, muscles, ligament, ligaments, tendon, tendons, hamstring,
+  meniscus, cartilage, rotator, cuff, acl, labrum, groin, fabric, cloth, canvas, sail, seam, sleeve, lining, denim,
+  wear;
+- injuries, materials, instruments and other domain words: gash, gashes, laceration, lacerations, sprain, bruise, stab,
+  knife, bullet, sinew, calf, thigh, shin, bandage, garment, linen, silk, satin, tarpaulin, curtain, paper, clock,
+  watch, spool, reel, bobbin, coil, fiddle, cello, viola, drum, trout, perch, pike, angler, rod, microscopic,
+  infinitesimal, hour, second;
+- the 29 degree adverbs of the classifier (very, so, too, quite, extremely, rather, most, more, less, really,
+  incredibly, exceedingly, remarkably, fairly, somewhat, highly, utterly, terribly, awfully, perfectly, completely,
+  entirely, absolutely, particularly, especially, unusually, surprisingly, equally, pretty) and astonishingly,
+  uncommonly, infinitely, singularly, wonderfully;
+- the past-time words yesterday, ago, previously, formerly, earlier, beforehand.
+
+### Generalization set protocol
+
+1. The writer prompt (`data/text-en/prompts/generalization.md`) is committed first. It fixes the lemmas and readings,
+   about 9 rows per reading (about 240 rows, to allow drops), the kind (`novel-vocabulary` or `novel-construction`),
+   family and cue-form designation of every row, the rows that the curated cues cannot solve (they avoid the degree
+   adverbs, the past-time words, *last* before a word of time, the context-cue words and a coordinating conjunction
+   joining the target to an adjective), 6 to 30 words, one target occurrence, original text and no quotations, the
+   output schema and a self-validation checklist.
+2. A folder outside the repository holds only `readings.tsv`, `forms.tsv` and the prompt. One `general-purpose`
+   sub-agent with the model `gpt-5.6-luna` (a different family from the developer, the family that wrote the
+   independent holdout) writes the set there. It may not read any other file, repository, web page, model, evaluation
+   or cluster output.
+3. `check-data --generalization <file>` checks the staged copy (schema, the novelty rules N1 to N3 against the final
+   training, development, holdout and regression data, and the shape quotas). Failing row ids go back to the same
+   writer with a generic reason only; the writer replaces the rows. No model output is ever consulted.
+4. A blind label review by a second sub-agent (`claude-sonnet-5.5`) sees the sentence, the target span and the
+   candidate readings with their descriptions, not the writer's label. A disagreement drops the row; nothing is
+   relabeled. The review is committed as `audit/generalization-review.tsv`.
+5. Freeze: the set, the review and the manifest are committed and the commit SHA, the model names and the dispatch
+   times are recorded here. Only then is the baseline measured, the corpus audited and the clustering run.
+6. A later edit only fixes a defect, is logged here, and is never informed by a model result.
+
+### Pre-registered PR B acceptance criterion (2026-11-20)
+
+Fixed before any PR B training and before the generalization set exists.
+
+- **Models.** A is PR B's final pipeline with the committed 512-class word table. B is the identical pipeline (same
+  data, settings, curated-feature configuration and training seed 1) with an empty table (`--clusters none`). Both
+  are evaluated end to end through the analyzer on `generalization.tsv`.
+- **Primary endpoint.** Delta = accuracy(A) minus accuracy(B), in basis points. Its uncertainty is the evaluator's
+  integer paired percentile bootstrap that resamples whole families (the `family` column, the cue and template
+  family) with replacement: 10,000 resamples, generator seed 7, 95 percent interval.
+- **Pass** if and only if Delta is at least +300 basis points (3.0 points) **and** the lower bound of the 95 percent
+  interval is above 0 basis points. Also required for robustness: the mean Delta over training seeds 1 to 5 is above
+  zero.
+- **Secondary, reported, not gating.** Delta with intervals on the `novel-vocabulary`, `novel-construction` and
+  `cue_unsolvable=yes` subsets; a 2 by 2 ablation {clusters off, on} by {curated features off, on}: four models trained
+  identically and evaluated in one run on the generalization set, the regression overlay (seen and unseen rows) and the
+  development set (trainer level and end to end), with the main effect of clusters (the mean over the curated levels)
+  and the interaction (on,on) minus (on,off) minus (off,on) plus (off,off), with family-clustered intervals on the
+  generalization set.
+- **Guards, gating in PR B.** The legacy natural holdout stays at or above 1,123 of 1,167 (read once); every golden
+  test passes, including the 385 end-to-end rows of `readings-golden.tsv`; the final model's generalization accuracy
+  is at least the PR A baseline (the shipped model with its cue priors).
+- **Discipline.** The generalization set is read once for this comparison, all four models in the same run, and the
+  read is logged here. Any data or setting change after the read voids the result and needs a new pre-registration.
+  Moving from 512 to 1,000 clusters needs a development-set benefit measured before the read.
+- **PR A baseline cells.** The shipped model (clusters off, curated on, the cue priors) and the model alone (clusters
+  off, curated off), on both overlays, are recorded in `docs/evaluation/text-en/curated-ablation.tsv` and here.
+
+### Fresh natural audit set (plan only; not built in PR A)
+
+The natural holdout was seen by the upstream part-of-speech tagger, and earlier gate runs informed decisions. A fresh
+natural audit set is planned:
+
+- about 1,200 natural rows, stratified by lemma;
+- drawn from public-domain documents (published in 1929 or earlier, fetched from the mirror) that are in none of the
+  PartOfSpeech corpora (the 269 books, MASC, the community sentence collection and the US-government sets) and not
+  in `cluster-sources.tsv`;
+- the draw is fixed in advance from the mirror catalog with a recorded seed;
+- labels from two blind language-model families, with adjudication of disagreements;
+- frozen before PR B training and read once, as PR B's final natural audit.
+
+The existing natural holdout stays as the legacy non-regression gate (at least 1,123 of 1,167).
