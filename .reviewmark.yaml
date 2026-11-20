@@ -3819,6 +3819,7 @@ reviews:
     paths:
       - "data/text-en/regression.tsv"                               # regression overlay
       - "data/text-en/generalization.tsv"                           # blind generalization set
+      - "data/text-en/prompts/generalization.md"                    # prompt of the blind generalization writer
 
   # SpeechTextEn-TrainingDataInventory Review (one per system data set)
   - id: SpeechTextEn-TrainingDataInventory

@@ -34,7 +34,7 @@ recorded per file and per row. Nothing here is legal advice.
 | [audit/](audit/audit-summary.md) | 6 files | blind relabel audit, adjudication, holdout review and final review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
-| [prompts/](prompts/README.md) | 11 | the prompts that produced the generated, LLM-labeled and audited data | CC0-1.0 |
+| [prompts/](prompts/README.md) | 12 | the prompts that produced the generated, LLM-labeled and audited data, and the prompt of the blind generalization set | CC0-1.0 |
 | [ATTRIBUTION.md](ATTRIBUTION.md) | | attribution for the MASC-derived sentences | |
 
 Row format of `train.tsv`, `dev.tsv`, `holdout-natural.tsv` and `holdout-independent.tsv` (UTF-8, LF, no quoting, header row):
@@ -223,7 +223,7 @@ once by a throwaway script from the golden files, the analyzer tests, the run lo
 
 `generalization.tsv` (`id lemma reading_id sentence start end kind family cue_forms cue_unsolvable source license`) is a
 test set written blind by a model of another family that sees only `readings.tsv`, `forms.tsv` and
-its prompt `prompts/generalization.md`, which is committed before the set is written. It covers 13 target words in 27 target slots. Its
+[its prompt](prompts/generalization.md), which was committed before the set was written. It covers 13 target words in 27 target slots. Its
 rows are novel by construction, and `check-data` enforces the novelty against the data as it is now:
 
 - **N1**: no sentence equals a sentence of the four data files or of the regression overlay, or nearly repeats a training

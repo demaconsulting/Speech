@@ -24,6 +24,7 @@ adjudication and the holdout review).
 | [adjudication.md](adjudication.md) | `gpt-6.1-sol` | the decisions on the 85 disagreements and the description fixes | `audit/adjudication.tsv`, `audit/description-fixes.tsv` |
 | [holdout-review.md](holdout-review.md) | `gpt-6.1-sol` | the blind review of the LLM-labeled holdout-natural rows | `audit/holdout-review.tsv` |
 | [final-review.md](final-review.md) | `gpt-6.1-sol` | the final blind review of the 650 round-3 synthetic rows and 17 holdout rows | `audit/final-review.tsv` |
+| [generalization.md](generalization.md) | `gpt-5.6-luna` (planned) | the blind generalization set of the word-cluster work (committed before the set is written, 2026-11-20) | `generalization.tsv` |
 
 The prompt files are the verbatim task prompts recovered from the session event log of the runs (they are not
 reconstructions). Only local absolute paths were replaced by `<SPIKE>`, `<PARTOFSPEECH>`, `<SPEECH-REPO>` and `<STAGE>`.
