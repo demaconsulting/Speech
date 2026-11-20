@@ -76,8 +76,9 @@ sections:
                   The HeteronymClassifier class shall add a prior worth odds of about 2.7 to 1 to the
                   only candidate that can be a noun of the form when the tagger tags the word NOUN and
                   the form itself rules out another candidate's noun use, a prior worth odds of about 9
-                  to 1 to a past-tense candidate when the sentence has a past-time word and the word
-                  does not follow an auxiliary or a particle, and a prior worth odds of about 9 to 1 to
+                  to 1 to a past-tense candidate when the word's clause (up to a conjunction or a
+                  semicolon) has a past-time word and the word does not follow an auxiliary or a
+                  particle, and a prior worth odds of about 9 to 1 to
                   a candidate with one of its cue words within three words, and nothing otherwise.
                 justification: |
                   A listener flagged "a knife wound" read as the past of wind, which is never a noun in

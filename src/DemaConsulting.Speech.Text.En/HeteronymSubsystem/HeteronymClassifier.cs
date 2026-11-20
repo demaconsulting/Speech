@@ -48,7 +48,7 @@ internal readonly record struct HeteronymPrediction(int ReadingIndex, double Con
 ///     cue is limited to the forms that rule a reading out by themselves.
 ///     </para>
 ///     <para>
-///     <b>Past-time cue.</b> A sentence with <i>yesterday</i>, <i>ago</i>, <i>previously</i> or <i>last</i> before a word of time
+///     <b>Past-time cue.</b> A clause with <i>yesterday</i>, <i>ago</i>, <i>previously</i> or <i>last</i> before a word of time
 ///     gives a past-tense candidate a prior of <see cref="PastTimeCueLogOdds"/>, unless the word follows an auxiliary or a
 ///     particle (<i>did not read</i>, <i>to read</i>), which take the base form whatever the time.
 ///     </para>
@@ -89,6 +89,12 @@ internal sealed class HeteronymClassifier
 
     /// <summary>The tag code of <c>PART</c>.</summary>
     private static readonly byte ParticleTag = HeteronymContext.UposCode("PART");
+
+    /// <summary>The tag code of <c>SCONJ</c>.</summary>
+    private static readonly byte SubordinatingConjunctionTag = HeteronymContext.UposCode("SCONJ");
+
+    /// <summary>The surface hash of a semicolon, which ends a clause.</summary>
+    private static readonly uint SemicolonHash = FeatureHashing.Fnv1a(";");
 
     /// <summary>The prior log-odds the past-time cue adds to a past-tense reading (ln 9: odds of about 9 to 1).</summary>
     internal const double PastTimeCueLogOdds = 2.2;
@@ -415,10 +421,16 @@ internal sealed class HeteronymClassifier
     /// <param name="sentence">The tokens of the sentence.</param>
     /// <param name="target">The index of the word.</param>
     /// <returns>
-    ///     <see langword="true"/> when the sentence has <i>yesterday</i>, <i>ago</i>, <i>previously</i> or <i>last</i> before a
-    ///     word of time (<i>last night</i>, <i>last week</i>), and the word does not follow an auxiliary or a particle
-    ///     (<i>did not read</i>, <i>wanted to read</i>, <i>will read</i>, which take the base form whatever the time).
+    ///     <see langword="true"/> when the word's clause has <i>yesterday</i>, <i>ago</i>, <i>previously</i> or <i>last</i>
+    ///     before a word of time (<i>last night</i>, <i>last week</i>), before or after the word, and the word does not
+    ///     follow an auxiliary or a particle (<i>did not read</i>, <i>wanted to read</i>, <i>will read</i>, which take the
+    ///     base form whatever the time).
     /// </returns>
+    /// <remarks>
+    ///     The clause ends at a coordinating or subordinating conjunction or a semicolon, so the time of another clause
+    ///     (<i>I read the book, and yesterday she read it</i>) does not decide the word. A comma does not end it, so a
+    ///     fronted adverbial counts (<i>Last night, I read it</i>).
+    /// </remarks>
     internal static bool HasPastTimeCue(ReadOnlySpan<ContextToken> sentence, int target)
     {
         // The base form after an auxiliary or a particle, one adverb allowed between (did not read, to quickly read)
@@ -433,10 +445,23 @@ internal sealed class HeteronymClassifier
             return false;
         }
 
-        for (var i = 0; i < sentence.Length; i++)
+        // The word's clause: from the boundary before it to the boundary after it
+        var first = target;
+        while (first > 0 && !IsClauseBoundary(sentence[first - 1]))
+        {
+            first--;
+        }
+
+        var end = target + 1;
+        while (end < sentence.Length && !IsClauseBoundary(sentence[end]))
+        {
+            end++;
+        }
+
+        for (var i = first; i < end; i++)
         {
             var hash = sentence[i].LowerHash;
-            if (PastTimeWords.Contains(hash) || (hash == LastHash && i + 1 < sentence.Length && TimeNouns.Contains(sentence[i + 1].LowerHash)))
+            if (PastTimeWords.Contains(hash) || (hash == LastHash && i + 1 < end && TimeNouns.Contains(sentence[i + 1].LowerHash)))
             {
                 return true;
             }
@@ -444,6 +469,14 @@ internal sealed class HeteronymClassifier
 
         return false;
     }
+
+    /// <summary>
+    ///     Tells whether a token ends a clause for the past-time cue.
+    /// </summary>
+    /// <param name="token">The token.</param>
+    /// <returns><see langword="true"/> for a coordinating or subordinating conjunction or a semicolon.</returns>
+    private static bool IsClauseBoundary(ContextToken token) =>
+        token.Upos == ConjunctionTag || token.Upos == SubordinatingConjunctionTag || (token.SurfaceHash != 0 && token.SurfaceHash == SemicolonHash);
 
     /// <summary>
     ///     Tells whether the token at an index exists and has a tag.

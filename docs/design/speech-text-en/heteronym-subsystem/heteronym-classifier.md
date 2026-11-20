@@ -70,11 +70,14 @@ row; a cue for every noun or verb tag over all heteronyms was measured too and l
 accuracy and 11 rows of the external `whd-eval` set, so the cue is limited to the forms that rule a reading out by
 themselves.
 
-**Past-time cue.** When the sentence has *yesterday*, *ago*, *previously* or *last* before a word of time (*last
-night*, *last week*) and the target does not follow an auxiliary or a particle (*did not read*, *to read*, *will read*
-take the base form whatever the time; one adverb may stand between), every past-tense candidate (role `past`, see
-`IsPastTense`) gets `round(scale * temperature * 2.2)` (`PastTimeCueLogOdds`). Decision: the tense of *read* depends on
-words the sparse features often do not see together with it.
+**Past-time cue.** When the target's clause has *yesterday*, *ago*, *previously* or *last* before a word of time (*last
+night*, *last week*), before or after the target, and the target does not follow an auxiliary or a particle (*did not
+read*, *to read*, *will read* take the base form whatever the time; one adverb may stand between), every past-tense
+candidate (role `past`, see `IsPastTense`) gets `round(scale * temperature * 2.2)` (`PastTimeCueLogOdds`). The clause
+ends at a coordinating or subordinating conjunction or a semicolon, so the time of another clause does not decide the
+word (*I read the book, and yesterday she read it*); a comma does not end it, so a fronted adverbial counts (*Last
+night, I read it*). Decision: the tense of *read* depends on words the sparse features often do not see together with
+it.
 
 **Context cues.** A short table of cue words per reading marks a use the training data seldom shows: for `tear.rip`,
 words of the body and of materials (*muscle*, *ligament*, *tendon*, *hamstring*, *fabric*, *canvas*, *seam*, *wear*

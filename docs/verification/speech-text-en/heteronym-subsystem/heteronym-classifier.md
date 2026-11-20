@@ -32,9 +32,10 @@ stream, and the real fixture model for the success path. No fake of the classifi
   coordinated word is not an adjective; a model that prefers the time reading by twice the cue's odds keeps it
 - **Noun-form, past-time and context cues**: with a model that leans weakly toward one reading, `wound` tagged `NOUN`
   gets `wound.injury` while `wound` tagged `VERB` keeps `wind.coil` and `tear` (both readings nouns) gets no noun-form
-  cue; `read` after *yesterday*, *ago* or *last night* gets `read.past` but not after an auxiliary or a particle, not
-  without a past-time word and not after *at last*; `tear` within three words of *muscle*, *fabric* or *wear* gets
-  `tear.rip`, while a cue word four words away or none keeps `tear.drop`
+  cue; `read` with *yesterday*, *ago* or *last night* in its clause gets `read.past` but not after an auxiliary or a
+  particle, not without a past-time word, not after *at last* and not when the past-time word is in another clause;
+  `tear` within three words of *muscle*, *fabric* or *wear* gets `tear.rip`, while a cue word four words away or none
+  keeps `tear.drop`
 - **Model compatibility**: a model for a newer inventory is rejected while an older or equal one is accepted; null
   arguments are rejected
 - **Thread safety and observer**: concurrent callers obtain the single-threaded results; the observer receives the
@@ -86,10 +87,10 @@ The contexts are built with explicit tags. A bias weight of a quarter of the cue
 
 The contexts are built with explicit tags and a bias weight for one reading below the cue's odds: `a knife wound or`
 (`DET NOUN NOUN CCONJ`) gets `wound.injury` and `she wound the clock` keeps `wind.coil`; `yesterday I read the book`,
-`two days ago she read it` and `last night we read aloud` get `read.past`, while `yesterday I wanted to read`, `last
-night I did not read`, `I read the book` and `at last we read it` keep `read.present`; `a deep muscle tear and`, `a tear
-in the fabric` and `wear and tear` get `tear.rip`, while `a tear ran down her cheek` and a cue word four words away keep
-`tear.drop`.
+`two days ago she read it`, `last night we read aloud`, `she read it two days ago` and `last night , I read it` get
+`read.past`, while `yesterday I wanted to read`, `last night I did not read`, `I read the book`, `at last we read it`
+and a past-time word after `and`, `because` or `;` keep `read.present`; `a deep muscle tear and`, `a tear in the fabric`
+and `wear and tear` get `tear.rip`, while `a tear ran down her cheek` and a cue word four words away keep `tear.drop`.
 
 ##### Model compatibility
 

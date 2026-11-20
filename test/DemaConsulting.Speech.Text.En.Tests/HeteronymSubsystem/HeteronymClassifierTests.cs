@@ -487,6 +487,11 @@ public sealed class HeteronymClassifierTests
     [InlineData("last night I did not read", "ADJ NOUN PRON AUX PART VERB", "read.present")]
     [InlineData("I read the book", "PRON VERB DET NOUN", "read.present")]
     [InlineData("at last we read it", "ADP ADJ PRON VERB PRON", "read.present")]
+    [InlineData("she read it two days ago", "PRON VERB PRON NUM NOUN ADV", "read.past")]
+    [InlineData("last night , I read it", "ADJ NOUN PUNCT PRON VERB PRON", "read.past")]
+    [InlineData("I read books , and yesterday she slept", "PRON VERB NOUN PUNCT CCONJ ADV PRON VERB", "read.present")]
+    [InlineData("I read books because last week it rained", "PRON VERB NOUN SCONJ ADJ NOUN PRON VERB", "read.present")]
+    [InlineData("I read books ; yesterday it rained", "PRON VERB NOUN PUNCT ADV PRON VERB", "read.present")]
     public void HeteronymClassifier_Classify_PastTimeCue_DecidesTheTenseOfAWeaklyContestedVerb(string sentence, string tags, string expected)
     {
         // Arrange: a model that prefers the present reading by a small margin (a quarter of the cue's odds)
