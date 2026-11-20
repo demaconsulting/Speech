@@ -1,5 +1,6 @@
 using System.Text;
 using DemaConsulting.Speech.Proofreader.Session;
+using DemaConsulting.Speech.Proofreader.Settings;
 using DemaConsulting.Speech.Proofreader.Synthesis;
 
 namespace DemaConsulting.Speech.Proofreader;
@@ -9,6 +10,16 @@ namespace DemaConsulting.Speech.Proofreader;
 /// </summary>
 internal sealed partial class MainViewModel
 {
+    /// <summary>Gets or sets the folder the loaded text (or session) came from, or <see langword="null"/> for pasted text.</summary>
+    internal string? SourceFolder { get; set; }
+
+    /// <summary>
+    ///     Gets the file name the TSV export suggests: <c>&lt;source&gt;-&lt;model&gt;-flags.tsv</c>, where the
+    ///     model is the one audible (or <c>A-vs-B</c> models in A/B mode).
+    /// </summary>
+    internal string SuggestedExportFileName =>
+        $"{FileNamePart(Path.GetFileNameWithoutExtension(SourceName))}-{(AbMode ? $"{ShortModelName(SlotA)}-vs-{ShortModelName(SlotB)}" : ShortModelName(SlotNamed(ActiveSlotName)))}-flags.tsv";
+
     /// <summary>Gets or sets the path of the session file last saved or loaded, or <see langword="null"/>.</summary>
     internal string? SessionPath { get; set; }
 
@@ -53,7 +64,7 @@ internal sealed partial class MainViewModel
             return;
         }
 
-        _controller.Stop();
+        StopPlayback();
         IsBusy = true;
         try
         {
@@ -93,6 +104,26 @@ internal sealed partial class MainViewModel
         {
             SetMessage($"The export failed: {ex.Message}", true);
         }
+    }
+
+    /// <summary>
+    ///     Gets the short, file-name-safe name of a slot's model.
+    /// </summary>
+    /// <param name="slot">The slot.</param>
+    /// <returns>The model id, or <c>no-model</c>.</returns>
+    private static string ShortModelName(ModelSlotViewModel slot) =>
+        slot.SelectedModel is { } choice ? FileNamePart(choice.Descriptor.Id) : "no-model";
+
+    /// <summary>
+    ///     Makes text safe as part of a file name: invalid characters and white space become hyphens.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The sanitized text, or <c>text</c> when nothing is left.</returns>
+    private static string FileNamePart(string text)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string([.. text.Select(ch => char.IsWhiteSpace(ch) || invalid.Contains(ch) ? '-' : ch)]).Trim('-');
+        return cleaned.Length == 0 ? "text" : cleaned;
     }
 
     /// <summary>
@@ -164,6 +195,7 @@ internal sealed partial class MainViewModel
 
         MarkFlaggedSentences();
         SessionPath = path;
+        SourceFolder = Path.GetDirectoryName(Path.GetFullPath(path));
         // A session whose text yields no sentences has no current sentence (-1), not index 0.
         SetCurrent(sentenceTexts.Count == 0 ? -1 : Math.Clamp(session.CurrentSentence, 0, sentenceTexts.Count - 1));
         CurrentSentenceText = CurrentIndex >= 0 ? sentenceTexts[CurrentIndex] : string.Empty;

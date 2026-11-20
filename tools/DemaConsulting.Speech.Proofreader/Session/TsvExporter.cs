@@ -13,7 +13,8 @@ namespace DemaConsulting.Speech.Proofreader.Session;
 ///     space), so a row is always exactly one line. A field containing a double quote is wrapped in
 ///     double quotes with embedded quotes doubled, and a field starting with <c>=</c>, <c>+</c>,
 ///     <c>-</c>, or <c>@</c> gets a leading apostrophe so a spreadsheet does not evaluate it.
-///     Numbers use invariant culture. Stateless and thread-safe.
+///     Numbers use invariant culture. The <c>sentence_index</c> column is one-based, like the sentence
+///     numbers the window shows. Stateless and thread-safe.
 /// </remarks>
 internal static partial class TsvExporter
 {
@@ -55,7 +56,7 @@ internal static partial class TsvExporter
                     .Select(pair => $"{pair.Key}={Synthesis.ModelSelection.FormatValue(pair.Value)}")),
                 flag.Readings,
                 flag.Phonemes,
-                flag.SentenceIndex.ToString(CultureInfo.InvariantCulture),
+                (flag.SentenceIndex + 1).ToString(CultureInfo.InvariantCulture),
             ];
 
             builder.Append(string.Join('\t', fields.Select(Escape))).Append('\n');

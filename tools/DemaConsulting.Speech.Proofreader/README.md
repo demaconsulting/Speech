@@ -28,21 +28,45 @@ listed when installed; models that are not installed are shown as such).
    models speak. Blank lines are paragraph boundaries; a heading never merges with the text after it.
 3. Choose a model and its settings for slot A (and slot B for A/B listening) in the *Models* tab, and a playback
    device. Settings use the same generic presentation as the Demo (a model declares its parameters; the tool renders
-   them), so Kokoro voices, Piper speakers, and Chatterbox voices all appear without model-specific code.
+   them), so Kokoro voices, Piper speakers, and Chatterbox voices all appear without model-specific code. Every model
+   is prefixed with the package that implements it, so two implementations of the same voice family are told apart:
+   `[Sherpa]` (sherpa-onnx) or `[ONNX]` (the direct-ONNX implementations). On the first launch slot A starts on the
+   direct-ONNX Piper model and slot B on the direct-ONNX Kokoro model when they are installed; afterwards the tool
+   remembers the last-used models, their settings (speaker, voice, ...), A/B mode, and the last flag category in
+   `settings.json` under the per-user application data folder (`%LOCALAPPDATA%\DemaConsulting\Speech.Proofreader` on
+   Windows). A damaged file is ignored.
 4. Press Space to play from the current sentence. The current sentence is highlighted and shown large. The next two
    sentences are synthesized ahead of time, and every sentence is cached per sentence text, model, and settings, so a
    replay or an A/B repeat is instant.
 5. When something sounds wrong, press `F` (playback pauses). Optionally select the offending word in the large
-   sentence first. Pick a category, add a note, and press Enter. Press Space to continue.
-6. Save the session and export the flags as TSV.
+   sentence first. Pick a category, add a note, and press Enter. Press Space to continue. The flag editor shows which
+   sentence is targeted (see *Which sentence is flagged*); a selected word defaults the category to *Mispronounced
+   word*, otherwise the category used last is offered.
+6. Save the session and export the flags as TSV (the file name defaults to `<source>-<model>-flags.tsv` in the source
+   file's folder).
+
+### Which sentence is flagged
+
+Playback usually moves on before the key is handled, so `F` targets the sentence that was *heard*, not just the one
+highlighted: the sentence that is sounding (or was interrupted by a pause), and when pressed within about 1.5 s after
+a sentence ended (while the next one is loading or has only just started) the sentence that just ended. Selecting a
+sentence yourself overrides this, and without any playback the current sentence is flagged. The flag editor shows the
+targeted sentence number and text; while it is open, `Left` / `Right` (or `Up` / `Down`, or the buttons) move the
+target to the previous or next sentence before you save, and the flag then records what was heard for that sentence.
+`Shift+F` flags the sentence before the current one. A word span selected in the large sentence only applies when the
+target is the current sentence. What counts as *heard* is driven only by the audio actually playing: a sentence is
+heard when its samples start playing (not when its audio is merely ready, and not when playback is paused before it
+starts), and every explicit stop, jump, device change, or selection forgets what had just played.
 
 ## Diagnostics
 
 The *Analysis* and *Phonemes* tabs follow the current sentence and separate front-end errors from voice errors:
 
 - **Analysis**: the Text.En analysis of the sentence: normalizations (source to spoken form, spelled-out forms),
-  heteronym readings with their confidence (low-confidence readings are marked), pronunciation overrides, tokens, and
-  the raw annotations. It uses the selected model's own analyzer when it has one (Kokoro, Piper), otherwise the tool's
+  heteronym readings with their confidence (low-confidence readings are marked), pronunciation overrides, tokens with
+  their universal part of speech, and the raw annotations. The models' analyzers do not request part-of-speech tags
+  (nothing in synthesis uses them), so the tool tags the tokens itself for display; punctuation has none (`-`). Long
+  lines wrap. It uses the selected model's own analyzer when it has one (Kokoro, Piper), otherwise the tool's
   analyzer with a caption saying so (Sherpa and Chatterbox models speak without these annotations).
 - **Phonemes**: for Kokoro and Piper, the phoneme string of every text the backend received, with the per-word
   lexicon, reading, spelled, or letter-to-sound source and out-of-vocabulary words. The texts are recorded at the
@@ -57,7 +81,9 @@ The *Analysis* and *Phonemes* tabs follow the current sentence and separate fron
 | Left, Up, K | Previous sentence |
 | Right, Down, J | Next sentence |
 | R | Replay the current sentence (and continue) |
-| F | Flag the current sentence (pauses; selected words become the span) |
+| F | Flag the sentence just heard (pauses; selected words become the span) |
+| Shift+F | Flag the previous sentence (pauses; for an error noticed just after playback moved on) |
+| Left / Right (flag editor open) | Move the flag to the previous / next sentence |
 | A | Toggle A/B mode |
 | Esc | Cancel the flag editor, or stop playback |
 | Ctrl+O / Ctrl+Shift+O | Open text / open session |
@@ -66,8 +92,18 @@ The *Analysis* and *Phonemes* tabs follow the current sentence and separate fron
 | Ctrl+Enter | Load the pasted text |
 | F2 / Delete | Edit / delete the selected flag |
 
-Plain keys are ignored while a text box, dropdown, or slider has focus. Clicking a sentence jumps there and plays;
-clicking a flag jumps to its sentence.
+Plain keys are ignored while a text box, dropdown, number box, slider, or tab has focus, so arrows change the focused
+control (Tab reaches every control). The status line and the flag editor occupy fixed areas (the editor floats over the
+top of the sentence list), so controls do not move under the pointer while you click.
+
+Selecting a sentence never starts playback by itself. Clicking a sentence (or pressing the arrow keys) while playback is
+paused or stopped only selects it, so you can pause, click the line with the error, and flag it; Space then plays from
+the selection. Clicking a sentence while playback is running jumps there and keeps playing. Pausing keeps the current
+sentence where it is (it does not advance), so `F` right after a pause flags what you just heard. Opening the flag
+editor also pauses playback. If you only notice the error after playback moved on to the next sentence, press `Shift+F`
+(or *Flag previous*) to flag the previous sentence; the flag records the model, settings, readings, and phonemes that
+were heard for that sentence (the last few sentences' heard audio is remembered). Clicking a flag in the flag list
+follows the same rules as clicking a sentence.
 
 ## A/B mode
 
@@ -113,7 +149,7 @@ apostrophe so a spreadsheet does not read it as a formula.
 | `settings` | The model parameter values as `id=value; ...` |
 | `readings` | `word=reading(confidence); ...` for the readings inside the span (the whole sentence without a span) |
 | `phonemes` | The phoneme string(s) the model consumed, parts separated by ` \| ` |
-| `sentence_index` | The zero-based sentence index |
+| `sentence_index` | The one-based sentence number, as shown in the window |
 
 The category keys are `wrong-heteronym`, `mispronounced-word`, `normalization`, `missing-or-extra-word`,
 `prosody-or-pause`, `voice-glitch`, and `other`.

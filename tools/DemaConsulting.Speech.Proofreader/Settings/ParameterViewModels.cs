@@ -109,6 +109,22 @@ public sealed partial class NumericParameterViewModel : ParameterViewModelBase
 }
 
 /// <summary>
+///     One entry of a choice parameter's dropdown; its text is the option's label.
+/// </summary>
+/// <param name="Option">The declared option.</param>
+public sealed record OptionChoice(ChoiceParameterOption Option)
+{
+    /// <summary>Gets the label shown in the dropdown.</summary>
+    public string Label => Option.Label;
+
+    /// <summary>
+    ///     Returns the label, so the dropdown's accessibility value reads as the text shown.
+    /// </summary>
+    /// <returns>The label.</returns>
+    public override string ToString() => Label;
+}
+
+/// <summary>
 ///     Presentation state for a <see cref="ChoiceParameter"/>: a dropdown of the declared options.
 /// </summary>
 public sealed partial class ChoiceParameterViewModel : ParameterViewModelBase
@@ -127,12 +143,31 @@ public sealed partial class ChoiceParameterViewModel : ParameterViewModelBase
         ArgumentNullException.ThrowIfNull(parameter);
 
         Options = parameter.Options;
+        Choices = [.. parameter.Options.Select(option => new OptionChoice(option))];
         _selectedOption = parameter.Options.First(
             option => string.Equals(option.Value, parameter.Default, StringComparison.Ordinal));
     }
 
     /// <summary>Gets the selectable options.</summary>
     public IReadOnlyList<ChoiceParameterOption> Options { get; }
+
+    /// <summary>Gets the options as dropdown entries whose text is the option's label.</summary>
+    public IReadOnlyList<OptionChoice> Choices { get; }
+
+    /// <summary>
+    ///     Gets or sets the chosen dropdown entry; <see langword="null"/> or an unknown entry is ignored.
+    /// </summary>
+    public OptionChoice SelectedChoice
+    {
+        get => Choices.First(choice => choice.Option == SelectedOption);
+        set
+        {
+            if (value is not null)
+            {
+                SelectedOption = value.Option;
+            }
+        }
+    }
 
     /// <summary>
     ///     Gets or sets the chosen option; <see langword="null"/> or an unknown option is ignored.
@@ -145,9 +180,9 @@ public sealed partial class ChoiceParameterViewModel : ParameterViewModelBase
             var member = value is null
                 ? null
                 : Options.FirstOrDefault(option => string.Equals(option.Value, value.Value, StringComparison.Ordinal));
-            if (member is not null)
+            if (member is not null && SetProperty(ref _selectedOption, member))
             {
-                SetProperty(ref _selectedOption, member);
+                OnPropertyChanged(nameof(SelectedChoice));
             }
         }
     }

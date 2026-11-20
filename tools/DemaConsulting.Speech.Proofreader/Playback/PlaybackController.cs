@@ -78,6 +78,21 @@ internal interface IPlaybackHost
     void OnAudioReady(int index, PlaybackTarget target, SentenceAudio audio);
 
     /// <summary>
+    ///     Reports that a sentence has started to be heard: its samples are being played now, never
+    ///     merely because its audio is ready or a run reached it.
+    /// </summary>
+    /// <param name="index">The sentence index.</param>
+    /// <param name="slotName">The slot name.</param>
+    void OnSentenceAudible(int index, string slotName);
+
+    /// <summary>
+    ///     Reports that a sentence's audio has been heard to its end (never for one that was canceled).
+    /// </summary>
+    /// <param name="index">The sentence index.</param>
+    /// <param name="slotName">The slot name.</param>
+    void OnSentenceFinished(int index, string slotName);
+
+    /// <summary>
     ///     Reports a message for the status banner.
     /// </summary>
     /// <param name="message">The message, or <see langword="null"/> to clear it.</param>
@@ -270,6 +285,10 @@ internal sealed class PlaybackController
         for (var slot = 0; slot < targets.Count; slot++)
         {
             var target = targets[slot];
+
+            // A pause that lands between sentences (or between the A and B renditions) holds here,
+            // so the current sentence stays the one that was just heard until playback resumes.
+            await _player.WaitWhilePausedAsync(token);
             _host.OnSentenceStarted(index, target.Name);
 
             // A slot without a usable model ends the run with the reason.
@@ -297,7 +316,23 @@ internal sealed class PlaybackController
                 SetState(PlaybackState.Playing);
             }
 
-            await _player.PlayAsync(prepared, token);
+            // The sentence is audible only when its samples actually start playing (after any pause),
+            // not when its audio is merely ready. The player raises the callback just before the first
+            // block is written, for every buffer that has samples; a buffer with none (silence only, or
+            // nothing) is never heard, so it is neither audible nor finished.
+            var announced = false;
+            await _player.PlayAsync(
+                prepared,
+                token,
+                () =>
+                {
+                    announced = true;
+                    _host.OnSentenceAudible(index, target.Name);
+                });
+            if (announced)
+            {
+                _host.OnSentenceFinished(index, target.Name);
+            }
 
             if (slot < targets.Count - 1)
             {

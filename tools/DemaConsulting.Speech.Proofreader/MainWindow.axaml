@@ -36,7 +36,7 @@
     <Grid Grid.Row="1" ColumnDefinitions="*,540">
 
       <!-- Left: text, current sentence, transport, flag editor, sentence list -->
-      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="8">
+      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="8">
 
         <Expander Grid.Row="0" Header="Paste text" IsExpanded="{Binding !HasSentences, Mode=OneWay}">
           <StackPanel Spacing="4">
@@ -49,9 +49,12 @@
           </StackPanel>
         </Expander>
 
-        <Border Grid.Row="1" Margin="0,6,0,0" IsVisible="{Binding HasStatus}"
-                BorderThickness="1" BorderBrush="Gray" CornerRadius="4" Padding="8">
-          <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Classes.error="{Binding StatusIsError}" />
+        <!-- Status line: a fixed height, always present, so nothing below it moves when a message appears or clears -->
+        <Border Grid.Row="1" Margin="0,6,0,0" Height="56"
+                BorderThickness="1" BorderBrush="Gray" CornerRadius="4" Padding="8,4">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Classes.error="{Binding StatusIsError}" />
+          </ScrollViewer>
         </Border>
 
         <!-- Current sentence; select a word to flag just that word -->
@@ -70,54 +73,65 @@
           </StackPanel>
         </Border>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+        <WrapPanel Grid.Row="3" ItemSpacing="6" LineSpacing="6" Margin="0,6,0,0">
           <Button Content="Previous (Left)" Command="{Binding PreviousCommand}" />
           <Button Content="{Binding PlayPauseLabel}" Command="{Binding PlayPauseCommand}" MinWidth="80" />
           <Button Content="Next (Right)" Command="{Binding NextCommand}" />
           <Button Content="Replay (R)" Command="{Binding ReplayCommand}" />
           <Button Content="Stop (Esc)" Command="{Binding StopCommand}" />
           <Button Content="Flag (F)" Click="OnFlagClick" />
+          <Button Content="Flag previous (Shift+F)" Command="{Binding BeginFlagPreviousCommand}" />
           <ToggleButton Content="A/B (A)" IsChecked="{Binding AbMode}" />
-        </StackPanel>
+        </WrapPanel>
 
-        <!-- Flag editor -->
-        <Border Grid.Row="4" Margin="0,6,0,0" IsVisible="{Binding IsEditingFlag}"
-                BorderThickness="2" BorderBrush="DarkOrange" CornerRadius="6" Padding="8">
-          <StackPanel Spacing="6">
-            <TextBlock Text="{Binding EditorHeader}" FontWeight="SemiBold" TextWrapping="Wrap" />
-            <ComboBox ItemsSource="{Binding FlagCategoryChoices}"
-                      SelectedItem="{Binding EditorCategory}"
-                      DisplayMemberBinding="{Binding Label}"
-                      Width="240" />
-            <TextBox x:Name="FlagNoteBox"
-                     Text="{Binding EditorNote}"
-                     PlaceholderText="Note (optional). Enter saves, Esc cancels.">
-              <TextBox.KeyBindings>
-                <KeyBinding Gesture="Enter" Command="{Binding SaveFlagCommand}" />
-              </TextBox.KeyBindings>
-            </TextBox>
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <Button Content="Save flag (Enter)" Command="{Binding SaveFlagCommand}" />
-              <Button Content="Cancel (Esc)" Command="{Binding CancelFlagCommand}" />
+        <!-- Sentence list: the selection is the current sentence; a click selects it (and keeps playing when playback is running).
+             The flag editor floats over the top of the list, so opening it moves no other control. -->
+        <Panel Grid.Row="4" Margin="0,6,0,0">
+          <ListBox x:Name="SentenceList"
+                   ItemsSource="{Binding Sentences}"
+                   SelectedIndex="{Binding CurrentIndex}"
+                   AutomationProperties.Name="Sentences">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:SentenceItemViewModel">
+                <Grid ColumnDefinitions="44,20,*">
+                  <TextBlock Grid.Column="0" Text="{Binding Number}" Opacity="0.55" />
+                  <TextBlock Grid.Column="1" Text="{Binding Marker}" Foreground="DarkOrange" />
+                  <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="Wrap" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <!-- Flag editor -->
+          <Border IsVisible="{Binding IsEditingFlag}" VerticalAlignment="Top"
+                  Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
+                  BorderThickness="2" BorderBrush="DarkOrange" CornerRadius="6" Padding="8">
+            <StackPanel Spacing="6">
+              <TextBlock Text="{Binding EditorHeader}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding EditorTargetText}" TextWrapping="Wrap" FontStyle="Italic" />
+              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsCreatingFlag}">
+                <Button Content="&lt; Previous sentence (Left)" Command="{Binding RedirectPreviousCommand}" />
+                <Button Content="Next sentence (Right) &gt;" Command="{Binding RedirectNextCommand}" />
+              </StackPanel>
+              <ComboBox ItemsSource="{Binding FlagCategoryChoices}"
+                        SelectedItem="{Binding EditorCategory}"
+                        AutomationProperties.Name="Flag category"
+                        Width="240" />
+              <TextBox x:Name="FlagNoteBox"
+                       Text="{Binding EditorNote}"
+                       AutomationProperties.Name="Flag note"
+                       PlaceholderText="Note (optional). Enter saves, Esc cancels.">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding SaveFlagCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Save flag (Enter)" Command="{Binding SaveFlagCommand}" />
+                <Button Content="Cancel (Esc)" Command="{Binding CancelFlagCommand}" />
+              </StackPanel>
             </StackPanel>
-          </StackPanel>
-        </Border>
-
-        <!-- Sentence list: the selection is the current sentence; a click jumps there and plays -->
-        <ListBox Grid.Row="5" x:Name="SentenceList" Margin="0,6,0,0"
-                 ItemsSource="{Binding Sentences}"
-                 SelectedIndex="{Binding CurrentIndex}">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="local:SentenceItemViewModel">
-              <Grid ColumnDefinitions="44,20,*">
-                <TextBlock Grid.Column="0" Text="{Binding Number}" Opacity="0.55" />
-                <TextBlock Grid.Column="1" Text="{Binding Marker}" Foreground="DarkOrange" />
-                <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="Wrap" />
-              </Grid>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-
+          </Border>
+        </Panel>
       </Grid>
 
       <!-- Right: models, diagnostics, flags -->
@@ -135,7 +149,7 @@
                 <TextBlock Text="Playback device" FontWeight="SemiBold" />
                 <ComboBox ItemsSource="{Binding PlaybackDevices}"
                           SelectedItem="{Binding SelectedDevice}"
-                          DisplayMemberBinding="{Binding Label}"
+                          AutomationProperties.Name="Playback device"
                           HorizontalAlignment="Stretch" />
                 <TextBlock Text="{Binding DeviceStatus}" TextWrapping="Wrap" Opacity="0.75" />
                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -147,16 +161,16 @@
           </TabItem>
 
           <TabItem Header="Analysis">
-            <TextBox Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+            <TextBox Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                      Text="{Binding AnalysisText, Mode=OneWay}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
           </TabItem>
 
           <TabItem Header="Phonemes">
-            <TextBox Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+            <TextBox Classes="mono" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                      Text="{Binding PhonemeText, Mode=OneWay}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
           </TabItem>
 
@@ -187,7 +201,7 @@
     <!-- Shortcut cheat sheet -->
     <Border Grid.Row="2" Padding="8,4" BorderThickness="0,1,0,0" BorderBrush="Gray">
       <TextBlock Opacity="0.8" TextWrapping="Wrap"
-                 Text="Space play/pause   Left/Up/K previous   Right/Down/J next   R replay   F flag (select a word first to flag just that word)   A A/B mode   Esc stop / cancel   Ctrl+O open text   Ctrl+Shift+O open session   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+E export TSV   F2 edit flag   Del delete flag" />
+                 Text="Space play/pause   Left/Up/K previous   Right/Down/J next   R replay   F flag (select a word first to flag just that word)   Shift+F flag the previous sentence   While flagging: Left/Right change the sentence   A A/B mode   Esc stop / cancel   Ctrl+O open text   Ctrl+Shift+O open session   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+E export TSV   F2 edit flag   Del delete flag" />
     </Border>
 
   </Grid>

@@ -32,13 +32,19 @@ internal sealed class SentenceDiagnostics
     /// <param name="analysis">The detailed analysis, or <see langword="null"/> when it failed.</param>
     /// <param name="analysisError">The reason the analysis failed, or <see langword="null"/>.</param>
     /// <param name="phonemes">The phoneme pane content; see <see cref="Phonemes"/>.</param>
+    /// <param name="partsOfSpeech">
+    ///     Universal part-of-speech tags by token start, tagged by the tool when the analyzer that
+    ///     produced <paramref name="analysis"/> does not tag (the models' analyzers skip it because they do not use it).
+    /// </param>
     public SentenceDiagnostics(
         string analysisSource,
         string analyzedText,
         EnglishTextAnalysis? analysis,
         string? analysisError,
-        PhonemeDiagnostics phonemes)
+        PhonemeDiagnostics phonemes,
+        IReadOnlyDictionary<int, string>? partsOfSpeech = null)
     {
+        PartsOfSpeech = partsOfSpeech ?? new Dictionary<int, string>();
         AnalysisSource = analysisSource;
         AnalyzedText = analyzedText;
         Analysis = analysis;
@@ -60,6 +66,9 @@ internal sealed class SentenceDiagnostics
 
     /// <summary>Gets the phoneme pane content.</summary>
     public PhonemeDiagnostics Phonemes { get; }
+
+    /// <summary>Gets the part-of-speech tags the tool added, by token start (empty when the analysis carries its own).</summary>
+    public IReadOnlyDictionary<int, string> PartsOfSpeech { get; }
 
     /// <summary>
     ///     Formats the analysis pane: tokens with readings, normalizations, overrides, and raw annotations.
@@ -112,11 +121,11 @@ internal sealed class SentenceDiagnostics
             text.Append(CultureInfo.InvariantCulture, $"  {Slice(annotation)}  =  {annotation.Value}\n");
         }
 
-        text.Append("\nTOKENS (word, part of speech when tagged, clitic when split)\n");
+        text.Append("\nTOKENS (word, universal part of speech, clitic when split)\n");
         foreach (var token in Analysis.Tokens)
         {
             var clitic = token.Clitic == default ? string.Empty : $"  clitic: {token.Clitic}";
-            text.Append(CultureInfo.InvariantCulture, $"  {token.Text,-14} {token.PartOfSpeech ?? "-",-6}{clitic}\n");
+            text.Append(CultureInfo.InvariantCulture, $"  {token.Text,-14} {PartOfSpeechOf(token),-6}{clitic}\n");
         }
 
         text.Append("\nANNOTATIONS (kind [start,end) text = value)\n");
@@ -127,6 +136,14 @@ internal sealed class SentenceDiagnostics
 
         return text.ToString();
     }
+
+    /// <summary>
+    ///     Gets the part of speech of a token: the analysis's own tag, else the tool's, else a dash.
+    /// </summary>
+    /// <param name="token">The token.</param>
+    /// <returns>The universal part-of-speech tag, or <c>-</c> when the token has none (for example punctuation).</returns>
+    private string PartOfSpeechOf(AnalyzedToken token) =>
+        token.PartOfSpeech ?? (PartsOfSpeech.TryGetValue(token.Start, out var tag) ? tag : "-");
 
     /// <summary>
     ///     Formats the phoneme pane.
@@ -295,6 +312,12 @@ internal sealed class DiagnosticsBuilder
     /// <summary>The analyzer used for models that bring none of their own.</summary>
     private readonly EnglishTextAnalyzer _fallbackAnalyzer;
 
+    /// <summary>Tags parts of speech for the token table (created on first use).</summary>
+    private readonly Lazy<EnglishTextAnalyzer> _tagger = new(() => new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions
+    {
+        Annotations = TextEnAnnotationSelection.PartOfSpeech,
+    }));
+
     /// <summary>The shared phonemizer; guarded by <see cref="_phonemizerSync"/>.</summary>
     private readonly EnglishPhonemizer _phonemizer = new();
 
@@ -343,7 +366,41 @@ internal sealed class DiagnosticsBuilder
             error = $"The analysis failed: {ex.Message}";
         }
 
-        return new SentenceDiagnostics(source, analyzedText, analysis, error, BuildPhonemes(model, audio));
+        return new SentenceDiagnostics(source, analyzedText, analysis, error, BuildPhonemes(model, audio), TagPartsOfSpeech(analysis, analyzedText));
+    }
+
+    /// <summary>
+    ///     Tags the tokens of an analysis that carries no part of speech of its own.
+    /// </summary>
+    /// <remarks>
+    ///     Neither the models' analyzers nor the tool's sentence splitter ask for part-of-speech
+    ///     annotations (nothing downstream uses them), so the token table would show a dash for every
+    ///     word; a tagging-only analyzer of the same tokenizer supplies them for display.
+    /// </remarks>
+    /// <param name="analysis">The analysis, or <see langword="null"/> when it failed.</param>
+    /// <param name="analyzedText">The analyzed text.</param>
+    /// <returns>The tags by token start; empty when the analysis tags itself or tagging failed.</returns>
+    private Dictionary<int, string> TagPartsOfSpeech(EnglishTextAnalysis? analysis, string analyzedText)
+    {
+        var tags = new Dictionary<int, string>();
+        if (analysis is null || analysis.Tokens.Any(token => token.PartOfSpeech is not null))
+        {
+            return tags;
+        }
+
+        try
+        {
+            foreach (var token in _tagger.Value.AnalyzeDetailed(analyzedText, CancellationToken.None).Tokens.Where(token => token.PartOfSpeech is not null))
+            {
+                tags[token.Start] = token.PartOfSpeech!;
+            }
+        }
+        catch (Exception)
+        {
+            // Intentionally broad: tags are a display aid and must never break the diagnostics.
+        }
+
+        return tags;
     }
 
     /// <summary>
