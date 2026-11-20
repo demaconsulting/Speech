@@ -78,14 +78,15 @@ internal interface IPlaybackHost
     void OnAudioReady(int index, PlaybackTarget target, SentenceAudio audio);
 
     /// <summary>
-    ///     Reports that a sentence's audio is about to be heard (playback of it starts now).
+    ///     Reports that a sentence has started to be heard: its samples are being played now, never
+    ///     merely because its audio is ready or a run reached it.
     /// </summary>
     /// <param name="index">The sentence index.</param>
     /// <param name="slotName">The slot name.</param>
     void OnSentenceAudible(int index, string slotName);
 
     /// <summary>
-    ///     Reports that a sentence's audio has been heard to its end.
+    ///     Reports that a sentence's audio has been heard to its end (never for one that was canceled).
     /// </summary>
     /// <param name="index">The sentence index.</param>
     /// <param name="slotName">The slot name.</param>
@@ -315,8 +316,20 @@ internal sealed class PlaybackController
                 SetState(PlaybackState.Playing);
             }
 
-            _host.OnSentenceAudible(index, target.Name);
-            await _player.PlayAsync(prepared, token);
+            // The sentence is audible only when its samples actually start playing (after any pause),
+            // not when its audio is merely ready; audio without samples is announced at its end.
+            var announced = false;
+            void Announce()
+            {
+                if (!announced)
+                {
+                    announced = true;
+                    _host.OnSentenceAudible(index, target.Name);
+                }
+            }
+
+            await _player.PlayAsync(prepared, token, Announce);
+            Announce();
             _host.OnSentenceFinished(index, target.Name);
 
             if (slot < targets.Count - 1)

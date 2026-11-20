@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Proofreader.Diagnostics;
 using DemaConsulting.Speech.Proofreader.Playback;
 using DemaConsulting.Speech.Proofreader.Session;
@@ -23,7 +24,16 @@ internal sealed class ViewModelContext : IDisposable
     /// </summary>
     /// <param name="settingsPath">The user settings file to remember things in, or <see langword="null"/> for none.</param>
     /// <param name="timeProvider">The clock the view model uses, or <see langword="null"/> for the system clock.</param>
-    public ViewModelContext(string? settingsPath = null, TimeProvider? timeProvider = null)
+    /// <param name="synthesize">
+    ///     Synthesizes a sentence in place of the real engines, or <see langword="null"/> to use them. Together
+    ///     with <paramref name="device"/> it lets the real playback controller run without audio hardware or models.
+    /// </param>
+    /// <param name="device">The playback device to play through, or <see langword="null"/> for the real one.</param>
+    public ViewModelContext(
+        string? settingsPath = null,
+        TimeProvider? timeProvider = null,
+        Func<ISynthesisModel, ModelSelection, string, Task<SentenceAudio>>? synthesize = null,
+        IAudioPlaybackDevice? device = null)
     {
         Directory = Path.Combine(Path.GetTempPath(), "proofreader-" + Guid.NewGuid().ToString("N"));
         System.IO.Directory.CreateDirectory(Directory);
@@ -33,8 +43,8 @@ internal sealed class ViewModelContext : IDisposable
         ViewModel = new MainViewModel(
             _catalog,
             _host,
-            new SentenceAudioCache(_host),
-            new SentencePlayer(new AudioDeviceFactory()),
+            synthesize is null ? new SentenceAudioCache(_host) : new SentenceAudioCache(synthesize),
+            device is null ? new SentencePlayer(new AudioDeviceFactory()) : new SentencePlayer(new AudioDeviceFactory(), _ => device),
             new SentenceSplitter(),
             Diagnostics,
             settingsPath is null ? null : new UserSettingsStore(settingsPath),

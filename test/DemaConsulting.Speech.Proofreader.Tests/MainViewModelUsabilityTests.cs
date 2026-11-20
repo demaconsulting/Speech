@@ -457,22 +457,4 @@ public class MainViewModelUsabilityTests
         Assert.True(match.Success);
         return int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) - 1;
     }
-
-    /// <summary>
-    ///     A clock that only moves when told to.
-    /// </summary>
-    private sealed class ManualTime : TimeProvider
-    {
-        /// <summary>The current time.</summary>
-        private DateTimeOffset _now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-        /// <inheritdoc/>
-        public override DateTimeOffset GetUtcNow() => _now;
-
-        /// <summary>
-        ///     Moves the clock forward.
-        /// </summary>
-        /// <param name="by">How far.</param>
-        public void Advance(TimeSpan by) => _now += by;
-    }
 }

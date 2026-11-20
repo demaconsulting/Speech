@@ -42,6 +42,9 @@ internal sealed class SentencePlayer
     /// <summary>The factory that enumerates devices and creates playback devices.</summary>
     private readonly AudioDeviceFactory _factory;
 
+    /// <summary>Creates the playback device for a selection (the factory's, unless a test supplies its own).</summary>
+    private readonly Func<AudioDeviceSelection, IAudioPlaybackDevice> _createDevice;
+
     /// <summary>Guards the device reference, which <see cref="Prepare"/> may touch from a worker thread.</summary>
     private readonly object _deviceSync = new();
 
@@ -81,6 +84,22 @@ internal sealed class SentencePlayer
     {
         ArgumentNullException.ThrowIfNull(factory);
         _factory = factory;
+        _createDevice = selection => factory.CreatePlaybackDevice(selection);
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SentencePlayer"/> class that creates its playback
+    ///     devices itself, so tests can play through a fake device.
+    /// </summary>
+    /// <param name="factory">The device factory used for enumeration and refresh. Must not be <see langword="null"/>.</param>
+    /// <param name="createDevice">Creates the playback device for a selection. Must not be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when an argument is <see langword="null"/>.</exception>
+    internal SentencePlayer(AudioDeviceFactory factory, Func<AudioDeviceSelection, IAudioPlaybackDevice> createDevice)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(createDevice);
+        _factory = factory;
+        _createDevice = createDevice;
     }
 
     /// <summary>Gets a value indicating whether playback is paused.</summary>
@@ -181,10 +200,15 @@ internal sealed class SentencePlayer
     /// </remarks>
     /// <param name="audio">The audio from <see cref="Prepare"/>.</param>
     /// <param name="cancellationToken">Cancels playback; the caller then calls <see cref="Halt"/>.</param>
+    /// <param name="onAudible">
+    ///     Called once, just before the first block of samples is written to the device (after any pause
+    ///     has been lifted), which is when the sentence actually starts to be heard; never called when the
+    ///     audio has no samples or playback is canceled first.
+    /// </param>
     /// <returns>A task that completes when playback has finished.</returns>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     /// <exception cref="AudioDeviceUnavailableException">Thrown when the device cannot be started.</exception>
-    public async Task PlayAsync(PreparedAudio audio, CancellationToken cancellationToken)
+    public async Task PlayAsync(PreparedAudio audio, CancellationToken cancellationToken, Action? onAudible = null)
     {
         ArgumentNullException.ThrowIfNull(audio);
 
@@ -207,6 +231,7 @@ internal sealed class SentencePlayer
             _playing = true;
         }
 
+        var announce = onAudible;
         try
         {
             while (true)
@@ -243,6 +268,12 @@ internal sealed class SentencePlayer
                 {
                     await Task.Delay(10, cancellationToken);
                     continue;
+                }
+
+                if (announce is not null)
+                {
+                    announce();
+                    announce = null;
                 }
 
                 var frames = Math.Min(blockFrames, total - _position);
@@ -357,7 +388,7 @@ internal sealed class SentencePlayer
             }
 
             var selection = _deviceName is null ? AudioDeviceSelection.SystemDefault : new AudioDeviceSelection(_deviceName);
-            var created = _factory.CreatePlaybackDevice(selection);
+            var created = _createDevice(selection);
             if (!created.IsAvailable)
             {
                 throw new AudioDeviceUnavailableException(

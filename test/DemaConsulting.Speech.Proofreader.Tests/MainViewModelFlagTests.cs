@@ -38,6 +38,7 @@ public class MainViewModelFlagTests
         ((IPlaybackHost)viewModel).OnSentenceStarted(0, "B");
         ((IPlaybackHost)viewModel).OnAudioReady(0, new PlaybackTarget("B", model, heardSelection, null), audio);
         await viewModel.DiagnosticsTask;
+        ((IPlaybackHost)viewModel).OnSentenceAudible(0, "B");
 
         // Act: the user then changes slot A's model and the active slot, and flags
         viewModel.SlotA.SelectedModel = viewModel.SlotA.Models[^1];
@@ -74,6 +75,7 @@ public class MainViewModelFlagTests
         var heardSelection = new ModelSelection("heard-model", "Heard model", new Dictionary<string, object>());
         ((IPlaybackHost)viewModel).OnAudioReady(0, new PlaybackTarget("A", model, heardSelection, null), new SentenceAudio([], []));
         await viewModel.DiagnosticsTask;
+        ((IPlaybackHost)viewModel).OnSentenceAudible(0, "A");
         viewModel.JumpTo(1, play: false);
 
         // Act
@@ -180,9 +182,12 @@ public class MainViewModelFlagTests
         host.OnSentenceStarted(0, "B");
         host.OnAudioReady(0, new PlaybackTarget("B", model, firstSelection, null), firstAudio);
         await viewModel.DiagnosticsTask;
+        host.OnSentenceAudible(0, "B");
+        host.OnSentenceFinished(0, "B");
         host.OnSentenceStarted(1, "A");
         host.OnAudioReady(1, new PlaybackTarget("A", model, secondSelection, null), new SentenceAudio([], []));
         await viewModel.DiagnosticsTask;
+        host.OnSentenceAudible(1, "A");
         Assert.Equal(1, viewModel.CurrentIndex);
 
         // Act

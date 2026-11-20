@@ -64,7 +64,7 @@ internal sealed partial class MainViewModel
             return;
         }
 
-        _controller.Stop();
+        StopPlayback();
         IsBusy = true;
         try
         {

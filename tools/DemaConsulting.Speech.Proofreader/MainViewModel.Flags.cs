@@ -166,10 +166,12 @@ internal sealed partial class MainViewModel
     /// </summary>
     /// <remarks>
     ///     A sentence that finished within <see cref="ReactionWindow"/> wins while nothing sounds yet
-    ///     (the next sentence is loading) or the next one only just began (within
-    ///     <see cref="FreshAudibleGrace"/>): the listener reacted to the end of the previous one.
-    ///     Otherwise the sentence that is sounding (or was interrupted by a pause) is the target, and
-    ///     when playback has not played anything the current sentence is.
+    ///     (the next sentence is loading) or a different sentence only just began (within
+    ///     <see cref="FreshAudibleGrace"/>): the listener reacted to the end of the previous one. In A/B
+    ///     mode the B rendition of the same sentence is not a different sentence, so it is the target
+    ///     itself. Otherwise the sentence that is sounding (or was interrupted by a pause) is the target,
+    ///     and when playback has not played anything the current sentence is. The marks come only from the
+    ///     player's actual playback events and are cleared by every explicit stop, jump, or selection.
     /// </remarks>
     /// <returns>The sentence index and, when known, the slot that was heard.</returns>
     private (int Index, string? Slot) ResolveFlagTarget()
@@ -177,7 +179,7 @@ internal sealed partial class MainViewModel
         var now = _time.GetUtcNow();
         if (_finished is { } finished
             && now - finished.At <= ReactionWindow
-            && (_audible is not { } fresh || now - fresh.Since <= FreshAudibleGrace))
+            && (_audible is not { } audibleNow || (audibleNow.Index != finished.Index && now - audibleNow.Since <= FreshAudibleGrace)))
         {
             return (finished.Index, finished.Slot);
         }

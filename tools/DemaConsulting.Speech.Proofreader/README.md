@@ -54,7 +54,9 @@ sentence yourself overrides this, and without any playback the current sentence 
 targeted sentence number and text; while it is open, `Left` / `Right` (or `Up` / `Down`, or the buttons) move the
 target to the previous or next sentence before you save, and the flag then records what was heard for that sentence.
 `Shift+F` flags the sentence before the current one. A word span selected in the large sentence only applies when the
-target is the current sentence.
+target is the current sentence. What counts as *heard* is driven only by the audio actually playing: a sentence is
+heard when its samples start playing (not when its audio is merely ready, and not when playback is paused before it
+starts), and every explicit stop, jump, device change, or selection forgets what had just played.
 
 ## Diagnostics
 
