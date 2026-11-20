@@ -153,6 +153,9 @@ public sealed class ReadingInventory
     /// <summary>Whether each reading (by table index) is active.</summary>
     private readonly bool[] _active;
 
+    /// <summary>Whether each reading's part-of-speech hint (by table index) includes <c>ADJ</c>.</summary>
+    private readonly bool[] _adjective;
+
     /// <summary>The index of each reading id.</summary>
     private readonly Dictionary<string, int> _indexById;
 
@@ -195,13 +198,15 @@ public sealed class ReadingInventory
     /// <param name="version">The revision.</param>
     /// <param name="ids">The reading ids, unique, in table order.</param>
     /// <param name="active">Whether each reading is active.</param>
+    /// <param name="adjective">Whether each reading's part-of-speech hint includes <c>ADJ</c>.</param>
     /// <param name="forms">The distinct forms in order of first appearance.</param>
     /// <param name="candidateLists">For each form, its candidate reading indexes in table order.</param>
-    private ReadingInventory(int version, string[] ids, bool[] active, string[] forms, List<int>[] candidateLists)
+    private ReadingInventory(int version, string[] ids, bool[] active, bool[] adjective, string[] forms, List<int>[] candidateLists)
     {
         _version = version;
         _ids = ids;
         _active = active;
+        _adjective = adjective;
         _forms = forms;
 
         // Index and salts of the readings, computed once so the hot path does no hashing of ids.
@@ -411,6 +416,13 @@ public sealed class ReadingInventory
     internal bool IsActive(int readingIndex) => _active[readingIndex];
 
     /// <summary>
+    ///     Tells whether a reading is an adjective use of its lemma.
+    /// </summary>
+    /// <param name="readingIndex">The reading's table index.</param>
+    /// <returns><see langword="true"/> when the reading's part-of-speech hint in <c>readings.tsv</c> includes <c>ADJ</c> (<c>minute.tiny</c>, <c>close.adj-noun</c>).</returns>
+    internal bool IsAdjective(int readingIndex) => _adjective[readingIndex];
+
+    /// <summary>
     ///     Looks up the table index of a reading id.
     /// </summary>
     /// <param name="readingId">The id, compared exactly.</param>
@@ -460,6 +472,7 @@ public sealed class ReadingInventory
         // Table 1: the readings, unique by id.
         var ids = new List<string>();
         var active = new List<bool>();
+        var adjective = new List<bool>();
         var indexById = new Dictionary<string, int>(StringComparer.Ordinal);
         var buffer = new char[MaxLineLength];
         ReadTable(readings, "readings.tsv", ReadingsHeader, ReadingsColumns, buffer, MaxReadings, (fields, line) =>
@@ -488,6 +501,7 @@ public sealed class ReadingInventory
 
             ids.Add(id);
             active.Add(status.SequenceEqual("active"));
+            adjective.Add(HasTag(fields[2], "ADJ"));
         });
 
         // Table 2: the forms, grouped by form in order of first appearance, each with its candidates in row order.
@@ -535,7 +549,35 @@ public sealed class ReadingInventory
             list.Add(readingIndex);
         });
 
-        return new ReadingInventory(version, [.. ids], [.. active], [.. formNames], [.. candidateLists]);
+        return new ReadingInventory(version, [.. ids], [.. active], [.. adjective], [.. formNames], [.. candidateLists]);
+    }
+
+    /// <summary>
+    ///     Tells whether a part-of-speech hint (tags separated by <c>|</c>, such as <c>ADJ|NOUN</c>) holds a tag.
+    /// </summary>
+    /// <param name="hint">The hint column.</param>
+    /// <param name="tag">The tag, compared exactly.</param>
+    /// <returns><see langword="true"/> when one of the hint's tags is <paramref name="tag"/>.</returns>
+    private static bool HasTag(ReadOnlySpan<char> hint, string tag)
+    {
+        // Walk the tags one separator at a time (allocation-free on every target framework)
+        var rest = hint;
+        while (true)
+        {
+            var separator = rest.IndexOf('|');
+            var current = separator < 0 ? rest : rest[..separator];
+            if (current.SequenceEqual(tag))
+            {
+                return true;
+            }
+
+            if (separator < 0)
+            {
+                return false;
+            }
+
+            rest = rest[(separator + 1)..];
+        }
     }
 
     /// <summary>

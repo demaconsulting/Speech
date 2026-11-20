@@ -21,8 +21,9 @@ order; the status is `active` or `deprecated`, and a lemma is never empty. The f
 `form`, `reading_id` and `kind`) lists one row per form and candidate reading, in file order; a form is 1 to 32
 lower-case ASCII letters. The unit keeps:
 
-- the reading ids in table order, an index by id, an active flag per reading, and the ordinal-sorted read-only list of
-  ids that `ReadingIds` returns;
+- the reading ids in table order, an index by id, an active flag per reading, an adjective flag per reading (whether
+  its `pos_hint`, tags separated by `|`, includes `ADJ`), and the ordinal-sorted read-only list of ids that
+  `ReadingIds` returns;
 - for each reading its **label salt** and its **role salt**, computed once when the inventory is built with the hash
   functions of the feature extractor (see *HeteronymFeatureExtractor Design*), so the classification path never hashes
   an id;
@@ -68,9 +69,10 @@ and reading occurs once.
   character that is not an ASCII letter is rejected as soon as it is met; otherwise the folded hash is probed in the
   table and the folded characters are compared with the stored form. Only a whole tokenizer token can match, and a
   hyphenated compound never does because `-` is not a letter
-- **GetCandidates(formIndex)**, **ReadingIdAt**, **FormAt**, **IsActive**, **TryGetReadingIndex**, **LabelSalt**,
-  **RoleSalt**, **FormCount** and **ReadingCount** (internal): the index-based accessors of the classifier, the
-  override validation and the tests; the candidates are returned as a span over the shared array, in table order
+- **GetCandidates(formIndex)**, **ReadingIdAt**, **FormAt**, **IsActive**, **IsAdjective**, **TryGetReadingIndex**,
+  **LabelSalt**, **RoleSalt**, **FormCount** and **ReadingCount** (internal): the index-based accessors of the
+  classifier (which reads `IsAdjective` for its adjective cue), the override validation and the tests; the candidates
+  are returned as a span over the shared array, in table order
 - **Parse(readings, forms, version)** (internal): the factory behind `Default` that parses two `TextReader`s with the
   limits above; tests use it to feed hand-built tables. It reads each line through a bounded buffer, so an endless
   line is stopped at the limit

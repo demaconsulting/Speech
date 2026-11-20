@@ -9,7 +9,10 @@ points are 100 percent), so the record is identical on every operating system. I
 revisions, set and stratum names and our own reading ids**. No sentence, target word, label or other text of either
 dataset is in this folder, in the repository or in the model. The model under test is the embedded model with the
 uncompressed image SHA-256 `73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0` (`sources.tsv`); if the
-model changes, the record is regenerated and the numbers below must be updated with it.
+model changes, the record is regenerated and the numbers below must be updated with it. The record was regenerated on
+2026-11-20 for the classifier's adjective cue (same model, see `RUN-LOG.md`): the shipped model lost 1 `whd-eval` row
+(1,502 to 1,501 right) and on `whd-train` gained one row and lost one; the cue was designed from a listening flag and
+the development set, and nothing was chosen from these numbers.
 
 The numbers here are **informational**. They never gate a build, and no setting of the model was chosen from them (see
 "Discipline" below). The in-domain evidence and the quality gate are in `docs/evaluation/text-en/README.md`.
@@ -73,25 +76,25 @@ which the analyzer emits no reading counts as wrong.
 
 | Set | Rows | Model (95% interval) | Own tag | Majority | Always default |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `whd-eval` (headline) | 1,615 | 93.00% (91.70 to 94.18), 1,502 right | 90.59% | 69.23% | 66.75% |
-| `whd-train` | 14,487 | 91.60% (91.14 to 92.05), 13,270 right | 89.74% | 69.55% | 68.04% |
+| `whd-eval` (headline) | 1,615 | 92.94% (91.64 to 94.12), 1,501 right | 90.59% | 69.23% | 66.75% |
+| `whd-train` | 14,487 | 91.60% (91.15 to 92.04), 13,270 right | 89.74% | 69.55% | 68.04% |
 | `bench` (299 items) | 299 | 92.98% (89.97 to 95.65), 278 right | 80.27% | 40.13% | 43.81% |
 
-- **WHD eval.** The embedded model reads 93.00 percent of the 1,615 rows as the mapped reading, 2.41 points more than
-  the own-part-of-speech baseline (95 percent interval +1.05 to +3.78 points; the lower bound is above zero) and 23.8
+- **WHD eval.** The embedded model reads 92.94 percent of the 1,615 rows as the mapped reading, 2.35 points more than
+  the own-part-of-speech baseline (95 percent interval +0.99 to +3.72 points; the lower bound is above zero) and 23.8
   points more than always choosing the majority reading. The model is lower than on our in-domain holdouts (96.23
   percent natural, 95.44 percent independent): this is the cost of a change of domain and of label conventions (see
   the limits), and it is the number to quote for text that does not look like our training data.
-- **Seeds.** Over the five seeds, `whd-eval` gives a mean of 92.72 percent (minimum 92.38, maximum 93.00), `whd-train` a
+- **Seeds.** Over the five seeds, `whd-eval` gives a mean of 92.67 percent (minimum 92.38, maximum 92.94), `whd-train` a
   mean of 91.70 percent (91.48 to 91.94) and `bench` a mean of 94.65 percent (91.97 to 96.66). The shipped model is
   seed 1, which is the top of the WHD range and in the lower half of the bench range. The bench range is about 4.7
   points wide on 299 items, so treat the bench figure as indicative only. The per-seed intervals of the improvement are
   in `seeds.tsv`; the lower bound is above zero for every seed on every set (+0.43 points for seed 4 on `whd-eval`).
 - **Rows with no reading.** 25 of the 1,615 WHD eval rows (1.5 percent; 314 of 14,487 on `whd-train`) are not exactly
   one token of the analyzer's own tokenization, so no reading is emitted and they count as wrong. On the 1,590 aligned
-  rows the accuracy is 94.5 percent. The parity check has 0 mismatches and 0 suppressed rows on every set.
+  rows the accuracy is 94.4 percent. The parity check has 0 mismatches and 0 suppressed rows on every set.
 - **Confidence.** On `whd-eval` the reading is right for 98.38 percent of the rows at a confidence of 0.90 or more
-  (1,272 of 1,293), for 81.47 percent between 0.60 and 0.90 (211 of 259) and for 50.00 percent below 0.60 (19 of 38).
+  (1,274 of 1,295), for 80.93 percent between 0.60 and 0.90 (208 of 257) and for 50.00 percent below 0.60 (19 of 38).
   The same picture holds on `whd-train` and `bench` (`confidence.tsv`); it is the evidence for the provisional
   low-confidence threshold of 0.60, which this change does not alter.
 - **Weakest readings** on `whd-eval` (at least five rows): `minute.time` 2 of 9 (the tag baseline gets all 9),

@@ -45,6 +45,21 @@ once, then scores every candidate with integers only:
 The decision uses integers only, so it is identical on every platform and runtime. A form with exactly one candidate is
 not ambiguous: the result is that reading with confidence 1 and neither the extractor nor the model is touched.
 
+**Adjective cue.** Grammar that marks the word as an adjective is added to the model's evidence as a fixed prior. When
+the tagger tags the target `ADJ` and either a degree adverb tagged `ADV` stands right before it (`very`, `so`, `too`,
+`quite`, `extremely`, `most` and 23 more: *very minute*, *so close*, *quite content*) or a coordinating conjunction
+joins it to a word tagged `ADJ` (*minute and clear*, *grey and minute*, also after one degree adverb on the right:
+*minute and very clear*), every candidate whose part-of-speech hint includes `ADJ` (see *ReadingInventory Design*,
+`IsAdjective`) gets the integer bonus `round(scale * temperature * 2.2)` added to its score: odds of about 9 to 1 on the
+model's own calibrated scale (`AdjectiveCueLogOdds`). Both signals must agree, the tag and the construction, so a degree
+word in another role (*the very minute he came*, where *very* is tagged `ADJ` and *minute* `NOUN`) does not trigger it.
+It is a prior, not a rule: a model that is confident of another reading keeps it. Decision: the sparse features see
+these constructions too rarely to weigh them (the listener-flagged *grey and very minute and clear* got the time reading
+at 0.59), while a degree adverb before a word that the tagger reads as an adjective leaves almost no room for a noun or
+a verb. The bonus is computed once from the model's header, so the decision stays integer-only, and the trainer never
+sees it: the model and its training record are unchanged, and the evaluation (which runs the analyzer and the
+classifier) measures it. The measured effect is in `tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md`.
+
 **Confidence.** With the candidate scores `s`, the top score `m`, and the model's `scale` and `temperature`, the
 confidence is `1 / sum(exp((s - m) / (scale * temperature)))` over the candidates, computed in `double` and clamped to
 the range 0 to 1; it is the softmax probability of the winning candidate at the model's temperature. With no weights at

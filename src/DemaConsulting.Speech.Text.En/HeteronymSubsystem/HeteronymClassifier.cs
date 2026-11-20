@@ -27,6 +27,17 @@ internal readonly record struct HeteronymPrediction(int ReadingIndex, double Con
 ///     only, so it is identical on every platform.
 ///     </para>
 ///     <para>
+///     <b>Adjective cue.</b> Grammar that marks the word as an adjective is added to the model's evidence as a fixed
+///     prior: when the tagger tags the word <c>ADJ</c> and a degree adverb stands right before it (<i>very minute</i>,
+///     <i>so close</i>, <i>quite content</i>) or it is coordinated with another adjective (<i>minute and clear</i>,
+///     <i>grey and minute</i>), every candidate whose part-of-speech hint includes <c>ADJ</c> gets a bonus worth odds of
+///     <see cref="AdjectiveCueLogOdds"/> (about 9 to 1) on the model's own calibrated scale. The model's sparse features
+///     see these constructions too rarely to weigh them (the flagged <i>very minute and clear</i> got the time reading at
+///     0.59), while a degree adverb before a word that the tagger reads as an adjective leaves almost no room for a noun
+///     or a verb. It is a prior, not a rule: a strong contrary verdict of the model still wins. The bonus is an integer, so
+///     the decision stays integer-only; the training never sees it, so the model and its training record are unchanged.
+///     </para>
+///     <para>
 ///     <b>Confidence.</b> With scores <c>s</c> and the top score <c>m</c>, the confidence is
 ///     <c>1 / sum(exp((s - m) / (scale * temperature)))</c> over the candidates, clamped to [0, 1]. Only this
 ///     reported number uses <see cref="Math.Exp(double)"/>; it can differ in the last bits between platforms,
@@ -39,8 +50,34 @@ internal readonly record struct HeteronymPrediction(int ReadingIndex, double Con
 /// </remarks>
 internal sealed class HeteronymClassifier
 {
+    /// <summary>The prior log-odds the adjective cue adds to an adjective reading (ln 9: odds of about 9 to 1).</summary>
+    internal const double AdjectiveCueLogOdds = 2.2;
+
+    /// <summary>The tag code of <c>ADJ</c>.</summary>
+    private static readonly byte AdjectiveTag = HeteronymContext.UposCode("ADJ");
+
+    /// <summary>The tag code of <c>ADV</c>.</summary>
+    private static readonly byte AdverbTag = HeteronymContext.UposCode("ADV");
+
+    /// <summary>The tag code of <c>CCONJ</c>.</summary>
+    private static readonly byte ConjunctionTag = HeteronymContext.UposCode("CCONJ");
+
+    /// <summary>The hashes of the degree adverbs that grade an adjective right after them (<i>very</i>, <i>so</i>, <i>too</i> ...).</summary>
+    private static readonly HashSet<uint> DegreeAdverbs =
+    [
+        .. new[]
+        {
+            "very", "so", "too", "quite", "extremely", "rather", "most", "more", "less", "really", "incredibly", "exceedingly",
+            "remarkably", "fairly", "somewhat", "highly", "utterly", "terribly", "awfully", "perfectly", "completely", "entirely",
+            "absolutely", "particularly", "especially", "unusually", "surprisingly", "equally", "pretty",
+        }.Select(word => FeatureHashing.Fnv1a(word)),
+    ];
+
     /// <summary>The model whose weights are scored.</summary>
     private readonly SparsePerceptronModel _model;
+
+    /// <summary>The integer score the adjective cue adds to an adjective reading: <see cref="AdjectiveCueLogOdds"/> on the model's scale.</summary>
+    private readonly int _adjectiveCueBonus;
 
     /// <summary>The optional observer called after each model-scored classification, for tests.</summary>
     private readonly Action<int>? _classified;
@@ -82,6 +119,7 @@ internal sealed class HeteronymClassifier
         Inventory = inventory;
         _model = model;
         _classified = classified;
+        _adjectiveCueBonus = (int)Math.Round((double)model.Scale * model.Temperature * AdjectiveCueLogOdds, MidpointRounding.AwayFromZero);
     }
 
     /// <summary>Gets the inventory whose candidates this classifier chooses among.</summary>
@@ -118,13 +156,20 @@ internal sealed class HeteronymClassifier
         HeteronymFeatureExtractor.Extract(sentence, target, conjoined, shared, out var conjoinedCount, out var sharedCount);
 
         // Score every candidate with integers; a strictly greater score wins, so a tie keeps the earlier candidate.
+        // The adjective cue adds its fixed prior to the adjective readings.
         var mask = _model.Mask;
         var weights = new ModelWeights(_model);
+        var cue = HasAdjectiveCue(sentence, target);
         Span<int> scores = stackalloc int[candidates.Length];
         var best = 0;
         for (var c = 0; c < candidates.Length; c++)
         {
             var score = ScoreCandidate(weights, conjoined[..conjoinedCount], shared[..sharedCount], Inventory.LabelSalt(candidates[c]), Inventory.RoleSalt(candidates[c]), mask);
+            if (cue && Inventory.IsAdjective(candidates[c]))
+            {
+                score += _adjectiveCueBonus;
+            }
+
             scores[c] = score;
             if (score > scores[best])
             {
@@ -149,6 +194,61 @@ internal sealed class HeteronymClassifier
 
         return prediction;
     }
+
+    /// <summary>
+    ///     Tells whether the grammar around a word marks it as an adjective.
+    /// </summary>
+    /// <param name="sentence">The tokens of the sentence.</param>
+    /// <param name="target">The index of the word.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the tagger tags the word <c>ADJ</c> and either a degree adverb tagged <c>ADV</c>
+    ///     stands right before it, or a coordinating conjunction joins it to a word tagged <c>ADJ</c> (directly, or after
+    ///     one degree adverb on the right: <i>minute and very clear</i>).
+    /// </returns>
+    /// <remarks>Both signals must agree, the tag and the construction, so a degree word in another role (<i>the very
+    /// minute he came</i>, where <i>very</i> is an adjective and <i>minute</i> a noun) does not trigger the cue.</remarks>
+    internal static bool HasAdjectiveCue(ReadOnlySpan<ContextToken> sentence, int target)
+    {
+        if (sentence[target].Upos != AdjectiveTag)
+        {
+            return false;
+        }
+
+        // A degree adverb right before the word
+        if (IsTagged(sentence, target - 1, AdverbTag) && DegreeAdverbs.Contains(sentence[target - 1].LowerHash))
+        {
+            return true;
+        }
+
+        // Coordinated with an adjective on the left (grey and minute) or on the right (minute and clear, minute and very clear)
+        if (IsTagged(sentence, target - 1, ConjunctionTag) && IsTagged(sentence, target - 2, AdjectiveTag))
+        {
+            return true;
+        }
+
+        if (!IsTagged(sentence, target + 1, ConjunctionTag))
+        {
+            return false;
+        }
+
+        var next = target + 2;
+        if (IsTagged(sentence, next, AdverbTag) && DegreeAdverbs.Contains(sentence[next].LowerHash))
+        {
+            next++;
+        }
+
+        return IsTagged(sentence, next, AdjectiveTag);
+    }
+
+    /// <summary>
+    ///     Tells whether the token at an index exists and has a tag.
+    /// </summary>
+    /// <param name="sentence">The tokens of the sentence.</param>
+    /// <param name="index">The index, which may be outside the sentence.</param>
+    /// <param name="tag">The tag code.</param>
+    /// <returns><see langword="true"/> when the index is inside the sentence and the token there has the tag.</returns>
+    private static bool IsTagged(ReadOnlySpan<ContextToken> sentence, int index, byte tag) =>
+        (uint)index < (uint)sentence.Length && sentence[index].Upos == tag;
 
     /// <summary>
     ///     Computes the integer score of one candidate reading: the sum of the weights of the buckets its

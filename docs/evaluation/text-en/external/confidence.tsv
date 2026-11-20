@@ -1,11 +1,11 @@
 set	confidence	rows	correct	accuracy_bp	upos_baseline_correct
 whd-eval	<0.600	38	19	5000	0
-whd-eval	0.600-0.899	259	211	8147	0
-whd-eval	>=0.900	1293	1272	9838	0
+whd-eval	0.600-0.899	257	208	8093	0
+whd-eval	>=0.900	1295	1274	9838	0
 whd-eval	none	25	0	0	0
-whd-train	<0.600	389	205	5270	0
-whd-train	0.600-0.899	2046	1582	7732	0
-whd-train	>=0.900	11738	11483	9783	0
+whd-train	<0.600	387	204	5271	0
+whd-train	0.600-0.899	2032	1568	7717	0
+whd-train	>=0.900	11754	11498	9782	0
 whd-train	none	314	0	0	0
 bench	<0.600	10	4	4000	0
 bench	0.600-0.899	58	47	8103	0

@@ -364,6 +364,82 @@ public sealed class HeteronymClassifierTests
     }
 
     /// <summary>
+    ///     Proves the adjective cue: a word the tagger reads as an adjective, right after a degree adverb or coordinated with
+    ///     another adjective, gets its adjective reading even when the model leans weakly toward another reading, while
+    ///     the same model keeps that other reading when the grammar does not mark an adjective.
+    /// </summary>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The tag of each token.</param>
+    /// <param name="expected">The reading the classifier must choose for <c>minute</c>.</param>
+    [Theory]
+    [InlineData("very minute and clear", "ADV ADJ CCONJ ADJ", "minute.tiny")]
+    [InlineData("so minute that", "ADV ADJ SCONJ", "minute.tiny")]
+    [InlineData("grey and minute", "ADJ CCONJ ADJ", "minute.tiny")]
+    [InlineData("minute and very clear", "ADJ CCONJ ADV ADJ", "minute.tiny")]
+    [InlineData("wait a minute", "VERB DET NOUN", "minute.time")]
+    [InlineData("the very minute he came", "DET ADJ NOUN PRON VERB", "minute.time")]
+    [InlineData("very minute", "ADV NOUN", "minute.time")]
+    [InlineData("a minute and clear", "DET ADJ CCONJ NOUN", "minute.time")]
+    public void HeteronymClassifier_Classify_AdjectiveCue_DecidesAWeaklyContestedAdjective(string sentence, string tags, string expected)
+    {
+        // Arrange: a model that prefers the time reading by a small margin (a quarter of the cue's odds)
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, sentence, tags.Split(' '), "minute");
+        var margin = (short)(Scale * HeteronymClassifier.AdjectiveCueLogOdds / 4);
+        var (_, classifier) = Create([BiasWeight(inventory, "minute.time", margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal(expected, inventory.ReadingIdAt(prediction.ReadingIndex));
+        Assert.InRange(prediction.Confidence, 0.5, 1.0);
+    }
+
+    /// <summary>Proves the adjective cue is a prior, not a rule: a model that is sure of another reading keeps it.</summary>
+    [Fact]
+    public void HeteronymClassifier_Classify_AdjectiveCueAgainstAConfidentModel_ModelWins()
+    {
+        // Arrange: the time reading is preferred by twice the cue's odds
+        var inventory = ReadingInventory.Default;
+        var (context, target, form) = PrepareTagged(inventory, "very minute", ["ADV", "ADJ"], "minute");
+        var margin = (short)(Scale * HeteronymClassifier.AdjectiveCueLogOdds * 2);
+        var (_, classifier) = Create([BiasWeight(inventory, "minute.time", margin)]);
+
+        // Act
+        var prediction = classifier.Classify(context, target, form);
+
+        // Assert
+        Assert.Equal("minute.time", inventory.ReadingIdAt(prediction.ReadingIndex));
+    }
+
+    /// <summary>
+    ///     Builds a tagged context from a sentence of space-separated tokens and finds the target word.
+    /// </summary>
+    /// <param name="inventory">The inventory.</param>
+    /// <param name="sentence">The space-separated tokens.</param>
+    /// <param name="tags">The Universal Dependencies tag of each token.</param>
+    /// <param name="word">The target word.</param>
+    /// <returns>The context, the target index and the target's form index.</returns>
+    private static (ContextToken[] Context, int Target, int Form) PrepareTagged(ReadingInventory inventory, string sentence, string[] tags, string word)
+    {
+        var parts = sentence.Split(' ');
+        Assert.Equal(parts.Length, tags.Length);
+        var starts = new List<int>();
+        var offset = 0;
+        foreach (var part in parts)
+        {
+            starts.Add(offset);
+            offset += part.Length + 1;
+        }
+
+        var context = parts.Select((part, i) => HeteronymContext.Create(sentence, starts[i], part.Length, tags[i], 1.0)).ToArray();
+        var target = Array.IndexOf(parts, word);
+        Assert.True(target >= 0);
+        Assert.True(inventory.TryFindForm(word, out var form));
+        return (context, target, form);
+    }
+    /// <summary>
     ///     Builds an inventory and a classifier over a model made of weights.
     /// </summary>
     /// <param name="weights">The (bucket, weight) pairs.</param>

@@ -2,6 +2,7 @@ set	reading	rows	correct	accuracy_bp	upos_baseline_correct
 whd-eval	animate.adj-noun	1	0	0	1
 whd-eval	attribute.noun	1	0	0	1
 whd-eval	dive.past	1	0	0	1
+whd-eval	frequent.verb	1	0	0	0
 whd-eval	increment.verb	1	0	0	0
 whd-eval	minute.tiny	1	0	0	0
 whd-eval	separate.verb	1	0	0	0
@@ -162,7 +163,6 @@ whd-eval	extract.noun	5	5	10000	5
 whd-eval	extract.verb	5	5	10000	5
 whd-eval	fragment.noun	10	10	10000	10
 whd-eval	frequent.adj	9	9	10000	9
-whd-eval	frequent.verb	1	1	10000	0
 whd-eval	graduate.adj-noun	8	8	10000	8
 whd-eval	graduate.verb	2	2	10000	2
 whd-eval	house.noun	10	10	10000	10
@@ -303,11 +303,11 @@ whd-train	upset.noun	65	51	7846	49
 whd-train	advocate.verb	14	11	7857	11
 whd-train	celtic.team	28	22	7857	17
 whd-train	convict.noun	80	63	7875	78
-whd-train	mobile.movable	85	67	7882	70
 whd-train	insert.verb	43	34	7907	36
 whd-train	mate.companion	89	71	7978	89
 whd-train	affect.psych	5	4	8000	5
 whd-train	discharge.verb	10	8	8000	9
+whd-train	mobile.movable	85	68	8000	70
 whd-train	reject.noun	5	4	8000	5
 whd-train	transport.verb	5	4	8000	4
 whd-train	animate.adj-noun	36	29	8056	27
@@ -361,6 +361,7 @@ whd-train	analyse.verb	11	10	9091	7
 whd-train	approximate.verb	11	10	9091	11
 whd-train	use.noun	66	60	9091	65
 whd-train	invalid.adj	67	61	9104	67
+whd-train	live.verb	90	82	9111	81
 whd-train	analysis.plural	79	72	9114	75
 whd-train	duplicate.verb	23	21	9130	22
 whd-train	articulate.verb	48	44	9167	46
@@ -373,7 +374,6 @@ whd-train	wound.injury	61	56	9180	0
 whd-train	estimate.noun	62	57	9194	58
 whd-train	jesus.english	88	81	9205	88
 whd-train	predicate.noun	89	82	9213	82
-whd-train	live.verb	90	83	9222	81
 whd-train	exploit.noun	13	12	9231	10
 whd-train	suspect.verb	26	24	9231	25
 whd-train	discard.verb	66	61	9242	59

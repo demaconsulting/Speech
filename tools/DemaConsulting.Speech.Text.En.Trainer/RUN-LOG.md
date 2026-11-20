@@ -240,3 +240,35 @@ pairs for `axes`, `does`, `dove`, `wound` and `bass`).
   coverage of 162 plus 30 of 207 words, the unverified bench labels, sentence-level clusters) are in the record README.
   The low-confidence threshold of 0.60 is not changed by this run; `confidence.tsv` is the evidence for a later
   decision.
+
+## Adjective cue (2026-11-20)
+
+**Trigger.** A listener flagged *these little boats were grey and very minute and clear*: the analyzer chose
+`minute.time` at 0.59 although the tagger tagged *minute* `ADJ`. The construction (a degree adverb before the word, an
+adjective coordinated with it) is grammar that the sparse features see too rarely to weigh.
+
+**Change.** No data, setting or model changed. `HeteronymClassifier` adds a fixed prior of
+`round(scale * temperature * 2.2)` (odds of about 9 to 1 on the model's calibrated scale) to every candidate whose
+`pos_hint` includes `ADJ` when the tagger tags the word `ADJ` and a degree adverb tagged `ADV` stands right before it or
+a coordinating conjunction joins it to a word tagged `ADJ`. The prior, the list of 29 degree adverbs and the two
+constructions were fixed from the flag and from linguistic reasoning before any set was read; the size (ln 9) was not
+tuned. `train --check` exits 0: the training never sees the prior, so the model and `training.json` are unchanged (image
+SHA-256 `73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0`).
+
+**Development set** (read first, the only set that could have changed the design): the cue fired on 22 words, all
+already right, raising their confidence; no decision changed (3,083 of 3,235 before and after). Nothing was changed
+after this run.
+
+**Gate run** (the only holdout read for this change, then the record writer): `evaluate --gate` passed with the same
+figures as before, 96.23 percent (1,123 of 1,167) on the natural holdout, improvement +5.57 points (+3.16 to +8.15). The
+independent holdout is unchanged for the shipped model (1,882 of 1,972); seeds 3 to 5 each read one word fewer
+(`seeds.tsv`), and the confidence strata moved (`confidence.tsv`). `evaluate --write` and `evaluate --check` exit 0.
+
+**External record** (regenerated because the analyzer changed; informational, nothing chosen from it): `whd-eval` 1,502
+to 1,501 of 1,615 (93.00 to 92.94 percent; one `frequent.verb` row on which the cue fired, the tagger having tagged the
+verb `ADJ`), `whd-train` 13,270 of 14,487 unchanged (one `mobile.movable` row gained, one `live.verb` row lost), `bench`
+unchanged.
+
+**Flagged sentence after the change:** `minute.tiny` at 0.861. *They were very close* (`close.adj-noun`), *She was so
+content* (`content.satisfied`), *Wait a minute* (`minute.time`) and *Most content is free* (`content.noun`) are read as
+before.

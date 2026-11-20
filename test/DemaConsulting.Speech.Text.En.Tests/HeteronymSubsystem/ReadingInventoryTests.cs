@@ -382,4 +382,26 @@ public sealed class ReadingInventoryTests
     /// <returns>The inventory.</returns>
     private static ReadingInventory Parse(string readings, string forms, int version = 1) =>
         ReadingInventory.Parse(new StringReader(readings), new StringReader(forms), version);
+
+    /// <summary>
+    ///     Proves the inventory tells an adjective reading from the others by its part-of-speech hint: a hint that is
+    ///     <c>ADJ</c> alone or one tag of several (<c>ADJ|NOUN</c>) marks an adjective, any other hint does not.
+    /// </summary>
+    [Fact]
+    public void ReadingInventory_IsAdjective_ReadsThePartOfSpeechHint()
+    {
+        // Arrange
+        var inventory = ReadingInventory.Default;
+
+        // Act
+        bool Adjective(string id) => inventory.TryGetReadingIndex(id, out var index) && inventory.IsAdjective(index);
+
+        // Assert
+        Assert.True(Adjective("minute.tiny"));
+        Assert.True(Adjective("close.adj-noun"));
+        Assert.True(Adjective("content.satisfied"));
+        Assert.False(Adjective("minute.time"));
+        Assert.False(Adjective("close.verb"));
+        Assert.False(Adjective("record.noun"));
+    }
 }

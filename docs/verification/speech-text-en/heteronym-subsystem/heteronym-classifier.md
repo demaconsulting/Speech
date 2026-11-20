@@ -26,6 +26,10 @@ stream, and the real fixture model for the success path. No fake of the classifi
   weights; the confidence equals the temperature-calibrated softmax of the top candidate for two and three candidates
   (to twelve decimals); a form with one candidate returns that reading with confidence 1; a target outside the
   sentence is rejected for both kinds of form
+- **Adjective cue**: with a model that prefers the time reading of `minute` by a quarter of the cue's odds, a word
+  tagged `ADJ` after a degree adverb or coordinated with an adjective gets `minute.tiny`, while the same model keeps
+  `minute.time` when the word is tagged `NOUN`, when the word before it is a degree word tagged `ADJ` or when the
+  coordinated word is not an adjective; a model that prefers the time reading by twice the cue's odds keeps it
 - **Model compatibility**: a model for a newer inventory is rejected while an older or equal one is accepted; null
   arguments are rejected
 - **Thread safety and observer**: concurrent callers obtain the single-threaded results; the observer receives the
@@ -56,6 +60,18 @@ of 128 on the middle candidate makes it win with the confidence e^2 / (e^2 + 2).
 returns its only reading with confidence exactly 1. A target that is negative, equal to the sentence length or
 `int.MaxValue` throws `ArgumentOutOfRangeException` naming `target` for an ambiguous form, and a target equal to the
 length does so for a single-candidate form.
+
+##### Adjective cue
+
+**Tests**: `HeteronymClassifier_Classify_AdjectiveCue_DecidesAWeaklyContestedAdjective`,
+`HeteronymClassifier_Classify_AdjectiveCueAgainstAConfidentModel_ModelWins`
+
+The contexts are built with explicit tags. A bias weight of a quarter of the cue's odds (scale 64, temperature 1) for
+`minute.time`: `very minute and clear` (`ADV ADJ CCONJ ADJ`), `so minute that`, `grey and minute` and
+`minute and very clear` give `minute.tiny` with a confidence above one half; `wait a minute` (`NOUN`),
+`the very minute he came` (`very` tagged `ADJ`, `minute` tagged `NOUN`), `very minute` with `minute` tagged `NOUN` and
+`a minute and clear` with a noun after the conjunction keep `minute.time`. A bias of twice the cue's odds keeps
+`minute.time` for `very minute` (`ADV ADJ`).
 
 ##### Model compatibility
 

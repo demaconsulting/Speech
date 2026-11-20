@@ -51,6 +51,26 @@ sections:
                   - HeteronymClassifier_Classify_SingleCandidateForm_ReturnsConfidenceOne
                   - HeteronymClassifier_Classify_TargetOutsideSentence_ThrowsArgumentOutOfRangeException
 
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-AdjectiveCue
+                title: >-
+                  The HeteronymClassifier class shall add a fixed prior worth odds of about 9 to 1 to
+                  the score of every candidate reading whose part-of-speech hint includes ADJ when the
+                  tagger tags the word ADJ and a degree adverb tagged ADV stands right before it or a
+                  coordinating conjunction joins it to a word tagged ADJ, and shall add nothing
+                  otherwise, so that a weakly contested adjective reading wins and a confident model
+                  keeps its reading.
+                justification: |
+                  A degree adverb before a word that the tagger reads as an adjective (very minute, so
+                  close) or the coordination with another adjective (minute and clear) leaves almost
+                  no room for a noun or a verb, but the model's sparse features see these
+                  constructions too rarely to weigh them: a listener flagged "very minute and clear"
+                  read as the unit of time. Requiring both the tag and the construction keeps a degree
+                  word in another role (the very minute) from triggering it, and a prior rather than a
+                  rule leaves the model the last word when it is confident.
+                tests:
+                  - HeteronymClassifier_Classify_AdjectiveCue_DecidesAWeaklyContestedAdjective
+                  - HeteronymClassifier_Classify_AdjectiveCueAgainstAConfidentModel_ModelWins
+
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-ModelCompatibility
                 title: >-
                   The HeteronymClassifier constructor shall throw InvalidDataException for a model
