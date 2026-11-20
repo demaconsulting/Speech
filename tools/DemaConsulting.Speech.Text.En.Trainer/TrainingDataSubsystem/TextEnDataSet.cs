@@ -202,6 +202,72 @@ internal sealed record DataRow(
     public string Location => $"{File}:{Line}";
 }
 
+/// <summary>One row of <c>regression.tsv</c>: an evaluation overlay row that refers to an existing example.</summary>
+/// <param name="File">The display name of the file the row came from.</param>
+/// <param name="Line">The 1-based line.</param>
+/// <param name="Id">The row id, <c>reg-NNNN</c>.</param>
+/// <param name="Lemma">The lemma column.</param>
+/// <param name="ReadingId">The reading id column.</param>
+/// <param name="Sentence">The sentence text.</param>
+/// <param name="Start">The first UTF-16 code unit of the target word, or <see langword="null"/> when not an integer.</param>
+/// <param name="End">The UTF-16 code unit after the target word, or <see langword="null"/> when not an integer.</param>
+/// <param name="Origin">Where the row comes from, for example <c>listening</c> or <c>data-row</c>.</param>
+/// <param name="Reference">The reference to the original, for example <c>train.tsv:syn-10500</c>.</param>
+/// <param name="SeenInTraining">Either <c>yes</c> or <c>no</c>, as written in the file.</param>
+/// <param name="License">The license column.</param>
+internal sealed record RegressionRecord(
+    string File,
+    int Line,
+    string Id,
+    string Lemma,
+    string ReadingId,
+    string Sentence,
+    int? Start,
+    int? End,
+    string Origin,
+    string Reference,
+    string SeenInTraining,
+    string License)
+{
+    /// <summary>Gets the location text <c>file:line</c> used in findings.</summary>
+    public string Location => $"{File}:{Line}";
+}
+
+/// <summary>One row of <c>generalization.tsv</c>: a row of the blind generalization test set.</summary>
+/// <param name="File">The display name of the file the row came from.</param>
+/// <param name="Line">The 1-based line.</param>
+/// <param name="Id">The row id, <c>gen-NNNN</c>.</param>
+/// <param name="Lemma">The lemma column.</param>
+/// <param name="ReadingId">The reading id column.</param>
+/// <param name="Sentence">The sentence text.</param>
+/// <param name="Start">The first UTF-16 code unit of the target word, or <see langword="null"/> when not an integer.</param>
+/// <param name="End">The UTF-16 code unit after the target word, or <see langword="null"/> when not an integer.</param>
+/// <param name="Kind">Either <c>novel-vocabulary</c> or <c>novel-construction</c>.</param>
+/// <param name="Family">The cue or template family, <c>{lemma}:{cue-type}</c>; the bootstrap cluster of the row.</param>
+/// <param name="CueForms">The pipe-separated designated cue forms, or <c>-</c>.</param>
+/// <param name="CueUnsolvable">Either <c>yes</c> or <c>no</c>, as written in the file.</param>
+/// <param name="Source">The source column, always <c>generalization</c>.</param>
+/// <param name="License">The license column, always <c>CC0-1.0</c>.</param>
+internal sealed record GeneralizationRecord(
+    string File,
+    int Line,
+    string Id,
+    string Lemma,
+    string ReadingId,
+    string Sentence,
+    int? Start,
+    int? End,
+    string Kind,
+    string Family,
+    string CueForms,
+    string CueUnsolvable,
+    string Source,
+    string License)
+{
+    /// <summary>Gets the location text <c>file:line</c> used in findings.</summary>
+    public string Location => $"{File}:{Line}";
+}
+
 /// <summary>
 ///     The typed contents of the Text.En training data folder, loaded once and shared by all checks.
 /// </summary>
@@ -254,6 +320,20 @@ internal sealed class TextEnDataSet
         new("holdout-independent.tsv", "holdout-independent", "test"),
     ];
 
+    /// <summary>The file name of the regression overlay.</summary>
+    public const string RegressionFile = "regression.tsv";
+
+    /// <summary>The file name of the generalization set.</summary>
+    public const string GeneralizationFile = "generalization.tsv";
+
+    /// <summary>The header of <c>regression.tsv</c>.</summary>
+    public static readonly IReadOnlyList<string> RegressionHeader =
+        ["id", "lemma", "reading_id", "sentence", "start", "end", "origin", "ref", "seen_in_training", "license"];
+
+    /// <summary>The header of <c>generalization.tsv</c>.</summary>
+    public static readonly IReadOnlyList<string> GeneralizationHeader =
+        ["id", "lemma", "reading_id", "sentence", "start", "end", "kind", "family", "cue_forms", "cue_unsolvable", "source", "license"];
+
     /// <summary>The check name for load-time findings that concern the content of a file.</summary>
     private const string SchemaCheck = "schema";
 
@@ -296,6 +376,12 @@ internal sealed class TextEnDataSet
     /// <summary>Gets the table of <c>gaps-v4.tsv</c>.</summary>
     public TsvTable Gaps { get; private init; } = null!;
 
+    /// <summary>Gets the rows of the regression overlay <c>regression.tsv</c>, in file order.</summary>
+    public IReadOnlyList<RegressionRecord> Regression { get; private init; } = [];
+
+    /// <summary>Gets the rows of the generalization set <c>generalization.tsv</c>, in file order (empty until the set is written).</summary>
+    public IReadOnlyList<GeneralizationRecord> Generalization { get; private init; } = [];
+
     /// <summary>
     ///     Initializes an empty data set for a root folder.
     /// </summary>
@@ -337,6 +423,8 @@ internal sealed class TextEnDataSet
             HarvestProvenance = LoadProvenance(root, "harvest-provenance.tsv", HarvestProvenanceHeader, 1, report),
             SyntheticProvenance = LoadProvenance(root, "synthetic-provenance.tsv", SyntheticProvenanceHeader, 3, report),
             Gaps = Load(root, "gaps-v4.tsv", GapsHeader, report),
+            Regression = LoadRegression(Path.Combine(root, RegressionFile), RegressionFile, report),
+            Generalization = LoadGeneralization(Path.Combine(root, GeneralizationFile), GeneralizationFile, report),
         };
 
         // Index the forms by reading so a span check is a single set lookup
@@ -366,7 +454,7 @@ internal sealed class TextEnDataSet
         var typed = new HashSet<string>(StringComparer.Ordinal)
         {
             "readings.tsv", "whd-mapping.tsv", "forms.tsv", "extension-decisions.tsv", "harvest-provenance.tsv",
-            "synthetic-provenance.tsv", "gaps-v4.tsv",
+            "synthetic-provenance.tsv", "gaps-v4.tsv", RegressionFile, GeneralizationFile,
         };
         foreach (var file in DataFiles)
         {
@@ -465,6 +553,90 @@ internal sealed class TextEnDataSet
         }
 
         return rows;
+    }
+
+    /// <summary>
+    ///     Loads a regression overlay file.
+    /// </summary>
+    /// <remarks>
+    ///     A missing file, a wrong header or a format defect is a finding and yields no rows; a non-integer offset is a
+    ///     finding and leaves the offset <see langword="null"/>. Never throws for bad data.
+    /// </remarks>
+    /// <param name="path">The full path of the file.</param>
+    /// <param name="name">The name shown in findings and carried by every record.</param>
+    /// <param name="report">The report that receives findings.</param>
+    /// <returns>The rows in file order.</returns>
+    public static IReadOnlyList<RegressionRecord> LoadRegression(string path, string name, CheckReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        return TsvTable.Load(path, name, report, new TsvLayout(ExpectedHeader: RegressionHeader)).Rows
+            .Select(row => new RegressionRecord(
+                name,
+                row.LineNumber,
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                ParseOffset(row[4], name, row, report),
+                ParseOffset(row[5], name, row, report),
+                row[6],
+                row[7],
+                row[8],
+                row[9]))
+            .ToList();
+    }
+
+    /// <summary>
+    ///     Loads a generalization set file: the committed <c>generalization.tsv</c> or a staged copy outside the repository.
+    /// </summary>
+    /// <remarks>
+    ///     A missing file, a wrong header or a format defect is a finding and yields no rows; a non-integer offset is a
+    ///     finding and leaves the offset <see langword="null"/>. A file with the header only is valid and has no rows.
+    ///     Never throws for bad data.
+    /// </remarks>
+    /// <param name="path">The full path of the file.</param>
+    /// <param name="name">The name shown in findings and carried by every record.</param>
+    /// <param name="report">The report that receives findings.</param>
+    /// <returns>The rows in file order.</returns>
+    public static IReadOnlyList<GeneralizationRecord> LoadGeneralization(string path, string name, CheckReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        return TsvTable.Load(path, name, report, new TsvLayout(ExpectedHeader: GeneralizationHeader)).Rows
+            .Select(row => new GeneralizationRecord(
+                name,
+                row.LineNumber,
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                ParseOffset(row[4], name, row, report),
+                ParseOffset(row[5], name, row, report),
+                row[6],
+                row[7],
+                row[8],
+                row[9],
+                row[10],
+                row[11]))
+            .ToList();
+    }
+
+    /// <summary>
+    ///     Parses an offset cell of an overlay row, reporting a cell that is not an integer.
+    /// </summary>
+    /// <param name="text">The cell text.</param>
+    /// <param name="name">The file display name.</param>
+    /// <param name="row">The row, whose first cell is its id.</param>
+    /// <param name="report">The report that receives findings.</param>
+    /// <returns>The integer, or <see langword="null"/> when the cell is not an integer.</returns>
+    private static int? ParseOffset(string text, string name, TsvRow row, CheckReport report)
+    {
+        var value = ParseOffset(text);
+        if (value is null)
+        {
+            report.Add(SchemaCheck, $"{name}:{row.LineNumber}", $"{row[0]}: start and end must be integers");
+        }
+
+        return value;
     }
 
     /// <summary>

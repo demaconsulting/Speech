@@ -10,7 +10,13 @@ that carry their one-based `Line`: the `Readings` (`ReadingRecord`) and `Reading
 files (`DataRow`: file, line, id, lemma, reading id, sentence, start and end offsets that are null when not integers,
 source, license, split) with `DataFiles` (`DataFileInfo`: file name, split name and the value of the split column)
 describing the four files in order train, dev, holdout-natural and holdout-independent, the `HarvestProvenance` and
-`SyntheticProvenance` (`ProvenanceRecord`: id and the source document or the template), and the `Gaps` table.
+`SyntheticProvenance` (`ProvenanceRecord`: id and the source document or the template), the `Gaps` table, and the two
+evaluation overlays: the `Regression` rows of `regression.tsv` (`RegressionRecord`: file, line, id, lemma, reading id,
+sentence, nullable start and end, origin, reference, seen-in-training mark and license) and the `Generalization` rows
+of `generalization.tsv` (`GeneralizationRecord`: file, line, id, lemma, reading id, sentence, nullable start and end,
+kind, family, cue forms, cue-unsolvable mark, source and license). The overlays are not part of `DataFiles`, so the
+split rules, the per-reading counts and the gap table do not see them; `RegressionFile` and `GeneralizationFile` name
+them.
 `LicenseIds` holds the three allowed license identifiers (`CC0-1.0`, `Public-Domain`, `CC-BY-3.0-US`) and the
 allow-list. `SourceInfo` is a read-only record of a source name, whether it is generated and its allowed licenses; the
 closed vocabulary is built once: the generated sources `synthetic`, `synthetic-v2`, `synthetic-v3` and
@@ -26,6 +32,11 @@ suffix `-llm`. The expected header of every table is a public constant of the cl
   match, a format defect or a value that is not an integer is a finding that names the file and line; for an integer it
   keeps the row (with a null offset), for a wrong header it loads no row of that file; the load continues and never
   throws for a defect in the data.
+- **LoadRegression(path, name, report)** and **LoadGeneralization(path, name, report)**: read one overlay file with its
+  exact header through `TsvTable`, carry `name` as the file of every record (the committed file name, or
+  `staged:<file>` for a staged generalization set) and report a non-integer offset as a `schema` finding that keeps the
+  row with a null offset. A header-only file has no rows and no finding; a missing file is a finding. `Load` calls both
+  for the committed files, and `CheckDataCommand` calls `LoadGeneralization` for a staged file.
 - **FormsOf(readingId)**: the set of forms listed for a reading, empty for an unknown reading.
 - **SourceInfo.TryGet(source, out info)**: looks a source up in the vocabulary; false for any other string. The caller
   decides whether an unknown source is a finding; the schema check reports it and the license check ignores it so
@@ -40,6 +51,7 @@ input and output exception to `CheckDataCommand`.
 **Dependencies**: `TsvTable`, `DataManifest` (to enumerate the other `.tsv` files) and `CheckReport`; the .NET base
 class library only.
 
-**Callers**: `CheckDataCommand` (loads once), `SchemaChecker`, `LicenseChecker`, `LeakageChecker`, `TrainingCorpus` and
+**Callers**: `CheckDataCommand` (loads once), `SchemaChecker`, `LicenseChecker`, `LeakageChecker`,
+`EvaluationOverlayChecker`, `TrainingCorpus` and
 `HeteronymEvaluator` of the TrainingSubsystem (the header of the labeled files and of the harvest provenance table) and
 the unit tests.

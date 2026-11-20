@@ -1,7 +1,7 @@
 # Checksums of the files of data/text-en/, verified by the check-data command of the Text.En trainer; MANIFEST.tsv itself and the local caches external/ and work/ are not listed
 # columns = file, sha256, bytes, rows (lines minus the header for .tsv files, lines for all other files)
 ATTRIBUTION.md	841bf1862cbf3017dd1090243835c262d3a5a438a12eb2411c47abf0b83e1e0c	2698	39
-README.md	dafc1256df819cb0a8d3bf4c95fefddabd7f78c39f78b96e5c83e5b40d0236db	37985	354
+README.md	a7b620908cabccc0729ee0a27928b7ee6109249c9c4bb59e84a43d84d0fff1fe	43634	410
 audit/adjudication.tsv	143c53f1e124b2d5e3d7fe16f2a761f13117cea12238412f80b7ce2aa198e6ec	9952	85
 audit/audit-summary.md	2c5067b5d599a458a0b84da5c4332c5e51a3c8abec30ca522f0b501e93e1db2e	9312	121
 audit/consistency-fixes.tsv	ce8e67110b396db315f93a56975b9b97d1c96fcb1d444530524eeb46e68b4c00	3072	27
@@ -16,6 +16,7 @@ extension-candidates.tsv	cf4fa4a42412b5fd1af84aeadbbed83254add32b98f71c098136c90
 extension-decisions.tsv	91cbfb9d8b0035501470f8c0720168fd130e2e59428ace77bae045c7b76ecf2f	7489	60
 forms.tsv	7deefce9c61c8bc236a0acbac0f9a4ec5e3235dee9b872fea7a423b86987ea48	26869	853
 gaps-v4.tsv	c4bf20a2ea62b680fd612a4677b15400577c1407d617be89e3fbaed33fe61ffc	11709	395
+generalization.tsv	d53b41f021d6ec69f30360bfe879438dd7c03fa311bdbb5001e43f523bdb78ed	91	0
 harvest-provenance.tsv	1e3395088ae95a1b23c9cc3b01cb5f49dca4f0b412f6a44387a8ccf42d4b1f51	781518	9269
 holdout-independent.tsv	88fdb11ce9ea059b503535a064552edc5a506599cf54c6a1331df68055565fb2	247500	1972
 holdout-natural.tsv	6984dc8c936c500fbb57f1eb66be9149dedf8d044d252f80049efaa4e24f94ce	236861	1167
@@ -33,6 +34,7 @@ prompts/holdout-review.md	a185e4512457a1d744cdfe9263514d989350f3ada2b946c4724bae
 prompts/labeling-harvest-llm.md	ffbfb9693b2731fc1df33b97cb7614ab0be02e209ef56fa066f57b17da161387	2955	35
 prompts/labeling-natural-v2.md	56ad97fee929bd8592b9425f9d89a6801ff106f513c24cdb8bdec874263468a7	2500	29
 readings.tsv	b8f7bbc3394322f53b76ef5107138535a9c8775b39c6030a744b0a203d63da8e	34956	395
+regression.tsv	e6a14cc53b70f000b496cf743f419c241f1f394ecbfa2e5d76d6b305268c4b1e	65039	519
 synthetic-provenance.tsv	7a6046134adc513670efeac9a52334b78aeec6fe854a258f0dd6d48e99596e99	755409	14998
 train.tsv	6213c5709bf777c8a30e2d2ab50e7e465934da5593a1a7b2382da2c9ef6b309f	2929339	19865
 whd-mapping.tsv	65e3a5df5e7efde532bf116f3d7c637169295c4ecd902d4546af723054b30c5e	8410	326

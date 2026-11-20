@@ -19,6 +19,8 @@ altered, mislabeled, restricted, undocumented or leaking evaluation material. It
 - **SchemaChecker**: the structural and referential checks of the inventory, the mappings and the data rows
 - **LicenseChecker**: the license, attribution and excluded-material checks
 - **LeakageChecker**: the internal split separation checks and the optional check against external evaluation sets
+- **EvaluationOverlayChecker**: the checks of the regression overlay and of the blind generalization set (references,
+  seen-in-training marks, holdout separation, novelty and the quotas of the set)
 - **CheckDataCommand**: the command line entry that orchestrates the other units (the `Program.cs` glue of the tool
   dispatches to it)
 
@@ -29,8 +31,9 @@ subsystem's table reader and data folder discovery.
 ### Interfaces
 
 The subsystem exposes one command line interface and no public API: every type is internal. The command is `check-data`
-with the options `--data <folder>`, `--eval-sets <folder>`, `--leakage-report <file>`, `--max-findings <n>` and
-`--counts`, and the environment variable `TEXTEN_EVAL_SETS` as the default of `--eval-sets`. It returns the exit code 0
+with the options `--data <folder>`, `--eval-sets <folder>`, `--leakage-report <file>`, `--generalization <file>` (a
+staged copy of the generalization set checked in place of the committed one), `--max-findings <n>` and `--counts`, and
+the environment variable `TEXTEN_EVAL_SETS` as the default of `--eval-sets`. It returns the exit code 0
 when every check passes, 1 when any check reports a finding and 2 for a usage or input error. Findings and progress are
 written to the standard output as lines of the form `check-data: <check>: <file>[:<line>]: <message>`; usage and input
 errors go to the standard error. The subsystem consumes only the .NET base class library and has no OTS dependency. The
@@ -49,16 +52,20 @@ and runs the checks in a fixed order, each of which adds findings to the report 
    `SpanValidator` for the target span), the provenance identifiers and the gap table.
 4. `LicenseChecker` checks the license of every row against the allow-list and its source, the restricted terms, the
    file names of the folder, the attribution and the `License:` lines of the documents.
-5. `LeakageChecker` checks the separation of the splits, and only when an evaluation folder is supplied compares the
-   rows with the sentences of the external evaluation sets.
-6. `CheckReport` prints the summary and gives the exit code.
+5. `LeakageChecker` checks the separation of the splits.
+6. `EvaluationOverlayChecker` checks the regression overlay and the generalization set (or, with `--generalization`,
+   a staged copy of the set in place of the committed one).
+7. `LeakageChecker`, only when an evaluation folder is supplied, compares the rows with the sentences of the external
+   evaluation sets.
+8. `CheckReport` prints the summary and gives the exit code.
 
 **Unit collaboration.** The checkers are independent of each other: each takes the loaded `TextEnDataSet` and the
 `CheckReport` (`LicenseChecker` also the data folder, because it inspects the file names and the documents), and no
 checker knows another. `TsvTable` is the only unit that parses a data file, `DataManifest` the only one that hashes
 them, `SpanValidator` the only one that knows what a whole-word span is, and `CheckReport` the only one that decides
 the exit code. The dependency direction is `CheckDataCommand` to the units it runs, the checkers to `TextEnDataSet`,
-`SpanValidator` and `CheckReport` (`LicenseChecker` also to `DataManifest` for the list of files), and `TextEnDataSet`
+`SpanValidator` and `CheckReport` (`LicenseChecker` also to `DataManifest` for the list of files, and
+`EvaluationOverlayChecker` also to the `SentenceKeys` normalization of the leakage unit), and `TextEnDataSet`
 and `DataManifest` to `TsvTable` and `CheckReport` (`TextEnDataSet` also to `DataManifest`); there are no cycles.
 
 **Data Model: the dataset as a tool input.** The dataset in `data/text-en/` is not a software item. It is reviewed
@@ -84,6 +91,13 @@ The files and their columns are:
   need_natural`): the counts per reading and what is still missing
 - `leakage-report.tsv` (`eval_set eval_sentences split rows exact near_duplicate share_5gram`): the result of the
   last external check
+- `regression.tsv` (`id lemma reading_id sentence start end origin ref seen_in_training license`): the regression
+  overlay; each row refers to an owner-flagged sentence, a golden or analyzer test sentence, or a training or
+  development row (`origin` and `ref`), and `seen_in_training` says whether the model trained on the sentence
+- `generalization.tsv` (`id lemma reading_id sentence start end kind family cue_forms cue_unsolvable source license`):
+  the blind generalization set; `kind` is `novel-vocabulary` or `novel-construction`, `family` the cue or template
+  family (the unit of the bootstrap), `cue_forms` the designated cue words and `cue_unsolvable` whether the curated cues
+  of the classifier cannot solve the row; committed with its header only until a blind writer has written it
 - `MANIFEST.tsv` (`file sha256 bytes rows`): the pinned hash, size and row count of every other file
 - the other tables, `README.md`, `ATTRIBUTION.md`, `audit/`, `prompts/` and `check-output.txt`: documentation and
   records, covered by the manifest
@@ -106,6 +120,16 @@ tables when the data was built, and requires a provenance record for every harve
 **Split rules.** Natural rows are separated by their source document, so that all rows of a document are in one split.
 Synthetic rows are separated by their template, so that one template is in one split. The sentence itself may not occur
 in two files. A synthetic generation batch is not a separation unit: a batch may straddle splits and is not checked.
+
+**Evaluation overlays.** The two overlays are not splits and are not part of `DataFiles`, so the split separation, the
+per-reading counts and `gaps-v4.tsv` do not see them. The regression overlay may repeat a training or development
+sentence (it records that as seen) but never refers to or repeats a holdout sentence. The generalization set must stay
+new against the training, development, holdout and regression data under the rules N1 to N3 of *EvaluationOverlayChecker
+Design*; those rules run on every check, so a later training or development row that makes a generalization row
+familiar fails the check. The quotas of the set apply only once it has rows: the set is written by a blind writer after
+the checks are committed, and a header-only file is valid until then. A staged copy outside the repository is checked
+with `--generalization <file>`; its novelty findings give a generic reason and never name a training row, so they can
+be passed back to the writer.
 
 **Manifest.** `MANIFEST.tsv` lists every file of the folder except itself and the local cache folders `external/` and
 `work/`, which are never committed, sorted by ordinal comparison of the forward-slash relative path, with the SHA-256

@@ -439,6 +439,35 @@ sections:
           - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
           - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
 
+      - id: SpeechTextEn-TrainingData-EvaluationOverlays
+        title: >-
+          The repository shall keep, beside the Text.En training data, a regression overlay that refers to
+          owner-flagged sentences, golden test sentences and existing examples and marks each as seen or unseen
+          in training, and a generalization test set written blind, and its data check shall fail when an
+          overlay row is malformed, refers to an example it does not match or to a holdout, repeats a holdout
+          sentence or carries a wrong seen-in-training mark, or when a generalization row repeats a committed
+          sentence or is not new for its word in its designated cue words or in the words around it, or the
+          written set lacks the required number of rows of each kind, of families and of rows that the
+          hand-written cues cannot solve; a staged copy of the set shall be checkable before it is committed,
+          with reasons that reveal no training sentence.
+        tags: [system]
+        justification: |
+          Hand-written cues and new features are only worth keeping when they help on sentences the model
+          has never seen; the flagged sentences show where the model failed, and a set written blind,
+          before any model that uses it is trained, shows whether a change generalizes. Both sets only mean
+          something while they stay what they claim to be: the overlay must not touch the holdouts and must
+          say honestly which sentences were trained on, and the generalization set must stay new against the
+          training and development data as they change. The writer of the set may not see the training
+          data, so the check of a staged copy may only say what is wrong, not which training sentence it
+          resembles.
+        children:
+          - SpeechTextEn-TrainingData-OverlayChecks
+        tests:
+          - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
+          - TrainingDataSubsystem_CheckData_StagedGeneralization_ReportsGenericFindings
+          - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
+          - TrainingDataSubsystem_CommittedRegression_GoldenAndTestReferencesResolve
+
       - id: SpeechTextEn-Training-Reproducible
         title: >-
           The repository shall provide a command that trains the heteronym model from the committed

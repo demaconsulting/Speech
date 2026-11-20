@@ -27,6 +27,11 @@ from `--eval-sets` or the environment variable, the option winning; `--leakage-r
 error without evaluation sets or inside the data folder; `--max-findings` caps the printed findings; `--counts` prints
 the per-reading table.
 
+**Staged generalization set** (`StagedGeneralization`). `--generalization` is parsed with a space and with an equals
+sign; with a staged file outside the data folder that repeats a training sentence the command exits 1 with an `overlay`
+finding located in the staged file that carries the generic reason, says which file it checked and names no training
+row; a staged file that does not exist is a usage error with exit code 2.
+
 #### Test Scenarios
 
 ##### Exit codes
@@ -54,3 +59,8 @@ empty folder and an empty file, each in its own run.
 
 The discovery test runs once from a folder below the data's parent and once from an unrelated folder with the tool
 directory below it.
+
+##### Staged generalization set
+
+**Tests**: `CheckDataCommand_Run_StagedGeneralization_ChecksStagedFileWithGenericReasons`,
+`CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo`, `CheckDataCommand_TryParse_GeneralizationOption_IsParsed`

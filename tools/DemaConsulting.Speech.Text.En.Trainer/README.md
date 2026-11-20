@@ -26,6 +26,8 @@ Verifies the data folder and reports every violation as `check-data: <check>: <f
 - `schema`: readings, mappings, forms, decisions, labeled rows with strict whole-word spans, provenance ids, counts
 - `license`: open licenses only, per-source license policy, attribution, no evaluation-only material
 - `leakage`: the splits stay disjoint (sentences, source documents, synthetic templates)
+- `overlay`: the regression overlay (references, seen-in-training marks, no holdout contact) and the generalization
+  set (novelty rules N1 to N3 against the training and development data, and its quotas once it has rows)
 
 Options:
 
@@ -35,6 +37,8 @@ Options:
   or `text` column, no quoting). Evaluation data must never be committed.
 - `--leakage-report <file>`: write the per-set, per-split counts (requires evaluation sets supplied via `--eval-sets` or
   `TEXTEN_EVAL_SETS`; outside the data folder)
+- `--generalization <file>`: check a staged copy of the generalization set in place of the committed one; its novelty
+  findings give a generic reason and never name a training row, so they can go back to the blind writer
 - `--max-findings <n>`: findings printed per check (default 25)
 - `--counts`: print the per-reading row counts
 

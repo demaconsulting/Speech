@@ -65,6 +65,62 @@ public sealed class CheckDataCommandTests
         Assert.Equal(string.Empty, error);
     }
 
+    /// <summary>
+    ///     Proves <c>--generalization</c> checks a staged file in place of the committed set: the staged rows' novelty
+    ///     findings carry the staged location and a generic reason, and the committed set is not checked.
+    /// </summary>
+    [Fact]
+    public void CheckDataCommand_Run_StagedGeneralization_ChecksStagedFileWithGenericReasons()
+    {
+        // Arrange: a staged row that repeats a training sentence, outside the data folder
+        using var fixture = new DatasetFixture();
+        var staged = Path.Combine(fixture.EvaluationDirectory, "generalization.tsv");
+        fixture.WriteGeneralization(
+            staged,
+            DatasetFixture.GeneralizationRowText("gen-0001", "lead.verb", "She will lead the team today!", "lead", "novel-construction", "lead:guide", "-"));
+
+        // Act
+        var (exitCode, output, _) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--generalization", staged);
+
+        // Assert
+        Assert.Equal(1, exitCode);
+        Assert.Contains($"check-data: overlay: staged:generalization.tsv:2: gen-0001: N1: {EvaluationOverlayChecker.GenericN1}", output);
+        Assert.Contains("generalization set checked from the staged file", output);
+        Assert.DoesNotContain("harvest-00001", output);
+    }
+
+    /// <summary>Proves a staged generalization set that does not exist is a usage error with exit code 2.</summary>
+    [Fact]
+    public void CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo()
+    {
+        // Arrange
+        using var fixture = new DatasetFixture();
+
+        // Act
+        var (exitCode, _, error) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--generalization", "absent.tsv");
+
+        // Assert
+        Assert.Equal(2, exitCode);
+        Assert.Contains("staged generalization set", error);
+    }
+
+    /// <summary>Proves <c>--generalization</c> is parsed in both spellings.</summary>
+    [Theory]
+    [InlineData("--generalization", "staged.tsv")]
+    [InlineData("--generalization=staged.tsv", null)]
+    public void CheckDataCommand_TryParse_GeneralizationOption_IsParsed(string first, string? second)
+    {
+        // Arrange
+        var args = second is null ? new[] { first } : [first, second];
+
+        // Act
+        var options = CheckDataCommand.TryParse(args, out var error);
+
+        // Assert
+        Assert.Null(error);
+        Assert.Equal("staged.tsv", options!.Generalization);
+    }
+
     /// <summary>Proves a violation exits with 1 and the output names the check, file and line.</summary>
     [Fact]
     public void CheckDataCommand_Run_Violation_ExitsOneAndNamesCheckFileAndLine()

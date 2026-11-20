@@ -7,7 +7,8 @@ The SpeechTextEn TrainingDataSubsystem is verified through deterministic tests i
 subsystem tests in `TrainingDataSubsystemTests.cs` run the real `CheckDataCommand` with its real units over a small
 valid data folder that the fixture (`Fakes/DatasetFixture.cs`) writes in code into a temporary folder: a few readings
 including a noun and verb pair, their forms, the mapping, rows in all four splits with their provenance records, the
-documents with their `License:` lines, the attribution and a computed manifest. No fixture table is checked in. Each
+documents with their `License:` lines, the attribution, two regression overlay rows, a header-only generalization set
+and a computed manifest. No fixture table is checked in. Each
 negative test changes exactly one thing in a fresh copy and, where the manifest would otherwise fail first, rewrites the
 manifest, so each test shows one check failing for its own reason. A further test runs the command over the real
 committed `data/text-en` folder, found by walking up from the test assembly to the solution file; it is skipped, and
@@ -27,12 +28,17 @@ stated order, share one report and agree on the exit codes.
 
 - **Command contract** (`CheckCommand`, `FileFormat`, `SchemaValidation`, `LicenseGate`, `LeakageGate`): a valid fixture
   and the real committed data pass every check with exit code 0 and the summary `check-data: OK (0 findings)` (the
-  fixture run also says that the optional external check was skipped); each of five single violations (a missing final
-  newline, an unknown reading, a restricted license, an evaluation-only file name and a duplicate sentence) gives exit
-  code 1 with a line that names its check.
+  fixture run also says that the optional external check was skipped); each of six single violations (a missing final
+  newline, an unknown reading, a restricted license, an evaluation-only file name, a duplicate sentence and a wrong
+  seen mark of the regression overlay) gives exit code 1 with a line that names its check.
 - **Manifest** (`FileFormat`): a changed file is named in a manifest finding until the manifest is regenerated, and then
   the data passes.
 - **External sets** (`LeakageGate`): an evaluation folder with a sentence equal to a row gives an exact-match finding.
+- **Evaluation overlays** (`OverlayChecks`): a wrong seen-in-training mark gives exit code 1 with an `overlay` finding;
+  a staged generalization set that repeats a training sentence gives an `overlay` finding located in the staged file
+  with the generic reason and no training row named; every golden and test reference of the committed regression
+  overlay resolves to a line or row of the repository's test files or run log that holds its sentence (and, where the
+  file names one, its reading).
 
 ### Test Scenarios
 
@@ -49,10 +55,11 @@ that the repository's data is open, consistent, separated and documented.
 
 **Test**: `TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck`
 
-A theory over five named mutations of the valid fixture, one per check family: the format, the schema, the licenses (a
-share-alike license and a file named after an evaluation-only corpus) and the separation of the splits (a duplicate
-sentence). Each mutation recomputes the manifest and runs the command; the exit code is 1 and the output contains a line
-that names the expected check and the failure summary. The finer cases of each check are unit-level tests.
+A theory over six named mutations of the valid fixture, one per check family: the format, the schema, the licenses (a
+share-alike license and a file named after an evaluation-only corpus), the separation of the splits (a duplicate
+sentence) and the evaluation overlays (a wrong seen mark). Each mutation recomputes the manifest and runs the command;
+the exit code is 1 and the output contains a line that names the expected check and the failure summary. The finer cases
+of each check are unit-level tests.
 
 #### Manifest drift
 
@@ -68,6 +75,18 @@ names the file and its hash; after the manifest is recomputed the same data pass
 A temporary evaluation folder with a text file that contains a sentence of the data gives an exact-match finding of the
 external check.
 
+#### Evaluation overlays
+
+**Tests**: `TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck`,
+`TrainingDataSubsystem_CheckData_StagedGeneralization_ReportsGenericFindings`,
+`TrainingDataSubsystem_CommittedRegression_GoldenAndTestReferencesResolve`
+
+The single-violation theory includes a wrong seen mark of the regression overlay. The staged test writes a staged copy
+of the generalization set outside the data folder and runs the command with `--generalization`. The reference test reads
+the committed `regression.tsv` and, for every row that is not a data-row reference, opens the referenced file among the
+repository's test files (or the run log) and checks that the referenced line or row holds the row's sentence; it is
+skipped, and says so, only when the repository root or the overlay is absent.
+
 See also *SpeechTextEn System Verification* and the unit documents `tsv-table.md`, `text-en-data-set.md`,
 `data-manifest.md`, `span-validator.md`, `check-report.md`, `schema-checker.md`, `license-checker.md`,
-`leakage-checker.md` and `check-data-command.md`.
+`leakage-checker.md`, `evaluation-overlay-checker.md` and `check-data-command.md`.

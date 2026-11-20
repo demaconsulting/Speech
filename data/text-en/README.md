@@ -29,6 +29,8 @@ recorded per file and per row. Nothing here is legal advice.
 | [extension-candidates.tsv](extension-candidates.tsv) | 60 | the ranked proposal of heteronyms that inventory v1 did not cover (natural frequency, class Y/R/S) | CC0-1.0 |
 | [extension-decisions.tsv](extension-decisions.tsv) | 60 | the decision per candidate (add or defer) with the CMUdict evidence | CC0-1.0 |
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
+| [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
+| [generalization.tsv](generalization.tsv) | 0 | the blind generalization test set; header only until the blind writer has written it (see "Evaluation Overlays") | CC0-1.0 |
 | [audit/](audit/audit-summary.md) | 6 files | blind relabel audit, adjudication, holdout review and final review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
@@ -188,6 +190,56 @@ WikipediaHomographData and heteronym-bench are **evaluation-only and never commi
 Because the evaluation sets are not committed, `check-data` runs only the internal separation checks by default (and so does CI). The external check must be
 re-run by an operator with local copies of the evaluation sets before any change of the data (command and options in "Check" below).
 
+## Evaluation Overlays
+
+Two evaluation files sit beside the splits. They are not splits: they are not part of the split separation, the per-reading
+counts or `gaps-v4.tsv`, nothing is trained on them, and `check-data` checks them with rules of their own (`overlay`
+findings). The protocol and the pre-registered use of both are in the trainer's `RUN-LOG.md`, entry "Word-cluster
+subsystem (PR A)".
+
+### Regression overlay: 519 rows
+
+`regression.tsv` (`id lemma reading_id sentence start end origin ref seen_in_training license`) collects the sentences the
+model has to keep getting right. Every row refers to where it comes from (`origin` and `ref`):
+
+| Origin | Rows | Seen in training | Reference |
+| --- | ---: | ---: | --- |
+| `listening` | 7 | 0 | the owner's listening flags and their controls: *grey and very minute and clear*, *The difference was extremely minute*, *a knife wound or a deep muscle tear* (two targets), *Yesterday I read the whole book*, *The tape wound onto the spool*, *A tear ran down her cheek* (`RUN-LOG.md:<line>` or `<Name>Tests.cs:<line>`) |
+| `analyzer-test` | 11 | 0 | the analyzer tests that assert a reading with the embedded model (`<Name>Tests.cs:<line>`) |
+| `golden-pipeline` | 37 | 0 | the heteronym targets of the Piper pipeline golden sentences (the Kokoro golden has the same sentences), labeled from the reviewed expected phonemes (`piper-pipeline-golden.tsv:<id>`) |
+| `golden-sentences` | 61 | 0 | the heteronym targets of the sentence golden whose expected phonemes match the reviewed readings golden of exactly one candidate, plus six inflected forms labeled from their phonemes and sentence (`sentences-golden.tsv:<id>`) |
+| `golden-readings` | 382 | 6 | the end-to-end rows of the readings golden, one per reading (`readings-golden.tsv:<line>`); 3 rows are already in the overlay as listening or analyzer rows |
+| `data-row` | 21 | 19 | training and development rows of the flagged constructions: `wound.injury` with *knife*, *stab* or *bullet*; `tear.rip` with a word of the body or a material; `minute.tiny` after a degree adverb; `read.past` with a past-time phrase (`train.tsv:<id>` or `dev.tsv:<id>`) |
+
+`seen_in_training` is `yes` exactly when the row refers to a training row, its sentence key equals a training sentence or
+it nearly repeats one (the near-duplicate rule of "Leakage"); `check-data` recomputes it. No row refers to or repeats a
+holdout sentence. A `data-row` reference must match the referenced row (lemma, reading, sentence, offsets and license);
+the golden and test references are resolved by a trainer test that reads the repository's test files. Own-written and
+golden rows are `CC0-1.0`; the listening sentence *To the eastward, of course, these little boats ...* is quoted from a
+public-domain book and is `Public-Domain`; `data-row` rows carry the license of the referenced row. The file was built
+once by a throwaway script from the golden files, the analyzer tests, the run log and the data rows.
+
+### Generalization set (written blind)
+
+`generalization.tsv` (`id lemma reading_id sentence start end kind family cue_forms cue_unsolvable source license`) is a
+test set written blind by a model of another family that sees only `readings.tsv`, `forms.tsv` and
+its prompt `prompts/generalization.md`, which is committed before the set is written. It covers 13 target words in 27 target slots. Its
+rows are novel by construction, and `check-data` enforces the novelty against the data as it is now:
+
+- **N1**: no sentence equals a sentence of the four data files or of the regression overlay, or nearly repeats a training
+  or development sentence;
+- **N2** (`kind` `novel-vocabulary`): every designated cue word (`cue_forms`) is absent from the training and development
+  sentences of the target's lemma group (the lemmas whose readings share a form, such as `wind` and `wound`);
+- **N3** (`kind` `novel-construction`): no word trigram around the target (positions -2..0, -1..+1, 0..+2, target
+  replaced) occurs at the same position around the target of a training or development row of the group.
+
+Once the set has rows it must have at least 30 families (`family`, the cue or template family, the unit of the bootstrap)
+of 2 to 12 rows, 90 `novel-vocabulary` and 70 `novel-construction` rows, 60 rows that the curated cues of the classifier
+cannot solve (`cue_unsolvable=yes`) over 8 lemmas, and rows for at least two readings of every target. Until the blind
+writer has written it, the file has its header only and these quotas do not apply. A staged copy is checked before it is
+committed with `check-data --generalization <file>`, whose novelty findings give a generic reason and never name a
+training row. Every row is `CC0-1.0` and has the source `generalization`.
+
 ## Harvest rules
 
 - Reading from UPOS only when the part of speech decides every reading of the homograph and exactly one reading covers that tag;
@@ -304,6 +356,8 @@ Options:
 - `--eval-sets <dir>` (or the environment variable `TEXTEN_EVAL_SETS`; the option wins): a folder of neutral evaluation sets for the optional external leakage check
   (see below).
 - `--leakage-report <file>`: requires evaluation sets supplied via `--eval-sets` or `TEXTEN_EVAL_SETS`; writes the per-set and per-split counts in the format of `leakage-report.tsv`.
+- `--generalization <file>`: checks a staged copy of the generalization set in place of the committed `generalization.tsv` (see "Evaluation Overlays");
+  its novelty findings give a generic reason only.
 - `--max-findings <n>`: the number of findings printed per check (the rest is counted).
 - `--counts`: also prints the per-reading count table.
 - `--help`: prints the usage.
@@ -325,6 +379,8 @@ What the command enforces, in this order:
    `license` cells) contains a forbidden license or source term: share-alike, non-commercial, no-derivatives (CC-BY-SA, CC-BY-NC, CC-BY-ND), Wikipedia or Misaki. Each of
    `README.md`, `prompts/README.md` and `audit/audit-summary.md` declares `License:` with allowed ids only.
 5. **Internal separation**: a sentence is in only one data file, a natural document is in only one split, and a synthetic (reading, template) pair is in only one data file.
+6. **Evaluation overlays**: the rules of "Evaluation Overlays" for `regression.tsv` and `generalization.tsv` (or the staged copy given with `--generalization`). In the
+   overlays, every cell except the sentence is scanned for the forbidden terms of step 4.
 
 ### External leakage check (optional)
 

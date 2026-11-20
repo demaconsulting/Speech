@@ -61,6 +61,25 @@ public sealed class LicenseCheckerTests
         Assert.True(DatasetFixture.Has(report, License, "license 'CC0-1.0' is not allowed for source 'harvest-masc'"));
     }
 
+    /// <summary>Proves a restricted term in the metadata of an overlay is a finding while the sentence column is never scanned.</summary>
+    [Fact]
+    public void LicenseChecker_Run_OverlayMetadata_IsScannedButNotItsSentence()
+    {
+        // Arrange: a restricted term in a regression reference, and the same term inside a regression sentence
+        using var fixture = new DatasetFixture();
+        fixture.EditRow(TextEnDataSet.RegressionFile, "reg-0002", ("ref", "wikipedia-golden.tsv:2"));
+        fixture.AppendRow(
+            TextEnDataSet.RegressionFile,
+            DatasetFixture.RegressionRowText("reg-0003", "lead.verb", "Wikipedia editors lead the discussion.", "lead", "listening", "RUN-LOG.md:1", "no"));
+
+        // Act
+        var report = fixture.CheckLicense();
+
+        // Assert: one finding, on the reference line only
+        var finding = Assert.Single(report.Findings, finding => finding.Message.Contains("restricted-license term", StringComparison.Ordinal));
+        Assert.Equal($"{TextEnDataSet.RegressionFile}:3", finding.Location);
+    }
+
     /// <summary>Proves a harvested row without a provenance entry is reported.</summary>
     [Fact]
     public void LicenseChecker_Run_HarvestRowWithoutProvenance_ReportsFinding()

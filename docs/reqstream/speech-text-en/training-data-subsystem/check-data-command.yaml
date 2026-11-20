@@ -68,3 +68,18 @@ sections:
                   - CheckDataCommand_Run_LeakageReportWithoutSetsOrInsideData_ExitsTwo
                   - CheckDataCommand_Run_MaxFindings_CapsPrintedFindings
                   - CheckDataCommand_Run_CountsOption_PrintsPerReadingTable
+
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-StagedGeneralization
+                title: >-
+                  The CheckDataCommand class shall run the evaluation overlay checks after the internal leakage
+                  check, and with the generalization option shall check the given staged generalization file
+                  in place of the committed set, locating its findings as staged and saying which file it
+                  checked, and shall end with the exit code 2 when that file does not exist.
+                justification: |
+                  The blind writer's output is checked against the committed data before it is committed,
+                  with the same command and rules that later gate the committed set; a missing file is an
+                  operator error, not a data finding.
+                tests:
+                  - CheckDataCommand_Run_StagedGeneralization_ChecksStagedFileWithGenericReasons
+                  - CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo
+                  - CheckDataCommand_TryParse_GeneralizationOption_IsParsed

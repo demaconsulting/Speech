@@ -74,3 +74,15 @@ sections:
                   - LicenseChecker_Run_NoAttributionRows_DoesNotRequireAttributionFile
                   - LicenseChecker_Run_ReadmeWithoutLicenseLine_ReportsFinding
                   - LicenseChecker_Run_AuditSummaryMissing_ReportsFinding
+
+              - id: SpeechTextEn-TrainingData-LicenseChecker-OverlayMetadata
+                title: >-
+                  The LicenseChecker class shall scan every cell of the regression overlay and the
+                  generalization set except the sentence for restricted-license terms, reporting a finding
+                  with the line.
+                justification: |
+                  The overlays carry their own metadata (origin, reference, family, cue forms, source and
+                  license), where a restricted source could be named; their sentences are natural language
+                  that may mention such words legitimately, as in the data files.
+                tests:
+                  - LicenseChecker_Run_OverlayMetadata_IsScannedButNotItsSentence

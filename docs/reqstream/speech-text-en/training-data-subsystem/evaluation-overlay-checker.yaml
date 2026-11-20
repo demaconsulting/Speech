@@ -1,0 +1,111 @@
+---
+# Software Unit Requirements for EvaluationOverlayChecker
+#
+# These requirements describe the design-level behavior of the EvaluationOverlayChecker unit, the check
+# of the two evaluation overlays of the Text.En data folder (the regression overlay regression.tsv and
+# the blind generalization set generalization.tsv), decomposing the parent SpeechTextEn
+# TrainingDataSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/EvaluationOverlayCheckerTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingDataSubsystem Requirements
+        sections:
+          - title: EvaluationOverlayChecker Requirements
+            requirements:
+              - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-Regression
+                title: >-
+                  The EvaluationOverlayChecker class shall report a finding for a regression overlay row whose
+                  identifier is malformed or repeated, whose reading is unknown or not of its lemma, whose span
+                  is not one whole listed form of its reading, whose license is not allowed, whose origin is
+                  unknown or whose reference does not fit its origin, that refers to a holdout file, that
+                  repeats or nearly repeats a holdout sentence, whose data-row reference does not resolve to a
+                  training or development row with the same lemma, reading, sentence, offsets and license, or
+                  whose seen-in-training mark differs from the one recomputed from the training sentences
+                  (seen exactly when the row refers to a training row, repeats a training sentence or nearly
+                  repeats one), and shall print the number of rows per origin and of seen and unseen rows.
+                justification: |
+                  The overlay measures the model on flagged and golden sentences, split by whether the
+                  model trained on them; a wrong mark would mix the two, and an overlay row that touched a
+                  holdout would carry holdout content into a set read during development.
+                tests:
+                  - EvaluationOverlayChecker_Run_ValidFixture_NoFindingsAndShapeSkipped
+                  - EvaluationOverlayChecker_CheckRegression_DataRowMismatch_IsFinding
+                  - EvaluationOverlayChecker_CheckRegression_HoldoutReferenceOrRepeat_IsFinding
+                  - EvaluationOverlayChecker_CheckRegression_WrongSeenMark_IsFinding
+                  - EvaluationOverlayChecker_CheckRegression_GoldenSentenceInTraining_MustBeSeen
+                  - EvaluationOverlayChecker_CheckRegression_MalformedRow_IsFinding
+
+              - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-GeneralizationRows
+                title: >-
+                  The EvaluationOverlayChecker class shall report a finding for a generalization row whose
+                  identifier is malformed or repeated, whose sentence repeats another row of the set, whose
+                  reading, lemma or span is invalid, whose kind is not novel vocabulary or novel construction,
+                  whose family does not name a lemma of the row's lemma group, whose cue forms are missing on a
+                  novel-vocabulary row or are not single lower-case words of the sentence other than a form of
+                  the target, whose cue-unsolvable mark is not yes or no, whose source or license is not the
+                  generalization source and CC0-1.0, whose sentence has fewer than 6 or more than 30 words, or
+                  whose sentence has more than one word of the target's lemma group.
+                justification: |
+                  The evaluation slices the set by kind, family and cue-unsolvable mark and bootstraps over
+                  families, so each of these columns must hold a value the evaluation can use, and a sentence
+                  with two targets or of an extreme length would not measure what the row claims.
+                tests:
+                  - EvaluationOverlayChecker_CheckGeneralization_MalformedColumn_IsFinding
+                  - EvaluationOverlayChecker_CheckGeneralization_LengthOrSecondTarget_IsFinding
+                  - EvaluationOverlayChecker_GroupOf_SharedForm_JoinsLemmas
+
+              - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-Novelty
+                title: >-
+                  The EvaluationOverlayChecker class shall report a finding for a generalization row whose
+                  sentence key equals a sentence of the training, development, holdout or regression data or
+                  nearly repeats a training or development sentence (rule N1), for a novel-vocabulary row with
+                  a cue form that occurs in a training or development sentence of the row's lemma group (rule
+                  N2), and for a novel-construction row with a word trigram around its target (positions -2 to
+                  0, -1 to +1 or 0 to +2, target replaced by a placeholder) that occurs at the same position
+                  around the target of a training or development row of the group (rule N3), where a lemma
+                  group joins the lemmas whose readings share a surface form, and shall name the matching row
+                  in the findings of the committed set.
+                justification: |
+                  The generalization set measures whether the model handles words and constructions it has
+                  not trained on. Novelty is defined over the designated cue words and the words right
+                  around the target rather than every neighboring word, which would make the rule
+                  unsatisfiable, and it is checked against the data as it is now, so a later training or
+                  development row cannot silently make a row familiar.
+                tests:
+                  - EvaluationOverlayChecker_CheckGeneralization_NovelRows_PassWithSmallQuotas
+                  - EvaluationOverlayChecker_CheckGeneralization_N1RepeatedSentence_IsFinding
+                  - EvaluationOverlayChecker_CheckGeneralization_N2KnownCueForm_IsFinding
+                  - EvaluationOverlayChecker_CheckGeneralization_N3KnownConstruction_IsFinding
+
+              - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-StagedReasons
+                title: >-
+                  The EvaluationOverlayChecker class shall, for a staged generalization set, give each novelty
+                  finding a fixed generic reason with the staged row's location and identifier, without
+                  naming a training, development, holdout or regression file, row or sentence.
+                justification: |
+                  The writer of the set works blind; failing rows go back to the same writer to be replaced,
+                  and a reason that quoted or named a training sentence would show the writer the data the
+                  set must stay independent of.
+                tests:
+                  - EvaluationOverlayChecker_CheckGeneralization_StagedRows_GiveGenericReasonsOnly
+
+              - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-Shape
+                title: >-
+                  The EvaluationOverlayChecker class shall, once the generalization set has rows, report a
+                  finding when the set has fewer than 30 families, a family with fewer than 2 or more than 12
+                  rows, fewer than 90 novel-vocabulary or 70 novel-construction rows, fewer than 60
+                  cue-unsolvable rows or fewer than 8 lemmas among them, or a lemma group with rows for fewer
+                  than 2 of its readings, and shall report that the quotas are not yet applied while the set
+                  has no rows.
+                justification: |
+                  The pre-registered comparison resamples families and reports the kinds and the
+                  cue-unsolvable rows separately, which needs enough of each to give a usable interval. The
+                  set is written after the checks are committed, so an empty set must pass until then and the
+                  quotas must hold as soon as it is written.
+                tests:
+                  - EvaluationOverlayChecker_Run_ValidFixture_NoFindingsAndShapeSkipped
+                  - EvaluationOverlayChecker_CheckGeneralization_PopulatedSetBelowDefaultQuotas_ReportsEveryQuota
+                  - EvaluationOverlayChecker_CheckGeneralization_OneReadingOfLemma_IsShapeFinding

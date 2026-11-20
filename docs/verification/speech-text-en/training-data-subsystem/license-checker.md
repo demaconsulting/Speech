@@ -26,6 +26,9 @@ the source column of a data row gives a finding with its line, while the same te
 named after an evaluation-only corpus gives a finding, while the mapping table and the local cache folders are not
 reported.
 
+**Overlay metadata** (`OverlayMetadata`). A restricted term in a reference of the regression overlay gives one finding
+with its line, while the same term inside an overlay sentence gives none.
+
 **Attribution** (`Attribution`). A `CC-BY-3.0-US` row without an attribution file, or with one that does not name the
 corpus, gives a finding, and no such row requires no attribution file; a readme without a `License:` line, a readme with
 a disallowed license and a missing audit summary each give a finding.
@@ -56,3 +59,7 @@ National Corpus row, so only the source policy rejects them.
 
 The attribution test checks a missing file and a file that does not name the corpus; the readme test checks a readme
 without a license line and one with a disallowed license.
+
+##### Overlay metadata
+
+**Test**: `LicenseChecker_Run_OverlayMetadata_IsScannedButNotItsSentence`

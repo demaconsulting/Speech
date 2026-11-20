@@ -243,6 +243,7 @@ includes:
   - docs/reqstream/speech-text-en/training-data-subsystem/schema-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/license-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/leakage-checker.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/evaluation-overlay-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/check-data-command.yaml
   - docs/reqstream/speech-text-en/training-subsystem.yaml
   - docs/reqstream/speech-text-en/training-subsystem/training-corpus.yaml

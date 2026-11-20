@@ -8,9 +8,9 @@
 # malformed, altered, mislabeled, restricted, undocumented or leaking. It consists of the strict file
 # reader (TsvTable), the typed data loader (TextEnDataSet), the manifest verifier (DataManifest), the
 # whole-word span check (SpanValidator), the finding collector (CheckReport), the schema, license and
-# leakage checks (SchemaChecker, LicenseChecker, LeakageChecker) and the command line entry
-# (CheckDataCommand). The data itself is a tool input, not a software item. Each requirement
-# states one observable behavior.
+# leakage checks (SchemaChecker, LicenseChecker, LeakageChecker), the evaluation overlay check
+# (EvaluationOverlayChecker) and the command line entry (CheckDataCommand). The data itself is a
+# tool input, not a software item. Each requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
 # docs/reqstream/speech-text-en/training-data-subsystem/. Covered by
@@ -129,3 +129,31 @@ sections:
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
               - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
               - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
+
+          - id: SpeechTextEn-TrainingData-OverlayChecks
+            title: >-
+              The TrainingDataSubsystem shall check the regression overlay and the generalization set on every
+              run: the overlay's rows, references, holdout separation and seen-in-training marks; the
+              generalization rows' columns and their novelty against the training, development, holdout and
+              overlay data; the quotas of the set once it has rows; and, on request, a staged copy of the set in
+              place of the committed one, with novelty reasons that name no training or development row.
+            justification: |
+              Both sets are evaluation data whose value depends on rules that a change to any data file can
+              break, so the rules are checked with the rest of the data on every change. The generalization
+              set is written later by a writer who may not see the training data, so it is committed with its
+              header only until then, and a copy staged outside the repository is checked before it is
+              committed, with reasons that can be passed back to the writer.
+            children:
+              - SpeechTextEn-TrainingData-EvaluationOverlayChecker-Regression
+              - SpeechTextEn-TrainingData-EvaluationOverlayChecker-GeneralizationRows
+              - SpeechTextEn-TrainingData-EvaluationOverlayChecker-Novelty
+              - SpeechTextEn-TrainingData-EvaluationOverlayChecker-StagedReasons
+              - SpeechTextEn-TrainingData-EvaluationOverlayChecker-Shape
+              - SpeechTextEn-TrainingData-TextEnDataSet-OverlayLoading
+              - SpeechTextEn-TrainingData-LicenseChecker-OverlayMetadata
+              - SpeechTextEn-TrainingData-CheckDataCommand-StagedGeneralization
+            tests:
+              - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
+              - TrainingDataSubsystem_CheckData_StagedGeneralization_ReportsGenericFindings
+              - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
+              - TrainingDataSubsystem_CommittedRegression_GoldenAndTestReferencesResolve

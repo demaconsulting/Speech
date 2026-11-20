@@ -225,6 +225,7 @@ input-files:
   - docs/verification/speech-text-en/training-data-subsystem/schema-checker.md
   - docs/verification/speech-text-en/training-data-subsystem/license-checker.md
   - docs/verification/speech-text-en/training-data-subsystem/leakage-checker.md
+  - docs/verification/speech-text-en/training-data-subsystem/evaluation-overlay-checker.md
   - docs/verification/speech-text-en/training-data-subsystem/check-data-command.md
   - docs/verification/speech-text-en/training-subsystem.md
   - docs/verification/speech-text-en/training-subsystem/training-corpus.md

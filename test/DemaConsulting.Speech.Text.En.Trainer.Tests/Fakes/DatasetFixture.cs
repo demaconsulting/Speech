@@ -10,7 +10,8 @@ namespace DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
 /// </summary>
 /// <remarks>
 ///     The fixture has three readings (<c>lead.verb</c>, <c>lead.noun</c>, <c>wind.noun</c>), nine labeled rows spread
-///     over the four splits (with the matching provenance rows), the documents that declare licenses, the attribution
+///     over the four splits (with the matching provenance rows), two regression overlay rows, a generalization set with
+///     its header only, the documents that declare licenses, the attribution
 ///     file and a computed <c>MANIFEST.tsv</c>. Offsets are computed from the target word, never typed by hand. The
 ///     folder is created in code so no fixture data files are checked in, and it is deleted on disposal.
 /// </remarks>
@@ -287,6 +288,18 @@ internal sealed class DatasetFixture : IDisposable
         return report;
     }
 
+    /// <summary>
+    ///     Loads the data set and runs the evaluation overlay checks on the committed overlay files.
+    /// </summary>
+    /// <param name="shape">The quotas of a populated generalization set; <see langword="null"/> for the default.</param>
+    /// <returns>The report (including load findings).</returns>
+    public CheckReport CheckOverlays(GeneralizationShape? shape = null)
+    {
+        var report = new CheckReport(1000);
+        new EvaluationOverlayChecker(TextEnDataSet.Load(Root, report), report, shape).Run();
+        return report;
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -436,5 +449,63 @@ internal sealed class DatasetFixture : IDisposable
         Write("prompts/README.md", "# Prompts\n\nLicense: CC0-1.0\n");
         Write("audit/audit-summary.md", "# Audit\n\nLicense: CC0-1.0\n");
         Write("ATTRIBUTION.md", "# MASC Attribution\n\nLicense: CC-BY-3.0-US\n\nSentences are adapted from MASC.\n");
+
+        // The evaluation overlays: a regression row that refers to a training row and one from a golden test file, and
+        // a generalization set that is not written yet (header only)
+        WriteTable(
+            TextEnDataSet.RegressionFile,
+            [.. TextEnDataSet.RegressionHeader],
+            [
+                RegressionRowText("reg-0001", "lead.noun", "The lead pipe was heavy.", "lead", "data-row", "train.tsv:syn-00001", "yes"),
+                RegressionRowText("reg-0002", "lead.verb", "Guides lead the hikers uphill.", "lead", "golden-readings", "readings-golden.tsv:2", "no"),
+            ]);
+        WriteTable(TextEnDataSet.GeneralizationFile, [.. TextEnDataSet.GeneralizationHeader], []);
     }
+
+    /// <summary>
+    ///     Renders a regression overlay row whose offsets are computed from the target word.
+    /// </summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="readingId">The reading id; the lemma is its prefix.</param>
+    /// <param name="sentence">The sentence.</param>
+    /// <param name="word">The target word, which must occur in the sentence.</param>
+    /// <param name="origin">The origin.</param>
+    /// <param name="reference">The reference.</param>
+    /// <param name="seen">The seen-in-training mark.</param>
+    /// <param name="license">The license.</param>
+    /// <returns>The cells.</returns>
+    public static string[] RegressionRowText(string id, string readingId, string sentence, string word, string origin, string reference, string seen, string license = "CC0-1.0")
+    {
+        var row = DataRowText(id, readingId, sentence, word, "unused", license, "unused");
+        return [row[0], row[1], row[2], row[3], row[4], row[5], origin, reference, seen, license];
+    }
+
+    /// <summary>
+    ///     Renders a generalization set row whose offsets are computed from the target word.
+    /// </summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="readingId">The reading id; the lemma is its prefix.</param>
+    /// <param name="sentence">The sentence.</param>
+    /// <param name="word">The target word, which must occur in the sentence.</param>
+    /// <param name="kind">The kind.</param>
+    /// <param name="family">The family.</param>
+    /// <param name="cueForms">The cue forms.</param>
+    /// <param name="cueUnsolvable">The cue-unsolvable mark.</param>
+    /// <returns>The cells.</returns>
+    public static string[] GeneralizationRowText(string id, string readingId, string sentence, string word, string kind, string family, string cueForms, string cueUnsolvable = "no")
+    {
+        var row = DataRowText(id, readingId, sentence, word, "unused", "CC0-1.0", "unused");
+        return [row[0], row[1], row[2], row[3], row[4], row[5], kind, family, cueForms, cueUnsolvable, "generalization", "CC0-1.0"];
+    }
+
+    /// <summary>
+    ///     Writes a generalization set file (outside the data root when <paramref name="path"/> is absolute).
+    /// </summary>
+    /// <param name="path">The path, relative to the data root or absolute.</param>
+    /// <param name="rows">The rows.</param>
+    public void WriteGeneralization(string path, params string[][] rows) =>
+        File.WriteAllText(
+            Path.Combine(Root, path),
+            string.Join('\n', new[] { TextEnDataSet.GeneralizationHeader.ToArray() }.Concat(rows).Select(cells => string.Join('\t', cells))) + "\n",
+            Utf8);
 }

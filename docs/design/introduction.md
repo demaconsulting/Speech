@@ -250,8 +250,8 @@ Speech, not a subsystem of it, and the library must never depend on it:
   `DemaConsulting.Speech.Text.En.Trainer` tool, which verifies the training and evaluation data in `data/text-en/`: the
   internal `TsvTable` strict file reader, the `TextEnDataSet` typed loader with its source vocabulary, the
   `DataManifest` verifier, the `SpanValidator` whole-word span check, the `CheckReport` finding collector, the
-  `SchemaChecker`, `LicenseChecker` and `LeakageChecker` checks, and the `CheckDataCommand` entry (with the
-  `Program.cs` glue)
+  `SchemaChecker`, `LicenseChecker`, `LeakageChecker` and `EvaluationOverlayChecker` checks, and the `CheckDataCommand`
+  entry (with the `Program.cs` glue)
 - **TrainingSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `train` and `evaluate` commands of the same
   `DemaConsulting.Speech.Text.En.Trainer` tool, which train the heteronym model from the training and development
   data, verify a committed model by retraining, and measure a model end to end on the development and holdout sets with
@@ -999,7 +999,8 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 │   ├── SpanValidator.cs                                   — Strict whole-word span check
 │   ├── SchemaChecker.cs                                   — Inventory, reference, row, provenance-id and gap-table checks (with ReadingCounts)
 │   ├── LicenseChecker.cs                                  — License allow-list, source policy, restricted terms, paths, attribution
-│   └── LeakageChecker.cs                                  — Split separation and optional external evaluation-set check (with SentenceKeys)
+│   ├── LeakageChecker.cs                                  — Split separation and optional external evaluation-set check (with SentenceKeys)
+│   └── EvaluationOverlayChecker.cs                        — Regression overlay and generalization set checks: references, seen marks, novelty, quotas (with GeneralizationShape)
 ├── TrainingSubsystem/
 │   ├── TrainingCorpus.cs                                  — Loader of the four training inputs; row preparation with the runtime's own units (with LabeledRow, PreparedRow and RowPreparer)
 │   ├── DeterministicRandom.cs                             — SplitMix64 generator with unbiased draws and a Fisher-Yates shuffle
@@ -1026,6 +1027,7 @@ data/text-en/
 ├── extension-decisions.tsv                                — Decisions on candidate readings (reviewed data)
 ├── train.tsv, dev.tsv, holdout-natural.tsv, holdout-independent.tsv — Labeled rows (large; pinned by the manifest)
 ├── harvest-provenance.tsv, synthetic-provenance.tsv, gaps-v4.tsv, leakage-report.tsv — Records and reports
+├── regression.tsv, generalization.tsv                     — Evaluation overlays: references to flagged, golden and existing sentences, and the blind generalization set (reviewed data)
 ├── exclusions.tsv, extension-candidates.tsv, check-output.txt — Removed rows, candidates and the recorded check output
 ├── audit/                                                 — Blind audit records and their summary
 ├── prompts/                                               — The prompts that produced the generated and labeled data

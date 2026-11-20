@@ -11,23 +11,28 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 /// <param name="MaxFindings">The number of findings printed per check.</param>
 /// <param name="ShowCounts">Whether to print the per-reading count table.</param>
 /// <param name="ShowHelp">Whether usage was requested.</param>
+/// <param name="Generalization">
+///     The <c>--generalization</c> file: a staged copy of the generalization set checked in place of the committed one,
+///     or <see langword="null"/> to check the committed set.
+/// </param>
 internal sealed record CheckDataOptions(
     string? Data,
     string? EvalSets,
     string? LeakageReport,
     int MaxFindings,
     bool ShowCounts,
-    bool ShowHelp);
+    bool ShowHelp,
+    string? Generalization = null);
 
 /// <summary>
 ///     The <c>check-data</c> command: verifies the Text.En training data folder and reports every violation.
 /// </summary>
 /// <remarks>
 ///     The checks run in a fixed order so the output is deterministic: manifest, dataset load (file formats),
-///     schema, license, internal leakage, optional external leakage, summary. Every check runs even when an earlier
+///     schema, license, internal leakage, evaluation overlays, optional external leakage, summary. Every check runs even when an earlier
 ///     one found problems, so one run lists everything. The exit code is <c>0</c> when no check found a violation,
 ///     <c>1</c> when at least one did, and <c>2</c> for a usage or I/O error (bad option, missing folder or malformed
-///     path, an evaluation-set folder that is missing or empty, an evaluation file with no sentences, an unreadable
+///     path, an evaluation-set folder that is missing or empty, a staged generalization set that does not exist, an evaluation file with no sentences, an unreadable
 ///     file). The command is a pure function of its
 ///     arguments, writers, current directory and environment accessor, so tests can run it in memory.
 /// </remarks>
@@ -39,12 +44,16 @@ internal static class CheckDataCommand
     /// <summary>The environment variable that supplies the evaluation-set folder when <c>--eval-sets</c> is absent.</summary>
     public const string EvalSetsVariable = "TEXTEN_EVAL_SETS";
 
+    /// <summary>The prefix of the location of a finding in a staged generalization set (<c>staged:generalization.tsv:12</c>).</summary>
+    public const string StagedPrefix = "staged:";
+
     /// <summary>The usage text.</summary>
     public const string Usage = """
         Usage: check-data [options]
 
         Verifies the Text.En training data (manifest, file format, schema, strict whole-word spans,
-        licenses, split separation) and optionally its separation from evaluation sets.
+        licenses, split separation, the regression overlay and the generalization set) and optionally
+        its separation from evaluation sets.
 
         Options:
           --data <dir>            The data folder (default: data/text-en, searched upward from the current
@@ -54,6 +63,10 @@ internal static class CheckDataCommand
                                   Default: the folder named by the TEXTEN_EVAL_SETS environment variable.
           --leakage-report <file> Writes the per-set, per-split leakage counts (requires
                                   evaluation sets supplied via --eval-sets or TEXTEN_EVAL_SETS).
+          --generalization <file> Checks a staged copy of the generalization set in place of the committed
+                                  generalization.tsv (schema, novelty against the committed training,
+                                  development, holdout and regression data, and the shape quotas). Its novelty
+                                  findings give a generic reason only and never name a training sentence.
           --max-findings <n>      Findings printed per check (default 25); the exit code counts all of them.
           --counts                Prints the per-reading row counts.
           --help                  Shows this text.
@@ -115,7 +128,14 @@ internal static class CheckDataCommand
                 return UsageError(error, "--leakage-report needs evaluation sets and must be written outside the data folder");
             }
 
-            return RunChecks(options, root, evalPath, reportPath, output);
+            // A staged generalization set that does not exist is an operator error, not a data finding
+            var stagedPath = options.Generalization is null ? null : Path.GetFullPath(options.Generalization, currentDirectory);
+            if (stagedPath is not null && !File.Exists(stagedPath))
+            {
+                return UsageError(error, $"the staged generalization set '{stagedPath}' was not found");
+            }
+
+            return RunChecks(options, root, evalPath, reportPath, stagedPath, output);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException or NotSupportedException)
         {
@@ -135,6 +155,7 @@ internal static class CheckDataCommand
         string? data = null;
         string? evalSets = null;
         string? leakageReport = null;
+        string? generalization = null;
         var maxFindings = CheckReport.DefaultMaxFindingsPerCheck;
         var showCounts = false;
         var showHelp = false;
@@ -156,7 +177,7 @@ internal static class CheckDataCommand
                 case "--counts":
                     showCounts = true;
                     break;
-                case "--data" or "--eval-sets" or "--leakage-report" or "--max-findings":
+                case "--data" or "--eval-sets" or "--leakage-report" or "--generalization" or "--max-findings":
                     var value = inline ?? (position < args.Count ? args[position++] : null);
                     if (string.IsNullOrEmpty(value))
                     {
@@ -176,6 +197,10 @@ internal static class CheckDataCommand
                     {
                         leakageReport = value;
                     }
+                    else if (name == "--generalization")
+                    {
+                        generalization = value;
+                    }
                     else if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out maxFindings) || maxFindings < 1)
                     {
                         parseError = "option --max-findings needs a positive integer";
@@ -189,7 +214,7 @@ internal static class CheckDataCommand
             }
         }
 
-        return new CheckDataOptions(data, evalSets, leakageReport, maxFindings, showCounts, showHelp);
+        return new CheckDataOptions(data, evalSets, leakageReport, maxFindings, showCounts, showHelp, generalization);
     }
 
     /// <summary>
@@ -230,9 +255,10 @@ internal static class CheckDataCommand
     /// <param name="root">The data folder.</param>
     /// <param name="evalPath">The evaluation-set folder, or <see langword="null"/>.</param>
     /// <param name="reportPath">The leakage report file, or <see langword="null"/>.</param>
+    /// <param name="stagedPath">The staged generalization set to check in place of the committed one, or <see langword="null"/>.</param>
     /// <param name="output">The output writer.</param>
     /// <returns>The exit code, 0 or 1.</returns>
-    private static int RunChecks(CheckDataOptions options, string root, string? evalPath, string? reportPath, TextWriter output)
+    private static int RunChecks(CheckDataOptions options, string root, string? evalPath, string? reportPath, string? stagedPath, TextWriter output)
     {
         var report = new CheckReport(options.MaxFindings);
         report.AddInfo($"check-data: data folder {root}");
@@ -245,6 +271,7 @@ internal static class CheckDataCommand
 
         var leakage = new LeakageChecker(data, report);
         leakage.CheckInternal();
+        RunOverlayChecks(data, report, stagedPath);
         RunExternalLeakage(leakage, report, root, evalPath, reportPath);
 
         report.WriteTo(output);
@@ -254,6 +281,29 @@ internal static class CheckDataCommand
         }
 
         return report.ExitCode;
+    }
+
+    /// <summary>
+    ///     Runs the evaluation overlay checks: the regression overlay, then either the committed generalization set or a
+    ///     staged copy checked in its place.
+    /// </summary>
+    /// <param name="data">The loaded data set.</param>
+    /// <param name="report">The report.</param>
+    /// <param name="stagedPath">The staged generalization set, or <see langword="null"/> to check the committed one.</param>
+    private static void RunOverlayChecks(TextEnDataSet data, CheckReport report, string? stagedPath)
+    {
+        var overlays = new EvaluationOverlayChecker(data, report);
+        overlays.CheckRegression();
+        if (stagedPath is null)
+        {
+            overlays.CheckGeneralization(data.Generalization, revealMatches: true);
+            return;
+        }
+
+        // The staged findings go back to a blind writer, so they name no training row and give a generic reason
+        var name = StagedPrefix + Path.GetFileName(stagedPath);
+        report.AddInfo($"generalization set checked from the staged file {stagedPath} in place of {TextEnDataSet.GeneralizationFile}");
+        overlays.CheckGeneralization(TextEnDataSet.LoadGeneralization(stagedPath, name, report), revealMatches: false);
     }
 
     /// <summary>

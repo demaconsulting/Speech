@@ -28,6 +28,8 @@ needs-review:
   - "data/text-en/bench-mapping.tsv"                                # Text.En external benchmark key to reading id mapping (ids only)
   - "data/text-en/extension-decisions.tsv"                          # Text.En inventory extension decisions
   - "data/text-en/leakage-report.tsv"                               # Text.En recorded external leakage result
+  - "data/text-en/regression.tsv"                                   # Text.En regression overlay (references to flagged, golden and existing sentences)
+  - "data/text-en/generalization.tsv"                               # Text.En blind generalization test set
   - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
   - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"        # Text.En heteronym model protocol, dev exploration and gate runs
   - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"     # Text.En heteronym model training record (pins the model image hash)
@@ -3807,6 +3809,17 @@ reviews:
       - "data/text-en/audit/audit-summary.md"                       # blind audit summary
       - "data/text-en/prompts/*.md"                                 # prompts that produced the generated and labeled data
 
+  # SpeechTextEn-EvaluationOverlays Review (one per system data set)
+  - id: SpeechTextEn-EvaluationOverlays
+    title: Review that SpeechTextEn Evaluation Overlays are Correct, Separated and Written Blind
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem/evaluation-overlay-checker.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "data/text-en/regression.tsv"                               # regression overlay
+      - "data/text-en/generalization.tsv"                           # blind generalization set
+
   # SpeechTextEn-TrainingDataInventory Review (one per system data set)
   - id: SpeechTextEn-TrainingDataInventory
     title: Review that SpeechTextEn Reading Inventory is Correct and Self-Owned
@@ -3960,6 +3973,22 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/LeakageChecker.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/LeakageCheckerTests.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/DirectoryLink.cs"  # directory link helper of the link tests
+
+  # SpeechTextEn-TrainingDataSubsystem-EvaluationOverlayChecker Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-EvaluationOverlayChecker
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem EvaluationOverlayChecker Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/evaluation-overlay-checker.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/evaluation-overlay-checker.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/evaluation-overlay-checker.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/EvaluationOverlayChecker.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/EvaluationOverlayCheckerTests.cs"
 
   # SpeechTextEn-TrainingDataSubsystem-CheckDataCommand Review (one per unit)
   - id: SpeechTextEn-TrainingDataSubsystem-CheckDataCommand

@@ -54,3 +54,20 @@ sections:
                   - SourceInfo_TryGet_KnownSource_ReturnsKindAndLicenses
                   - SourceInfo_TryGet_UnknownSource_ReturnsFalse
                   - SourceInfo_KindOf_Source_ReturnsKindOrNull
+
+              - id: SpeechTextEn-TrainingData-TextEnDataSet-OverlayLoading
+                title: >-
+                  The TextEnDataSet class shall load the regression overlay and the generalization set of a
+                  data folder, and a generalization set from any given path, with their exact headers, shall
+                  give every overlay row with its file, line, offsets and overlay columns, shall accept a
+                  generalization set that has its header only as a set without rows, and shall report a
+                  finding, never an exception, for a missing overlay file, a header that differs or an offset
+                  that is not an integer.
+                justification: |
+                  The overlay checks and the evaluation read the same rows, and a generalization set staged
+                  outside the repository must be read exactly like the committed one. The set is committed
+                  with its header only until a blind writer has written it.
+                tests:
+                  - TextEnDataSet_Load_ValidFixture_LoadsAllTablesWithoutFindings
+                  - TextEnDataSet_Load_OverlayRows_CarryFileLineOffsetsAndColumns
+                  - TextEnDataSet_Load_MissingOverlayOrBadOffset_IsFinding

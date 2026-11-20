@@ -21,6 +21,10 @@ offset and a format defect in another table are findings and do not throw, and t
 header loads no row of that file). The typed rows carry the file, split, line and offsets they came from, and the forms
 of a reading are listed (empty for an unknown reading).
 
+**Overlay loading** (`OverlayLoading`). The valid fixture loads two regression rows and a header-only generalization set
+with no finding; the overlay rows carry their file, line, offsets and overlay columns; a missing overlay file and a
+non-integer overlay offset are findings, and the row with the bad offset is kept with a null offset.
+
 **Source vocabulary** (`SourceVocabulary`). Each known source family gives its allowed licenses, its generated flag and
 its kind; an unknown source is unknown and has no kind.
 
@@ -44,3 +48,9 @@ its kind; an unknown source is unknown and has no kind.
 The vocabulary is an internal part of the unit (the `SourceInfo` record). One generated source (only `CC0-1.0`), the
 American National Corpus source (only `CC-BY-3.0-US`) and an `-llm` source of a corpus that allows `CC0-1.0` or
 `Public-Domain` are checked for their licenses, and one source of each kind for its kind.
+
+##### Overlay loading
+
+**Tests**: `TextEnDataSet_Load_ValidFixture_LoadsAllTablesWithoutFindings`,
+`TextEnDataSet_Load_OverlayRows_CarryFileLineOffsetsAndColumns`,
+`TextEnDataSet_Load_MissingOverlayOrBadOffset_IsFinding`

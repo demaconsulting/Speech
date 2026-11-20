@@ -25,6 +25,9 @@ internal sealed class LicenseChecker
     /// <summary>The only path that may name an evaluation-only set: it holds ids, never text.</summary>
     private const string AllowedEvaluationPath = "whd-mapping.tsv";
 
+    /// <summary>The column of the evaluation overlays that holds the sentence, the only one their scan skips.</summary>
+    private const int OverlaySentenceColumn = 3;
+
     /// <summary>The documents that must declare a <c>License:</c> line.</summary>
     private static readonly string[] DocumentsWithLicenseLine = ["README.md", "prompts/README.md", "audit/audit-summary.md"];
 
@@ -160,13 +163,15 @@ internal sealed class LicenseChecker
     }
 
     /// <summary>
-    ///     Scans a TSV file for restricted-license terms; for the labeled data files only the id, source and license cells are scanned.
+    ///     Scans a TSV file for restricted-license terms; for the labeled data files only the id, source and license
+    ///     cells are scanned, and for the evaluation overlays every cell except the sentence.
     /// </summary>
     /// <param name="relativePath">The path relative to the data root.</param>
     private void ScanForRestrictedTerms(string relativePath)
     {
         // The sentence column is free text from other works and is never scanned: only the metadata is
         var isDataFile = TextEnDataSet.DataFiles.Any(file => file.FileName == relativePath);
+        var isOverlay = relativePath is TextEnDataSet.RegressionFile or TextEnDataSet.GeneralizationFile;
         var lineNumber = 0;
         foreach (var line in File.ReadLines(Path.Combine(_root, relativePath)))
         {
@@ -176,6 +181,10 @@ internal sealed class LicenseChecker
             {
                 var cells = line.Split('\t');
                 text = string.Join('\t', new[] { 0, 6, 7 }.Where(index => index < cells.Length).Select(index => cells[index]));
+            }
+            else if (isOverlay)
+            {
+                text = string.Join('\t', line.Split('\t').Where((_, index) => index != OverlaySentenceColumn));
             }
 
             var match = RestrictedTerms.Match(text);
