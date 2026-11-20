@@ -82,11 +82,14 @@ parsed falls back to the plain word.
 primary stress is kept and a later primary stress becomes a secondary one (`well-known` is `W EH1 L N OW2 N`,
 `battle-field` is `B AE1 T AH0 L F IY2 L D`; a voice that reads two primary stresses in one written word pauses between
 them, which is how *battle-field* was heard as *battle ... field*). When the dictionary lists the closed spelling with
-the same sounds, one primary stress on the vowel that carries it in the parts and a stress on every later stressed part,
-its stress pattern is used. A small
-function word in a later part (`of the in to for and or on at by as a an`) is unstressed, `to` as `T AH0` and `of` as
-`AH2 V`. The item records where the second part starts, so that the Piper renderer writes the later secondary stress
-even next to the primary one, which a single word's stress-clash rule would drop.
+exactly the same sounds, its stress pattern is the word's, wherever its primary stress falls (`cooperate`, `nonfiction`;
+not when the first element is a single letter: `e-mail`). A productive prefix
+(`re pre un dis mis non anti semi inter ex de`, those whose root keeps the primary stress in the dictionary) has the
+sound and the weak stress of a prefix and the root keeps its primary stress (`re-enter`, `ex-wife`). A small function
+word in a later part (`of the in to for and or on at by as a an`) is unstressed, `to` as `T AH0` and `of` as `AH2 V`.
+The item records where each element after the first starts, so that the Piper renderer writes a secondary stress of a
+compound even next to the primary one, which a single word's stress-clash rule would drop, and applies its
+vowel-before-`r` rules inside one element only (`free-range`, `tea-room` and `blue-ribbon` keep their long vowels).
 
 **Reviewed corrections.** The dictionary is the only source of pronunciations, so a wrong entry is spoken wrong for
 good: it lists *nobly* as `N AA1 B L IY0` (the vowel of *knobbly*). `data/phonemes-en/lexicon-corrections.tsv` holds the

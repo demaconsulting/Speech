@@ -344,13 +344,20 @@ in the code and not in the voice:
    secondary stress on each later part where it had a primary one (`bˈæɾəlfˌiːld`, `wˈɛlnˌoʊn`, `sˈɛlfˌɛvədənt`,
    `twˈɛntiwˌʌn`, `fˈʊltˌaɪm`), also when the later part stands right next to the primary stress (the stress-clash rule
    of a single word would drop it). The dictionary's own stress pattern is taken when it lists the closed spelling with
-   the same sounds (`battlefield` is `B AE1 T AH0 L F IY2 L D`) and keeps the primary on the vowel the parts give it and
-   a stress on every later stressed part (`email` is not followed: it has no stress on the first part, and `e-mail` is
-   spoken `ee-mail`). Numbers are not compounds of this kind: the text analysis writes them as separate words
-   (`twenty one`), each with its own stress, as espeak-ng speaks the digits (`twˈɛnti wˈʌn`). Kokoro already demoted the
-   later parts and did not change. Cost against espeak-ng, which writes two primary stresses: the primary stress
-   agreement of the 450 tuning sentences fell from 95.90 to 95.39 percent (the held-out sentences did not move), by
-   design.
+   exactly the same sounds, wherever its primary stress falls (`battlefield` is `B AE1 T AH0 L F IY2 L D`; `cooperate`
+   is `K OW0 AA1 P ER0 EY2 T` and `nonfiction` keeps `F IH1`), except when the first element is a single letter
+   (`e-mail` is spoken `ee-mail`). A productive prefix keeps the primary stress on its root and has the sound and the
+   weak stress of a prefix (`re-enter`, `pre-war`, `anti-war`, `ex-wife`, `non-stop`): the dictionary puts the primary
+   stress on the root for 99 percent of the words with `un-`, 96 of `dis-`, 95 of `mis-`, 92 of `re-`, 87 of `ex-`, 85
+   of `de-`, 83 of `pre-`, 81 of `semi-`, 77 of `non-`, 76 of `anti-` and 73 of `inter-`, and for only about half of
+   those with `co-`, `sub-`, `post-`, `multi-`, `super-` and `pro-` or on the first element for `over-`, `under-`,
+   `out-` and `self-`, which are therefore compounds like any other (checked over every word of the dictionary that is a
+   prefix plus a listed root). The pronunciation records where each element starts, and the vowel-before-`r` rules of
+   item 2 look only inside the element of the vowel (`free-range`, `tea-room` and `blue-ribbon` keep their long vowels).
+   Numbers are not compounds of this kind: the text analysis writes them as separate words (`twenty one`), each with its
+   own stress, as espeak-ng speaks the digits (`twˈɛnti wˈʌn`). Kokoro already demoted the later parts and did not
+   change. Cost against espeak-ng, which writes two primary stresses: the primary stress agreement of the 450 tuning
+   sentences fell from 95.90 to 95.39 percent (the held-out sentences did not move), by design.
 2. **`ear`, `here` and every other NEAR word.** The dictionary writes the vowel of *here* as `IY1 R`, and the renderer
    wrote the long `iː` before the `r` (`hˈiːɹ`); espeak-ng writes the lax `ɪ` (`hˈɪɹ`), and the voice heard `hˈiːɹ` as
    *he*. The whole dictionary (124,926 words) was compared with espeak-ng en-us class by class (the vowel before `r`, by

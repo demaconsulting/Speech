@@ -10,8 +10,12 @@ namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 /// </summary>
 /// <param name="Pronunciation">The ARPAbet pronunciation.</param>
 /// <param name="Source">The source.</param>
-/// <param name="CompoundBreak">The index of the first phone of the second part of a hyphenated compound pronounced part by part, or -1 for any other word.</param>
-internal sealed record PronouncedWord(Pronunciation Pronunciation, PronunciationSource Source, int CompoundBreak = -1);
+/// <param name="ElementStarts">The index of the first phone of each element after the first of a hyphenated compound pronounced part by part, or <see langword="null"/> for any other word.</param>
+internal sealed record PronouncedWord(Pronunciation Pronunciation, PronunciationSource Source, IReadOnlyList<int>? ElementStarts = null)
+{
+    /// <summary>Gets the index of the first phone of the second part of a compound pronounced part by part, or -1 for any other word.</summary>
+    public int CompoundBreak => ElementStarts is { Count: > 0 } ? ElementStarts[0] : -1;
+}
 
 /// <summary>
 ///     Pronounces one word by the phonemizer's priority list: the reading the text analysis chose, then the
@@ -70,6 +74,39 @@ internal sealed class WordPronouncer
         ("un", Pronunciation.Parse("AH0 N")),
         ("re", Pronunciation.Parse("R IY0")),
     ];
+
+    /// <summary>
+    ///     The prefixes that, written with a hyphen before a word, keep the primary stress on that word (<c>re-enter</c>,
+    ///     <c>non-fiction</c>, <c>ex-wife</c>), with the sound and weak stress they have as a prefix. In the dictionary
+    ///     the primary stress is on the root for 99 percent of the words with <c>un-</c>, 96 of <c>dis-</c>, 95 of <c>mis-</c>,
+    ///     92 of <c>re-</c>, 87 of <c>ex-</c>, 85 of <c>de-</c>, 83 of <c>pre-</c>, 81 of <c>semi-</c>, 77 of <c>non-</c>, 76 of
+    ///     <c>anti-</c> and 73 of <c>inter-</c>; for <c>co-</c>, <c>sub-</c>, <c>post-</c>, <c>multi-</c>, <c>super-</c> and
+    ///     <c>pro-</c> it is a toss-up (and for <c>over-</c>, <c>under-</c>, <c>out-</c>, <c>self-</c> and the like it is on the
+    ///     first element), so those are compounds like any other.
+    /// </summary>
+    private static readonly Dictionary<string, Pronunciation> CompoundPrefixForms = BuildCompoundPrefixForms();
+
+    /// <summary>
+    ///     Builds the prefix table of hyphenated words: the productive prefixes whose root keeps the primary stress.
+    /// </summary>
+    /// <returns>The sound of each such prefix.</returns>
+    private static Dictionary<string, Pronunciation> BuildCompoundPrefixForms()
+    {
+        string[] names = ["re", "pre", "un", "dis", "mis", "non", "anti", "semi", "inter"];
+        var forms = new Dictionary<string, Pronunciation>(StringComparer.Ordinal);
+        foreach (var (prefix, phones) in Prefixes)
+        {
+            if (Array.IndexOf(names, prefix) >= 0)
+            {
+                forms[prefix] = phones;
+            }
+        }
+
+        // Prefixes that are not productive for the words the dictionary lacks (exacted and decide are not ex-wife and de-ice)
+        forms["ex"] = Pronunciation.Parse("EH2 K S");
+        forms["de"] = Pronunciation.Parse("D IY0");
+        return forms;
+    }
 
     /// <summary>The lexicon.</summary>
     private readonly CmuLexicon _lexicon;
@@ -245,14 +282,16 @@ internal sealed class WordPronouncer
             return new PronouncedWord(listed[0], PronunciationSource.Lexicon);
         }
 
-        // Part by part; the small function words inside a compound (mother-in-law, state-of-the-art) are unstressed
+        // Part by part; the small function words inside a compound (mother-in-law, state-of-the-art) are unstressed, and a
+        // productive prefix (re-enter, non-fiction) has the sound and the weak stress of a prefix, not of the word of the same spelling
         var result = Pronunciation.Empty;
         var source = PronunciationSource.Lexicon;
-        var secondPartStart = -1;
+        var starts = new List<int>();
         for (var i = 0; i < parts.Length; i++)
         {
             var part = parts[i];
-            var pronounced = PronounceSimple(part, null);
+            var prefixForm = i == 0 && parts.Length > 1 && CompoundPrefixForms.TryGetValue(part, out var form0) ? form0 : null;
+            var pronounced = prefixForm is null ? PronounceSimple(part, null) : new PronouncedWord(prefixForm, PronunciationSource.Lexicon);
             source = (PronunciationSource)Math.Max((int)source, (int)pronounced.Source);
             var phones = pronounced.Pronunciation.Phones;
             if (i > 0 && UnstressedCompoundParts.Contains(part))
@@ -260,44 +299,50 @@ internal sealed class WordPronouncer
                 phones = CompoundPartForms.TryGetValue(part, out var form) ? form.Phones : WithoutStress(pronounced.Pronunciation).Phones;
             }
 
-            // Remember where the second part starts: a renderer whose voice stresses only the first part can demote the rest
-            if (i == 1)
+            // Remember where each element after the first starts: a renderer whose voice stresses only the first part can demote the rest, and a sound rule must not look across the joint
+            if (i > 0)
             {
-                secondPartStart = result.Count;
+                starts.Add(result.Count);
             }
 
             result = result.Append(phones);
         }
 
-        return new PronouncedWord(CompoundStress(result, secondPartStart, listed), source, secondPartStart);
+        // A single letter as the first element (e-mail) is spoken by its name with its own stress, so the closed spelling's pattern does not apply
+        return new PronouncedWord(CompoundStress(result, starts, parts[0].Length == 1 ? Array.Empty<Pronunciation>() : listed), source, starts);
     }
 
     /// <summary>
-    ///     Gives the phones of a compound pronounced part by part the stress of one word: one primary stress, on the
-    ///     first part (where the dictionary lists the closed spelling with the same sounds, its stress pattern), and
-    ///     a secondary stress where a later part had a primary one.
+    ///     Gives the phones of a compound pronounced part by part the stress of one word.
     /// </summary>
     /// <remarks>
+    ///     <para>
     ///     Pronounced part by part, every part of <c>battle-field</c> keeps a primary stress, and a voice then reads the
-    ///     compound as two stressed words with a break between them. The stress pattern of an English compound is one
-    ///     main stress on its first element and a lesser stress on the later ones (<c>battlefield</c>: <c>B AE1 T AH0 L F IY2 L D</c>).
-    ///     The closed spelling of the dictionary is trusted for the pattern only when it sounds exactly like the parts
-    ///     (<c>battlefield</c> does; <c>resign</c> is not <c>re-sign</c>, so it is not used).
+    ///     compound as two stressed words with a break between them. When the dictionary lists the closed spelling with
+    ///     exactly the same sounds (<c>battlefield</c>, <c>cooperate</c>, <c>nonfiction</c>) its stress pattern is the
+    ///     pattern of the word, wherever its primary stress falls (<c>K OW0 AA1 P ER0 EY2 T</c> has it on the root). The
+    ///     closed spelling of a word that merely sounds different (<c>resign</c> is not <c>re-sign</c>) is not used.
+    ///     </para>
+    ///     <para>
+    ///     Otherwise the stress is that of the parts with one primary stress: the first one stays and a later one becomes
+    ///     a secondary stress, which is the pattern of a true compound (one main stress on its first element:
+    ///     <c>B AE1 T AH0 L F IY2 L D</c>). A productive prefix has been given its own weak stress before, so the root of
+    ///     <c>re-enter</c> or <c>non-fiction</c> keeps the primary stress it has as a word, and the prefix has none.
+    ///     </para>
     /// </remarks>
     /// <param name="phones">The phones of all parts.</param>
-    /// <param name="secondPartStart">The index of the first phone of the second part.</param>
+    /// <param name="starts">The index of the first phone of each element after the first.</param>
     /// <param name="closed">The dictionary's variants of the closed spelling; may be empty.</param>
     /// <returns>The phones with the compound's stress.</returns>
-    private static Pronunciation CompoundStress(Pronunciation phones, int secondPartStart, IReadOnlyList<Pronunciation> closed)
+    private static Pronunciation CompoundStress(Pronunciation phones, IReadOnlyList<int> starts, IReadOnlyList<Pronunciation> closed)
     {
         var stressed = phones.Phones.ToArray();
+        var secondPartStart = starts.Count > 0 ? starts[0] : int.MaxValue;
 
-        // The closed spelling's stress pattern, when it has the sounds of the parts, one primary stress on the vowel
-        // that has it in the parts, and a stress on every later vowel that had a primary one (a later part never
-        // loses its stress: the hyphen shows the writer meant two elements)
+        // The closed spelling's stress pattern, when it has the sounds of the parts
         foreach (var variant in closed)
         {
-            if (variant.Count == stressed.Length && SameSounds(variant.Phones, stressed) && KeepsStressedParts(variant.Phones, stressed, secondPartStart))
+            if (variant.Count == stressed.Length && SameSounds(variant.Phones, stressed))
             {
                 stressed = variant.Phones.ToArray();
                 break;
@@ -322,40 +367,6 @@ internal sealed class WordPronouncer
         }
 
         return new Pronunciation(stressed);
-    }
-
-    /// <summary>
-    ///     Tests whether the stress pattern of a closed spelling can stand for the stress pattern of a compound's parts.
-    /// </summary>
-    /// <param name="closed">The phones of the closed spelling.</param>
-    /// <param name="parts">The phones of the parts, of the same length and sounds.</param>
-    /// <param name="secondPartStart">The index of the first phone of the second part.</param>
-    /// <returns>
-    ///     <see langword="true"/> when the closed spelling has one primary stress, on the vowel that has the first primary
-    ///     stress of the parts, and keeps a stress on every vowel of a later part that had a primary stress.
-    /// </returns>
-    private static bool KeepsStressedParts(ReadOnlySpan<Phone> closed, Phone[] parts, int secondPartStart)
-    {
-        var primaries = 0;
-        var firstPrimary = -1;
-        for (var i = 0; i < parts.Length; i++)
-        {
-            if (closed[i].Stress == 1)
-            {
-                primaries++;
-            }
-
-            if (parts[i].Stress == 1 && firstPrimary < 0)
-            {
-                firstPrimary = i;
-            }
-            else if (parts[i].Stress == 1 && i >= secondPartStart && closed[i].Stress == 0)
-            {
-                return false;
-            }
-        }
-
-        return primaries == 1 && firstPrimary >= 0 && closed[firstPrimary].Stress == 1;
     }
 
     /// <summary>

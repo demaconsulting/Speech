@@ -209,6 +209,14 @@ internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
     }
 
     /// <summary>
+    ///     Tests whether a text ends in a dash the core chunker cuts at: <c>--</c>, or a hyphen standing alone (a spaced dash).
+    /// </summary>
+    /// <param name="text">The text of a segment.</param>
+    /// <returns><see langword="true"/> when the text ends in such a dash (an en or em dash is one of the pause marks).</returns>
+    private static bool EndsWithDash(string text) =>
+        text.EndsWith("--", StringComparison.Ordinal) || text == "-" || text.EndsWith(" -", StringComparison.Ordinal);
+
+    /// <summary>
     ///     Tests whether a segment that does not end a sentence is joined to the segment after it.
     /// </summary>
     /// <param name="first">The earlier segment.</param>
@@ -217,7 +225,7 @@ internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
     private static bool CanJoin(SpeechSegment first, SpeechSegment second) =>
         first.Text.Length > 0
         && second.Text.Length > 0
-        && (PauseMarks.Contains(first.Text[^1], StringComparison.Ordinal) || first.Text.EndsWith("--", StringComparison.Ordinal) || char.IsLetterOrDigit(first.Text[^1]))
+        && (PauseMarks.Contains(first.Text[^1], StringComparison.Ordinal) || EndsWithDash(first.Text) || char.IsLetterOrDigit(first.Text[^1]))
         && first.PostSilenceMs == 0
         && second.PreSilenceMs == 0
         && SameOverrides(first.ParameterOverrides, second.ParameterOverrides)

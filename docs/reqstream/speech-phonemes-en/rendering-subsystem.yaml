@@ -75,6 +75,7 @@ sections:
               - RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel
               - RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices
               - RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes
+              - RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements
               - RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions
               - RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions
               - RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped

@@ -24,13 +24,21 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
   four letters that the lexicon lists or the morphology derives (`Morphology`); the letter-to-sound converter
   (`LetterToSound`)
 - **PronounceCompound**: the closed spelling of the dictionary when a part is not a word of its own (`wi-fi`); otherwise
-  each part by the simple rules (a function word in a later part unstressed, the source the highest of the parts), and
-  then the stress of one compound word (`CompoundStress`): one primary stress, the first, and a secondary stress where a
-  later part had a primary one (`battle-field` is `B AE1 T AH0 L F IY2 L D`, as the dictionary lists `battlefield`). A
-  voice that reads two primary stresses in one written word speaks two words with a break between them. When the
-  dictionary lists the closed spelling with the same sounds, its stress pattern is used if it keeps the primary stress
-  on the vowel that has it in the parts and a stress on every later vowel that had a primary one (`email`, with the
-  primary on `mail`, is not followed, because `e-mail` is spoken `ee-mail`)
+  each part by the simple rules (a function word in a later part unstressed, the source the highest of the parts; a
+  productive prefix (`re pre un dis mis non anti semi inter ex de`) with the sound and the weak stress it has as a
+  prefix: `re-enter` is `R IY0 EH1 N T ER0`, not *ray-enter*), and then the stress of one compound word
+  (`CompoundStress`). When the dictionary lists the closed spelling with exactly the same sounds its stress pattern is
+  the word's, wherever its primary stress falls (`cooperate` is `K OW0 AA1 P ER0 EY2 T`, `nonfiction` keeps `F IH1`),
+  except when the first element is a single letter (`e-mail` is spoken `ee-mail`). Otherwise the stress is that of the
+  parts with one primary stress: the first is kept and a later one becomes secondary, so a true compound has its main
+  stress on its first element (`battle-field` is `B AE1 T AH0 L F IY2 L D`, `well-known` is `W EH1 L N OW2 N`) and a
+  word with a prefix keeps the primary stress on its root. A voice that reads two primary stresses in one written word
+  speaks two words with a break between them. The prefixes are those whose root keeps the primary stress in the
+  dictionary (99 percent of the words with `un-`, 96 of `dis-`, 95 of `mis-`, 92 of `re-`, 87 of `ex-`, 85 of `de-`, 83
+  of `pre-`, 81 of `semi-`, 77 of `non-`, 76 of `anti-`, 73 of `inter-`); for `co-`, `sub-`, `post-`, `multi-`, `super-`
+  and `pro-` it is a toss-up, and for `over-`, `under-`, `out-`, `self-` and the like it is on the first element, so
+  those are compounds like any other. `PronouncedWord.ElementStarts` lists where each element after the first starts, so
+  that a renderer can keep a sound rule inside one element
 - **Letter(c)**, **Digit(c)**: a letter by its name (source `Spelled`) and a digit by the dictionary word for it (source
   `Digits`)
 

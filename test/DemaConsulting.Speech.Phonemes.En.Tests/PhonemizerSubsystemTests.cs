@@ -457,6 +457,7 @@ public sealed class PhonemizerSubsystemTests
         Assert.Equal("F UH1 L T AY2 M", fullTime!.Pronunciation.ToString());
         Assert.Equal(3, fullTime.CompoundBreak);
         Assert.Equal("S T EY1 T AH2 V DH AH0 AA2 R T", stateOfTheArt!.Pronunciation.ToString());
+        Assert.Equal([4, 6, 8], stateOfTheArt.ElementStarts);
         Assert.Equal("W AY1 F AY2", wifi!.Pronunciation.ToString());
         Assert.Null(notAWord);
     }

@@ -266,6 +266,29 @@ public sealed class RenderingSubsystemTests
         Assert.Equal("ðə kˈɑːɹ ɪz hˈɪɹ", new EspeakIpaRenderer().Render(Phonemizer.Phonemize("the car is here")));
     }
 
+    /// <summary>
+    ///     Proves the compound golden (<c>compounds-golden.tsv</c>): in every hyphenated word the stress is that of one word (the
+    ///     dictionary's pattern for a closed spelling with the same sounds, wherever its primary stress falls: <i>co-operate</i>,
+    ///     <i>non-fiction</i>; the weak stress of a productive prefix before a root that keeps the primary stress: <i>re-enter</i>,
+    ///     <i>anti-war</i>, <i>ex-wife</i>; one primary stress on the first element of a true compound: <i>battle-field</i>,
+    ///     <i>self-evident</i>), and the vowel-before-<c>r</c> rules stay inside their element (<i>free-range</i>, <i>tea-room</i> and
+    ///     <i>blue-ribbon</i> keep their long vowels), while the same vowels inside one word are r-colored (<i>here</i>, <i>near</i>,
+    ///     <i>poor</i>, <i>inspire</i>).
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements()
+    {
+        // Arrange
+        var rows = File.ReadAllLines(TestFile("compounds-golden.tsv")).Skip(1).Where(l => l.Length > 0).Select(l => l.Split('\t')).ToList();
+
+        // Act
+        var actual = rows.Select(r => (r[0], Item: Assert.Single(Phonemizer.Phonemize(r[0]).Items), Piper: new EspeakIpaRenderer().Render(Phonemizer.Phonemize(r[0])))).ToList();
+
+        // Assert
+        Assert.Equal(17, rows.Count);
+        Assert.Equal(rows.Select(r => (r[0], r[1], r[2])), actual.Select(a => (a.Item1, a.Item.Arpabet, a.Piper)));
+    }
+
     /// <summary>Proves an ellipsis keeps its length for Piper (three dots) and is Kokoro's single ellipsis mark.</summary>
     [Fact]
     public void RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel()

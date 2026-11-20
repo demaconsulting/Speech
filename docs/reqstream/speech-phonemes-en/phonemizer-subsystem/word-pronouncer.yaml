@@ -24,10 +24,13 @@ sections:
                   known stem, else from a productive prefix and a known remainder of at least four letters
                   (never splitting a word the dictionary lists), else from the letter-to-sound model, and
                   report the source of its answer; shall fold diacritics before the lookup; shall pronounce
-                  a hyphenated compound part by part with the primary stress on the first part and a secondary
-                  stress on a later part that had a primary one (taking the stress pattern of the closed
-                  dictionary spelling when it has the same sounds, one primary stress on the same vowel and a
-                  stress on every later stressed part), a small function word
+                  a hyphenated compound part by part with the stress of one word: the stress pattern of the
+                  closed dictionary spelling when it has exactly the same sounds (wherever its primary stress
+                  falls: co-operate, non-fiction; not when the first element is a single letter, e-mail);
+                  otherwise, after a productive prefix (re-, pre-, un-, dis-, mis-, non-, anti-, semi-, inter-,
+                  ex-, de-) the weak stress of the prefix and the primary stress of the root, and in any other
+                  compound one primary stress on the first element and a secondary stress on a later element
+                  that had a primary one (battle-field, well-known); a small function word
                   inside it unstressed, except that a closed dictionary spelling is used when a part is not a
                   word of its own; and shall give no pronunciation for text that contains a letter it cannot
                   fold to the Latin alphabet.

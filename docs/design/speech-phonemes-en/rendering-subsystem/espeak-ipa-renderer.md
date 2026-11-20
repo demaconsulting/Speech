@@ -32,9 +32,11 @@ word) and not lists of words, and their choices were decided by measuring agains
 the evaluation record) and then frozen into the golden corpus. The vowels before `r` follow that engine: `IY` before `r`
 is the lax `ɪ` (`hˈɪɹ`, never `hˈiːɹ`, which the voice hears as *he*), `AY` and `AW` before `r` are followed by a schwa
 that carries the `r` (`aɪɚ`, `aʊɚ`, and `aɪɚɹɪŋ` before a high front vowel), `UW` before `r` is the vowel of *cure*
-(`pʊɹ`) and `EY` before `r` and a consonant or the end is the vowel of *square*. The stress of a compound written with
-a hyphen is read from the pronunciation's compound break: a secondary stress from the second element on is always
-written, even next to the primary stress (`wˈɛlnˌoʊn`), where the stress-clash rule of a single word would drop it.
+(`pʊɹ`) and `EY` before `r` and a consonant or the end is the vowel of *square*. The stress of a compound written with a
+hyphen is read from the pronunciation's element starts: a secondary stress of a compound is always written, even next to
+the primary stress (`wˈɛlnˌoʊn`, `ˌɛkswˈaɪf`), where the stress-clash rule of a single word would drop it, and the
+vowel-before-`r` rules look only at the phones of the element the vowel is in (`free-range` is `fɹˈiːɹˌeɪndʒ`,
+`tea-room` is `tˈiːɹˌuːm`, not r-colored across the joint).
 
 **Error Handling**: a null text throws `ArgumentNullException`; `RenderParts` with a limit below 16 throws
 `ArgumentOutOfRangeException`; an undefined profile throws `ArgumentOutOfRangeException` at construction. Rendering

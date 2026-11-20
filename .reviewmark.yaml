@@ -4549,6 +4549,7 @@ reviews:
       - "src/DemaConsulting.Speech.Phonemes.En/RenderingSubsystem/EspeakWordRules.cs"
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/RenderingSubsystemTests.cs"
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/piper-ipa-golden.tsv"  # golden Piper renderings
+      - "test/DemaConsulting.Speech.Phonemes.En.Tests/TestData/compounds-golden.tsv"  # golden hyphenated compounds
 
   # SpeechPhonemesEn-RenderingSubsystem-MisakiRenderer Review (one per unit)
   - id: SpeechPhonemesEn-RenderingSubsystem-MisakiRenderer

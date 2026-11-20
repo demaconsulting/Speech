@@ -3,7 +3,8 @@ package SpeechOnnxPiper {
         doc /* Turns the text of one speech segment, with the annotations of the English text analysis when
              * there are any, into the framed phoneme-id sequences the Piper graph takes: phonemization
              * (SpeechPhonemesEn's EnglishPhonemizer), rendering as espeak-style IPA (EspeakIpaRenderer, whose
-             * RenderParts cuts a long text into parts of at most 256 symbols) and encoding through the
+             * RenderParts cuts a long text into parts of at most 384 symbols, at the best phrase
+             * boundary) and encoding through the
              * voice's own symbol table with Piper's framing (begin, each symbol followed by pad, end). A
              * symbol the table lacks is skipped and listed in the PiperUtterance result type. Internal. */
 

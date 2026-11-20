@@ -113,12 +113,17 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Equal(9, joined.PostSilenceMs);
         Assert.Same(slow, joined.ParameterOverrides);
 
-        // Assert: a piece cut at a dash or inside a clause is the start of the same utterance
+        // Assert: a piece cut at a dash (a double hyphen, a spaced hyphen or an em dash) or inside a clause is the start of the same utterance
         Assert.Equal("the task before us -- that from these dead we take devotion", Assert.Single(PiperCapabilityProfile.JoinClauses([
             new SpeechSegment("the task before us --", 0, 0, null),
             new SpeechSegment("that from these dead", 0, 0, null),
             new SpeechSegment("we take devotion", 0, 0, null),
         ])).Text);
+        Assert.Equal("the task before us - that from these dead", Assert.Single(PiperCapabilityProfile.JoinClauses([
+            new SpeechSegment("the task before us -", 0, 0, null),
+            new SpeechSegment("that from these dead", 0, 0, null),
+        ])).Text);
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us \u2014", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
 
         // Assert: kept apart
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, slow), new SpeechSegment("two.", 0, 0, fast)]).Count);
