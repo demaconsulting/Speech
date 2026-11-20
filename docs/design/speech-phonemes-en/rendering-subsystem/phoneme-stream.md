@@ -22,11 +22,15 @@ into the symbols of one voice, or reports that it cannot be represented complete
 - **StartsWithVowel(items, index)**, **NextWordText(items, index)**: what the next word is, which some weak forms depend
   on
 - **Split(items, pieces, maxSymbols, render)**: with the budget `maxSymbols` minus the reserve, takes as many items as
-  fit; when that is not all of the rest, the part ends after the last clause mark in its second half if there is one,
-  otherwise after the last word that fits; a single item longer than the budget is one part; the run of items is
-  rendered by the renderer's own function, so the part is exactly what `Render` gives for that stretch, and a part that
-  renders to nothing is omitted. The reserve exists because rendering a run can differ from the sum of the pieces by a
-  few symbols at its edges (a linking `ɹ`, a different weak form of `the`)
+  fit; when that is not all of the rest, the part ends at the best phrase boundary among them: after the last clause
+  mark when the part holds at least a fifth of the budget, otherwise before the last conjunction or relative word
+  (`and`, `that`, `which` ...) when it holds at least two fifths, otherwise after the last word that is not a function
+  word (a word of the weak-form table or a conjunction) when it holds at least half, and otherwise after the last item
+  that fits, so a part is not cut between a function word and the word it belongs to (`of | devotion`); a single item
+  longer than the budget is one part; the run of items is rendered by the renderer's own function, so the part is
+  exactly what `Render` gives for that stretch, and a part that renders to nothing is omitted. The reserve exists
+  because rendering a run can differ from the sum of the pieces by a few symbols at its edges (a linking `ɹ`, a
+  different weak form of `the`)
 
 **Error Handling**: the helpers do not validate their arguments (the renderers do, before calling them); an empty
 sequence gives no part.

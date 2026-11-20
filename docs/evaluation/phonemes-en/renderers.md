@@ -21,13 +21,13 @@ the mapping tables.
   `phoneme_id_map` (159 symbols) and Kokoro's vocabulary (115 symbols): `RenderingSubsystemTests` proves it on every
   target framework.
 - **D5 gates (provisional, report then ratchet).** Piper against espeak-ng en-us on the 450-sentence tuning corpus:
-  **word match 86.1 percent (gate 85), phoneme error rate 3.0 percent excluding stress (gate 8), primary stress
-  agreement 95.9 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
+  **word match 86.1 percent (gate 85), phoneme error rate 2.9 percent excluding stress (gate 8), primary stress
+  agreement 95.4 percent (gate 90)**. Kokoro against misaki US: **phoneme error rate 4.9 percent with full forms (gate
   6)**, 2.0 percent with the opt-in weak forms. On text nobody tuned the rules on (60 fresh sentences, 3,000 further
-  frequent words) the figures hold: Piper 89.3 percent word match, 2.5 percent PER, 98.1 percent primary stress
+  frequent words) the figures hold: Piper 89.5 percent word match, 2.4 percent PER, 98.1 percent primary stress
   agreement on the sentences, and 4.4 percent PER on isolated words; Kokoro 4.5 percent PER on the sentences and 2.8
-  percent on the words. The one figure below its provisional gate is the **word match of isolated words** (78.7 percent
-  tuned, 75.4 percent held out): it is not the gate's corpus (sentences) and its residual is the engine's
+  percent on the words. The one figure below its provisional gate is the **word match of isolated words** (78.9 percent
+  tuned, 75.5 percent held out): it is not the gate's corpus (sentences) and its residual is the engine's
   spelling-driven vowel choice (see "Residual classes").
 - **The gates are ratcheted, never loosened:** the figures above are the new floor (the first authored mapping scored
   61.6 percent word match and 9.7 percent PER for Piper, 6.6 percent PER for Kokoro; see "What the measurement
@@ -40,7 +40,9 @@ the mapping tables.
   95.9 primary stress, and the Kokoro full-form PER back to 4.88. The second round of listening fixes (see "Listening
   Fixes 2") lowered the Piper sentence word match to 86.1 (89.3 held out) by design, because the first word of every
   utterance now carries a secondary stress that espeak-ng does not write; the error rate, the primary stress agreement
-  and every other figure are unchanged or slightly better.
+  and every other figure are unchanged or slightly better. The third round (see "Listening Fixes 3") lowered the Piper
+  error rate to 2.9 (2.4 held out) and, by design, the primary stress agreement on the tuning sentences to 95.4, because
+  a hyphenated compound now has one primary stress where espeak-ng writes two.
 
 ## What Is Rendered
 
@@ -136,10 +138,10 @@ All numbers are percent. The first pass of each pair is the corpus the rules wer
 
 | System and corpus | Words | Match | No stress | PER | Primary | Signature | Secondary |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Piper, 450 sentences | 4,279 | 86.12 | 91.14 | 3.01 | 95.90 | 93.48 | 54.49 |
-| Piper, 60 held-out sentences | 636 | 89.31 | 92.61 | 2.47 | 98.10 | 95.60 | 55.74 |
-| Piper, 3,000 words | 3,000 | 78.70 | 81.27 | 4.47 | 95.39 | 93.80 | 62.56 |
-| Piper, 3,000 held-out words | 3,000 | 75.37 | 77.47 | 4.38 | 96.76 | 94.00 | 68.28 |
+| Piper, 450 sentences | 4,279 | 86.07 | 91.35 | 2.93 | 95.39 | 93.18 | 53.08 |
+| Piper, 60 held-out sentences | 636 | 89.47 | 92.77 | 2.40 | 98.10 | 95.60 | 55.74 |
+| Piper, 3,000 words | 3,000 | 78.93 | 81.50 | 4.40 | 95.39 | 93.80 | 62.56 |
+| Piper, 3,000 held-out words | 3,000 | 75.53 | 77.67 | 4.35 | 96.76 | 94.00 | 68.28 |
 | Kokoro full, 450 sentences | 4,357 | 62.73 | 82.19 | 4.88 | 71.45 | 75.10 | 23.54 |
 | Kokoro full, 60 held-out sentences | 659 | 64.80 | 83.16 | 4.50 | 72.17 | 76.33 | 21.62 |
 | Kokoro full, 3,000 words | 2,990 | 81.34 | 86.09 | 2.91 | 94.81 | 91.27 | 48.47 |
@@ -150,13 +152,15 @@ All numbers are percent. The first pass of each pair is the corpus the rules wer
 Columns: words compared, word match (stress marks included), word match ignoring stress, phoneme error rate (PER)
 excluding stress, primary stress agreement, stress signature agreement, secondary stress agreement.
 
-**Gates.** Piper word match 86.1 (gate 85), PER 3.0 (gate 8), primary stress 95.9 (gate 90): met on the tuned corpus and
-on the held-out sentences (89.3, 2.5, 98.1). Kokoro PER 4.9 with full forms and 2.0 with weak forms (gate 6): met. Not
-met: Piper word match on isolated words (78.7 and 75.4 against 85); that metric is not the gate's corpus and is
+**Gates.** Piper word match 86.1 (gate 85), PER 2.9 (gate 8), primary stress 95.4 (gate 90): met on the tuned corpus and
+on the held-out sentences (89.5, 2.4, 98.1). Kokoro PER 4.9 with full forms and 2.0 with weak forms (gate 6): met. Not
+met: Piper word match on isolated words (78.9 and 75.5 against 85); that metric is not the gate's corpus and is
 dominated by the class "unstressed short vowel chosen by spelling" below. The stress agreement of Kokoro with full forms
 (71 percent) is low only because of function words: with the weak forms it is 94 percent. The Piper word match on
 sentences fell from 89.4 to 86.1 and its stress signature and secondary stress agreement fell with it, on purpose: see
-"Listening Fixes 2".
+"Listening Fixes 2". The third round (see "Listening Fixes 3") moved the Piper figures by less than a point: word match
+86.12 to 86.07 on the tuned sentences (89.31 to 89.47 held out), PER 3.01 to 2.93 (2.47 to 2.40), primary stress 95.90
+to 95.39 (98.10 held out, unchanged); Kokoro's figures did not move.
 
 ## What the Measurement Changed
 
@@ -326,6 +330,113 @@ Evidence is in the experiment sets kept outside the repository; none of the reco
 Phonemes.En goldens changed in 59 lines of the Piper golden (the first word of the sentence, in every case); the Piper
 pipeline golden changed in 23 rows (the same first-word marks, and the sentences with commas now one utterance each).
 The Kokoro goldens did not change.
+
+### Listening Fixes 3
+
+The third round of owner listening (the Gettysburg Address, Piper LibriTTS-R, speaker 0) flagged four sentences:
+*battle-field* heard as *battle ... field*, *for those who here gave* heard as *who he gave*, *so nobly advanced* heard
+as *so knobbly*, and *the last full measure of ... devotion* with a pause. The causes were general, and each was found
+in the code and not in the voice:
+
+1. **A compound with two primary stresses.** Every part of a hyphenated compound was given its own primary stress
+   (`bˈæɾəlfˈiːld`; espeak-ng writes the same two marks), and the voice reads two primary stresses in one written word
+   as two stressed words with a break between them. A compound now has one primary stress, on its first part, and a
+   secondary stress on each later part where it had a primary one (`bˈæɾəlfˌiːld`, `wˈɛlnˌoʊn`, `sˈɛlfˌɛvədənt`,
+   `twˈɛntiwˌʌn`, `fˈʊltˌaɪm`), also when the later part stands right next to the primary stress (the stress-clash rule
+   of a single word would drop it). The dictionary's own stress pattern is taken when it lists the closed spelling with
+   exactly the same sounds, wherever its primary stress falls (`battlefield` is `B AE1 T AH0 L F IY2 L D`; `cooperate`
+   is `K OW0 AA1 P ER0 EY2 T` and `nonfiction` keeps `F IH1`), except when the first element is a single letter
+   (`e-mail` is spoken `ee-mail`). A productive prefix keeps the primary stress on its root and has the sound and the
+   weak stress of a prefix (`re-enter`, `pre-war`, `anti-war`, `ex-wife`, `non-stop`): the dictionary puts the primary
+   stress on the root for 99 percent of the words with `un-`, 96 of `dis-`, 95 of `mis-`, 92 of `re-`, 87 of `ex-`, 85
+   of `de-`, 83 of `pre-`, 81 of `semi-`, 77 of `non-`, 76 of `anti-` and 73 of `inter-`, and for only about half of
+   those with `co-`, `sub-`, `post-`, `multi-`, `super-` and `pro-` or on the first element for `over-`, `under-`,
+   `out-` and `self-`, which are therefore compounds like any other (checked over every word of the dictionary that is a
+   prefix plus a listed root). The pronunciation records where each element starts, and the vowel-before-`r` rules of
+   item 2 look only inside the element of the vowel (`free-range`, `tea-room` and `blue-ribbon` keep their long vowels).
+   Numbers are not compounds of this kind: the text analysis writes them as separate words (`twenty one`), each with its
+   own stress, as espeak-ng speaks the digits (`twˈɛnti wˈʌn`). Kokoro already demoted the later parts and did not
+   change. Cost against espeak-ng, which writes two primary stresses: the primary stress agreement of the 450 tuning
+   sentences fell from 95.90 to 95.39 percent (the held-out sentences did not move), by design.
+2. **`ear`, `here` and every other NEAR word.** The dictionary writes the vowel of *here* as `IY1 R`, and the renderer
+   wrote the long `iː` before the `r` (`hˈiːɹ`); espeak-ng writes the lax `ɪ` (`hˈɪɹ`), and the voice heard `hˈiːɹ` as
+   *he*. The whole dictionary (124,926 words) was compared with espeak-ng en-us class by class (the vowel before `r`, by
+   stress and by what follows the `r`) and the systematic differences were fixed: `IY` before `r` is `ɪ` (words ending
+   in `IY1 R` agreed in 0 of 25 before and 56 percent now; before a consonant 0 of 53 and 62 percent; before a vowel 3
+   and 30 percent); `AY` and `AW` before `r` are followed by a schwa that carries the `r` (`aɪɚ`: `inspire`, `retire`,
+   `admire`; `aʊɚ`), with the `r` kept before a high front vowel (`aɪɚɹɪŋ`: `firing`) and a plain `ɹ` before any other
+   vowel (`kˈaɪɹoʊ`: `cairo`, `cyrus`, `environment`): 0 of 42 agreed before, 71 percent now (50 words ending in `AY2 R`
+   0 and 56 percent; before a vowel 31 and 42 percent); `UW` before `r` is the vowel of *cure* (`pˈʊɹ`, `pˈʊɹɹɚ`: 0 of
+   24 and 29 percent; 9 and 28 percent before a vowel); `EY` before `r` and a consonant or the end of the word is the
+   vowel of *square* (`ʃˈɛɹ`: 0 of 9 and 44 percent). The other conventions agree already: SQUARE `ɛɹ`, CURE `ʊɹ`, NORTH
+   and FORCE `ɔːɹ`, START `ɑːɹ`, NURSE `ɜː` and lettER `ɚ` (the remaining differences in those classes are the engine's
+   spelling-driven choices, e.g. `ɔɹ` of *orange* against `ɔːɹ` of *horrible*, and the proper names of the dictionary).
+   Over the whole dictionary the stress-free word match rose from 54.46 to 54.70 percent (68,035 to 68,331 words; most
+   of the rest are names the engine guesses from the spelling).
+3. **`nobly`.** The word was pronounced exactly as the dictionary lists it: CMUdict (the pinned file) has
+   `nobly N AA1 B L IY0`, the vowel of *knobbly*, not that of *noble* (`N OW1 B AH0 L`). It is a transcription error of
+   the dictionary, not a precedence problem. Nothing was overriding a direct entry: every one of the 124,926 words of
+   the dictionary, phonemized alone, was compared with its dictionary entry (the first variant, the velar comparative
+   first for the adjectives in `ng`), and 15 words were wrong before the fix, all of them tokenizer artifacts: the
+   dictionary's 41 dropped-g headwords (the ones that end in an apostrophe after `n`) lost their trailing apostrophe to
+   the quote rule, so each was looked up as the headword without it (a different word, or none) or guessed by the
+   letter-to-sound model, and 15 of them came out different from the dictionary's entry; a trailing apostrophe that
+   makes a headword of the lexicon is now part of the word. Zero are wrong now except
+   the two reviewed corrections (`nobly` and `novelly`, found by comparing the 137 words that are a stem plus `-ly`,
+   `-ness`, `-ful`, `-less`, `-ment` or `-ish` with the entry of their stem), which live in
+   `data/phonemes-en/lexicon-corrections.tsv` and are consulted before the dictionary; the phonemizer's test over every
+   word of the dictionary keeps it that way. The dictionary also lacks the `n` of `government` (`G AH1 V ER0 M AH0 N T`
+   against espeak-ng's `ɡˈʌvɚnmənt`); it was not flagged by listening and is not changed here.
+4. **A pause inside `the last full measure of devotion`.** The cause is not Piper's symbol limit but the core chunker's
+   whitespace fallback: a clause longer than 200 characters that has no comma (the clause before the first comma of the
+   sentence is 301 characters long and holds three dashes) was cut at the last space that fits,
+   `...the last full measure of | devotion --`. The chunker now cuts such a clause where a speaker pauses (after a dash
+   or before an opening bracket, when the piece holds a quarter of the budget), else before a conjunction or relative
+   word (two fifths), else after a word that is not a function word (half), and never between a function word and the
+   word after it when another boundary fits; the engine's own splitter (`RenderParts`) uses the same order with the
+   words of the weak-form table. The recognizer proxy (the repository's Nemotron recognizer, a proxy and not listening)
+   punctuated *measure of. devotion* in 5 of 8 renderings of the final sentence (four speakers, two draws each) before
+   the fix and in none after it.
+
+**The cap.** The Piper utterance budget was 200 characters (the core chunker's budget, up to which the profile joined
+clause pieces) and 256 phoneme symbols (the engine's limit). The same eight renderings of the final sentence (656 words
+per configuration) were recognized with these results:
+
+| Configuration | Word errors | Rate | Silences of 0.3 s or more | Break at *of devotion* |
+| --- | --- | --- | --- | --- |
+| Before: 200 characters, 256 symbols, whitespace cut | 44 | 6.71 percent | 9 | 5 of 8 |
+| Phrase-boundary cut, 200 and 256 | 45 | 6.86 percent | 3 | 0 of 8 |
+| Phrase-boundary cut, 300 and 384 (core budget too) | 31 | 4.73 percent | 5 | 0 of 8 |
+| Phrase-boundary cut, 450 and 600 (core budget too) | 24 | 3.66 percent | 16 | 0 of 8 |
+| **Implemented**: pieces of 200, joined to 300, 384 symbols | 32 | 4.88 percent | 4 | 0 of 8 |
+
+The voice is not hurt by longer utterances; it makes fewer word errors the longer they are (the pieces of the 200-character
+budget end at dashes, so they are short: 81, 126 and 92 characters, and the voice does worse with short utterances, see
+*Listening Fixes 2*). The 450-character setting is the most accurate but speaks the whole sentence as one utterance with
+16 silences of 0.3 s or more (against 3 to 5), and the evidence is one sentence and a proxy, so the budget was raised to
+300 characters and 384 symbols (a 300-character segment is about 390 symbols, so the splitter rarely has to cut it), not
+further. The profile now also joins the pieces the core chunker cut at a dash or inside a long clause (they end in a
+dash or a letter), so the final sentence is two utterances of 208 and 239 characters. The core chunker's own budget
+(200) is unchanged.
+
+**Measured effect on the gates** (Piper against espeak-ng en-us; the numbers of "Results" are the new ones):
+
+| Corpus | Word match | PER | Primary stress |
+| --- | --- | --- | --- |
+| 450 tuning sentences | 86.12 to 86.07 | 3.01 to 2.93 | 95.90 to 95.39 |
+| 60 held-out sentences | 89.31 to 89.47 | 2.47 to 2.40 | 98.10 to 98.10 |
+| 3,000 words | 78.70 to 78.93 | 4.47 to 4.40 | 95.39 to 95.39 |
+| 3,000 held-out words | 75.37 to 75.53 | 4.38 to 4.35 | 96.76 to 96.76 |
+
+Kokoro's figures did not change. The Phonemes.En goldens changed in 10 lines of the sentence golden (the secondary
+stress of the later part of a compound) and 14 of the Piper golden (compounds, `here`, `euros`, `tireless`); one row of
+the Piper pipeline golden changed (`12-year-old`); the Kokoro goldens did not. The Gettysburg golden pins five
+sentences, among them the four of this round.
+
+**Other anomalies in the flagged phoneme strings** (compared with espeak-ng, word by word): none that the listening
+could have heard. Differences are the unstressed `ɪ` of *dedicate* where espeak-ng writes the lax `ᵻ`, the missing `n`
+of *government* (dictionary), the merged *to be* and *not have* of the engine's running speech, and stress marks on
+function words at the start of an utterance (the first-word rule of *Listening Fixes 2*).
 
 ## Residual Classes
 

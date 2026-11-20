@@ -119,6 +119,45 @@ public sealed partial class LexiconSubsystemTests
         Assert.Throws<FormatException>(() => ReadingPronunciations.Parse(new StringReader(header + "a.b\tAH0\tauthored\na.b\tAH0\tauthored\n"), new StringReader(overridesHeader)));
     }
 
+    /// <summary>
+    ///     Proves the table of reviewed corrections: it parses (word, ARPAbet, note), rejects a malformed row, an upper-case word, a
+    ///     repeated word and a phone that is not ARPAbet, and every row of the shipped table corrects a word the
+    ///     dictionary lists with a different pronunciation (so no row is dead and none adds a word).
+    /// </summary>
+    [Fact]
+    public void ReadingPronunciations_LexiconCorrections_ParseAndShippedTable_AreWellFormedAndEveryRowCorrectsAnEntry()
+    {
+        // Arrange
+        const string header = "word\tarpabet\tnote\n";
+
+        // Act
+        var good = LexiconCorrections.Parse(new StringReader(header + "nobly\tN OW1 B L IY0\ta reason\n\ncat\tK AE1 T\tanother\n"));
+        var found = good.TryGet("nobly", out var nobly);
+        var missing = good.TryGet("dog", out _);
+
+        // Assert: parsed rows, looked up by word
+        Assert.Equal(2, good.Entries.Count);
+        Assert.True(found);
+        Assert.Equal("N OW1 B L IY0", nobly!.ToString());
+        Assert.False(missing);
+        Assert.Throws<FormatException>(() => LexiconCorrections.Parse(new StringReader(header + "nobly\tN OW1 B L IY0\n")));
+        Assert.Throws<FormatException>(() => LexiconCorrections.Parse(new StringReader(header + "Nobly\tN OW1 B L IY0\tx\n")));
+        Assert.Throws<FormatException>(() => LexiconCorrections.Parse(new StringReader(header + "nobly\tN QQ1\tx\n")));
+        Assert.Throws<FormatException>(() => LexiconCorrections.Parse(new StringReader(header + "nobly\tN OW1\tx\nnobly\tN OW1\ty\n")));
+        Assert.Throws<ArgumentNullException>(() => LexiconCorrections.Parse(null!));
+
+        // Assert: every shipped correction replaces an entry of the dictionary that differs from it
+        Assert.NotEmpty(LexiconCorrections.Default.Entries);
+        Assert.All(
+            LexiconCorrections.Default.Entries,
+            pair =>
+            {
+                var listed = CmuLexicon.Default.Lookup(pair.Key);
+                Assert.NotEmpty(listed);
+                Assert.DoesNotContain(pair.Value, listed);
+            });
+    }
+
     /// <summary>Gets the path of a file in the test data folder beside the test assembly.</summary>
     /// <param name="name">The file name.</param>
     /// <returns>The full path.</returns>

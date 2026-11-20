@@ -279,7 +279,7 @@ internal sealed record PhonemeSegmentInfo(
 /// <remarks>
 ///     The renderer configurations mirror the private phoneme pipelines of the Kokoro model
 ///     (<c>KokoroPhonemePipeline</c>: Misaki US with weak forms, parts of at most 510 symbols) and the
-///     Piper model (<c>PiperPhonemePipeline</c>: eSpeak IPA en-US, parts of at most 256 symbols). They
+///     Piper model (<c>PiperPhonemePipeline</c>: eSpeak IPA en-US, parts of at most 384 symbols). They
 ///     are re-created here because those pipelines are internal; what is not reproducible is a
 ///     voice's own handling of symbols it does not know. Calls into the phonemizer are serialized because the
 ///     phonemizer instance is shared. Safe for concurrent callers.
@@ -290,7 +290,7 @@ internal sealed class DiagnosticsBuilder
     private const int KokoroMaxSymbols = 510;
 
     /// <summary>The Piper symbol limit per rendered part (mirrors <c>PiperPhonemePipeline.MaxPartSymbols</c>).</summary>
-    private const int PiperMaxSymbols = 256;
+    private const int PiperMaxSymbols = 384;
 
     /// <summary>The analyzer used for models that bring none of their own.</summary>
     private readonly EnglishTextAnalyzer _fallbackAnalyzer;

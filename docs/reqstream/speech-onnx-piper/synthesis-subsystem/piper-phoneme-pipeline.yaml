@@ -52,8 +52,9 @@ sections:
 
               - id: SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-LongText
                 title: >-
-                  The PiperPhonemePipeline class shall split a text that phonemizes to more than 256 symbols into
-                  utterances of at most 256 symbols each, cut between words and after a clause mark where one fits,
+                  The PiperPhonemePipeline class shall split a text that phonemizes to more than 384 symbols into
+                  utterances of at most 384 symbols each, cut between words at the best phrase boundary (after a
+                  clause mark, else before a conjunction, never between a function word and the word after it),
                   losing no word, shall return no utterance for an empty text or a text with no sound in the voice,
                   and shall reject a null text or a null configuration with an argument error; and shall speak a
                   segment that holds the several clauses of a sentence as one utterance with the clause marks in

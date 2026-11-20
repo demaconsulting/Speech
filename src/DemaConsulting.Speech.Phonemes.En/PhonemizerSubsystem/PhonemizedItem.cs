@@ -25,8 +25,8 @@ public sealed class PhonemizedItem
     /// <param name="source">Where the pronunciation came from.</param>
     /// <param name="readingId">The reading id the text analysis requested for the word, if any.</param>
     /// <param name="ipaOverride">A host-supplied IPA pronunciation for the word, if any.</param>
-    /// <param name="compoundBreak">The index of the first phone of the second part of a hyphenated compound pronounced part by part, or -1.</param>
-    internal PhonemizedItem(PhonemizedItemKind kind, string text, Pronunciation? pronunciation, PronunciationSource source, string? readingId = null, string? ipaOverride = null, int compoundBreak = -1)
+    /// <param name="elementStarts">The indexes of the first phone of each element after the first of a hyphenated compound pronounced part by part, or <see langword="null"/>.</param>
+    internal PhonemizedItem(PhonemizedItemKind kind, string text, Pronunciation? pronunciation, PronunciationSource source, string? readingId = null, string? ipaOverride = null, IReadOnlyList<int>? elementStarts = null)
     {
         Kind = kind;
         Text = text;
@@ -34,7 +34,7 @@ public sealed class PhonemizedItem
         Source = source;
         ReadingId = readingId;
         IpaOverride = ipaOverride;
-        CompoundBreak = compoundBreak;
+        ElementStarts = elementStarts ?? [];
         _phones = [.. Pronunciation.Phones.ToArray().Select(p => p.Symbol)];
     }
 
@@ -82,11 +82,18 @@ public sealed class PhonemizedItem
     internal Pronunciation Pronunciation { get; }
 
     /// <summary>
+    ///     Gets the index of the first phone of each element after the first of a hyphenated compound that was
+    ///     pronounced part by part (empty for any other word). A sound rule that looks at neighboring phones (the vowel
+    ///     before an <c>r</c>) must not look across such a boundary.
+    /// </summary>
+    internal IReadOnlyList<int> ElementStarts { get; }
+
+    /// <summary>
     ///     Gets the index of the first phone of the second part of a hyphenated compound that was pronounced part by
-    ///     part (each part with its own stress), or -1 for any other word. A renderer for a voice that stresses only
+    ///     part, or -1 for any other word. A renderer for a voice that stresses only
     ///     the first part of such a compound can demote the primary stresses from this phone on.
     /// </summary>
-    internal int CompoundBreak { get; }
+    internal int CompoundBreak => ElementStarts.Count > 0 ? ElementStarts[0] : -1;
 
     /// <summary>
     ///     Returns a readable form: the word and its phones, or the punctuation mark.

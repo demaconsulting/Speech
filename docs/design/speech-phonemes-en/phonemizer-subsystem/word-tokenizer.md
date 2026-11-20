@@ -28,7 +28,8 @@ into tokens. Three internal classes serve this one responsibility: `SpokenText`,
   annotation that covers only the start of a token and reports the covered length
 - **WordTokenizer.Tokenize(spoken, lexicon)**: the rules in the order given in *PhonemizerSubsystem Design*: skip
   whitespace and U+FFFC; a spelled letter; digits; a word (Latin letters with inner apostrophes and hyphens, and a
-  trailing apostrophe after `s`; a hyphen whose neighbors on both sides are replacement text, such as the hyphen between
+  trailing apostrophe after `s` or when the lexicon lists the word with one, as it does for the dropped-g headwords
+  (those that end in `in'`); a hyphen whose neighbors on both sides are replacement text, such as the hyphen between
   the digit groups of a phone number, ends the word and is a punctuation token instead of a compound joint); a leading
   apostrophe as part of a word only when the lexicon lists the word so; a clitic after a replacement boundary;
   punctuation as a run of one mark; otherwise an unsupported run. A token never contains whitespace and the tokens, with
@@ -37,7 +38,7 @@ into tokens. Three internal classes serve this one responsibility: `SpokenText`,
 **Error Handling**: `Build` throws `ArgumentNullException` for a null text; nothing else can fail. A bad annotation is
 skipped, never thrown.
 
-**Dependencies**: `CmuLexicon` (the leading-apostrophe rule), the typed annotation readers of SpeechTextEn and the
-Speech `SegmentAnnotation`.
+**Dependencies**: `CmuLexicon` (the leading- and trailing-apostrophe rules), the typed annotation readers of
+SpeechTextEn and the Speech `SegmentAnnotation`.
 
 **Callers**: `EnglishPhonemizer` and the tests.

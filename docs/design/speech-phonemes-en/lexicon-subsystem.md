@@ -17,7 +17,8 @@ annotations, renderers or voices. It contains the following units:
   derivation of a form from a stem that the lexicon knows (`Derivation`, `SuffixKind`)
 - **ReadingPronunciations**: the reviewed table that maps every reading id of the English text analysis inventory to the
   pronunciation of its headword, the listed spellings the rules cannot give, and the resolution of a spelling under a
-  reading
+  reading; with it, `LexiconCorrections`, the reviewed table of the few dictionary entries that are transcription errors
+  (`nobly`)
 
 ### Interfaces
 

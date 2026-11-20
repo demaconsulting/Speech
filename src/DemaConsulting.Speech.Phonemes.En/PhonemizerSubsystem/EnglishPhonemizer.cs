@@ -212,7 +212,7 @@ public sealed class EnglishPhonemizer
             && host.Pronunciation.Count > 0 && TryCliticKind(text[1..], out var kind))
         {
             var joined = Morphology.AppendClitic(host.Pronunciation, kind);
-            items[^1] = new PhonemizedItem(PhonemizedItemKind.Word, host.Text + text, joined, host.Source, host.ReadingId);
+            items[^1] = new PhonemizedItem(PhonemizedItemKind.Word, host.Text + text, joined, host.Source, host.ReadingId, elementStarts: host.ElementStarts);
             return true;
         }
 
@@ -318,7 +318,7 @@ public sealed class EnglishPhonemizer
 
             // The word's normal pronunciation travels with the IPA: a renderer whose voice cannot represent the IPA speaks it instead
             var normal = _pronouncer.Pronounce(text, null);
-            return new PhonemizedItem(PhonemizedItemKind.Word, text, normal?.Pronunciation, PronunciationSource.Override, null, ipa, normal?.CompoundBreak ?? -1);
+            return new PhonemizedItem(PhonemizedItemKind.Word, text, normal?.Pronunciation, PronunciationSource.Override, null, ipa, normal?.ElementStarts);
         }
 
         var parsed = ParseArpabet(phonemes);
@@ -415,5 +415,5 @@ public sealed class EnglishPhonemizer
     private static PhonemizedItem Item(string text, PronouncedWord? pronounced, string? readingId) =>
         pronounced is null
             ? new PhonemizedItem(PhonemizedItemKind.Unsupported, text, null, PronunciationSource.None)
-            : new PhonemizedItem(PhonemizedItemKind.Word, text, pronounced.Pronunciation, pronounced.Source, readingId, compoundBreak: pronounced.CompoundBreak);
+            : new PhonemizedItem(PhonemizedItemKind.Word, text, pronounced.Pronunciation, pronounced.Source, readingId, elementStarts: pronounced.ElementStarts);
 }

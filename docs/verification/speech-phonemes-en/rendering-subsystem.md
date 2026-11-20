@@ -66,7 +66,9 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_Layout_QuotesAndDashes_AreRenderedPerModel`,
 `RenderingSubsystem_Layout_Ellipsis_IsRenderedPerModel`,
 `RenderingSubsystem_Layout_HyphenBetweenTwoReplacements_IsAPauseInBothVoices`,
-`RenderingSubsystem_Compounds_StressIsPerModel`,
+`RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes`,
+`RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements`,
+`RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions`,
 `RenderingSubsystem_SoundRules_FlapLinkingRAndStress_FollowTheModelConventions`,
 `RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped`,
 `RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
@@ -74,12 +76,18 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice`
 
 Short texts are rendered by both renderers and compared with the documented strings: `city` and `water` (flap),
-`ability`, `identity` and `reality` (the flap before a final `-y` that the dictionary stresses secondarily),
-`number is` (linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
-`a well-known author`; the numbers `thirteen` to `nineteen` and their neighbors `routine`, `canteen`, `thirteenth`;
-ARPAbet and IPA overrides of `record` against the dictionary words with the same phones; the groups of `555-0147`, each
-replaced on its own, are separated by a pause (`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for
-Kokoro) while the hyphen of `COVID-19` stays inside its word.
+`ability`, `identity` and `reality` (the flap before a final `-y` that the dictionary stresses secondarily), `number is`
+(linking r for Piper only), `nobody` (no secondary stress next to the primary for Piper, kept for Kokoro),
+`a well-known author` and `a battle-field and twenty-one self-evident ones` (one primary stress, the later parts
+secondary, next to the primary or not); the compound golden (`compounds-golden.tsv`: `co-operate`, `non-fiction`,
+`re-enter`, `pre-war`, `anti-war`, `ex-wife`, `self-evident`, `battle-field`, `well-known`, `e-mail` with the stress of
+the design, and `free-range`, `tea-room`, `blue-ribbon` with their long vowels kept across the joint, next to `here`,
+`near`, `poor` and `inspire` inside one word); the vowels before `r` (`here`, `ear`, `inspire`, `firing`, `poor`,
+`square`, `north`, `start`, `nurse`) as the espeak-ng en-us voice renders them; the numbers `thirteen` to `nineteen` and
+their neighbors `routine`, `canteen`, `thirteenth`; ARPAbet and IPA overrides of `record` against the dictionary words
+with the same phones; the groups of `555-0147`, each replaced on its own, are separated by a pause
+(`fˈaɪv fˈaɪv fˈaɪv, zˈɪɹoʊ wˈʌn fˈɔːɹ sˈɛvən` for Piper, a dash for Kokoro) while the hyphen of `COVID-19` stays inside
+its word.
 
 #### Weak forms
 

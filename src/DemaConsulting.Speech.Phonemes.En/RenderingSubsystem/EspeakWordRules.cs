@@ -40,20 +40,30 @@ internal static class EspeakWordRules
     /// </summary>
     /// <param name="phones">The phones.</param>
     /// <param name="demotePrimary">Whether the primary stress is rendered as a secondary stress (a prominent function word).</param>
+    /// <param name="elementStarts">
+    ///     The index of the first phone of each element after the first of a compound pronounced part by part, or
+    ///     <see langword="null"/>. A secondary stress from the first of them on is the lesser stress of a later element
+    ///     of the compound, not a clash with the primary stress, so it is always written (<c>wˈɛlnˌoʊn</c>), and the
+    ///     vowel-before-<c>r</c> rules look only at the phones of the element a vowel is in (<c>tea-room</c> is
+    ///     <c>tˈiːɹˌuːm</c>, not an r-colored <c>ɪɹ</c>).
+    /// </param>
     /// <returns>The IPA symbols with stress marks.</returns>
-    public static string Render(ReadOnlySpan<Phone> phones, bool demotePrimary = false)
+    public static string Render(ReadOnlySpan<Phone> phones, bool demotePrimary = false, IReadOnlyList<int>? elementStarts = null)
     {
         var tonic = TonicOrdinal(phones);
         var vowelCount = CountVowels(phones);
         var teen = IsTeenNumber(phones);
+        var compoundBreak = elementStarts is { Count: > 0 } ? elementStarts[0] : -1;
         var builder = new StringBuilder(phones.Length * 2);
         var ordinal = -1;
         for (var i = 0; i < phones.Length; i++)
         {
             var phone = phones[i];
+            var (low, high) = ElementBounds(elementStarts, i, phones.Length);
+            var element = phones[low..high];
             if (!phone.IsVowel)
             {
-                builder.Append(Consonant(phones, i));
+                builder.Append(IsSchwaCarriedR(element, i - low) ? string.Empty : Consonant(phones, i));
                 continue;
             }
 
@@ -62,17 +72,102 @@ internal static class EspeakWordRules
 
             // A secondary stress on the final -y (nobody, thirty) is not realized
             var mark = phone.Stress == 2 && last && phone.BaseSymbol == "IY" ? string.Empty : StressMark(phone.Stress, ordinal, tonic, demotePrimary);
+
+            // The lesser stress of an element of a compound (the prefix of ex-wife, the later parts of well-known) is deliberate and stands next to the primary stress
+            if (phone.Stress == 2 && compoundBreak >= 0 && !(i == phones.Length - 1 && phone.BaseSymbol == "IY"))
+            {
+                mark = Secondary;
+            }
+
             if (teen)
             {
                 mark = TeenMark(ordinal, last, vowelCount) ?? mark;
             }
 
             builder.Append(mark);
-            builder.Append(Nucleus(phones, i, ordinal, tonic, last, mark.Length > 0));
+            builder.Append(RColoredVowel(element, i - low) ?? Nucleus(phones, i, ordinal, tonic, last, mark.Length > 0));
         }
 
         return builder.ToString();
     }
+
+    /// <summary>
+    ///     Gets the first and the end index of the element of a compound that contains a phone.
+    /// </summary>
+    /// <param name="elementStarts">The index of the first phone of each element after the first, or <see langword="null"/>.</param>
+    /// <param name="index">The index of the phone.</param>
+    /// <param name="length">The number of phones of the word.</param>
+    /// <returns>The index of the first phone of the element and the index after its last phone.</returns>
+    private static (int Low, int High) ElementBounds(IReadOnlyList<int>? elementStarts, int index, int length)
+    {
+        var low = 0;
+        var high = length;
+        if (elementStarts is null)
+        {
+            return (low, high);
+        }
+
+        foreach (var start in elementStarts)
+        {
+            if (start <= index)
+            {
+                low = start;
+            }
+            else
+            {
+                high = start;
+                break;
+            }
+        }
+
+        return (low, high);
+    }
+
+    /// <summary>
+    ///     Gets the IPA of a vowel that stands before an <c>r</c> of the same element, in the way the espeak-ng en-us voice
+    ///     writes it.
+    /// </summary>
+    /// <param name="element">The phones of the element (the word, or one part of a compound) the vowel is in.</param>
+    /// <param name="index">The index of the vowel in the element.</param>
+    /// <returns>The IPA symbols, or <see langword="null"/> when the vowel has no special form before <c>r</c>.</returns>
+    /// <remarks>
+    ///     <c>IY</c> is the lax <c>ɪ</c> (<i>here</i>: <c>hˈɪɹ</c>); <c>AY</c> and <c>AW</c> are followed by a schwa that carries the
+    ///     <c>r</c> (see <see cref="DiphthongBeforeR"/>); <c>UW</c> is the vowel of <i>cure</i> (<i>poor</i>: <c>pˈʊɹ</c>, doubled
+    ///     before a vowel); <c>EY</c> before <c>r</c> and a consonant or the end is the vowel of <i>square</i> (<i>share</i>).
+    /// </remarks>
+    private static string? RColoredVowel(ReadOnlySpan<Phone> element, int index)
+    {
+        if (SymbolAt(element, index + 1) != "R")
+        {
+            return null;
+        }
+
+        switch (element[index].BaseSymbol)
+        {
+            case "IY":
+                return "ɪ";
+            case "AW":
+                return DiphthongBeforeR(element, index, "aʊ");
+            case "AY":
+                return DiphthongBeforeR(element, index, "aɪ");
+            case "EY":
+                return IsVowelAt(element, index + 2) ? null : "ɛ";
+            case "UW":
+                return "ʊ" + (IsVowelAt(element, index + 2) ? "ɹ" : string.Empty);
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    ///     Tests whether an <c>r</c> is part of the schwa that follows the diphthong before it (<i>fire</i>: <c>faɪɚ</c>), so it
+    ///     is not written on its own.
+    /// </summary>
+    /// <param name="element">The phones of the element the <c>r</c> is in.</param>
+    /// <param name="index">The index of the phone in the element.</param>
+    /// <returns><see langword="true"/> for an <c>r</c> after <c>AY</c> or <c>AW</c> of the same element that no vowel follows.</returns>
+    private static bool IsSchwaCarriedR(ReadOnlySpan<Phone> element, int index) =>
+        element[index].BaseSymbol == "R" && SymbolAt(element, index - 1) is "AY" or "AW" && !IsVowelAt(element, index + 1);
 
     /// <summary>
     ///     Gets the stress mark of a vowel of one of the numbers thirteen to nineteen: they are stressed on their first
@@ -270,6 +365,27 @@ internal static class EspeakWordRules
             default:
                 return "uː";
         }
+    }
+
+    /// <summary>
+    ///     Gets the IPA of the diphthong <c>ay</c> or <c>aw</c>: before <c>r</c> a schwa follows it that carries the
+    ///     <c>r</c> (<i>inspire</i>: <c>ɪnspˈaɪɚ</c>, <i>hour</i>: <c>ˈaʊɚ</c>), and a high front vowel after the <c>r</c> brings the
+    ///     <c>r</c> back (<i>firing</i>: <c>fˈaɪɚɹɪŋ</c>).
+    /// </summary>
+    /// <param name="phones">The phones.</param>
+    /// <param name="index">The index of the diphthong.</param>
+    /// <param name="diphthong">The IPA of the diphthong itself.</param>
+    /// <returns>The IPA symbols.</returns>
+    /// <remarks>Before any other vowel (<i>cairo</i>, <i>cyrus</i>, <i>environment</i>) the <c>r</c> stays a plain <c>ɹ</c> after the diphthong.</remarks>
+    private static string DiphthongBeforeR(ReadOnlySpan<Phone> phones, int index, string diphthong)
+    {
+        if (SymbolAt(phones, index + 1) != "R")
+        {
+            return diphthong;
+        }
+
+        var highFrontOrNone = !IsVowelAt(phones, index + 2) || SymbolAt(phones, index + 2) is "IH" or "IY";
+        return highFrontOrNone ? diphthong + "ɚ" : diphthong;
     }
 
     /// <summary>

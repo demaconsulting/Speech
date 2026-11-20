@@ -115,12 +115,12 @@ homophones, so the figures show only that the new path is not less intelligible 
   Different noise or length scales did not give a consistent gain (0.4/1.0/0.6: 5.8 percent; 0.3/1.0/0.5: 6.5; noise
   width 0.3: 8.5; length scale 1.1: 9.0 against 6.1), so the voice's own values stay.
 - **What was fixed** (general causes, measured against the engine, see [renderers.md](renderers.md)): hyphenated
-  compounds (every part keeps its own stress, closed dictionary spellings only when a part is not a word, small function
-  words unstressed), a few function-word details of the espeak-style text (the flap of `it` and `at` before a vowel,
-  `on the`, `for the`, the secondary stress of `made`, `put`, `which`, `what`, `between`, ...), and in the text analysis
-  the number of a hyphenated compound (`12-year-old`), a number with a capital letter (`10K`, `3D`), identifiers of
-  capital letters and digits (`A4`, `B12`, `H2O`, `MP3`), names joined to a number by a hyphen (`COVID-19`), URLs,
-  e-mail addresses, bare domains, and `sq. ft.`.
+  compounds (one primary stress on the first part and a secondary stress on the later ones, closed dictionary spellings
+  only when a part is not a word, small function words unstressed), a few function-word details of the espeak-style text
+  (the flap of `it` and `at` before a vowel, `on the`, `for the`, the secondary stress of `made`, `put`, `which`,
+  `what`, `between`, ...), and in the text analysis the number of a hyphenated compound (`12-year-old`), a number with a
+  capital letter (`10K`, `3D`), identifiers of capital letters and digits (`A4`, `B12`, `H2O`, `MP3`), names joined to a
+  number by a hyphen (`COVID-19`), URLs, e-mail addresses, bare domains, and `sq. ft.`.
 - **Round trip through the repository's Zipformer recognizer** (133 sentences: the 30 of the listening packs and 103
   more own-written sentences without digits; word errors in percent, with trailing silence added so the streaming
   recognizer does not drop the last words; the references of the 7 sentences with digits are the spoken forms):

@@ -164,6 +164,74 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
+    ///     Proves that the sentences of the Gettysburg Address that a listening review of the voice flagged (<i>battle-field</i>
+    ///     read as two words, <i>here</i> heard as <i>he</i>, <i>nobly</i> heard as <i>knobbly</i>, a pause inside <i>the last full
+    ///     measure of | devotion</i>), run the way a session runs them, produce exactly the pinned phoneme strings: the
+    ///     compound has one primary stress, <i>here</i> has the vowel of <i>near</i>, <i>nobly</i> has the vowel of <i>noble</i>, and the long
+    ///     sentence is cut at its dashes.
+    /// </summary>
+    /// <param name="id">The sentence id.</param>
+    /// <param name="sentence">The sentence.</param>
+    /// <param name="phonemes">The pinned phoneme strings of the utterances, separated by <c>|</c>.</param>
+    [Theory]
+    [MemberData(nameof(GettysburgGoldenRows))]
+    public void PiperPhonemePipeline_ToUtterances_GettysburgSentence_ProducesPinnedPhonemes(string id, string sentence, string phonemes)
+    {
+        // Arrange
+        var utterances = AnalyzeAndChunk(sentence).SelectMany(chunk => Pipeline.ToUtterances(chunk.Text, NullIfEmpty(chunk.Annotations))).ToList();
+
+        // Act
+        var actual = string.Join($" {SeparatorOfParts} ", utterances.Select(utterance => utterance.Phonemes));
+
+        // Assert
+        Assert.True(sentence.Length > 0, id);
+        Assert.Equal(phonemes, actual);
+        Assert.All(utterances, utterance => Assert.Empty(utterance.UnknownSymbols));
+        Assert.All(utterances, utterance => Assert.InRange(utterance.SymbolCount, 1, PiperPhonemePipeline.MaxPartSymbols));
+    }
+
+    /// <summary>
+    ///     Proves that a sentence of more than four hundred characters is cut where a speaker pauses (at its dashes), never
+    ///     between a function word and the word it belongs to: <i>of devotion</i> stays in one utterance, no utterance
+    ///     ends in a function word, and every utterance but the last ends in a pause mark.
+    /// </summary>
+    [Fact]
+    public void PiperPhonemePipeline_ToUtterances_LongSentenceOfTheAddress_IsCutAtItsDashesNeverBetweenFunctionWordAndHead()
+    {
+        // Arrange
+        var sentence = GettysburgSentence("g04");
+
+        // Act
+        var segments = AnalyzeAndChunk(sentence);
+        var utterances = segments.SelectMany(chunk => Pipeline.ToUtterances(chunk.Text, NullIfEmpty(chunk.Annotations))).ToList();
+
+        // Assert: the sentence is far over the chunk budget and was cut into several pieces, each within it
+        Assert.True(sentence.Length > 400);
+        Assert.True(utterances.Count >= 2);
+        Assert.All(segments, segment => Assert.InRange(segment.Text.Length, 1, PiperCapabilityProfile.MaxJoinedLength));
+
+        // Assert: "of devotion" is not separated, and no utterance ends in the weak form of a function word
+        var devotion = Renderer.Render(Phonemizer.Phonemize("devotion"));
+        Assert.Contains(utterances, utterance => utterance.Phonemes.Contains("ʌv " + devotion, StringComparison.Ordinal));
+        Assert.All(utterances, utterance => Assert.DoesNotMatch(@"(^|\s)(ʌv|ðə|tə|ðæt|ɐ|ænd|ɪn|wiː)[,.]?$", utterance.Phonemes));
+
+        // Assert: every utterance but the last ends in a pause mark
+        Assert.All(utterances.Take(utterances.Count - 1), utterance => Assert.Contains(utterance.Phonemes[^1], ",;:"));
+    }
+
+    /// <summary>Gets the rows of the Gettysburg golden as xunit theory data: id, sentence, phonemes of the utterances.</summary>
+    public static TheoryData<string, string, string> GettysburgGoldenRows()
+    {
+        var rows = new TheoryData<string, string, string>();
+        foreach (var columns in ReadGettysburg())
+        {
+            rows.Add(columns[0], columns[1], columns[2]);
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     ///     Proves that the reading the text analysis chooses for a heteronym reaches the model: in each of the twelve
     ///     heteronym sentences, which carry both readings of the word, the ids differ from the ids of the same text spoken
     ///     with default readings.
@@ -258,7 +326,7 @@ public sealed class PiperPhonemePipelineTests
         // Assert: segments within the core chunker's budget, utterances within the engine's limit, no sound lost
         var whole = Renderer.Render(Phonemizer.Phonemize(longSentence));
         Assert.True(segments.Count >= 2);
-        Assert.All(segments, s => Assert.InRange(s.Text.Length, 1, SentenceChunker.DefaultMaxChunkLength));
+        Assert.All(segments, s => Assert.InRange(s.Text.Length, 1, PiperCapabilityProfile.MaxJoinedLength));
         Assert.All(utterances, u => Assert.InRange(u.SymbolCount, 1, PiperPhonemePipeline.MaxPartSymbols));
         Assert.Equal(SoundsOnly(whole), SoundsOnly(string.Concat(utterances.Select(u => u.Phonemes))));
     }
@@ -331,4 +399,14 @@ public sealed class PiperPhonemePipelineTests
         var path = Path.Combine(AppContext.BaseDirectory, "TestData", "kokoro-pipeline-golden.tsv");
         return File.ReadAllLines(path).Select(line => line.Split('\t')).First(columns => columns[0] == id)[1];
     }
+
+    /// <summary>Reads the rows of the Gettysburg golden (a header row, then id, sentence, phonemes).</summary>
+    private static IEnumerable<string[]> ReadGettysburg() =>
+        File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "TestData", "piper-gettysburg-golden.tsv"))
+            .Skip(1)
+            .Where(line => line.Length > 0)
+            .Select(line => line.Split('\t'));
+
+    /// <summary>Returns the sentence of a row of the Gettysburg golden.</summary>
+    private static string GettysburgSentence(string id) => ReadGettysburg().First(columns => columns[0] == id)[1];
 }

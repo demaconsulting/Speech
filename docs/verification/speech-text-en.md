@@ -81,11 +81,11 @@ reading overlaps a replacement or a pronunciation.
 **Test**: `SpeechTextEn_SynthesisSession_NumbersAndSymbolsAtChunkCuts_AreNeverSplitOrLost`
 
 Verifies, for every padding that moves the 200-character budget cut across a text of two-token amounts, times, dates and
-units, that the normalizations delivered equal the analyzer's; that a percent sign that ends up alone in a chunk keeps
-its normalization; that a date whose day and year fall on opposite sides of a clause cut keeps the annotation of every
-token, the glued meridiem included; that a lone `&` and `©; Brand` keep their chunks and normalizations; and that a
-clause of only a zero-width space or a bare `*` is merged into its neighbor (with the dropped-character annotation
-delivered there) and carries no part of speech.
+units, that the normalizations delivered equal the analyzer's; that the budget cut keeps a percent sign with its number
+(it used to leave the sign alone in a chunk) and the sign keeps its normalization; that a date whose day and year fall
+on opposite sides of a clause cut keeps the annotation of every token, the glued meridiem included; that a lone `&` and
+`©; Brand` keep their chunks and normalizations; and that a clause of only a zero-width space or a bare `*` is merged
+into its neighbor (with the dropped-character annotation delivered there) and carries no part of speech.
 
 ### Analyzer Contract and Part of Speech
 

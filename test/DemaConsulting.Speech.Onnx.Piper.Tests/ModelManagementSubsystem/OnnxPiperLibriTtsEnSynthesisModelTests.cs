@@ -88,8 +88,9 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves what keeps two clause pieces apart: a pause between them, a different set of parameter overrides, silence after the
-    ///     first, text that ends in something other than a clause mark, a joined text beyond the chunk budget, and nothing at all to join.
+    ///     Proves what keeps two pieces apart: a pause between them, a different set of parameter overrides, silence after the
+    ///     first, a first piece that ends a sentence, a joined text beyond the utterance budget, and nothing at all to join; and that
+    ///     a piece that ends in a clause mark, a dash or a word (a long clause the core chunker cut) is joined to the next.
     /// </summary>
     [Fact]
     public void OnnxPiperLibriTtsEnSynthesisModel_CapabilityProfile_JoinsOnlyWhereNothingSetsTheClausesApart()
@@ -98,7 +99,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         var slow = new Dictionary<string, object> { ["speed"] = 0.8 };
         var slowToo = new Dictionary<string, object> { ["speed"] = 0.8 };
         var fast = new Dictionary<string, object> { ["speed"] = 1.2 };
-        var longClause = new string('a', SentenceChunker.DefaultMaxChunkLength - 20);
+        var longClause = new string('a', (PiperCapabilityProfile.MaxJoinedLength / 2) + 10);
 
         // Act and assert: joined, with the silences and overrides of the pair
         var joined = Assert.Single(PiperCapabilityProfile.JoinClauses([
@@ -112,12 +113,32 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Equal(9, joined.PostSilenceMs);
         Assert.Same(slow, joined.ParameterOverrides);
 
+        // Assert: a piece cut at a dash (a double hyphen, a spaced hyphen or an em dash) or inside a clause is the start of the same utterance
+        Assert.Equal("the task before us -- that from these dead we take devotion", Assert.Single(PiperCapabilityProfile.JoinClauses([
+            new SpeechSegment("the task before us --", 0, 0, null),
+            new SpeechSegment("that from these dead", 0, 0, null),
+            new SpeechSegment("we take devotion", 0, 0, null),
+        ])).Text);
+        Assert.Equal("the task before us - that from these dead", Assert.Single(PiperCapabilityProfile.JoinClauses([
+            new SpeechSegment("the task before us -", 0, 0, null),
+            new SpeechSegment("that from these dead", 0, 0, null),
+        ])).Text);
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us \u2014", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+        Assert.Equal("the task before us- that from these dead", Assert.Single(PiperCapabilityProfile.JoinClauses([
+            new SpeechSegment("the task before us-", 0, 0, null),
+            new SpeechSegment("that from these dead", 0, 0, null),
+        ])).Text);
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us\u2013", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us\u2012", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us\u2015", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+
         // Assert: kept apart
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, slow), new SpeechSegment("two.", 0, 0, fast)]).Count);
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, slow), new SpeechSegment("two.", 0, 0, null)]).Count);
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 300, null), new SpeechSegment("two.", 0, 0, null)]).Count);
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, null), new SpeechSegment("two.", 300, 0, null)]).Count);
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One.", 0, 0, null), new SpeechSegment("Two.", 0, 0, null)]).Count);
+        Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("Is it?", 0, 0, null), new SpeechSegment("Two", 0, 0, null)]).Count);
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, null), new SpeechSegment(string.Empty, 0, 300, null)]).Count);
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment(longClause + ",", 0, 0, null), new SpeechSegment(longClause + ".", 0, 0, null)]).Count);
         Assert.Empty(PiperCapabilityProfile.JoinClauses([]));
@@ -214,7 +235,7 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         // Assert: the break after the first tag is kept (the stripped tag adds no text); the second tag sits mid-sentence and joins
         Assert.Equal(["First we wait,", "Then we go, quickly. and, again."], plan.Segments.Select(s => s.Text));
         Assert.True(longPlan.Segments.Count > 1);
-        Assert.All(longPlan.Segments, s => Assert.True(s.Text.Length <= SentenceChunker.DefaultMaxChunkLength));
+        Assert.All(longPlan.Segments, s => Assert.True(s.Text.Length <= PiperCapabilityProfile.MaxJoinedLength));
         Assert.Equal(longSentence, string.Join(' ', longPlan.Segments.Select(s => s.Text)));
     }
 

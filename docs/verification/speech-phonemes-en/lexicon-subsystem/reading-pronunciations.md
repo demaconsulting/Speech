@@ -32,3 +32,11 @@ is not ARPAbet, or with a repeated reading id is rejected with a format error.
 ##### Table parsing
 
 **Test**: `ReadingPronunciations_Parse_MalformedTables_AreRejected`
+
+##### Lexicon corrections
+
+**Test**: `ReadingPronunciations_LexiconCorrections_ParseAndShippedTable_AreWellFormedAndEveryRowCorrectsAnEntry`
+
+A good table parses and looks a word up; a row with two columns, an upper-case word, a phone that is not ARPAbet or a
+repeated word is rejected with a format error, a null table with `ArgumentNullException`; every row of the shipped table
+(`nobly`, `novelly`) names a word the dictionary lists with a pronunciation that differs from the correction.

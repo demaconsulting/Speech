@@ -38,16 +38,19 @@ tag), each group rendered on its own, then `JoinClauses` joins every segment tha
 `:`, where the core chunker split a sentence) to the segment after it within the same group, with one space between them
 and the annotations of the second shifted to their place, so the voice speaks a sentence as one utterance with its
 commas in place, as it was trained to. Two segments stay apart when anything sets them apart: a segment without text (a
-pause), silence after the first or before the second, different parameter overrides, a first segment that does not end
-in a clause mark (a sentence end, an ellipsis, a budget split), a sentence boundary the analyzer declared (a sentence
-that ends in `:` is not joined to the next paragraph, so the next sentence keeps its own utterance start), or a joined
-text longer than `SentenceChunker.DefaultMaxChunkLength` (200 characters, the core chunker's own budget, so a long
-sentence still reaches the engine in playback-sized segments; the engine then cuts what phonemizes to more than 256
-symbols, preferably after a clause mark). Why: as separate utterances the clause pieces are often swallowed by the voice
-(a one-word clause such as `coffee,` or `clocks,` loses its first sound or its last vowel, a clause that starts with `r`
-or a weak word is lost more often), and as one utterance the first word of a clause was recognized 97.5 percent of the
-time against 90.6 percent (see `docs/evaluation/phonemes-en/renderers.md`, *Listening Fixes 2*). It needs nothing of the
-core library but its public chunking and plan types; nothing in the core changed.
+pause), silence after the first or before the second, different parameter overrides, a first segment that ends a
+sentence (it ends in `.`, `!`, `?` or an ellipsis; a segment that ends in a clause mark, a dash or a word, because the
+core chunker cut a long clause there, is joined), a sentence boundary the analyzer declared (a sentence that ends in `:`
+is not joined to the next paragraph, so the next sentence keeps its own utterance start), or a joined text longer than
+`MaxJoinedLength` (300 characters, where the core chunker's own budget is 200: the core chunker cuts a long clause at a
+dash, before a conjunction or after a word that is not a function word, and the joining puts such pieces together again
+up to 300 characters, so a long sentence is a few whole-phrase utterances; the engine then cuts what phonemizes to more
+than 384 symbols, at the best phrase boundary). Why: as separate utterances the clause pieces are often swallowed by the
+voice (a one-word clause such as `coffee,` or `clocks,` loses its first sound or its last vowel, a clause that starts
+with `r` or a weak word is lost more often), and as one utterance the first word of a clause was recognized 97.5 percent
+of the time against 90.6 percent (see `docs/evaluation/phonemes-en/renderers.md`, *Listening Fixes 2*); the longer
+utterances of 300 characters were also recognized with fewer word errors than the 200-character ones (*Listening Fixes
+3*). It needs nothing of the core library but its public chunking and plan types.
 
 **PiperArchiveExtractor (internal helper of this unit).** `ExtractAndDeleteAsync(archivePath, destinationDirectory)`
 reads the `.tar.bz2` archive with SharpCompress (the .NET base class library has no BZip2 decoder, which is the reason

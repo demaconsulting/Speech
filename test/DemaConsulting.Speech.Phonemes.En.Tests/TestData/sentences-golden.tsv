@@ -63,14 +63,14 @@ s061	Everyone's coat is here.	Everyone's=EH1 V R IY0 W AH2 N Z | coat=K OW1 T | 
 s062	Rock 'n' roll never dies.	Rock=R AA1 K | 'n=AH0 N | ' | roll=R OW1 L | never=N EH1 V ER0 | dies=D AY1 Z | .
 s063	'Tis the season to be jolly.	'Tis=T IH1 Z | the=DH AH0 | season=S IY1 Z AH0 N | to=T UW1 | be=B IY1 | jolly=JH AA1 L IY0 | .
 s064	I told him 'no' twice.	I=AY1 | told=T OW1 L D | him=HH IH1 M | ' | no=N OW1 | ' | twice=T W AY1 S | .
-s065	She is a well-known author.	She=SH IY1 | is=IH1 Z | a=AH0 | well-known=W EH1 L N OW1 N | author=AO1 TH ER0 | .
-s066	A mother-in-law arrived early.	A=AH0 | mother-in-law=M AH1 DH ER0 IH0 N L AO1 | arrived=ER0 AY1 V D | early=ER1 L IY0 | .
-s067	He ate ice-cream in a state-of-the-art kitchen.	He=HH IY1 | ate=EY1 T | ice-cream=AY1 S K R IY1 M | in=IH0 N | a=AH0 | state-of-the-art=S T EY1 T AH2 V DH AH0 AA1 R T | kitchen=K IH1 CH AH0 N | .
-s068	The long-term plan is risky.	The=DH AH0 | long-term=L AO1 NG T ER1 M | plan=P L AE1 N | is=IH1 Z | risky=R IH1 S K IY0 | .
-s069	We bought a T-shirt and a pull-over.	We=W IY1 | bought=B AA1 T | a=AH0 | T-shirt=T IY1 SH ER1 T | and=AH0 N D | a=AH0 | pull-over=P UH1 L OW1 V ER0 | .
-s070	It was a one-time offer.	It=IH1 T | was=W AA1 Z | a=AH0 | one-time=W AH1 N T AY1 M | offer=AO1 F ER0 | .
-s071	A twenty-five-year-old drove the car.	A=AH0 | twenty-five-year-old=T W EH1 N T IY0 F AY1 V Y IH1 R OW1 L D | drove=D R OW1 V | the=DH AH0 | car=K AA1 R | .
-s072	The e-mail was sent by my brother-in-law.	The=DH AH0 | e-mail=IY1 M EY1 L | was=W AA1 Z | sent=S EH1 N T | by=B AY1 | my=M AY1 | brother-in-law=B R AH1 DH ER0 IH0 N L AO1 | .
+s065	She is a well-known author.	She=SH IY1 | is=IH1 Z | a=AH0 | well-known=W EH1 L N OW2 N | author=AO1 TH ER0 | .
+s066	A mother-in-law arrived early.	A=AH0 | mother-in-law=M AH1 DH ER0 IH0 N L AO2 | arrived=ER0 AY1 V D | early=ER1 L IY0 | .
+s067	He ate ice-cream in a state-of-the-art kitchen.	He=HH IY1 | ate=EY1 T | ice-cream=AY1 S K R IY2 M | in=IH0 N | a=AH0 | state-of-the-art=S T EY1 T AH2 V DH AH0 AA2 R T | kitchen=K IH1 CH AH0 N | .
+s068	The long-term plan is risky.	The=DH AH0 | long-term=L AO1 NG T ER2 M | plan=P L AE1 N | is=IH1 Z | risky=R IH1 S K IY0 | .
+s069	We bought a T-shirt and a pull-over.	We=W IY1 | bought=B AA1 T | a=AH0 | T-shirt=T IY1 SH ER2 T | and=AH0 N D | a=AH0 | pull-over=P UH1 L OW2 V ER0 | .
+s070	It was a one-time offer.	It=IH1 T | was=W AA1 Z | a=AH0 | one-time=W AH1 N T AY2 M | offer=AO1 F ER0 | .
+s071	A twenty-five-year-old drove the car.	A=AH0 | twenty-five-year-old=T W EH1 N T IY0 F AY2 V Y IH2 R OW2 L D | drove=D R OW1 V | the=DH AH0 | car=K AA1 R | .
+s072	The e-mail was sent by my brother-in-law.	The=DH AH0 | e-mail=IY1 M EY2 L | was=W AA1 Z | sent=S EH1 N T | by=B AY1 | my=M AY1 | brother-in-law=B R AH1 DH ER0 IH0 N L AO2 | .
 s073	I will record a record of my voice.	I=AY1 | will=W IH1 L | record=R AH0 K AO1 R D | a=AH0 | record=R EH1 K ER0 D | of=AH1 V | my=M AY1 | voice=V OY1 S | .
 s074	The wind will wind down by night.	The=DH AH0 | wind=W IH1 N D | will=W IH1 L | wind=W AY1 N D | down=D AW1 N | by=B AY1 | night=N AY1 T | .
 s075	He read the letter aloud yesterday.	He=HH IY1 | read=R EH1 D | the=DH AH0 | letter=L EH1 T ER0 | aloud=AH0 L AW1 D | yesterday=Y EH1 S T ER0 D EY2 | .
@@ -99,7 +99,7 @@ s097	The project will project onto the wall.	The=DH AH0 | project=P R AA1 JH EH0
 s098	The cast took a bow at the end of the play.	The=DH AH0 | cast=K AE1 S T | took=T UH1 K | a=AH0 | bow=B AW1 | at=AE1 T | the=DH AH0 | end=EH1 N D | of=AH1 V | the=DH AH0 | play=P L EY1 | .
 s099	Her mouth moves as she mouths the words.	Her=HH ER1 | mouth=M AW1 TH | moves=M UW1 V Z | as=AE1 Z | she=SH IY1 | mouths=M AW1 DH Z | the=DH AH0 | words=W ER1 D Z | .
 s100	The wound was wound with cloth.	The=DH AH0 | wound=W UW1 N D | was=W AA1 Z | wound=W AW1 N D | with=W IH1 DH | cloth=K L AO1 TH | .
-s101	Zorblax is a made-up word.	Zorblax=Z AO1 R B L AE0 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH1 P | word=W ER1 D | .
+s101	Zorblax is a made-up word.	Zorblax=Z AO1 R B L AE0 K S !oov | is=IH1 Z | a=AH0 | made-up=M EY1 D AH2 P | word=W ER1 D | .
 s102	We visited Xanadu and Kathmandu.	We=W IY1 | visited=V IH1 Z IH0 T IH0 D | Xanadu=Z AA1 N AH0 D UW2 | and=AH0 N D | Kathmandu=K AE1 TH M AH0 N D UW2 !oov | .
 s103	The qwerty keyboard is common.	The=DH AH0 | qwerty=K ER1 T IY0 !oov | keyboard=K IY1 B AO2 R D | is=IH1 Z | common=K AA1 M AH0 N | .
 s104	Frodo carried the ring to Mordor.	Frodo=F R OW1 D OW2 | carried=K AE1 R IY0 D | the=DH AH0 | ring=R IH1 NG | to=T UW1 | Mordor=M AO1 R D AO2 R | .
@@ -108,7 +108,7 @@ s106	Cryptocurrency exchanges rose again.	Cryptocurrency=K R IH0 P T OW1 K ER0 A
 s107	He tweeted about the iPhone.	He=HH IY1 | tweeted=T W IY1 T IH0 D | about=AH0 B AW1 T | the=DH AH0 | iPhone=AY1 F OW2 N | .
 s108	The unfollowed accounts disappeared.	The=DH AH0 | unfollowed=AH0 N F AA1 L OW0 D | accounts=AH0 K AW1 N T S | disappeared=D IH2 S AH0 P IH1 R D | .
 s109	Their cats' toys are everywhere.	Their=DH EH1 R | cats'=K AE1 T S | toys=T OY1 Z | are=AA1 R | everywhere=EH1 V R IY0 W EH2 R | .
-s110	Her ex-boyfriend's car was towed.	Her=HH ER1 | ex-boyfriend's=EH1 K S B OY1 F R EH2 N D Z | car=K AA1 R | was=W AA1 Z | towed=T OW1 D | .
+s110	Her ex-boyfriend's car was towed.	Her=HH ER1 | ex-boyfriend's=EH2 K S B OY1 F R EH2 N D Z | car=K AA1 R | was=W AA1 Z | towed=T OW1 D | .
 s111	Hello, world!	Hello=HH AH0 L OW1 | , | world=W ER1 L D | !
 s112	Wait... what?	Wait=W EY1 T | ... | what=W AH1 T | ?
 s113	She said: "Never again."	She=SH IY1 | said=S EH1 D | : | " | Never=N EH1 V ER0 | again=AH0 G EH1 N | . | "

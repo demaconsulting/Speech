@@ -68,17 +68,21 @@ sections:
       - id: SpeechPhonemesEn-Pronunciation-SourcePriority
         title: >-
           The library shall pronounce each word from the first source that can pronounce it, in the order
-          host override, reading chosen by the text analysis, dictionary, morphology rules, letter-to-sound
+          host override, reading chosen by the text analysis, dictionary (with the reviewed corrections of
+          its few wrong entries), morphology rules, letter-to-sound
           model, and shall report which source gave each word.
         tags: [system]
         justification: |
           A host override is the owner's explicit instruction, a reading is the analysis's decision about
-          the sense of the word in its sentence, the dictionary is reviewed data, the morphology rules are
+          the sense of the word in its sentence, the dictionary is reviewed data (and every one of its words
+          is pronounced as it lists it, except the few entries that are transcription errors and are
+          corrected), the morphology rules are
           documented sound laws, and the trained model is a guess. Using them in that order gives the best
           available answer, and reporting the source lets a host and the tests see how much of a text is
           known and how much is guessed.
         children:
           - SpeechPhonemesEn-Phonemizer-SourcePriority
+          - SpeechPhonemesEn-Lexicon-Corrections
         tests:
           - SpeechPhonemesEn_Phonemize_SourcesInPriorityOrder_OverrideReadingLexiconMorphologyLetterToSound
 

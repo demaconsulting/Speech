@@ -27,7 +27,10 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     by a letter (e.g. after an abbreviation-like word, as in <c>"Wait.5 more."</c>) does not
 ///     qualify for this exception and still splits as an ordinary sentence boundary. A piece
 ///     still too long after both punctuation passes is
-///     split further on whitespace boundaries so no chunk exceeds the budget unless it is a single
+///     split further on whitespace boundaries, preferably where a writer would pause: after a dash,
+///     around a bracket, before a conjunction or relative word (<c>and</c>, <c>that</c>, <c>which</c>),
+///     and otherwise after a word that does not need the word after it (never after <c>of</c>, <c>the</c>,
+///     <c>we</c> and the like), so no chunk exceeds the budget unless it is a single
 ///     word longer than the budget, which is emitted unsplit. Finally, a piece produced by either punctuation pass whose trimmed text contains no
 ///     letter or digit at all (i.e. it is nothing but punctuation and/or whitespace, such as a
 ///     lone comma or a whitespace-spaced run of dots) is never emitted as its own chunk: its
@@ -82,6 +85,30 @@ public static class SentenceChunker
     ///     budget, so every clause becomes its own chunk.
     /// </summary>
     private static readonly char[] SecondaryBoundaries = [',', ';', ':'];
+
+    /// <summary>
+    ///     The English words that start a clause: a piece that has to be cut inside a long clause may end before one of them.
+    /// </summary>
+    private static readonly HashSet<string> ClauseStarters = new(
+        [
+            "and", "but", "or", "nor", "yet", "so", "that", "which", "who", "whom", "whose", "because", "although", "though",
+            "while", "whereas", "when", "whenever", "where", "wherever", "if", "unless", "until", "since", "than", "whether",
+        ],
+        StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The English function words (articles, prepositions, auxiliaries, pronouns and negation) a piece is not ended after
+    ///     when it can be helped: each of them needs the word that follows it (<i>of | devotion</i>, <i>we | here</i>).
+    /// </summary>
+    private static readonly HashSet<string> FunctionWords = new(
+        [
+            "a", "an", "the", "this", "these", "those", "my", "your", "his", "her", "its", "our", "their", "some", "any", "no", "every", "each",
+            "of", "in", "on", "at", "by", "for", "with", "from", "to", "into", "onto", "upon", "over", "under", "about", "as", "through",
+            "between", "among", "against", "during", "without", "within", "across", "after", "before", "per", "via",
+            "is", "are", "was", "were", "be", "been", "being", "am", "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+            "should", "can", "could", "may", "might", "must", "not", "i", "you", "he", "she", "it", "we", "they", "me", "him", "us", "them",
+        ],
+        StringComparer.Ordinal);
 
     /// <summary>
     ///     A half-open range of the original source text.
@@ -699,16 +726,20 @@ public static class SentenceChunker
     ///     (which is returned whole rather than broken mid-word). Words are re-joined with a
     ///     single space, so each piece records one source run per word.
     /// </summary>
+    /// <remarks>
+    ///     A piece takes as many words as fit the budget, and then ends at the best phrase boundary
+    ///     among them (see <see cref="ChooseBoundary"/>) instead of wherever the budget happens to run
+    ///     out, so a long clause is not cut between a function word and the word it belongs to
+    ///     (<i>the last full measure of | devotion</i>).
+    /// </remarks>
     /// <param name="source">The original source text.</param>
     /// <param name="range">The range to split, still longer than the budget as a whole.</param>
     /// <param name="maxChunkLength">The length budget, in characters.</param>
     /// <returns>An ordered list of non-empty pieces.</returns>
     private static List<Piece> SplitOnWhitespaceBudget(string source, SourceRange range, int maxChunkLength)
     {
-        var pieces = new List<Piece>();
-        var current = new List<SourceRange>();
-        var currentLength = 0;
-
+        // The words of the range
+        var words = new List<SourceRange>();
         var i = range.Start;
         while (i < range.End)
         {
@@ -724,27 +755,166 @@ public static class SentenceChunker
                 i++;
             }
 
-            var word = new SourceRange(wordStart, i);
-            var additionalLength = word.Length + (current.Count > 0 ? 1 : 0);
-            if (current.Count > 0 && currentLength + additionalLength > maxChunkLength)
-            {
-                pieces.Add(JoinWords(source, current));
-                current.Clear();
-                currentLength = 0;
-                additionalLength = word.Length;
-            }
-
-            current.Add(word);
-            currentLength += additionalLength;
+            words.Add(new SourceRange(wordStart, i));
         }
 
-        if (current.Count > 0)
+        // Each piece takes the words that fit, then ends at the best boundary among them
+        var pieces = new List<Piece>();
+        var start = 0;
+        while (start < words.Count)
         {
-            pieces.Add(JoinWords(source, current));
+            var fit = start + 1;
+            var length = words[start].Length;
+            while (fit < words.Count && length + 1 + words[fit].Length <= maxChunkLength)
+            {
+                length += 1 + words[fit].Length;
+                fit++;
+            }
+
+            var end = fit == words.Count ? fit : ChooseBoundary(source, words, start, fit, maxChunkLength);
+            pieces.Add(JoinWords(source, words.GetRange(start, end - start)));
+            start = end;
         }
 
         return pieces;
     }
+
+    /// <summary>
+    ///     Chooses where a piece ends among the words that fit the budget: at a dash or a bracket, else before a
+    ///     conjunction, else after any word that is not a function word; the end of the last word that fits only
+    ///     when none of these leaves a reasonably full piece.
+    /// </summary>
+    /// <remarks>
+    ///     A dash or a bracket is where a writer pauses, so a piece may end there when it holds at least a quarter of
+    ///     the budget. A piece may end before <i>and</i>, <i>but</i>, <i>that</i>, <i>which</i>, <i>because</i> and
+    ///     the like (a clause starts there) when it holds at least two fifths, and after any other word that is not a
+    ///     function word (an article, preposition, auxiliary, pronoun or conjunction, each of which needs the word
+    ///     after it) when it holds at least half. Within one rule the latest boundary wins. A boundary is never put
+    ///     before a mark that carries no word (a lone dash or closing bracket), which would start the next piece with
+    ///     it, and never right after a lone opening mark, which would leave it ending the piece before; a lone opening
+    ///     bracket itself starts a phrase, so a piece may end before it.
+    /// </remarks>
+    /// <param name="source">The original source text.</param>
+    /// <param name="words">The words of the range being split.</param>
+    /// <param name="start">The index of the first word of the piece.</param>
+    /// <param name="fit">The index after the last word that fits the budget; always less than the number of words.</param>
+    /// <param name="maxChunkLength">The length budget, in characters.</param>
+    /// <returns>The index after the last word of the piece, greater than <paramref name="start"/> and at most <paramref name="fit"/>.</returns>
+    private static int ChooseBoundary(string source, List<SourceRange> words, int start, int fit, int maxChunkLength)
+    {
+        var dash = -1;
+        var conjunction = -1;
+        var phrase = -1;
+        var length = 0;
+        for (var end = start + 1; end <= fit; end++)
+        {
+            length += words[end - 1].Length + (end > start + 1 ? 1 : 0);
+            var last = source.AsSpan(words[end - 1].Start, words[end - 1].Length);
+            var next = source.AsSpan(words[end].Start, words[end].Length);
+            if (!HasWordCharacter(last) && !EndsWithDash(last))
+            {
+                // The word before is a bare opening mark (a bracket or a quote): it stays with the word after it
+                continue;
+            }
+
+            if (!HasWordCharacter(next) && !IsOpeningBracket(next))
+            {
+                // The next word is a bare mark (a dash, a closing bracket): it stays with the word before it
+                continue;
+            }
+
+            var opensBracket = next[0] is '(' or '[' or '{';
+            if (length * 4 >= maxChunkLength && (EndsWithDash(last) || opensBracket))
+            {
+                dash = end;
+            }
+
+            var lastWord = TrimToWord(last);
+            if (length * 5 >= maxChunkLength * 2 && !IsFunctionWord(lastWord) && IsConjunction(TrimToWord(next)))
+            {
+                conjunction = end;
+            }
+
+            if (length * 2 >= maxChunkLength && !IsFunctionWord(lastWord))
+            {
+                phrase = end;
+            }
+        }
+
+        return new[] { dash, conjunction, phrase }.FirstOrDefault(boundary => boundary > 0, fit);
+    }
+
+    /// <summary>
+    ///     Tests whether a word is a dash or ends in one (<c>--</c>, a single hyphen standing alone or attached to the
+    ///     word before it, a figure dash, an en dash, an em dash or a horizontal bar).
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns><see langword="true"/> for a dash, or a word directly followed by a dash.</returns>
+    private static bool EndsWithDash(ReadOnlySpan<char> word) =>
+        word.Length > 0 && word[^1] is '-' or '\u2012' or '\u2013' or '\u2014' or '\u2015';
+
+    /// <summary>
+    ///     Tests whether a word is an opening bracket standing alone (<c>(</c>, <c>[</c> or <c>{</c>), which starts the
+    ///     phrase that follows it.
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns><see langword="true"/> when the word is only an opening bracket.</returns>
+    private static bool IsOpeningBracket(ReadOnlySpan<char> word) =>
+        word.Length == 1 && word[0] is '(' or '[' or '{';
+
+    /// <summary>
+    ///     Tests whether a word has a letter or a digit.
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns><see langword="true"/> when the word is more than a mark.</returns>
+    private static bool HasWordCharacter(ReadOnlySpan<char> word)
+    {
+        for (var i = 0; i < word.Length; i++)
+        {
+            if (char.IsLetterOrDigit(word[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Removes the marks around a word and lower-cases it.
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns>The letters, digits and inner apostrophes of the word in lower case.</returns>
+    private static string TrimToWord(ReadOnlySpan<char> word)
+    {
+        var start = 0;
+        var end = word.Length;
+        while (start < end && !char.IsLetterOrDigit(word[start]))
+        {
+            start++;
+        }
+
+        while (end > start && !char.IsLetterOrDigit(word[end - 1]))
+        {
+            end--;
+        }
+
+        return word[start..end].ToString().ToLowerInvariant();
+    }
+
+    /// <summary>
+    ///     Tests whether an English word needs the word after it: an article, preposition, auxiliary, pronoun or conjunction.
+    /// </summary>
+    /// <param name="word">The word in lower case, without marks.</param>
+    /// <returns><see langword="true"/> for such a word; a piece is not ended after one when it can be helped.</returns>
+    private static bool IsFunctionWord(string word) => FunctionWords.Contains(word) || ClauseStarters.Contains(word);
+
+    /// <summary>
+    ///     Tests whether an English word starts a clause (a coordinating or subordinating conjunction or a relative pronoun).
+    /// </summary>
+    /// <param name="word">The word in lower case, without marks.</param>
+    /// <returns><see langword="true"/> when a piece may end before the word.</returns>
+    private static bool IsConjunction(string word) => ClauseStarters.Contains(word);
 
     /// <summary>
     ///     Joins words with a single space, recording one source run per word.

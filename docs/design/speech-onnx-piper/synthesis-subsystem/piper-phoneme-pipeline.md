@@ -8,7 +8,7 @@ into the framed phoneme-id sequences that the Piper graph takes.
 - Constructor: `PiperPhonemePipeline(config)` with the voice configuration (a null configuration throws
   `ArgumentNullException`); the class holds one `EnglishPhonemizer` and one `EspeakIpaRenderer(EspeakIpaProfile.EnUs)`
   and is immutable and thread-safe
-- `MaxPartSymbols` = 256, the largest number of phoneme symbols (before the pad symbols) in one utterance
+- `MaxPartSymbols` = 384, the largest number of phoneme symbols (before the pad symbols) in one utterance
 - **PiperUtterance** (record, internal): `Phonemes` (the IPA string), `Ids` (the framed ids), `SymbolCount` (the encoded
   symbols, not counting pad or framing) and `UnknownSymbols` (the distinct symbols the voice's table lacks, in
   first-seen order; they are not in `Ids`)
@@ -36,8 +36,13 @@ into the framed phoneme-id sequences that the Piper graph takes.
   pieces of a sentence (see *OnnxPiperLibriTtsEnSynthesisModel*), so a segment is normally a whole sentence with its
   commas, and its phoneme string keeps the `,` where the sentence has a comma; the first word of each segment, the
   start of an utterance, gets the renderer's start-of-text mark (*SpeechPhonemesEn WeakForms*)
-- **Long text**: a segment that phonemizes to more than 256 symbols is cut between words, preferably after a clause
-  mark, by the renderer's `RenderParts`, which is why the limit is applied there and not here
+- **Long text**: a segment that phonemizes to more than 384 symbols is cut between words, at the best phrase boundary
+  (after a clause mark, else before a conjunction, else after a word that is not a function word), by the renderer's
+  `RenderParts`, which is why the limit is applied there and not here. The segments themselves are at most 300
+  characters: the core chunker cuts a clause longer than 200 characters at a dash or a conjunction when it can, the
+  capability profile joins such pieces again up to 300 characters, and the sentence
+  *...the last full measure of devotion -- that we here highly resolve...* is spoken as phrases, never as *measure of*
+  and *devotion*
 
 **Error Handling**: a null text or phoneme string throws `ArgumentNullException`; nothing else throws.
 

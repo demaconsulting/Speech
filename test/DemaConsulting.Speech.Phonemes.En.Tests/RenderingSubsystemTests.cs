@@ -222,16 +222,71 @@ public sealed class RenderingSubsystemTests
         Assert.Equal("mˈAd bətwˈin", new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(demoted));
     }
 
-    /// <summary>Proves Kokoro keeps the stress on the first part of a hyphenated compound only (the later primary stresses become secondary), where Piper stresses every part.</summary>
+    /// <summary>Proves both models stress the first part of a hyphenated compound and give the later parts a secondary stress, so the voice reads one compound word and not two stressed words with a break between them.</summary>
     [Fact]
-    public void RenderingSubsystem_Compounds_StressIsPerModel()
+    public void RenderingSubsystem_Compounds_StressTheFirstPartAndSecondTheLaterOnes()
     {
         // Arrange
         var result = Phonemizer.Phonemize("a well-known author");
+        var battlefield = Phonemizer.Phonemize("a battle-field and twenty-one self-evident ones");
 
         // Assert
-        Assert.Equal("ɐ wˈɛlnˈoʊn ˈɔθɚ", new EspeakIpaRenderer().Render(result));
+        Assert.Equal("ɐ wˈɛlnˌoʊn ˈɔθɚ", new EspeakIpaRenderer().Render(result));
         Assert.Equal("ə wˈɛlnˌOn ˈɔθəɹ", new MisakiRenderer().Render(result));
+
+        // Assert: the secondary stress stands where the second element starts, next to the primary one or not
+        Assert.Equal("ɐ bˈæɾəlfˌiːld ænd twˈɛntiwˌʌn sˈɛlfˌɛvədənt wˈʌnz", new EspeakIpaRenderer().Render(battlefield));
+    }
+
+    /// <summary>
+    ///     Proves the vowels before r follow the espeak-ng en-us conventions the Piper voices were trained on: the
+    ///     vowel of NEAR is a lax i (<i>here</i> is <c>hˈɪɹ</c>, never <c>hˈiːɹ</c>, which the voice hears as <i>he</i>),
+    ///     the diphthongs before r end in a schwa (<c>aɪɚ</c>, <c>aʊɚ</c>) with the linking r before a vowel, the
+    ///     vowel of CURE stays short for every spelling, and the other r-colored vowels (SQUARE, NORTH, FORCE, START,
+    ///     NURSE, lettER) keep their symbols.
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_SoundRules_RColoredVowels_FollowTheEspeakConventions()
+    {
+        // Arrange: the word and the rendering of the espeak-ng en-us voice
+        (string Word, string Expected)[] cases =
+        [
+            ("here", "hˈɪɹ"), ("ear", "ˈɪɹ"), ("dear", "dˈɪɹ"), ("fear", "fˈɪɹ"), ("year", "jˈɪɹ"), ("beer", "bˈɪɹ"),
+            ("cheer", "tʃˈɪɹ"), ("clear", "klˈɪɹ"), ("appear", "ɐpˈɪɹ"), ("hearing", "hˈɪɹɪŋ"), ("tier", "tˈɪɹ"),
+            ("inspire", "ɪnspˈaɪɚ"), ("admire", "ɐdmˈaɪɚ"), ("firing", "fˈaɪɚɹɪŋ"), ("fire", "fˈaɪɚ"), ("hour", "ˈaʊɚ"),
+            ("poor", "pˈʊɹ"), ("poorer", "pˈʊɹɹɚ"), ("cure", "kjˈʊɹ"), ("square", "skwˈɛɹ"), ("share", "ʃˈɛɹ"),
+            ("north", "nˈɔːɹθ"), ("force", "fˈɔːɹs"), ("start", "stˈɑːɹt"), ("nurse", "nˈɜːs"), ("letter", "lˈɛɾɚ"),
+        ];
+
+        // Act
+        var rendered = cases.Select(c => (c.Word, Actual: new EspeakIpaRenderer().Render(Phonemizer.Phonemize(c.Word)), c.Expected)).ToList();
+
+        // Assert
+        Assert.All(rendered, r => Assert.Equal(r.Expected, r.Actual));
+        Assert.Equal("ðə kˈɑːɹ ɪz hˈɪɹ", new EspeakIpaRenderer().Render(Phonemizer.Phonemize("the car is here")));
+    }
+
+    /// <summary>
+    ///     Proves the compound golden (<c>compounds-golden.tsv</c>): in every hyphenated word the stress is that of one word (the
+    ///     dictionary's pattern for a closed spelling with the same sounds, wherever its primary stress falls: <i>co-operate</i>,
+    ///     <i>non-fiction</i>; the weak stress of a productive prefix before a root that keeps the primary stress: <i>re-enter</i>,
+    ///     <i>anti-war</i>, <i>ex-wife</i>; one primary stress on the first element of a true compound: <i>battle-field</i>,
+    ///     <i>self-evident</i>), and the vowel-before-<c>r</c> rules stay inside their element (<i>free-range</i>, <i>tea-room</i> and
+    ///     <i>blue-ribbon</i> keep their long vowels), while the same vowels inside one word are r-colored (<i>here</i>, <i>near</i>,
+    ///     <i>poor</i>, <i>inspire</i>).
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_Compounds_Golden_StressAndRColoringStayWithinTheirElements()
+    {
+        // Arrange
+        var rows = File.ReadAllLines(TestFile("compounds-golden.tsv")).Skip(1).Where(l => l.Length > 0).Select(l => l.Split('\t')).ToList();
+
+        // Act
+        var actual = rows.Select(r => (r[0], Item: Assert.Single(Phonemizer.Phonemize(r[0]).Items), Piper: new EspeakIpaRenderer().Render(Phonemizer.Phonemize(r[0])))).ToList();
+
+        // Assert
+        Assert.Equal(17, rows.Count);
+        Assert.Equal(rows.Select(r => (r[0], r[1], r[2])), actual.Select(a => (a.Item1, a.Item.Arpabet, a.Piper)));
     }
 
     /// <summary>Proves an ellipsis keeps its length for Piper (three dots) and is Kokoro's single ellipsis mark.</summary>
@@ -721,6 +776,33 @@ public sealed class RenderingSubsystemTests
         Assert.All(parts.Take(parts.Count - 1), part => Assert.Contains(part[^1], ",."));
         Assert.Equal(Render(items).Replace(" ", string.Empty, StringComparison.Ordinal), string.Concat(parts).Replace(" ", string.Empty, StringComparison.Ordinal));
         Assert.Empty(PhonemeStream.Split([], [], 40, Render));
+    }
+
+    /// <summary>
+    ///     Proves the splitter ends a part at the best phrase boundary within the budget: after the last clause mark when
+    ///     the part holds at least a fifth of it, otherwise before a conjunction, otherwise after a word that is not a function
+    ///     word, so a long text without marks is never cut between <i>of</i> and the word after it.
+    /// </summary>
+    [Fact]
+    public void PhonemeStream_Split_TextWithoutMarks_IsCutBeforeAConjunctionNeverAfterAFunctionWord()
+    {
+        // Arrange: no mark at all; each item rendered as its own text, so the budget is counted in letters
+        const string text = "the old captain loved the quiet harbor town and its bright blue boats but he sailed across the wide grey sea every spring in search of the last full measure of devotion";
+        var items = Phonemizer.Phonemize(text).Items;
+        var pieces = items.Select(i => i.Text).ToList();
+        string Render(IReadOnlyList<PhonemizedItem> run) => string.Join(' ', run.Select(i => i.Text));
+
+        // Act: the budget is the limit less the reserve of ten symbols
+        var parts = PhonemeStream.Split(items, pieces, maxSymbols: 90, Render);
+        var forced = PhonemeStream.Split(items, pieces, maxSymbols: 56, Render);
+
+        // Assert: the first part ends before "but" (the last conjunction that fits), no part ends on a function word
+        Assert.Equal("the old captain loved the quiet harbor town and its bright blue boats", parts[0]);
+        Assert.Equal(text, Render(items));
+        Assert.Equal(text, string.Join(' ', parts));
+        Assert.All(parts.Take(parts.Count - 1), part => Assert.DoesNotContain(part.Split(' ')[^1], new[] { "of", "the", "and", "but", "in", "its" }));
+        Assert.All(forced.Take(forced.Count - 1), part => Assert.DoesNotContain(part.Split(' ')[^1], new[] { "of", "the", "and", "but", "in", "its" }));
+        Assert.Equal(text, string.Join(' ', forced));
     }
 
     /// <summary>Proves invalid arguments of the Kokoro renderer are rejected: a missing text, a part limit that is too small, and a profile that is not defined.</summary>

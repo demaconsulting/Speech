@@ -140,6 +140,12 @@
     <EmbeddedResource Include="..\..\data\phonemes-en\form-overrides.tsv" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.form-overrides.tsv" />
   </ItemGroup>
 
+  <!-- The reviewed corrections of the lexicon (the few words whose CMUdict entry is a transcription error, each with its
+       reason), embedded by link from data/phonemes-en like the tables above. The word pronouncer consults them before the lexicon. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\phonemes-en\lexicon-corrections.tsv" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.lexicon-corrections.tsv" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\Icon.png" Pack="true" PackagePath="\" />

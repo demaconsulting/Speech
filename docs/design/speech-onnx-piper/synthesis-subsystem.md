@@ -25,8 +25,8 @@ managed API.
 **Text to ids.** The pipeline phonemizes the segment with `EnglishPhonemizer` (with the annotations of the English text
 analysis, or as written when there are none), renders the result with `EspeakIpaRenderer(EspeakIpaProfile.EnUs)` as
 espeak-style IPA, and encodes each part with the voice's symbol table in Piper's framing: the begin symbol, each symbol
-followed by the pad symbol, the end symbol. The renderer cuts a long text into parts of at most 256 symbols
-(`RenderParts`, between words and after a clause mark where one fits), so one segment can give several utterances. A
+followed by the pad symbol, the end symbol. The renderer cuts a long text into parts of at most 384 symbols
+(`RenderParts`, between words, at the best phrase boundary), so one segment can give several utterances. A
 symbol outside the table is skipped and listed in the utterance; a part with no encodable symbol gives no utterance.
 
 **Inference.** The engine runs the graph once per utterance with the inputs `input`, `input_lengths`, `scales` and `sid`

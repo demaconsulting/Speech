@@ -252,7 +252,8 @@ public sealed class SpeechTextEnTests
 
     /// <summary>
     ///     Proves, through a real <c>SynthesisSession</c> and the real default analyzer, that wherever the chunk budget or a clause falls
-    ///     (every padding is tried), no number, date, amount or symbol annotation is split from its text or lost, a chunk of only a symbol
+    ///     (every padding is tried), no number, date, amount or symbol annotation is split from its text or lost, a budget cut never leaves
+    ///     a bare symbol alone in a chunk (the percent sign stays with its number), a chunk of only a symbol
     ///     or an invisible character is merged into a neighbor with its annotation, and a lone symbol keeps its normalization.
     /// </summary>
     [Fact]
@@ -279,7 +280,7 @@ public sealed class SpeechTextEnTests
                 Assert.Equal(expected, DeliveredNormalizations(backend.Calls.Skip(before).ToList()));
             }
 
-            // The cut falls between a number and its percent sign, which then stands alone in a chunk
+            // The budget cut that used to fall between a number and its percent sign, leaving the sign alone in a chunk, now keeps the two together
             for (var padding = 185; padding <= 199; padding++)
             {
                 var text = string.Concat(Enumerable.Repeat("w", padding - 1)) + " 50 %";
@@ -321,7 +322,7 @@ public sealed class SpeechTextEnTests
             Assert.DoesNotContain(mergedCalls[0].Annotations, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech && mergedCalls[0].Text[annotation.Start] == '\u200B');
             Assert.DoesNotContain(mergedCalls[2].Annotations, annotation => mergedCalls[2].Text.Substring(annotation.Start, annotation.Length).Contains('*'));
         });
-        Assert.True(sawLoneSign, "no padding put the percent sign alone in a chunk");
+        Assert.False(sawLoneSign, "a budget cut never leaves the percent sign alone in a chunk");
     }
 
     /// <summary>

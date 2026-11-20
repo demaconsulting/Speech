@@ -4,7 +4,10 @@ package Speech {
              * sentence/clause-sized chunks: splits on primary sentence boundaries first, then
              * unconditionally splits every resulting piece further on secondary clause
              * boundaries (not gated by length), falling back to a whitespace budget only when a
-             * piece still exceeds the configured maximum length. A maximal run of consecutive
+             * piece still exceeds the configured maximum length, where it cuts at a phrase boundary
+             * (after a dash or before an opening bracket, else before a conjunction or relative word,
+             * else after a word that is not a function word; never between a function word and the
+             * word after it) and otherwise at the last word that fits. A maximal run of consecutive
              * primary sentence-ending characters (e.g. an ellipsis "...", or a mixed terminator
              * like "?!") is treated as a single boundary, splitting once after the last character
              * of the run rather than once per character. Primary/secondary boundary punctuation

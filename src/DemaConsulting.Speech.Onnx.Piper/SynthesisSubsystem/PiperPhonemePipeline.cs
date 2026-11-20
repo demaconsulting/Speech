@@ -33,7 +33,7 @@ namespace DemaConsulting.Speech.Onnx.Piper.SynthesisSubsystem;
 internal sealed class PiperPhonemePipeline
 {
     /// <summary>The largest number of phoneme symbols (before the pad symbols are added) in one utterance.</summary>
-    internal const int MaxPartSymbols = 256;
+    internal const int MaxPartSymbols = 384;
 
     private readonly PiperVoiceConfig _config;
     private readonly EnglishPhonemizer _phonemizer = new();

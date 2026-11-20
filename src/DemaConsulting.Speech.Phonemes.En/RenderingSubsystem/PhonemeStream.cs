@@ -18,6 +18,19 @@ internal static class PhonemeStream
     /// <summary>The marks after which a long text is preferably split.</summary>
     private const string ClauseMarks = ",;:.!?—…";
 
+    /// <summary>The words that start a clause: a long text may be split before one of them.</summary>
+    private static readonly HashSet<string> Conjunctions = new(
+        [
+            "and", "but", "or", "nor", "yet", "so", "that", "which", "who", "whom", "whose", "because", "although", "though",
+            "while", "whereas", "when", "whenever", "where", "wherever", "if", "unless", "until", "since", "than", "whether",
+        ],
+        StringComparer.Ordinal);
+
+    /// <summary>The function words of the renderers' weak-form table (articles, prepositions, auxiliaries, pronouns): a long text is not split after one.</summary>
+    private static readonly Lazy<HashSet<string>> FunctionWords = new(
+        () => new HashSet<string>(WeakForms.Words, StringComparer.Ordinal),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
     /// <summary>
     ///     Joins the rendered pieces of a sequence of items.
     /// </summary>
@@ -109,8 +122,9 @@ internal static class PhonemeStream
     /// <returns>The rendered parts in speaking order; empty parts are omitted.</returns>
     /// <remarks>
     ///     Each part takes as many items as fit its budget (the symbols of the piece plus one for the space that
-    ///     separates it). When that is not all the remaining items, the part ends after the last clause mark in its
-    ///     second half if there is one, otherwise after the last word that fits, so no text is ever dropped. The budget
+    ///     separates it). When that is not all the remaining items, the part ends at the best phrase boundary among them
+    ///     (after a clause mark, else before a conjunction, else after a word that is not a function word; see
+    ///     <see cref="PlanPart"/>), so no text is ever dropped. The budget
     ///     is <see cref="PartReserve"/> symbols below <paramref name="maxSymbols"/> because rendering a run of items
     ///     can differ from the pieces by a few symbols at its edges (a linking <c>ɹ</c>, a different weak form of
     ///     <c>the</c>), and a part must never exceed the limit. A single item longer than the budget is still one part.
@@ -126,7 +140,7 @@ internal static class PhonemeStream
         var start = 0;
         while (start < items.Count)
         {
-            var end = PlanPart(pieces, start, budget);
+            var end = PlanPart(items, pieces, start, budget);
             var part = render(start == 0 && end == items.Count ? items : items.Skip(start).Take(end - start).ToList());
             if (part.Length > 0)
             {
@@ -142,15 +156,25 @@ internal static class PhonemeStream
     /// <summary>
     ///     Chooses where the part that starts at an item ends.
     /// </summary>
+    /// <param name="items">The items of the whole text.</param>
     /// <param name="pieces">The rendered piece of each item.</param>
     /// <param name="start">The index of the first item of the part.</param>
     /// <param name="budget">The symbol budget of the part.</param>
     /// <returns>The index after the last item of the part; always greater than <paramref name="start"/>.</returns>
-    private static int PlanPart(IReadOnlyList<string> pieces, int start, int budget)
+    /// <remarks>
+    ///     Among the items that fit the budget the part ends, in this order of preference, after the last clause mark
+    ///     (when the part holds at least a fifth of the budget), before the last conjunction or relative word (at
+    ///     least two fifths), after the last word that is not a function word (at least half), and otherwise after
+    ///     the last item that fits. A part is never ended between a function word and the word it belongs to
+    ///     (<i>of | devotion</i>) when a boundary that is not one is within reach.
+    /// </remarks>
+    private static int PlanPart(IReadOnlyList<PhonemizedItem> items, IReadOnlyList<string> pieces, int start, int budget)
     {
         var symbols = 0;
         var end = start;
-        var lastClauseEnd = -1;
+        var clause = -1;
+        var conjunction = -1;
+        var phrase = -1;
         while (end < pieces.Count)
         {
             var cost = pieces[end].EnumerateRunes().Count() + 1;
@@ -161,9 +185,31 @@ internal static class PhonemeStream
 
             symbols += cost;
             end++;
-            if (pieces[end - 1].Length > 0 && ClauseMarks.Contains(pieces[end - 1][^1], StringComparison.Ordinal))
+            if (end >= pieces.Count)
             {
-                lastClauseEnd = end;
+                continue;
+            }
+
+            // A boundary after the item just added: the next item must be a word or a mark that has a sound
+            var last = items[end - 1];
+            if (pieces[end - 1].Length > 0 && ClauseMarks.Contains(pieces[end - 1][^1], StringComparison.Ordinal) && symbols * 5 >= budget)
+            {
+                clause = end;
+            }
+
+            if (last.Kind != PhonemizedItemKind.Word || items[end].Kind != PhonemizedItemKind.Word || IsFunctionWord(last.Text))
+            {
+                continue;
+            }
+
+            if (symbols * 5 >= budget * 2 && Conjunctions.Contains(items[end].Text.ToLowerInvariant()))
+            {
+                conjunction = end;
+            }
+
+            if (symbols * 2 >= budget)
+            {
+                phrase = end;
             }
         }
 
@@ -172,7 +218,17 @@ internal static class PhonemeStream
             return end;
         }
 
-        // Prefer a clause boundary when it leaves a reasonably full part
-        return lastClauseEnd > start + ((end - start) / 2) ? lastClauseEnd : end;
+        return new[] { clause, conjunction, phrase }.FirstOrDefault(boundary => boundary > start, end);
+    }
+
+    /// <summary>
+    ///     Tests whether a word needs the word after it (an article, preposition, auxiliary, pronoun or conjunction).
+    /// </summary>
+    /// <param name="text">The text of the word.</param>
+    /// <returns><see langword="true"/> for a word of the weak-form table (the function words of the renderers) or a conjunction.</returns>
+    private static bool IsFunctionWord(string text)
+    {
+        var word = text.ToLowerInvariant();
+        return FunctionWords.Value.Contains(word) || Conjunctions.Contains(word);
     }
 }
