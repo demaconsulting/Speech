@@ -65,21 +65,22 @@ unit indices.
      numeral-flanking test never looks outside `[start, end)`, so a digit just outside a range
      cannot change how the range splits. This reproduces the old behavior, which tested against a
      substring, byte for byte.
-  4. **Budget pass**: a range no longer than `maxLength` becomes one piece with a single run
-     `(Start, Length, 0)`. A longer range is scanned as words (maximal non-whitespace runs). Each piece takes
-     the words that fit (the next word adds `word.Length` plus one separator when the piece is non-empty, and the
-     piece is full when adding the word would exceed `maxLength`) and then ends at the best phrase boundary
-     among them (`ChooseBoundary`) instead of wherever the budget ran out, so a long clause is not cut between a
-     function word and the word it belongs to (*the last full measure of | devotion*). In order of preference the
-     piece ends after a dash (`--`, `-`, an en or em dash, alone or at the end of a word) or before an opening
-     bracket when it holds at least a quarter of the budget; else before a conjunction or relative word (`and`,
-     `but`, `that`, `which`, `who`, `because`, `when`, `if`, ...) that follows a word that is not a function word,
-     when it holds at least two fifths; else after any word that is not a function word (an article, preposition,
-     auxiliary, pronoun, negation or conjunction, from two small English word lists), when it holds at least half;
-     else after the last word that fits, exactly as before. Within a rule the latest boundary wins, and no boundary
-     is put before a word that is only a mark. The piece text is the words joined by a single space, with one
-     run per word whose `TextStart` is that word's running position in the joined text. Whitespace runs inside such a
-     piece therefore collapse, and the runs record exactly where each surviving word came from.
+  4. **Budget pass**: a range no longer than `maxLength` becomes one piece with a single run `(Start, Length, 0)`. A
+     longer range is scanned as words (maximal non-whitespace runs). Each piece takes the words that fit (the next word
+     adds `word.Length` plus one separator when the piece is non-empty, and the piece is full when adding the word would
+     exceed `maxLength`) and then ends at the best phrase boundary among them (`ChooseBoundary`) instead of wherever the
+     budget ran out, so a long clause is not cut between a function word and the word it belongs to (*the last full
+     measure of | devotion*). In order of preference the piece ends after a dash (`--`, a single hyphen alone or
+     attached to the word before it (`word-`), a figure dash, an en or em dash, or a horizontal bar, alone or at the end
+     of a word) or before a lone opening bracket (`(`, `[`, `{`) when it holds at least a quarter of the budget; else
+     before a conjunction or relative word (`and`, `but`, `that`, `which`, `who`, `because`, `when`, `if`, ...) that
+     follows a word that is not a function word, when it holds at least two fifths; else after any word that is not a
+     function word (an article, preposition, auxiliary, pronoun, negation or conjunction, from two small English word
+     lists), when it holds at least half; else after the last word that fits, exactly as before. Within a rule the
+     latest boundary wins, and no boundary is put before a word that is only a mark (a lone dash or closing bracket) or
+     right after a lone opening mark. The piece text is the words joined by a single space, with one run per word whose
+     `TextStart` is that word's running position in the joined text. Whitespace runs inside such a piece therefore
+     collapse, and the runs record exactly where each surviving word came from.
   5. **Degenerate merge**: a piece with no letter or digit is appended to the
      previous piece as `previous + " " + piece`, with its runs appended after the previous runs,
      each shifted by `previous.Text.Length + 1`. With no previous piece it is dropped, and its runs

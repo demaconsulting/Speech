@@ -13,7 +13,8 @@ pronouncer and applying the host overrides and the readings.
 - `PhonemizedItem`: a sealed class with `Kind`, `Text` (as spoken), `Phones` (the ARPAbet symbols, empty without sound),
   `Arpabet` (the symbols joined by spaces), `Source`, `FromReading` (a reading was applied), `ReadingId` (the id that
   was requested, whether or not it was applied), `Oov` and `IpaOverride`; internally it also carries the pronunciation
-  as phones and the compound break
+  as phones and the element starts of a hyphenated compound (where each element after the first begins; the first of
+  them is the compound break)
 - `PhonemizedItemKind`: `Word`, `Punctuation`, `Unsupported`; `PronunciationSource`: the sources in priority order
 
 **Key Methods**:

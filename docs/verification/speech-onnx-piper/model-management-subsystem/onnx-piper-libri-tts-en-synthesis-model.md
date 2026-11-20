@@ -49,12 +49,13 @@ commas kept, the words and their order as in the default plan, which has one seg
 covers the very text it covered in its clause piece. The join function keeps segments apart for a different set of
 parameter overrides, silence on either side, a first piece that ends a sentence, an empty text and a joined text beyond
 300 characters, joins four pieces ending in `,`, `;`, `:` into one with the first one's leading silence, the last one's
-trailing silence and the shared overrides, and joins pieces cut at a dash (`--`, a spaced hyphen, an em dash) or inside
-a long clause into one text. A pause tag stays its own segment with the clauses on each side joined within themselves
-only; a null argument is rejected. `Consider 5 options:` followed by a paragraph break and `Should we pick 7, or wait?`
-stays two segments (an analyzer sentence boundary after a clause mark is kept, and each number's annotation stays in its
-own sentence); an analyzer break next to a tag is kept, a stripped tag inside a sentence does not separate its clauses,
-and a long sentence of twelve clauses arrives in segments of at most 300 characters that read back as the same text.
+trailing silence and the shared overrides, and joins pieces cut at a dash (`--`, a spaced or attached hyphen, an en or
+em dash) or inside a long clause into one text. A pause tag stays its own segment with the clauses on each side joined
+within themselves only; a null argument is rejected. `Consider 5 options:` followed by a paragraph break and
+`Should we pick 7, or wait?` stays two segments (an analyzer sentence boundary after a clause mark is kept, and each
+number's annotation stays in its own sentence); an analyzer break next to a tag is kept, a stripped tag inside a
+sentence does not separate its clauses, and a long sentence of twelve clauses arrives in segments of at most 300
+characters that read back as the same text.
 
 ##### Speaker parameter
 

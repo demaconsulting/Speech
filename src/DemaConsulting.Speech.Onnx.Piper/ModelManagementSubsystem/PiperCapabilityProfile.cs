@@ -46,7 +46,7 @@ internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
     internal const int MaxJoinedLength = 300;
 
     /// <summary>The marks that end a clause piece the core chunker split at, or a piece cut at a dash.</summary>
-    private const string PauseMarks = ",;:\u2014\u2013";
+    private const string PauseMarks = ",;:\u2012\u2013\u2014\u2015";
 
     /// <summary>
     ///     Gets the shared instance.
@@ -209,12 +209,13 @@ internal sealed class PiperCapabilityProfile : IModelCapabilityProfile
     }
 
     /// <summary>
-    ///     Tests whether a text ends in a dash the core chunker cuts at: <c>--</c>, or a hyphen standing alone (a spaced dash).
+    ///     Tests whether a text ends in a hyphen dash the core chunker cuts at: <c>--</c>, or a single hyphen standing alone
+    ///     (a spaced dash) or attached to the word before it.
     /// </summary>
     /// <param name="text">The text of a segment.</param>
-    /// <returns><see langword="true"/> when the text ends in such a dash (an en or em dash is one of the pause marks).</returns>
+    /// <returns><see langword="true"/> when the text ends in a hyphen (the other dashes are among the pause marks).</returns>
     private static bool EndsWithDash(string text) =>
-        text.EndsWith("--", StringComparison.Ordinal) || text == "-" || text.EndsWith(" -", StringComparison.Ordinal);
+        text.EndsWith('-');
 
     /// <summary>
     ///     Tests whether a segment that does not end a sentence is joined to the segment after it.

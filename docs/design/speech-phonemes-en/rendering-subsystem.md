@@ -57,11 +57,11 @@ written even next to the primary one (`wˈɛlnˌoʊn`, `bˈæɾəlfˌiːld`).
 a final syllabic `l` after a consonant or `m` and `n` after `t d s z p f`, an unstressed `IH0` as a schwa except in
 `-ing`, `-ic`, `-ive`, `-age` and `-ish`, an unstressed prefix `IY0` as a schwa, no secondary stress right before the
 primary and none on a final `-y`. Kokoro keeps its own quotation marks, brackets and ellipsis (`“ ” ( ) …`), writes a
-dash between spaces, and keeps the stress only on the first part of a hyphenated compound, demoting the later primary
-stresses (the pronunciation already carries them as secondary stresses, and the item's compound break says where the
-second part starts). A hyphen between two replaced digit groups
-(`555-0147`) is a pause item: a dash for Kokoro, a comma for Piper, so the speaker pauses after the group as a person
-reading a phone number does.
+dash between spaces, and keeps the stress only on the first part of a hyphenated compound or on the root after a prefix
+(the pronunciation already carries one primary stress and secondary stresses on the other elements, so the renderer
+changes nothing; the item's element starts say where each later element starts). A hyphen between two replaced digit
+groups (`555-0147`) is a pause item: a dash for Kokoro, a comma for Piper, so the speaker pauses after the group as a
+person reading a phone number does.
 
 **Weak forms.** In running speech the small function words are unstressed and often reduced, and the Piper voice was
 trained on text where they are. About sixty words have a weak form in one of three classes: a reduced vowel (`the` is

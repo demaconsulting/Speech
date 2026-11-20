@@ -790,7 +790,9 @@ public static class SentenceChunker
     ///     the like (a clause starts there) when it holds at least two fifths, and after any other word that is not a
     ///     function word (an article, preposition, auxiliary, pronoun or conjunction, each of which needs the word
     ///     after it) when it holds at least half. Within one rule the latest boundary wins. A boundary is never put
-    ///     before a mark that carries no word, which would start the next piece with a lone dash.
+    ///     before a mark that carries no word (a lone dash or closing bracket), which would start the next piece with
+    ///     it, and never right after a lone opening mark, which would leave it ending the piece before; a lone opening
+    ///     bracket itself starts a phrase, so a piece may end before it.
     /// </remarks>
     /// <param name="source">The original source text.</param>
     /// <param name="words">The words of the range being split.</param>
@@ -809,13 +811,20 @@ public static class SentenceChunker
             length += words[end - 1].Length + (end > start + 1 ? 1 : 0);
             var last = source.AsSpan(words[end - 1].Start, words[end - 1].Length);
             var next = source.AsSpan(words[end].Start, words[end].Length);
-            if (!HasWordCharacter(next))
+            if (!HasWordCharacter(last) && !EndsWithDash(last))
             {
-                // The next word is a bare mark (a dash): it stays with the word before it
+                // The word before is a bare opening mark (a bracket or a quote): it stays with the word after it
                 continue;
             }
 
-            if (length * 4 >= maxChunkLength && (EndsWithDash(last) || next[0] is '(' or '['))
+            if (!HasWordCharacter(next) && !IsOpeningBracket(next))
+            {
+                // The next word is a bare mark (a dash, a closing bracket): it stays with the word before it
+                continue;
+            }
+
+            var opensBracket = next[0] is '(' or '[' or '{';
+            if (length * 4 >= maxChunkLength && (EndsWithDash(last) || opensBracket))
             {
                 dash = end;
             }
@@ -836,12 +845,22 @@ public static class SentenceChunker
     }
 
     /// <summary>
-    ///     Tests whether a word is a dash or ends in one (<c>--</c>, <c>-</c>, an en dash or an em dash).
+    ///     Tests whether a word is a dash or ends in one (<c>--</c>, a single hyphen standing alone or attached to the
+    ///     word before it, a figure dash, an en dash, an em dash or a horizontal bar).
     /// </summary>
     /// <param name="word">The word as written.</param>
     /// <returns><see langword="true"/> for a dash, or a word directly followed by a dash.</returns>
     private static bool EndsWithDash(ReadOnlySpan<char> word) =>
-        word.Length > 0 && (word[^1] is '\u2014' or '\u2013' || word.EndsWith("--", StringComparison.Ordinal) || (word.Length == 1 && word[0] == '-'));
+        word.Length > 0 && word[^1] is '-' or '\u2012' or '\u2013' or '\u2014' or '\u2015';
+
+    /// <summary>
+    ///     Tests whether a word is an opening bracket standing alone (<c>(</c>, <c>[</c> or <c>{</c>), which starts the
+    ///     phrase that follows it.
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns><see langword="true"/> when the word is only an opening bracket.</returns>
+    private static bool IsOpeningBracket(ReadOnlySpan<char> word) =>
+        word.Length == 1 && word[0] is '(' or '[' or '{';
 
     /// <summary>
     ///     Tests whether a word has a letter or a digit.

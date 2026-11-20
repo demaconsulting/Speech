@@ -7,8 +7,11 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
 
 - `WordPronouncer`: immutable, holding the `CmuLexicon`, the `ReadingPronunciations`, the `LexiconCorrections` and the
   `LetterToSound` converter it was built with; thread-safe
-- `PronouncedWord(Pronunciation, Source, CompoundBreak)`: the answer; `CompoundBreak` is the index of the first phone of
-  the second part of a hyphenated compound that was pronounced part by part, otherwise -1
+- `PronouncedWord(Pronunciation, Source, ElementStarts)`: the answer; `ElementStarts` lists, for a hyphenated compound
+  that was pronounced part by part, the index of the first phone of every element after the first (`state-of-the-art` is
+  `[4, 6, 8]`), otherwise it is `null`. The derived `CompoundBreak` is the first of them (the start of the second
+  element), or -1 for a word that is not such a compound. A renderer reads the element starts to keep a sound rule
+  inside one element (the vowel-before-`r` rules, the stress of a compound) and does not apply it across a hyphen
 - Tables: the productive prefixes with their sounds (`counter`, `under`, `super`, `inter`, `multi`, `semi`, `anti`,
   `over`, `non`, `out`, `sub`, `dis`, `mis`, `pre`, `un`, `re`), the small function words that are unstressed in a later
   part of a compound, and the reduced forms of `to` and `of` inside a compound

@@ -217,6 +217,73 @@ public class SentenceChunkerTests
     }
 
     /// <summary>
+    ///     Proves that every written form of a dash is a phrase boundary a long clause is cut at: a hyphen attached to the
+    ///     word before it (<c>word-</c>), a spaced hyphen, an en dash, an em dash and a double hyphen, each ending a chunk
+    ///     that holds the words before it and starts the next with the words after it.
+    /// </summary>
+    [Theory]
+    [InlineData("alpha beta gamma delta epsilon zeta-", "alpha beta gamma delta epsilon zeta-")]
+    [InlineData("alpha beta gamma delta epsilon zeta -", "alpha beta gamma delta epsilon zeta -")]
+    [InlineData("alpha beta gamma delta epsilon zeta\u2013", "alpha beta gamma delta epsilon zeta\u2013")]
+    [InlineData("alpha beta gamma delta epsilon zeta\u2014", "alpha beta gamma delta epsilon zeta\u2014")]
+    [InlineData("alpha beta gamma delta epsilon zeta --", "alpha beta gamma delta epsilon zeta --")]
+    public void SentenceChunker_Chunk_LongClauseWithADashInAnyForm_SplitsAfterTheDash(string firstPart, string expectedFirstChunk)
+    {
+        // Arrange: a budget of 50 holds "...zeta<dash> eta" but the dash stands where the piece is full enough; the words after it fill the rest
+        var text = firstPart + " theta iota kappa lambda mu nu xi omicron pi rho";
+
+        // Act
+        var chunks = SentenceChunker.Chunk(text, maxChunkLength: 50);
+
+        // Assert: the first chunk ends at the dash and the words after it start the second chunk
+        Assert.Equal(expectedFirstChunk, chunks[0]);
+        Assert.StartsWith("theta", chunks[1], StringComparison.Ordinal);
+        Assert.Equal(text, string.Join(' ', chunks));
+    }
+
+    /// <summary>
+    ///     Proves that a lone opening bracket (<c>(</c> or <c>[</c>) starts a phrase, so a long clause is cut before it and the
+    ///     bracket opens the next chunk with the words it holds, and that a closing bracket, a lone dash or a lone opening
+    ///     bracket never starts or ends a chunk away from the word it belongs to.
+    /// </summary>
+    [Theory]
+    [InlineData("(", ")")]
+    [InlineData("[", "]")]
+    public void SentenceChunker_Chunk_LongClauseWithALoneOpeningBracket_SplitsBeforeTheBracket(string open, string close)
+    {
+        // Arrange: the budget of 50 runs out inside "theta iota kappa", after the bracket
+        var text = $"alpha beta gamma delta epsilon zeta {open} theta iota kappa {close} lambda mu nu xi omicron pi rho";
+
+        // Act
+        var chunks = SentenceChunker.Chunk(text, maxChunkLength: 50);
+
+        // Assert: the first chunk ends before the bracket, the second opens with it; no chunk ends on the bracket or starts with the closing one
+        Assert.Equal("alpha beta gamma delta epsilon zeta", chunks[0]);
+        Assert.StartsWith(open + " theta", chunks[1], StringComparison.Ordinal);
+        Assert.All(chunks, chunk => Assert.False(chunk.EndsWith(open, StringComparison.Ordinal) || chunk.StartsWith(close, StringComparison.Ordinal)));
+        Assert.Equal(text, string.Join(' ', chunks));
+    }
+
+    /// <summary>
+    ///     Proves that a long clause is never cut between a lone opening bracket and the word after it, nor right before
+    ///     a lone closing bracket, even when that leaves the budget cut with no better boundary in reach.
+    /// </summary>
+    [Fact]
+    public void SentenceChunker_Chunk_LoneBracketsAndDashesBeforeTheBudgetCut_StayWithTheirWords()
+    {
+        // Arrange: the budget of 20 runs out exactly at the lone bracket, the dash and the closing bracket in turn
+        const string text = "one two three four ( five six ) seven eight - nine ten ) eleven";
+
+        // Act
+        var chunks = SentenceChunker.Chunk(text, maxChunkLength: 20);
+
+        // Assert
+        Assert.All(chunks, chunk => Assert.False(chunk.EndsWith('('), chunk));
+        Assert.All(chunks, chunk => Assert.False(chunk.StartsWith(')') || chunk.StartsWith('-'), chunk));
+        Assert.Equal(text, string.Join(' ', chunks));
+    }
+
+    /// <summary>
     ///     Proves that a long clause with no dash and no conjunction is never cut between a function word and the word
     ///     after it when another boundary leaves a reasonably full chunk (<i>the | last</i>, <i>of | devotion</i>,
     ///     <i>we | here</i>), and that a clause with only function words at the end of the budget still splits.

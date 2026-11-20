@@ -124,6 +124,13 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
             new SpeechSegment("that from these dead", 0, 0, null),
         ])).Text);
         Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us \u2014", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+        Assert.Equal("the task before us- that from these dead", Assert.Single(PiperCapabilityProfile.JoinClauses([
+            new SpeechSegment("the task before us-", 0, 0, null),
+            new SpeechSegment("that from these dead", 0, 0, null),
+        ])).Text);
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us\u2013", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us\u2012", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
+        Assert.Single(PiperCapabilityProfile.JoinClauses([new SpeechSegment("the task before us\u2015", 0, 0, null), new SpeechSegment("that from these dead", 0, 0, null)]));
 
         // Assert: kept apart
         Assert.Equal(2, PiperCapabilityProfile.JoinClauses([new SpeechSegment("One,", 0, 0, slow), new SpeechSegment("two.", 0, 0, fast)]).Count);
