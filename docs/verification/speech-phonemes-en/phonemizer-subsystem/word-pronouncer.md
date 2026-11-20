@@ -41,7 +41,11 @@ the letter-to-sound model; `Rhinemouth` is `R AY1 N M AH0 TH` and `Tynemouth` en
 `WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry`,
 `WordPronouncer_Pronounce_LexiconAddition_PronouncesAWordTheDictionaryLacks`,
 `WordPronouncer_Pronounce_BritishSpelling_IsTheAmericanDictionaryWord`,
-`WordPronouncer_Pronounce_PlaceNameInMouth_HasTheReducedLastElement`
+`WordPronouncer_Pronounce_PlaceNameInMouth_HasTheReducedLastElement`,
+`WordPronouncer_Pronounce_UnknownCapitals_AreSpelledByTheLetterNames`
+
+`USGS` is spelled `Y UW1 EH1 S JH IY1 EH1 S` (source `Spelled`), while `Usgs` and the Roman-numeral letters `VII` go to
+the letter-to-sound model, `NASA` is the dictionary's `N AE1 S AH0` and `COVID` the reviewed addition `K OW1 V IH0 D`.
 
 ##### Productive prefix
 
@@ -49,4 +53,9 @@ the letter-to-sound model; `Rhinemouth` is `R AY1 N M AH0 TH` and `Tynemouth` en
 
 ##### Diacritics, compounds and non-words
 
-**Test**: `WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules`
+**Tests**: `WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules`,
+`WordPronouncer_Pronounce_CombiningForm_LeavesTheStressOnALongRoot` (a seven-row theory)
+
+The combining-form theory gives `bio-mechanical` and `biomechanical` `B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L`,
+`neuro-imaging` and `ultra-modern` the root's primary stress, `bio-weapon` `B AY1 OW0 W EH2 P AH0 N` (a short root
+stressed first), and keeps `bookshelf` and `sun-light` stressed on their first element.

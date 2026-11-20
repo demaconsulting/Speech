@@ -50,7 +50,10 @@ sections:
                   same, and a name is left alone because its letters are not a spelling convention. The
                   dictionary reduces every English place name in -mouth it lists (Portsmouth), while the
                   letter-to-sound model gives an unknown one the full vowel, which the voice reads as two
-                  words with a pause.
+                  words with a pause. An unknown word of two to five capitals with a vowel is nearly
+                  always an initialism (USGS), which the model guesses as a nonsense word. A listener heard
+                  "bio-mechanical" with the stress on bio: a combining form before a long root leaves the
+                  root its stress in the dictionary.
                 tests:
                   - WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed
                   - WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry
@@ -60,3 +63,5 @@ sections:
                   - WordPronouncer_Pronounce_LexiconAddition_PronouncesAWordTheDictionaryLacks
                   - WordPronouncer_Pronounce_BritishSpelling_IsTheAmericanDictionaryWord
                   - WordPronouncer_Pronounce_PlaceNameInMouth_HasTheReducedLastElement
+                  - WordPronouncer_Pronounce_UnknownCapitals_AreSpelledByTheLetterNames
+                  - WordPronouncer_Pronounce_CombiningForm_LeavesTheStressOnALongRoot

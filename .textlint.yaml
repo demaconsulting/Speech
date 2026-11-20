@@ -216,6 +216,19 @@ words:
   # and the golden corpora it regenerates (the regenerate-goldens command of the Phonemes.En tools)
   - goldens
   - pronouncer
+  # SI units read by the Text.En numeric normalization, and the combining form and initialisms the Phonemes.En word
+  # pronouncer documents as examples (initialisms of the text corpora that the dictionary lacks)
+  - gbps
+  - haarp
+  - hectopascal
+  - hectopascals
+  - immuno
+  - mbps
+  - megastructure
+  - milliwatt
+  - milliwatts
+  - nber
+  - usgs
 
 ignorePaths:
   - '**/.git/**'

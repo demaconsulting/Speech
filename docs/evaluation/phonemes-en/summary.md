@@ -103,9 +103,11 @@ homophones, so the figures show only that the new path is not less intelligible 
 
 - **Piper phoneme strings against espeak-ng.** For a pack of 133 sentences the whole phoneme string (words, separators,
   stress marks, punctuation) was compared with the engine's. Punctuation passes through at the same positions in all
-  133, the word separators agree in 130 and no problem with framing, pauses or the model inputs was found: the engine
-  inputs, the symbol framing and the scale triple (noise 0.333, length 1.0, noise width 0.333, the values the voice's
-  installed configuration declares; an earlier version of this text wrongly said 0.667 and 0.8) are the voice's own. The
+  133, the word separators agree in 130 and no problem with pauses or the scales was found: the scale triple (noise
+  0.333, length 1.0, noise width 0.333, the values the voice's installed configuration declares; an earlier version of
+  this text wrongly said 0.667 and 0.8) is the voice's own. The symbol framing was not: it lacked the pad that Piper
+  writes after the begin symbol, which weakened a stop at the start of every utterance (*Top* heard as *Op*), and was
+  fixed later (see *Listening Fixes 6* in `renderers.md`). The
   heteronym sentence of the real-CLI check phonemizes identically to espeak-ng's string, so the garbled recognition
   (`rid the late`) is not a phoneme problem. The same phoneme string synthesized by seven speakers gave 6.1
   (speaker 0, the default), 6.2 (17), 6.3 (250), 6.9 (400), 7.1 (100), 7.6 (600) and 8.6 (speaker 5, the one used in

@@ -528,6 +528,55 @@ held-out word passes do not change. The only changed items are the one occurrenc
 to `əv ə`). Kokoro's renderings of the corpora do not change. No gated figure gets worse. The Piper golden did not
 change; the Kokoro golden did not change.
 
+### Listening Fixes 6
+
+Three more rounds (Piper LibriTTS-R, speaker 0) flagged words that the phonemizer and the Piper engine read wrong.
+Durations and energies are of the voice with the noise off.
+
+1. ***Top of shaft* heard as *Op*, and *Testing* without its first t.** The phonemes were right (`tˈɑːp`), and the WAV
+   written by the library already lacked most of the burst of the first `t`, so playback was not the cause. The Piper
+   engine framed its input as the begin symbol and then each symbol followed by a pad; Piper's own `phonemes_to_ids`
+   writes a pad after the begin symbol too, so the first sound of every utterance followed the begin symbol directly, an
+   input the voice never saw in training. With Piper's framing the energy before the first vowel (the burst and the
+   aspiration, relative to the loudest 5 ms) is about three times larger: *Top of shaft.* 0.46 to 1.41, *Testing has
+   shown that it works.* 0.33 to 0.97, *Pat sat.* 0.62 to 0.87, *Kate ran.* 0.55 to 0.63, while *The top of the shaft.*
+   (no stop at the start) does not change. The engine now writes the pad (see *PiperPhonemePipeline Design*); every
+   utterance, so every sentence start, is affected. Kokoro already pads both ends. The whole-string comparison of
+   *Refinement After the First End-to-End Audio* compared the phoneme strings, not the model input, so it could not see
+   this.
+2. ***presumed KIA* as the car brand.** An all-capital word the dictionary lists is read from it, and the dictionary has
+   `Kia`. The text analysis now lists the initialisms with a vowel that the dictionary has as words or names (KIA, MIA,
+   WIA, POW, DOA, AKA, GED, IRA, ETA, ICU, IED, EOD; see *AcronymRecognizer Design* of the text analysis). An unknown
+   word of two to five capitals with a vowel (not only Roman-numeral letters) is now spelled by its letter names instead
+   of the letter-to-sound guess (`USGS` `ˈʌsɡz` to `jˈuːˈɛsdʒˈiːˈɛs`). On the repository's text corpora 739 tokens (478
+   types) take that path; 679 (91.9 percent) are initialisms that the letter names read right and 60 are acronyms read
+   as words, of which the common ones are now reviewed additions (`covid`, `hvac`, `iso`, `jpeg`, `lidar`, `uefa`).
+   `NASA`, `NATO`, `SCUBA` and `LASER` are dictionary words and do not change. Initialisms the dictionary has as words
+   and the list lacks (`SIP`, `SOP`) are still read as words.
+3. ***bio-mechanical* with the stress on *bio*.** The first element was the word `bio` (`B AY2 OW1`), whose primary
+   stress then won. A combining form (31 of them, `bio-` to `ultra-`) as the first element now has its own sound, with
+   the secondary stress before a root of three or more syllables or a root stressed after its first syllable (the
+   dictionary agrees in 92 to 94 percent of such words) and the primary stress before any other root (the dictionary
+   agrees in 98.6 percent of the one-syllable roots). Audit, Piper before and after:
+
+| Word | Before | After |
+| --- | --- | --- |
+| bio-mechanical | `bˌaɪˈoʊmɪkˌænɪkəl` | `bˌaɪoʊməkˈænɪkəl` |
+| neuro-imaging | `nˈʊɹɹˌoʊˌɪmɪdʒɪŋ` | `nˌʊɹɹoʊˈɪmɪdʒɪŋ` |
+| bio-weapon | `bˌaɪˈoʊwˌɛpən` | `bˈaɪoʊwˌɛpən` |
+| biomechanical, electromagnetic, microorganism | unchanged | root stressed |
+| hydroelectric, thermodynamic, geopolitical | unchanged | root stressed |
+| photosynthesis, ultraviolet, pseudoscience | unchanged | root stressed |
+| socioeconomic, megastructure, autoimmune | unchanged | root stressed |
+| neuroscience | `njˈʊɹɹoʊsˌaɪəns` | unchanged (first element, as listed) |
+| psychosocial | `sˈaɪkoʊsˌoʊʃəl` | unchanged (first element, as listed) |
+| bookshelf, sunlight, everywhere | `bˈʊkʃɛlf`, `sˈʌnlaɪt`, `ˈɛvɹiwˌɛɹ` | unchanged |
+
+**Measured effect on the gates** (the local comparison of *Listening Fixes 4*): no word of the 450 tuning sentences,
+the 60 held-out sentences or the two word passes changes (90.89 and 92.49 percent stress-free word match, 2.69 and 2.15
+percent PER, before and after); the measurement corpora have no unknown all-capital word and no hyphenated combining
+form. The Piper and Kokoro goldens did not change.
+
 ## Residual Classes
 
 The largest disagreements that remain are idiosyncrasies of the two engines, not renderer faults, and no phone-only rule

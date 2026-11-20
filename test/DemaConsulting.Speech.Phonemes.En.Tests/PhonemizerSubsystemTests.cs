@@ -513,6 +513,62 @@ public sealed class PhonemizerSubsystemTests
     }
 
     /// <summary>
+    ///     Proves a word the dictionary lacks that is written as two to five capitals with a vowel is spelled by the letter
+    ///     names (each letter keeping its stressed vowel), while the same letters in lower case or title case, letters of
+    ///     Roman numerals only, a dictionary word written in capitals (<i>NASA</i>) and a reviewed addition (<i>COVID</i>) are
+    ///     not.
+    /// </summary>
+    [Fact]
+    public void WordPronouncer_Pronounce_UnknownCapitals_AreSpelledByTheLetterNames()
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var usgs = pronouncer.Pronounce("USGS", null);
+        var title = pronouncer.Pronounce("Usgs", null);
+        var roman = pronouncer.Pronounce("VII", null);
+        var nasa = pronouncer.Pronounce("NASA", null);
+        var covid = pronouncer.Pronounce("COVID", null);
+
+        // Assert
+        Assert.Equal("Y UW1 EH1 S JH IY1 EH1 S", usgs!.Pronunciation.ToString());
+        Assert.Equal(PronunciationSource.Spelled, usgs.Source);
+        Assert.Equal(PronunciationSource.LetterToSound, title!.Source);
+        Assert.Equal(PronunciationSource.LetterToSound, roman!.Source);
+        Assert.Equal("N AE1 S AH0", nasa!.Pronunciation.ToString());
+        Assert.Equal("K OW1 V IH0 D", covid!.Pronunciation.ToString());
+    }
+
+    /// <summary>
+    ///     Proves a combining form (<i>bio-</i>, <i>electro-</i>, <i>micro-</i> ...) before a root of three or more syllables
+    ///     or one stressed after its first syllable has the secondary stress and the root keeps the primary, hyphenated or
+    ///     closed, while before a short root stressed first it carries the primary stress like the first element of any
+    ///     compound, and a compound of two words keeps its first-element stress.
+    /// </summary>
+    /// <param name="word">The word.</param>
+    /// <param name="expected">The expected pronunciation.</param>
+    [Theory]
+    [InlineData("bio-mechanical", "B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L")]
+    [InlineData("biomechanical", "B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L")]
+    [InlineData("neuro-imaging", "N UH2 R OW0 IH1 M IH0 JH IH0 NG")]
+    [InlineData("ultra-modern", "AH2 L T R AH0 M AA1 D ER0 N")]
+    [InlineData("bio-weapon", "B AY1 OW0 W EH2 P AH0 N")]
+    [InlineData("bookshelf", "B UH1 K SH EH2 L F")]
+    [InlineData("sun-light", "S AH1 N L AY2 T")]
+    public void WordPronouncer_Pronounce_CombiningForm_LeavesTheStressOnALongRoot(string word, string expected)
+    {
+        // Arrange
+        var pronouncer = new WordPronouncer(CmuLexicon.Default, ReadingPronunciations.Default, LetterToSound.Default);
+
+        // Act
+        var pronounced = pronouncer.Pronounce(word, null);
+
+        // Assert
+        Assert.Equal(expected, pronounced!.Pronunciation.ToString());
+    }
+
+    /// <summary>
     ///     Proves a British spelling the dictionary lacks is pronounced as the dictionary's American spelling of the word
     ///     (one rule or several together), while a capitalized word, which may be a name, is not respelled.
     /// </summary>

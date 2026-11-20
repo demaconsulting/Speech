@@ -20,7 +20,11 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
   `-ing`, `-ite`, `-ful`, `-able`, `-ably`, `-less`, `-ism` and `-ist`; `-tre`, `-bre`, `-vre` to `-ter`, `-ber`, `-ver`
   with their `-s`, `-d` and `-ring` forms; `-ise` and `-yse` to `-ize` and `-yze` with their endings; the doubled `l` of
   `-elled`, `-alled` and the like; `-fence` and `-cence` to `-fense` and `-cense`; `-ogue` to `-og`; `-amme` to `-am`),
-  each rule restricted to a few letters of context so it applies where the letters are the convention, not the root
+  each rule restricted to a few letters of context so it applies where the letters are the convention, not the root;
+  and the combining forms with their sound as a first element, the stressed vowel secondary (`aero`, `astro`, `auto`,
+  `bio`, `cardio`, `electro`, `geo`, `hydro`, `hyper`, `hypo`, `immuno`, `infra`, `macro`, `mega`, `micro`, `mono`,
+  `multi`, `nano`, `neo`, `neuro`, `paleo`, `photo`, `poly`, `proto`, `pseudo`, `psycho`, `retro`, `socio`, `techno`,
+  `thermo`, `ultra`)
 
 **Key Methods**:
 
@@ -35,7 +39,16 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
   above, alone and up to three together (fewest first), into a word the dictionary lists (`manoeuvring` is
   `maneuvering`, `analyse` is `analyze`; `Morphology`); for a word written with a capital, an English place name in
   `-mouth` after at least two letters, whose first element is pronounced as a word of its own and whose `-mouth` is
-  `M AH0 TH` (`Rhinemouth`; `Morphology`); the letter-to-sound converter (`LetterToSound`). A word written with a
+  `M AH0 TH` (`Rhinemouth`; `Morphology`); for a word written as two to five capitals with a vowel and not only letters
+  of Roman numerals, its letters by their names, each with its primary stress (`USGS` is `Y UW1 EH1 S JH IY1 EH1 S`;
+  `Spelled`); the letter-to-sound converter (`LetterToSound`). An unknown word written that way is far more often an
+  initialism than a word: of the 739 such tokens (478 types) of the repository's text corpora that the dictionary and
+  the additions lack, 679 (91.9 percent) are initialisms the letter names read right, against a letter-to-sound guess
+  such as `ʌsɡz` for `USGS`; the wrong 60 are acronyms read as words (`HVAC`, `UEFA`, `SCADA`, `HAARP`), of which the
+  common ones are reviewed additions (`covid`, `hvac`, `iso`, `jpeg`, `lidar`, `uefa`). A word with no vowel never gets
+  here (the text analysis spells it), a dictionary word written in capitals (`NASA`, `NATO`, `SCUBA`, `LASER`) is read
+  from the dictionary, and a capital word the dictionary has as another word (`KIA`) is the text analysis's reviewed
+  list. A word written with a
   capital may be a name, whose letters are not a spelling convention, so it is not respelled (the rules' wrong
   respellings of dictionary words are names: `Kraemer` is not `Kremer`); and the dictionary lists every English place
   name in `-mouth` it has with the reduced `M AH0 TH` (`Dartmouth`, `Falmouth`, `Monmouth`, `Plymouth`, `Portsmouth`,
@@ -56,8 +69,17 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
   dictionary (99 percent of the words with `un-`, 96 of `dis-`, 95 of `mis-`, 92 of `re-`, 87 of `ex-`, 85 of `de-`, 83
   of `pre-`, 81 of `semi-`, 77 of `non-`, 76 of `anti-`, 73 of `inter-`); for `co-`, `sub-`, `post-`, `multi-`, `super-`
   and `pro-` it is a toss-up, and for `over-`, `under-`, `out-`, `self-` and the like it is on the first element, so
-  those are compounds like any other. `PronouncedWord.ElementStarts` lists where each element after the first starts, so
-  that a renderer can keep a sound rule inside one element
+  those are compounds like any other. A combining form as the first element (`bio-mechanical`, `neuro-imaging`) has the
+  sound of the form, not of the word (`bio` the word is `B AY2 OW1`), with the secondary stress before a root of three
+  or more syllables or one whose primary stress is not on its first syllable, so the root keeps the primary stress
+  (`B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L`), and the primary stress before any other root, which is then secondary like
+  the later element of any compound (`bio-weapon` is `B AY1 OW0 W EH2 P AH0 N`). In the dictionary the root has the
+  primary stress in 92 percent of the 188 words of an `-o` combining form and a root of three or more syllables (90
+  percent of 60 for `mega-`, `ultra-` and the like), in 94 percent where the root's own primary stress is not on its
+  first syllable, and in 1.4 percent of the 145 with a root of one syllable (`biomass`, `microchip`). A word the
+  dictionary lacks that is a combining form and a dictionary word keeping its stress by the same test is pronounced the
+  same way (`biomechanical`; `Morphology`). `PronouncedWord.ElementStarts` lists where each element after the first
+  starts, so that a renderer can keep a sound rule inside one element
 - **Letter(c)**, **Digit(c)**: a letter by its name (source `Spelled`) and a digit by the dictionary word for it (source
   `Digits`)
 

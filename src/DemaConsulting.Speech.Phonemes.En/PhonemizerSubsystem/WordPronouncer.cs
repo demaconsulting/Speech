@@ -88,6 +88,54 @@ internal sealed class WordPronouncer
     private static readonly Dictionary<string, Pronunciation> CompoundPrefixForms = BuildCompoundPrefixForms();
 
     /// <summary>
+    ///     The combining forms (<c>bio-</c>, <c>micro-</c>, <c>electro-</c> ...) with their sound as a first element, the
+    ///     stressed vowel secondary. Before a root of three or more syllables, or one whose primary stress is not on its
+    ///     first syllable, the root keeps the primary stress and the combining form has the secondary (<c>bio-mechanical</c>:
+    ///     <c>B AY2 OW0 M AH0 K AE1 N IH0 K AH0 L</c>); before a shorter root with its stress first the word is a compound
+    ///     like any other (<c>biomass</c>, <c>microchip</c>: the first element primary). In the dictionary the root has
+    ///     the primary stress in 92 percent of the 188 words of an <c>-o</c> combining form and a root of three or more
+    ///     syllables (90 percent of 60 for the others such as <c>mega-</c> and <c>ultra-</c>) and in 1.4 percent of the 145
+    ///     with a root of one syllable.
+    /// </summary>
+    private static readonly Dictionary<string, Pronunciation> CombiningForms = new(StringComparer.Ordinal)
+    {
+        ["aero"] = Pronunciation.Parse("EH2 R OW0"),
+        ["astro"] = Pronunciation.Parse("AE2 S T R OW0"),
+        ["auto"] = Pronunciation.Parse("AO2 T OW0"),
+        ["bio"] = Pronunciation.Parse("B AY2 OW0"),
+        ["cardio"] = Pronunciation.Parse("K AA2 R D IY0 OW0"),
+        ["electro"] = Pronunciation.Parse("IH0 L EH2 K T R OW0"),
+        ["geo"] = Pronunciation.Parse("JH IY2 OW0"),
+        ["hydro"] = Pronunciation.Parse("HH AY2 D R OW0"),
+        ["hyper"] = Pronunciation.Parse("HH AY2 P ER0"),
+        ["hypo"] = Pronunciation.Parse("HH AY2 P OW0"),
+        ["immuno"] = Pronunciation.Parse("IH2 M Y AH0 N OW0"),
+        ["infra"] = Pronunciation.Parse("IH2 N F R AH0"),
+        ["macro"] = Pronunciation.Parse("M AE2 K R OW0"),
+        ["mega"] = Pronunciation.Parse("M EH2 G AH0"),
+        ["micro"] = Pronunciation.Parse("M AY2 K R OW0"),
+        ["mono"] = Pronunciation.Parse("M AA2 N OW0"),
+        ["multi"] = Pronunciation.Parse("M AH2 L T IY0"),
+        ["nano"] = Pronunciation.Parse("N AE2 N OW0"),
+        ["neo"] = Pronunciation.Parse("N IY2 OW0"),
+        ["neuro"] = Pronunciation.Parse("N UH2 R OW0"),
+        ["paleo"] = Pronunciation.Parse("P EY2 L IY0 OW0"),
+        ["photo"] = Pronunciation.Parse("F OW2 T OW0"),
+        ["poly"] = Pronunciation.Parse("P AA2 L IY0"),
+        ["proto"] = Pronunciation.Parse("P R OW2 T OW0"),
+        ["pseudo"] = Pronunciation.Parse("S UW2 D OW0"),
+        ["psycho"] = Pronunciation.Parse("S AY2 K OW0"),
+        ["retro"] = Pronunciation.Parse("R EH2 T R OW0"),
+        ["socio"] = Pronunciation.Parse("S OW2 S IY0 OW0"),
+        ["techno"] = Pronunciation.Parse("T EH2 K N OW0"),
+        ["thermo"] = Pronunciation.Parse("TH ER2 M OW0"),
+        ["ultra"] = Pronunciation.Parse("AH2 L T R AH0"),
+    };
+
+    /// <summary>The fewest syllables of a root that keeps its primary stress after a combining form.</summary>
+    private const int MinStressKeepingRootSyllables = 3;
+
+    /// <summary>
     ///     Builds the prefix table of hyphenated words: the productive prefixes whose root keeps the primary stress.
     /// </summary>
     /// <returns>The sound of each such prefix.</returns>
@@ -191,7 +239,7 @@ internal sealed class WordPronouncer
 
         // A word written with a capital is treated as a name by the rules that read the spelling of an unknown word
         var capitalized = word.Length > 0 && char.IsUpper(word[0]);
-        return normalized.Contains('-') ? PronounceCompound(normalized, capitalized) : PronounceSimple(normalized, readingId, capitalized);
+        return normalized.Contains('-') ? PronounceCompound(normalized, capitalized) : PronounceSimple(normalized, readingId, capitalized, IsInitialismShape(word));
     }
 
     /// <summary>
@@ -227,8 +275,9 @@ internal sealed class WordPronouncer
     /// <param name="word">The normalized word (lower case, ASCII letters and apostrophes).</param>
     /// <param name="readingId">The reading id, or <see langword="null"/>.</param>
     /// <param name="capitalized">Whether the word was written with a capital letter (a name, or the first word of a sentence).</param>
+    /// <param name="initialism">Whether the word was written like an initialism (see <see cref="IsInitialismShape"/>).</param>
     /// <returns>The pronounced word.</returns>
-    private PronouncedWord PronounceSimple(string word, string? readingId, bool capitalized)
+    private PronouncedWord PronounceSimple(string word, string? readingId, bool capitalized, bool initialism = false)
     {
         // The reading the text analysis chose, when the table can resolve this spelling under it
         if (readingId is not null && _readings.TryResolve(word, readingId, out var read) && read is not null)
@@ -283,6 +332,12 @@ internal sealed class WordPronouncer
             return new PronouncedWord(placeName, PronunciationSource.Morphology);
         }
 
+        // An initialism the dictionary lacks (USGS, NBER, ASPCA): spelled by the letter names, not guessed as a word
+        if (initialism)
+        {
+            return new PronouncedWord(SpellLetters(word), PronunciationSource.Spelled);
+        }
+
         // Out of vocabulary: never silent
         if (_letterToSound.TryConvert(word, out var guessed))
         {
@@ -290,6 +345,79 @@ internal sealed class WordPronouncer
         }
 
         return new PronouncedWord(Pronunciation.Empty, PronunciationSource.LetterToSound);
+    }
+
+    /// <summary>
+    ///     Tells whether a word as written has the shape of an initialism: two to five capital letters with a vowel, not
+    ///     only the letters of Roman numerals.
+    /// </summary>
+    /// <param name="word">The word as written.</param>
+    /// <returns><see langword="true"/> for <c>USGS</c>, <c>NBER</c>, <c>ASPCA</c>; <see langword="false"/> for <c>Usgs</c>, <c>NSFW</c> (no vowel: the text analysis spells it), <c>VII</c> and <c>CIVIC</c> (Roman numeral letters only) and words of six letters or more.</returns>
+    /// <remarks>
+    ///     A word that the dictionary, the reviewed additions and the rules do not know, written this way, is far more often
+    ///     an initialism than a shouted word: on the repository's text corpora the letter names were right for most such
+    ///     words, while the letter-to-sound guess for them is a nonsense word (<c>USGS</c> as <c>ʌsɡz</c>). The vowel-less
+    ///     ones never reach here (the text analysis spells them outside shouted text).
+    /// </remarks>
+    private static bool IsInitialismShape(string word)
+    {
+        if (word.Length is < 2 or > 5)
+        {
+            return false;
+        }
+
+        var vowel = false;
+        var roman = true;
+        foreach (var character in word)
+        {
+            if (character is not (>= 'A' and <= 'Z'))
+            {
+                return false;
+            }
+
+            vowel |= character is 'A' or 'E' or 'I' or 'O' or 'U';
+            roman &= character is 'I' or 'V' or 'X' or 'L' or 'C' or 'D' or 'M';
+        }
+
+        return vowel && !roman;
+    }
+
+    /// <summary>
+    ///     Spells a word by the names of its letters, each with its own primary stress, as the dictionary writes many of
+    ///     its initialisms (<c>ESPN</c> is <c>IY1 EH1 S P IY1 EH1 N</c>), so no letter loses its full vowel.
+    /// </summary>
+    /// <param name="word">The normalized (lower-case) word of ASCII letters.</param>
+    /// <returns>The pronunciation.</returns>
+    private static Pronunciation SpellLetters(string word)
+    {
+        var phones = new List<Phone>(word.Length * 3);
+        foreach (var letter in word)
+        {
+            LetterNames.TryGet(letter, out var name);
+            phones.AddRange(name.Phones);
+        }
+
+        return new Pronunciation(phones.ToArray());
+    }
+
+    /// <summary>
+    ///     Makes the secondary stress of a combining form primary, for a first element that carries the main stress.
+    /// </summary>
+    /// <param name="form">The combining form's sound, its stressed vowel secondary.</param>
+    /// <returns>The sound with that vowel primary.</returns>
+    private static Pronunciation WithPrimaryStress(Pronunciation form)
+    {
+        var phones = form.Phones.ToArray();
+        for (var i = 0; i < phones.Length; i++)
+        {
+            if (phones[i].IsVowel && phones[i].Stress == 2)
+            {
+                phones[i] = phones[i].WithStress(1);
+                break;
+            }
+        }
+
+        return new Pronunciation(phones);
     }
 
     /// <summary>
@@ -324,7 +452,50 @@ internal sealed class WordPronouncer
             }
         }
 
+        // A combining form before a dictionary word that keeps its own stress (biomechanical, geopolitically)
+        foreach (var (form, phones) in CombiningForms)
+        {
+            if (word.Length - form.Length < MinPrefixedRemainder || !word.StartsWith(form, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var listed = _lexicon.Lookup(word[form.Length..]);
+            if (listed.Count > 0 && KeepsItsStress(listed[0]))
+            {
+                return phones.Append(listed[0].Phones);
+            }
+        }
+
         return null;
+    }
+
+    /// <summary>
+    ///     Tells whether a root keeps its primary stress after a combining form: it has at least
+    ///     <see cref="MinStressKeepingRootSyllables"/> syllables, or its primary stress is not on its first syllable.
+    /// </summary>
+    /// <param name="root">The root's pronunciation.</param>
+    /// <returns><see langword="true"/> for <c>mechanical</c>, <c>electric</c>; <see langword="false"/> for <c>mass</c>, <c>weapon</c>.</returns>
+    private static bool KeepsItsStress(Pronunciation root)
+    {
+        var syllables = 0;
+        var firstIsPrimary = false;
+        foreach (var phone in root.Phones)
+        {
+            if (!phone.IsVowel)
+            {
+                continue;
+            }
+
+            if (syllables == 0)
+            {
+                firstIsPrimary = phone.Stress == 1;
+            }
+
+            syllables++;
+        }
+
+        return syllables >= MinStressKeepingRootSyllables || (syllables > 1 && !firstIsPrimary);
     }
 
     /// <summary>
@@ -466,6 +637,12 @@ internal sealed class WordPronouncer
         {
             var part = parts[i];
             var prefixForm = i == 0 && parts.Length > 1 && CompoundPrefixForms.TryGetValue(part, out var form0) ? form0 : null;
+            // A combining form has its own sound as a first element (bio- is not the word bio, B AY2 OW1): secondary before a
+            // root that keeps its stress (bio-mechanical), primary before any other (bio-weapon, the root then secondary)
+            if (i == 0 && prefixForm is null && parts.Length > 1 && CombiningForms.TryGetValue(part, out var combining))
+            {
+                prefixForm = KeepsItsStress(PronounceSimple(parts[1], null, capitalized: false).Pronunciation) ? combining : WithPrimaryStress(combining);
+            }
             var pronounced = prefixForm is null ? PronounceSimple(part, null, capitalized && i == 0) : new PronouncedWord(prefixForm, PronunciationSource.Lexicon);
             source = (PronunciationSource)Math.Max((int)source, (int)pronounced.Source);
             var phones = pronounced.Pronunciation.Phones;
