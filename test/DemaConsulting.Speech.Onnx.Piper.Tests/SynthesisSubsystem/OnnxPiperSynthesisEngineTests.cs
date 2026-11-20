@@ -55,7 +55,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
 
     /// <summary>
     ///     Proves the model is fed Piper's framing, the voice's own noise settings and the speaker: for a sentence of the
-    ///     renderer's golden corpus the input ids are the begin id, each pinned id followed by the pad id, and the end id.
+    ///     renderer's golden corpus the input ids are the begin id and the pad id, each pinned id followed by the pad id, and the end id.
     /// </summary>
     [Fact]
     public void OnnxPiperSynthesisEngine_Generate_Sentence_FeedsFramedIdsVoiceScalesAndSpeaker()
@@ -63,7 +63,7 @@ public sealed class OnnxPiperSynthesisEngineTests : IDisposable
         // Arrange
         var row = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "TestData", "piper-ipa-golden.tsv"))[1].Split('\t');
         var pinnedIds = row[3].Split(' ').Select(long.Parse).ToList();
-        List<long> expectedIds = [1];
+        List<long> expectedIds = [1, 0];
         foreach (var id in pinnedIds)
         {
             expectedIds.Add(id);

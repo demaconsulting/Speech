@@ -19,7 +19,8 @@ into the framed phoneme-id sequences that the Piper graph takes.
   annotations (or as written when they are `null`: default readings, no normalization), renders the result with
   `RenderParts(…, 256)`, encodes each part, and keeps the parts with at least one encoded symbol; an empty text or a
   text with no sound in the voice gives an empty list. A null text throws `ArgumentNullException`
-- **Encode(phonemes)**: the framing of Piper: the begin ids, then for each Unicode scalar value of the phoneme string
+- **Encode(phonemes)**: the framing of Piper (its `phonemes_to_ids`): the begin ids and the pad ids, then for each
+  Unicode scalar value of the phoneme string
   the ids of its symbol followed by the pad ids, then the end ids. A symbol that is not in the table is skipped and
   listed (once) in `UnknownSymbols`
 

@@ -50,7 +50,7 @@ public sealed class PiperPhonemePipelineTests
     {
         // Act
         var utterance = Pipeline.Encode(phonemes);
-        var unframed = utterance.Ids.Skip(1).Take(utterance.Ids.Count - 2).Where((_, index) => index % 2 == 0);
+        var unframed = utterance.Ids.Skip(2).Take(utterance.Ids.Count - 3).Where((_, index) => index % 2 == 0);
 
         // Assert
         Assert.True(sentence.Length > 0, id);
@@ -102,7 +102,7 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
-    ///     Proves the framing: the begin id, each symbol's id followed by the pad id, the end id.
+    ///     Proves the framing is Piper's own: the begin id and the pad id, each symbol's id followed by the pad id, the end id.
     /// </summary>
     [Fact]
     public void PiperPhonemePipeline_Encode_Phonemes_AreFramedWithBeginPadAndEnd()
@@ -115,7 +115,7 @@ public sealed class PiperPhonemePipelineTests
         var utterance = Pipeline.Encode("hˈ");
 
         // Assert
-        Assert.Equal([1L, h[0], 0L, stress[0], 0L, 2L], utterance.Ids);
+        Assert.Equal([1L, 0L, h[0], 0L, stress[0], 0L, 2L], utterance.Ids);
         Assert.Equal(2, utterance.SymbolCount);
     }
 
@@ -132,7 +132,7 @@ public sealed class PiperPhonemePipelineTests
         // Assert
         Assert.Equal(["\u4E2D", "\u00FF"], utterance.UnknownSymbols);
         Assert.Equal(2, utterance.SymbolCount);
-        Assert.Equal(6, utterance.Ids.Count);
+        Assert.Equal(7, utterance.Ids.Count);
     }
 
     /// <summary>

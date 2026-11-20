@@ -19,8 +19,8 @@ sections:
             requirements:
               - id: SpeechOnnxPiper-Synthesis-PiperPhonemePipeline-Encoding
                 title: >-
-                  The PiperPhonemePipeline class shall encode a phoneme string as the begin id, then each symbol's ids
-                  followed by the pad id, then the end id; shall encode every symbol the renderer emits for its
+                  The PiperPhonemePipeline class shall encode a phoneme string as the begin id and the pad id, then each
+                  symbol's ids followed by the pad id, then the end id; shall encode every symbol the renderer emits for its
                   golden corpus and for the 360 sentences of the renderer's corpora with the pinned ids and no
                   unknown symbol; and shall skip a symbol that the voice's table lacks while listing each distinct
                   skipped symbol, in first-seen order, in the utterance.

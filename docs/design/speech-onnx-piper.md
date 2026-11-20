@@ -160,7 +160,7 @@ supplies a speech-synthesis model and backend with no clinical or safety role.
    analysis, the speed and the model-resolved speaker to the engine
 2. **Phonemization**: the pipeline phonemizes the text with the annotations (the normalized replacements, the chosen
    readings), renders it as espeak-style IPA in parts of at most 384 symbols and encodes each part with the voice's
-   symbol table: the begin id, each symbol's ids followed by the pad id, the end id
+   symbol table: the begin id and the pad id, each symbol's ids followed by the pad id, the end id
 3. **Inference**: the engine runs the graph once per part with the voice's noise scales, the length scale divided by the
    speed, and the speaker clamped into 0 to 903
 4. **Output**: the waveforms are joined in order and returned as `BackendAudio` at 22,050 Hz, which Speech resamples to

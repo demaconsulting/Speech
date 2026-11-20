@@ -5,7 +5,7 @@ package SpeechOnnxPiper {
              * (SpeechPhonemesEn's EnglishPhonemizer), rendering as espeak-style IPA (EspeakIpaRenderer, whose
              * RenderParts cuts a long text into parts of at most 384 symbols, at the best phrase
              * boundary) and encoding through the
-             * voice's own symbol table with Piper's framing (begin, each symbol followed by pad, end). A
+             * voice's own symbol table with Piper's framing (begin and pad, each symbol followed by pad, end). A
              * symbol the table lacks is skipped and listed in the PiperUtterance result type. Internal. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.Piper/SynthesisSubsystem/PiperPhonemePipeline.cs */
