@@ -43,10 +43,15 @@ sections:
                   in it, and shall reject a malformed table (a wrong column count, a word that is not lower
                   case letters and apostrophes, a phone that is not ARPAbet, a repeated word) with a format
                   error; every shipped row shall correct a word the dictionary lists with another pronunciation.
+                  It shall hold, in the same format, the reviewed table of additions (the lexicon-additions
+                  table), every shipped row of which shall be a word the dictionary does not list.
                 justification: |
                   The lexicon is the dictionary's own content, so a wrong entry would be spoken wrong for good
                   (the dictionary lists "nobly" with the vowel of "knobbly"). A reviewed, tiny table with a
                   reason on every row fixes the word without touching the pinned dictionary image, and the
-                  last check keeps a row from outliving the entry it corrects.
+                  last check keeps a row from outliving the entry it corrects. The additions speak the few
+                  words the dictionary lacks whose letter-to-sound guess a listener flagged (agave); an
+                  addition must never shadow a dictionary word.
                 tests:
                   - ReadingPronunciations_LexiconCorrections_ParseAndShippedTable_AreWellFormedAndEveryRowCorrectsAnEntry
+                  - ReadingPronunciations_LexiconAdditions_ShippedTable_AddsOnlyWordsTheDictionaryLacks

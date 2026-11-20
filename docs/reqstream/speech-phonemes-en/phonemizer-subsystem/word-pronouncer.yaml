@@ -20,9 +20,12 @@ sections:
                   resolves it, else from the reviewed correction of a wrong dictionary entry when the word
                   has one (nobly), else from the dictionary's first variant (the variant with the velar stop first
                   for the comparative of an adjective in ng, whose dictionary entry lists it with and without
-                  the stop), else from the morphology rules of a
-                  known stem, else from a productive prefix and a known remainder of at least four letters
-                  (never splitting a word the dictionary lists), else from the letter-to-sound model, and
+                  the stop), else from the reviewed addition of a word the dictionary lacks (agave), else from
+                  the morphology rules of a known stem, else from a productive prefix and a known remainder of
+                  at least four letters (never splitting a word the dictionary lists), else, for a word not
+                  written with a capital, from the dictionary word its British spelling stands for (manoeuvring
+                  as maneuvering), else, for a word written with a capital that ends in -mouth, as an English
+                  place name with the reduced last element (Rhinemouth), else from the letter-to-sound model, and
                   report the source of its answer; shall fold diacritics before the lookup; shall pronounce
                   a hyphenated compound part by part with the stress of one word: the stress pattern of the
                   closed dictionary spelling when it has exactly the same sounds (wherever its primary stress
@@ -41,10 +44,19 @@ sections:
                   compound and diacritic rules are what make "well-known", "state-of-the-art" and "café"
                   sound like the words they are. The dictionary is wrong about a few words (it lists
                   "nobly" with the vowel of "knobbly"), so a short reviewed table of corrections speaks the
-                  word the writer meant.
+                  word the writer meant, and a short table of additions speaks the few missing words a
+                  listener flagged (agave). The dictionary is American, so a British spelling it lacks would
+                  be guessed letter by letter (manoeuvring with the vowels of the letters o, e and u); the two spellings sound the
+                  same, and a name is left alone because its letters are not a spelling convention. The
+                  dictionary reduces every English place name in -mouth it lists (Portsmouth), while the
+                  letter-to-sound model gives an unknown one the full vowel, which the voice reads as two
+                  words with a pause.
                 tests:
                   - WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed
                   - WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry
                   - WordPronouncer_Pronounce_ComparativeInNg_TakesTheVariantWithTheVelarStop
                   - WordPronouncer_Pronounce_ProductivePrefix_IsPrefixPlusKnownWord
                   - WordPronouncer_Pronounce_DiacriticsCompoundsAndNonWords_FollowTheDocumentedRules
+                  - WordPronouncer_Pronounce_LexiconAddition_PronouncesAWordTheDictionaryLacks
+                  - WordPronouncer_Pronounce_BritishSpelling_IsTheAmericanDictionaryWord
+                  - WordPronouncer_Pronounce_PlaceNameInMouth_HasTheReducedLastElement

@@ -3,8 +3,9 @@ using System.Text;
 namespace DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 
 /// <summary>
-///     The reviewed corrections of the pronunciation lexicon: the few words whose CMU Pronouncing Dictionary entry is a
-///     transcription error, with the pronunciation that is spoken instead.
+///     The reviewed tables that amend the pronunciation lexicon: the corrections of the few words whose CMU Pronouncing
+///     Dictionary entry is a transcription error, and the additions of the few words the dictionary lacks and the
+///     letter-to-sound model gets wrong.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -14,15 +15,27 @@ namespace DemaConsulting.Speech.Phonemes.En.LexiconSubsystem;
 ///     phonetic knowledge (<c>data/phonemes-en/lexicon-corrections.tsv</c>, embedded by link); a correction replaces every
 ///     variant of the word the dictionary lists. The table is deliberately tiny, and each row states why it exists.
 ///     </para>
-///     <para>Instances are immutable and thread-safe; <see cref="Default"/> loads the embedded table once on first use.</para>
+///     <para>
+///     The additions (<c>data/phonemes-en/lexicon-additions.tsv</c>, <see cref="Additions"/>) have the same format and
+///     the same authorship: words the dictionary does not list whose letter-to-sound guess a listener flagged as wrong
+///     (<i>agave</i>, <i>aquiver</i>), written from phonetic knowledge and, where there is one, the dictionary's entry of
+///     the stem. An addition never shadows a dictionary word: the word pronouncer consults it only after the lexicon.
+///     </para>
+///     <para>Instances are immutable and thread-safe; <see cref="Default"/> and <see cref="Additions"/> load their embedded table once on first use.</para>
 /// </remarks>
 internal sealed class LexiconCorrections
 {
     /// <summary>The manifest resource name of the corrections table.</summary>
     public const string ResourceName = "DemaConsulting.Speech.Phonemes.En.Resources.lexicon-corrections.tsv";
 
-    /// <summary>The lazily loaded embedded table; thread-safe publication.</summary>
-    private static readonly Lazy<LexiconCorrections> DefaultTable = new(LoadEmbedded, LazyThreadSafetyMode.ExecutionAndPublication);
+    /// <summary>The manifest resource name of the additions table.</summary>
+    public const string AdditionsResourceName = "DemaConsulting.Speech.Phonemes.En.Resources.lexicon-additions.tsv";
+
+    /// <summary>The lazily loaded embedded corrections table; thread-safe publication.</summary>
+    private static readonly Lazy<LexiconCorrections> DefaultTable = new(() => LoadEmbedded(ResourceName, "lexicon-corrections.tsv"), LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>The lazily loaded embedded additions table; thread-safe publication.</summary>
+    private static readonly Lazy<LexiconCorrections> AdditionsTable = new(() => LoadEmbedded(AdditionsResourceName, "lexicon-additions.tsv"), LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>The corrected pronunciation of each word.</summary>
     private readonly Dictionary<string, Pronunciation> _corrections;
@@ -37,6 +50,10 @@ internal sealed class LexiconCorrections
     /// <exception cref="InvalidOperationException">Thrown when the embedded table is missing or malformed (a build defect).</exception>
     public static LexiconCorrections Default => DefaultTable.Value;
 
+    /// <summary>Gets the additions table embedded in this assembly (words the dictionary lacks), loaded on first use.</summary>
+    /// <exception cref="InvalidOperationException">Thrown when the embedded table is missing or malformed (a build defect).</exception>
+    public static LexiconCorrections Additions => AdditionsTable.Value;
+
     /// <summary>Gets the corrected words and their pronunciations, in no particular order.</summary>
     public IReadOnlyDictionary<string, Pronunciation> Entries => _corrections;
 
@@ -46,8 +63,9 @@ internal sealed class LexiconCorrections
     /// <param name="table">The table: a header line, then <c>word</c>, <c>arpabet</c>, <c>note</c> per line.</param>
     /// <returns>The table.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="table"/> is null.</exception>
+    /// <param name="tableName">The file name the error messages name; the corrections table when omitted.</param>
     /// <exception cref="FormatException">Thrown when a line is malformed, a word is not lower-case letters and apostrophes, a pronunciation is not ARPAbet or a word repeats.</exception>
-    public static LexiconCorrections Parse(TextReader table)
+    public static LexiconCorrections Parse(TextReader table, string tableName = "lexicon-corrections.tsv")
     {
         ArgumentNullException.ThrowIfNull(table);
         var corrections = new Dictionary<string, Pronunciation>(StringComparer.Ordinal);
@@ -65,13 +83,13 @@ internal sealed class LexiconCorrections
             var fields = line.Split('\t');
             if (fields.Length != 3)
             {
-                throw new FormatException($"lexicon-corrections.tsv line {lineNumber}: expected 3 tab-separated columns, found {fields.Length}.");
+                throw new FormatException($"{tableName} line {lineNumber}: expected 3 tab-separated columns, found {fields.Length}.");
             }
 
             var word = fields[0];
             if (word.Length == 0 || !word.All(c => c is (>= 'a' and <= 'z') or '\''))
             {
-                throw new FormatException($"lexicon-corrections.tsv line {lineNumber}: '{word}' is not a lower-case word.");
+                throw new FormatException($"{tableName} line {lineNumber}: '{word}' is not a lower-case word.");
             }
 
             Pronunciation pronunciation;
@@ -81,12 +99,12 @@ internal sealed class LexiconCorrections
             }
             catch (FormatException exception)
             {
-                throw new FormatException($"lexicon-corrections.tsv line {lineNumber}: {exception.Message}", exception);
+                throw new FormatException($"{tableName} line {lineNumber}: {exception.Message}", exception);
             }
 
             if (pronunciation.Count == 0 || !corrections.TryAdd(word, pronunciation))
             {
-                throw new FormatException($"lexicon-corrections.tsv line {lineNumber}: the pronunciation of '{word}' is empty or the word repeats.");
+                throw new FormatException($"{tableName} line {lineNumber}: the pronunciation of '{word}' is empty or the word repeats.");
             }
         }
 
@@ -103,15 +121,18 @@ internal sealed class LexiconCorrections
         _corrections.TryGetValue(word, out pronunciation);
 
     /// <summary>
-    ///     Loads the table embedded in this assembly.
+    ///     Loads a table embedded in this assembly.
     /// </summary>
+    /// <param name="resourceName">The manifest resource name of the table.</param>
+    /// <param name="tableName">The file name the error messages name.</param>
     /// <returns>The table.</returns>
-    private static LexiconCorrections LoadEmbedded()
+    /// <exception cref="InvalidOperationException">Thrown when the resource is missing (a build defect).</exception>
+    private static LexiconCorrections LoadEmbedded(string resourceName, string tableName)
     {
         var assembly = typeof(LexiconCorrections).Assembly;
-        using var stream = assembly.GetManifestResourceStream(ResourceName)
-            ?? throw new InvalidOperationException($"The embedded resource '{ResourceName}' is missing.");
+        using var stream = assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"The embedded resource '{resourceName}' is missing.");
         using var reader = new StreamReader(stream, Encoding.UTF8);
-        return Parse(reader);
+        return Parse(reader, tableName);
     }
 }

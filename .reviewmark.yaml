@@ -4404,6 +4404,7 @@ reviews:
       - "data/phonemes-en/reading-pronunciations.tsv"               # embedded reviewed reading table
       - "data/phonemes-en/form-overrides.tsv"                       # embedded form overrides
       - "data/phonemes-en/lexicon-corrections.tsv"                  # embedded reviewed corrections of wrong dictionary entries
+      - "data/phonemes-en/lexicon-additions.tsv"                    # embedded reviewed additions of words the dictionary lacks
       - "data/phonemes-en/reading-gaps.tsv"                         # committed gap list (empty)
       - "test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs"
 

@@ -5,8 +5,8 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
 
 **Data Model**:
 
-- `WordPronouncer`: immutable, holding the `CmuLexicon`, the `ReadingPronunciations`, the `LexiconCorrections` and the
-  `LetterToSound` converter it was built with; thread-safe
+- `WordPronouncer`: immutable, holding the `CmuLexicon`, the `ReadingPronunciations`, the two `LexiconCorrections`
+  tables (the corrections and the additions) and the `LetterToSound` converter it was built with; thread-safe
 - `PronouncedWord(Pronunciation, Source, ElementStarts)`: the answer; `ElementStarts` lists, for a hyphenated compound
   that was pronounced part by part, the index of the first phone of every element after the first (`state-of-the-art` is
   `[4, 6, 8]`), otherwise it is `null`. The derived `CompoundBreak` is the first of them (the start of the second
@@ -14,7 +14,13 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
   inside one element (the vowel-before-`r` rules, the stress of a compound) and does not apply it across a hyphen
 - Tables: the productive prefixes with their sounds (`counter`, `under`, `super`, `inter`, `multi`, `semi`, `anti`,
   `over`, `non`, `out`, `sub`, `dis`, `mis`, `pre`, `un`, `re`), the small function words that are unstressed in a later
-  part of a compound, and the reduced forms of `to` and `of` inside a compound
+  part of a compound, the reduced forms of `to` and `of` inside a compound, and the British-spelling rules (pattern and
+  replacement on the lower-case word: `oeu` to `eu`; `ae` to `e` between consonants in a word of at least seven letters;
+  a word-initial `oe` and the `oe` of `rhoea` to `e`; `-our` to `-or` after a consonant before the end, `-s`, `-ed`,
+  `-ing`, `-ite`, `-ful`, `-able`, `-ably`, `-less`, `-ism` and `-ist`; `-tre`, `-bre`, `-vre` to `-ter`, `-ber`, `-ver`
+  with their `-s`, `-d` and `-ring` forms; `-ise` and `-yse` to `-ize` and `-yze` with their endings; the doubled `l` of
+  `-elled`, `-alled` and the like; `-fence` and `-cence` to `-fense` and `-cense`; `-ogue` to `-og`; `-amme` to `-am`),
+  each rule restricted to a few letters of context so it applies where the letters are the convention, not the root
 
 **Key Methods**:
 
@@ -23,9 +29,19 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
   reading, when `ReadingPronunciations.TryResolve` resolves the spelling under the id (source `Reading`); the reviewed
   correction of a wrong dictionary entry, when the word has one (`nobly`; source `Lexicon`); the
   dictionary's first variant (`Lexicon`), the velar comparative first for an adjective in `ng` (see *Morphology*,
-  `OrderVariants`); `Morphology.TryDerive` (`Morphology`); a prefix and a remainder of at least
-  four letters that the lexicon lists or the morphology derives (`Morphology`); the letter-to-sound converter
-  (`LetterToSound`)
+  `OrderVariants`); the reviewed addition of a word the dictionary lacks (`agave`, `aquiver`; `Lexicon`);
+  `Morphology.TryDerive` (`Morphology`); a prefix and a remainder of at least four letters that the lexicon lists or the
+  morphology derives (`Morphology`); for a word not written with a capital, a British spelling respelled by the rules
+  above, alone and up to three together (fewest first), into a word the dictionary lists (`manoeuvring` is
+  `maneuvering`, `analyse` is `analyze`; `Morphology`); for a word written with a capital, an English place name in
+  `-mouth` after at least two letters, whose first element is pronounced as a word of its own and whose `-mouth` is
+  `M AH0 TH` (`Rhinemouth`; `Morphology`); the letter-to-sound converter (`LetterToSound`). A word written with a
+  capital may be a name, whose letters are not a spelling convention, so it is not respelled (the rules' wrong
+  respellings of dictionary words are names: `Kraemer` is not `Kremer`); and the dictionary lists every English place
+  name in `-mouth` it has with the reduced `M AH0 TH` (`Dartmouth`, `Falmouth`, `Monmouth`, `Plymouth`, `Portsmouth`,
+  `Weymouth`) and its common nouns with the full vowel (`cottonmouth`, `frogmouth`), while the letter-to-sound model
+  gives an unknown place name the full `AW` that the voice reads as two words. The measurements behind both rules are
+  in `docs/evaluation/phonemes-en/renderers.md`
 - **PronounceCompound**: the closed spelling of the dictionary when a part is not a word of its own (`wi-fi`); otherwise
   each part by the simple rules (a function word in a later part unstressed, the source the highest of the parts; a
   productive prefix (`re pre un dis mis non anti semi inter ex de`) with the sound and the weak stress it has as a
@@ -49,7 +65,7 @@ only place that knows the order of reading, dictionary, morphology, prefix and l
 and the caller reports it as unsupported; it never throws for any string. A word with letters always gets a
 pronunciation because the last source never fails.
 
-**Dependencies**: `CmuLexicon`, `ReadingPronunciations`, `LexiconCorrections`, `Morphology`, `LetterToSound`,
-`LetterNames` and `Phone`.
+**Dependencies**: `CmuLexicon`, `ReadingPronunciations`, `LexiconCorrections` (corrections and additions), `Morphology`,
+`LetterToSound`, `LetterNames` and `Phone`.
 
 **Callers**: `EnglishPhonemizer` and the tests.

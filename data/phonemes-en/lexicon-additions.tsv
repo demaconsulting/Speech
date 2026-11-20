@@ -1,0 +1,3 @@
+word	arpabet	note
+agave	AH0 G AA1 V IY0	not in CMUdict; the letter-to-sound model says a-GAVE; the plant is a-GAH-vee, three syllables with the final e sounded
+aquiver	AH0 K W IH1 V ER0	not in CMUdict; the letter-to-sound model says a-QUIVE-er; the predicative a- (as in aglow, afire, abuzz) before the dictionary word quiver (K W IH1 V ER0)

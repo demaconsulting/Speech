@@ -29,6 +29,17 @@ so a correction replaces every variant the dictionary lists, and the dictionary 
 table was found by comparing every dictionary word that is a stem plus a neutral suffix (`-ly`, `-ness`, `-ful`,
 `-less`, `-ment`, `-ish`) with the entry of its stem and reading the 137 disagreements; two were errors.
 
+*The lexicon additions* are the embedded resource `lexicon-additions.tsv` (the file
+`data/phonemes-en/lexicon-additions.tsv`), in the same format and read by the same parser
+(`LexiconCorrections.Additions`; `Parse(table, tableName)` names the file in its errors): words the dictionary does not
+list whose letter-to-sound guess a listener flagged as wrong, written from phonetic knowledge and, where there is one,
+the dictionary's entry of the stem (`agave` as `AH0 G AA1 V IY0`, a-GAH-vee; `aquiver` as `AH0 K W IH1 V ER0`, with the
+dictionary's `quiver`). The word pronouncer consults it after the dictionary, so an addition never shadows a dictionary
+word; every row is a word the dictionary lacks. Decision: a general rule for the predicative `a-` (`a` plus a dictionary
+word) was measured and rejected: over the dictionary's own words of that shape it gives the listed pronunciation for
+only 195 of 507 (38.5 percent; `above`, `acorn`, `agave` itself and many names are not `a` plus a word), so the few such
+words a listener flags are added one by one.
+
 **Key Methods**:
 
 - **Parse(readings, overrides)**: builds the tables from text; throws `FormatException` naming the file and line for a

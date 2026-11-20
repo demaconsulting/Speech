@@ -489,7 +489,49 @@ overrides:
     ignoreRegExpList:
       # IPA and misaki phoneme strings
       - /\S*[\u0250-\u02FF\u1D00-\u1DBF]\S*/
-  # A lemma that the CMU Pronouncing Dictionary lacks is named in the data README as the reading table has it,
+  # The British-spelling fallback of the Phonemes.En word pronouncer: the British spellings are its input and its
+  # subject (the rule turns them into the US dictionary word), not prose to correct; the word-ending fragments and the
+  # consonant class of its patterns; and the place names and surnames of its rules and measurements. No misspelled
+  # word is added, and prose elsewhere stays US English
+  - filename: >-
+      {src/DemaConsulting.Speech.Phonemes.En/PhonemizerSubsystem/WordPronouncer.cs,test/DemaConsulting.Speech.Phonemes.En.Tests/PhonemizerSubsystemTests.cs,docs/design/speech-phonemes-en/phonemizer-subsystem.md,docs/design/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.md,docs/verification/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.md,docs/reqstream/speech-phonemes-en/phonemizer-subsystem/word-pronouncer.yaml,docs/evaluation/phonemes-en/renderers.md,.textlint.yaml}
+    words:
+      # British spellings, the input of the rule
+      - anaemia
+      - analyse
+      - calibre
+      - civilisation
+      - labours
+      - lettres
+      - manoeuvre
+      - manoeuvres
+      - manoeuvring
+      - oesophagus
+      - paediatric
+      - quarrelling
+      - travelled
+      - unrivalled
+      # Word-ending fragments and the consonant class of the patterns
+      - alled
+      - amme
+      - ations
+      - bcdfghjklmnpqrstvwxz
+      - cence
+      - elled
+      - ense
+      - ered
+      - ering
+      - fense
+      - ogue
+      - rhoea
+      - respellings
+      # Place names and surnames of the rules and the measurements
+      - kraemer
+      - kremer
+      - oehler
+      - piccola
+      - rhinemouth
+      - tynemouth  # A lemma that the CMU Pronouncing Dictionary lacks is named in the data README as the reading table has it,
   # and the spelling of a reading id is immutable
   - filename: '{data/phonemes-en/README.md,.textlint.yaml}'
     ignoreRegExpList:

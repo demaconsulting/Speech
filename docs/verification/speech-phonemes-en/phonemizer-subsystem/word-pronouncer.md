@@ -25,7 +25,12 @@ the lexicon; `unfollowed` is `AH0 N F AA1 L OW0 D` from the morphology; `Zorblax
 all of them); `stronger` is `S T R AO1 NG G ER0` (the dictionary lists it with and without the `G`) and `singer` is
 `S IH1 NG ER0`; and a word with characters outside the Latin alphabet has no pronunciation; `nobly` is `N OW1 B L IY0`
 with the source lexicon where the dictionary lists `N AA1 B L IY0`, which a pronouncer built without corrections still
-returns.
+returns; `agave` is `AH0 G AA1 V IY0` and `aquiver` `AH0 K W IH1 V ER0` from the additions (source lexicon), which a
+pronouncer built without additions guesses with the letter-to-sound model; the British spellings `manoeuvring`,
+`manoeuvre`, `analyse`, `civilisation`, `oesophagus`, `paediatric`, `calibre` and `anaemia` are the dictionary
+pronunciations of their American spellings (source morphology), and the same words written with a capital are left to
+the letter-to-sound model; `Rhinemouth` is `R AY1 N M AH0 TH` and `Tynemouth` ends in `M AH0 TH` (source morphology),
+`Portsmouth` is the dictionary's, and the lower-case `loudmouth` keeps the full vowel.
 
 #### Test Scenarios
 
@@ -33,7 +38,10 @@ returns.
 
 **Tests**: `WordPronouncer_Pronounce_ByPriority_ReportsTheSourceUsed`,
 `WordPronouncer_Pronounce_ComparativeInNg_TakesTheVariantWithTheVelarStop`,
-`WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry`
+`WordPronouncer_Pronounce_LexiconCorrection_BeatsTheDictionaryEntry`,
+`WordPronouncer_Pronounce_LexiconAddition_PronouncesAWordTheDictionaryLacks`,
+`WordPronouncer_Pronounce_BritishSpelling_IsTheAmericanDictionaryWord`,
+`WordPronouncer_Pronounce_PlaceNameInMouth_HasTheReducedLastElement`
 
 ##### Productive prefix
 

@@ -144,6 +144,8 @@
        reason), embedded by link from data/phonemes-en like the tables above. The word pronouncer consults them before the lexicon. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\data\phonemes-en\lexicon-corrections.tsv" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.lexicon-corrections.tsv" />
+    <!-- The reviewed additions: words CMUdict lacks whose letter-to-sound guess was wrong; consulted after the lexicon. -->
+    <EmbeddedResource Include="..\..\data\phonemes-en\lexicon-additions.tsv" LogicalName="DemaConsulting.Speech.Phonemes.En.Resources.lexicon-additions.tsv" />
   </ItemGroup>
 
   <ItemGroup>
