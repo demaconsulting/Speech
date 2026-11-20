@@ -13,8 +13,9 @@ pronouncer and applying the host overrides and the readings.
 - `PhonemizedItem`: a sealed class with `Kind`, `Text` (as spoken), `Phones` (the ARPAbet symbols, empty without sound),
   `Arpabet` (the symbols joined by spaces), `Source`, `FromReading` (a reading was applied), `ReadingId` (the id that
   was requested, whether or not it was applied), `Oov` and `IpaOverride`; internally it also carries the pronunciation
-  as phones and the element starts of a hyphenated compound (where each element after the first begins; the first of
-  them is the compound break)
+  as phones, the element starts of a hyphenated compound (where each element after the first begins; the first of
+  them is the compound break) and the part of speech the text analysis gave the word (`PartOfSpeech`, `null` without a
+  tag)
 - `PhonemizedItemKind`: `Word`, `Punctuation`, `Unsupported`; `PronunciationSource`: the sources in priority order
 
 **Key Methods**:
@@ -24,8 +25,9 @@ pronouncer and applying the host overrides and the readings.
   each token (see *PhonemizerSubsystem Design*). A word token that starts with unchanged original text takes a host
   override first (ARPAbet parsed, or IPA carried with the normal pronunciation as a fallback), then a reading
   annotation, each applied to the whole token or to its headword with a clitic ending attached, then the pronouncer's
-  answer. An item that could not be pronounced at all becomes an unsupported item. An empty or null annotation list is
-  the same as no annotations
+  answer; the word item then takes the `en.upos` tag of exactly the token's original span, if there is one. An item
+  that could not be pronounced at all becomes an unsupported item. An empty or null annotation list is the same as no
+  annotations
 
 **Error Handling**: a null text throws `ArgumentNullException`; every other input, including text of any content and
 malformed or out-of-range annotations, produces a result.

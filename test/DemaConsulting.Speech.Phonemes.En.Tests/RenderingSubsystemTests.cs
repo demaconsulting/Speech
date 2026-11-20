@@ -459,6 +459,97 @@ public sealed class RenderingSubsystemTests
     }
 
     /// <summary>
+    ///     Proves the <c>n</c> of a compound's first element stays an <c>n</c> before the velar stop that starts the next
+    ///     element (<i>vine-clad</i> is <c>vˈaɪnklˌæd</c>, not <i>vying-clad</i>), while inside one element the velar nasal
+    ///     stays (<i>sunken</i>, <i>ink</i>).
+    /// </summary>
+    /// <param name="word">The word.</param>
+    /// <param name="piper">The expected Piper rendering.</param>
+    [Theory]
+    [InlineData("vine-clad", "vˈaɪnklˌæd")]
+    [InlineData("sun-glasses", "sˈʌnɡlˌæsᵻz")]
+    [InlineData("sunken", "sˈʌŋkən")]
+    [InlineData("ink", "ˈɪŋk")]
+    public void RenderingSubsystem_SoundRules_NasalBeforeAVelarAcrossACompoundJoint_StaysAnN(string word, string piper) =>
+        Assert.Equal(piper, new EspeakIpaRenderer().Render(Phonemizer.Phonemize(word)));
+
+    /// <summary>
+    ///     Proves a word of the weak-form table that the text analysis tags as a noun (or a modal tagged as a main verb)
+    ///     keeps its stress in both voices (<i>my will</i>, <i>the can</i>, <i>a must</i>), while the auxiliary stays weak.
+    /// </summary>
+    /// <param name="text">The sentence.</param>
+    /// <param name="piper">A stretch the Piper rendering must contain.</param>
+    /// <param name="kokoro">The stressed Kokoro form of the word.</param>
+    /// <param name="stressed">Whether the word is used as a content word and so stressed in the Kokoro rendering with weak forms.</param>
+    [Theory]
+    [InlineData("Only I did not want to go; my will was all the other way about.", "maɪ wˈɪl wʌz", "wˈɪl", true)]
+    [InlineData("She has a strong will.", "stɹˈɔŋ wˈɪl", "wˈɪl", true)]
+    [InlineData("Put it in the can.", "kˈæn", "kˈæn", true)]
+    [InlineData("It is a must.", "mˈʌst", "mˈʌst", true)]
+    [InlineData("He will go.", "wɪl ɡˈoʊ", "wˈɪl", false)]
+    public void RenderingSubsystem_WeakForms_ContentUseOfAFunctionWord_IsStressed(string text, string piper, string kokoro, bool stressed)
+    {
+        // Arrange: the text analysis tags every word
+        var result = Phonemizer.Phonemize(text, new EnglishTextAnalyzer().Analyze(text, TestContext.Current.CancellationToken).Annotations);
+
+        // Act
+        var espeak = new EspeakIpaRenderer().Render(result);
+        var misaki = new MisakiRenderer(MisakiProfile.Us, useWeakForms: true).Render(result);
+
+        // Assert
+        Assert.Contains(piper, espeak, StringComparison.Ordinal);
+        Assert.Equal(stressed, misaki.Contains(kokoro, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Proves a word of the table is a content use when the text analysis tags it as a noun or a proper noun, or as a
+    ///     main verb for the modal spellings that are also verbs, and not for an auxiliary, another tag or no tag.
+    /// </summary>
+    /// <param name="word">The word.</param>
+    /// <param name="tag">The part of speech, or <see langword="null"/> for an untagged word.</param>
+    /// <param name="expected">Whether the word is a content use.</param>
+    [Theory]
+    [InlineData("will", "NOUN", true)]
+    [InlineData("Will", "PROPN", true)]
+    [InlineData("will", "VERB", true)]
+    [InlineData("can", "VERB", true)]
+    [InlineData("must", "NOUN", true)]
+    [InlineData("will", "AUX", false)]
+    [InlineData("have", "VERB", false)]
+    [InlineData("was", "VERB", false)]
+    [InlineData("will", null, false)]
+    public void WeakForms_IsContentUse_NounOrMainVerbModal_IsAContentUse(string word, string? tag, bool expected) =>
+        Assert.Equal(expected, WeakForms.IsContentUse(new PhonemizedItem(PhonemizedItemKind.Word, word, null, PronunciationSource.Lexicon, partOfSpeech: tag)));
+
+    /// <summary>Proves the group <i>of a</i> has the reduced forms <c>əv</c> and <c>ə</c>, while another group or a marked form keeps its words' forms.</summary>
+    [Fact]
+    public void WeakForms_InGroup_OfAIsReducedAndOtherGroupsKeepTheirForms()
+    {
+        // Act and assert
+        Assert.Equal(("əv", "ə"), WeakForms.InGroup("of", "ʌv", "a", "ɐ"));
+        Assert.Equal(("əv", "ə"), WeakForms.InGroup("Of", "ʌv", "A", "ɐ"));
+        Assert.Equal(("wʌz", "ɐ"), WeakForms.InGroup("was", "wʌz", "a", "ɐ"));
+        Assert.Equal(("ʌv", "ðə"), WeakForms.InGroup("of", "ʌv", "the", "ðə"));
+        Assert.Equal(("ˌʌv", "ɐ"), WeakForms.InGroup("of", "ˌʌv", "a", "ɐ"));
+    }
+
+    /// <summary>
+    ///     Proves <i>of a</i> is one group with reduced vowels in the Piper rendering (<c>əvə</c>, as the training engine
+    ///     writes it), not <c>ʌvɐ</c>, whose word-initial <c>ɐ</c> the voice reads as a new word with a pause before it,
+    ///     while <i>was a</i> keeps the engine's <c>wʌzɐ</c>.
+    /// </summary>
+    [Fact]
+    public void RenderingSubsystem_WeakForms_OfAGroup_HasReducedVowels()
+    {
+        // Act
+        var ofA = new EspeakIpaRenderer().Render(Phonemizer.Phonemize("caught into the wall of a gallery high overhead"));
+        var wasA = new EspeakIpaRenderer().Render(Phonemizer.Phonemize("It was a one-time offer."));
+
+        // Assert
+        Assert.Contains("wˈɔːl əvə ɡˈælɚɹi", ofA, StringComparison.Ordinal);
+        Assert.Contains("wʌzɐ wˈʌntˌaɪm", wasA, StringComparison.Ordinal);
+    }
+    /// <summary>
     ///     Proves the sentence of the owner's listening test renders <i>semicircle</i> as one word between its neighbors
     ///     in both voices, with the lax vowel at the end of <i>semi</i> for Piper, so the voice does not pause inside it.
     /// </summary>

@@ -56,7 +56,9 @@ sections:
               stressed syllable written lax in the espeak-style text (the voice reads the tense i as the end of
               a word), the stress of
               hyphenated compounds (the first part primary and each later part secondary, in both models), the
-              elements of a prefixed or compound word joined without a space or a pause mark, words
+              elements of a prefixed or compound word joined without a space or a pause mark, the n of a
+              compound's element kept an n before the velar stop that starts the next element (vine-clad),
+              words
               separated by one space with a closing mark attached to the word before it, quotation marks and
               dashes as a pause for Piper (which has no symbol for them) and as the model's own marks for
               Kokoro, and an ellipsis as three dots for Piper and the ellipsis mark for Kokoro; a hyphen
@@ -84,6 +86,7 @@ sections:
               - RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped
               - RenderingSubsystem_SoundRules_UnstressedIBeforeTheStressInsideAWord_IsLaxWithoutAWordBreak
               - RenderingSubsystem_Layout_PrefixedWordInASentence_IsOneWordBetweenItsNeighbors
+              - RenderingSubsystem_SoundRules_NasalBeforeAVelarAcrossACompoundJoint_StaysAnN
               - RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot
               - RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones
               - RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice
@@ -97,7 +100,9 @@ sections:
               voicing of the final consonant; shall never render a table entry to nothing or without a
               vowel, a lone bare full vowel (the pronoun I) of the Kokoro rendering carrying a stress mark; and
               shall give the first word of a rendered text (and of each part of a long text) in the Piper
-              rendering a secondary stress mark on an unmarked full-vowel weak form.
+              rendering a secondary stress mark on an unmarked full-vowel weak form; shall render a listed
+              word that the text analysis tags as a noun (my will) with its dictionary stress in both
+              voices; and shall render of a as one group with reduced vowels in the Piper rendering.
             justification: |
               The Piper voice was trained on speech with unstressed function words; Kokoro's reference
               phonemizer keeps the full forms and the owner kept that default. Making the profile a switch of
@@ -108,7 +113,10 @@ sections:
               73 percent of renderings without the mark and 86 percent with it).
             children:
               - SpeechPhonemesEn-Rendering-WeakForms-FunctionWords
+              - SpeechPhonemesEn-Rendering-WeakForms-ContentUseAndGroups
             tests:
+              - RenderingSubsystem_WeakForms_ContentUseOfAFunctionWord_IsStressed
+              - RenderingSubsystem_WeakForms_OfAGroup_HasReducedVowels
               - RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled
               - RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices
               - RenderingSubsystem_WeakForms_FirstWordOfTheText_HasASecondaryStressOnItsFullVowel

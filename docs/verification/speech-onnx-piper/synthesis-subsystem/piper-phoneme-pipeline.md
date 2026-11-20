@@ -34,13 +34,14 @@ pipeline gives for it; the 360 corpus sentences match the renderer's path with n
 ids `1, h, 0, ˈ, 0, 2` with two symbols; the text `h中中hÿ` reports `中` and `ÿ` in that order as unknown, two encoded
 symbols and six ids; every sentence of the pipeline golden produces exactly its pinned phonemes and ids with no unknown
 symbol; in each of the twelve heteronym sentences the ids with the annotations differ from the ids with default
-readings; every sentence of the Gettysburg golden produces exactly its pinned utterances, each within 384 symbols with
-no unknown symbol; the final sentence of the address (more than 400 characters) is cut at its dashes into at least two
-utterances of at most 300 characters, none ends in the weak form of a function word, `of devotion` stays in one
-utterance and every utterance but the last ends in a pause mark; `Welcome Zorblax` has at least five more symbols than
-`Welcome` and no unknown symbol; 40 repeated sentences split into at least three utterances of at most 384 symbols each
-with no word lost and each utterance but the last ending after a comma or a period; an empty text and an emoji give no
-utterance; a null text and a null configuration are rejected.
+readings; with the model's own analysis the noun `will` of `my will was` keeps its primary stress mark and without
+annotations it has the weak form; every sentence of the Gettysburg golden produces exactly its pinned utterances, each
+within 384 symbols with no unknown symbol; the final sentence of the address (more than 400 characters) is cut at its
+dashes into at least two utterances of at most 300 characters, none ends in the weak form of a function word,
+`of devotion` stays in one utterance and every utterance but the last ends in a pause mark; `Welcome Zorblax` has at
+least five more symbols than `Welcome` and no unknown symbol; 40 repeated sentences split into at least three utterances
+of at most 384 symbols each with no word lost and each utterance but the last ending after a comma or a period; an empty
+text and an emoji give no utterance; a null text and a null configuration are rejected.
 
 #### Test Scenarios
 
@@ -55,6 +56,7 @@ utterance; a null text and a null configuration are rejected.
 
 **Tests**: `PiperPhonemePipeline_ToUtterances_GoldenSentence_ProducesPinnedPhonemesAndIds`,
 `PiperPhonemePipeline_ToUtterances_HeteronymSentence_UsesTheChosenReadings`,
+`PiperPhonemePipeline_ToUtterances_ModelAnalysis_KeepsANounOfAFunctionWordStressed`,
 `PiperPhonemePipeline_ToUtterances_UnknownWord_IsStillSpoken`,
 `PiperPhonemePipeline_ToUtterances_GettysburgSentence_ProducesPinnedPhonemes`
 

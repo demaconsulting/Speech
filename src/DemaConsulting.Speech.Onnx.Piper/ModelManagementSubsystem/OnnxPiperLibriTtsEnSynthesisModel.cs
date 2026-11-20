@@ -78,13 +78,14 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
 
     /// <summary>
     ///     The shared English text analyzer: created on first use (the analyzer loads its data lazily) and then shared by
-    ///     every instance, because it is immutable and thread-safe. It selects the normalization and reading annotations
-    ///     the Piper phonemization uses (not the part-of-speech annotations, which only the classifier needs internally).
+    ///     every instance, because it is immutable and thread-safe. It selects the annotations the Piper phonemization
+    ///     uses: normalization, reading and part of speech (the tag tells the noun <i>will</i> from the auxiliary, which
+    ///     the renderer weakens).
     /// </summary>
     private static readonly Lazy<EnglishTextAnalyzer> SharedAnalyzer = new(
         () => new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions
         {
-            Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading,
+            Annotations = TextEnAnnotationSelection.Normalization | TextEnAnnotationSelection.Reading | TextEnAnnotationSelection.PartOfSpeech,
         }));
 
     /// <summary>The execution provider names attempted, in order, before falling back to CPU.</summary>

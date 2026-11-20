@@ -37,3 +37,21 @@ sections:
                   - WeakForms_TryGet_EspeakStyleDetails_AreForPiperOnly
                   - WeakForms_VoicingAlternatingWords_AreDerivedFromTheReadingTableAndTheLexicon
                   - WeakForms_AtTextStart_MarksOnlyAnUnmarkedFullVowelForm
+
+              - id: SpeechPhonemesEn-Rendering-WeakForms-ContentUseAndGroups
+                title: >-
+                  The WeakForms table shall report a listed word as a content use, which is never weak, when
+                  the text analysis tags it as a noun or a proper noun or, for will and can, as a main verb,
+                  and not for any other tag or an untagged word; and shall give the group of and the article a
+                  the reduced vowels of one unit (both a schwa, as the training engine writes it) while every
+                  other group keeps its words' forms.
+                justification: |
+                  Several function-word spellings are also content words with their own stress; said with
+                  the weak form, "my will" sounds like the auxiliary. The tag of the text analysis tells them
+                  apart, and VERB is not enough for be, have and do because the tagger gives the auxiliaries
+                  that tag too. Joined after a full vowel, the word-initial open schwa of the article reads as
+                  the start of a new word and the voice pauses inside "of a"; the training engine writes it
+                  as one reduced unit.
+                tests:
+                  - WeakForms_IsContentUse_NounOrMainVerbModal_IsAContentUse
+                  - WeakForms_InGroup_OfAIsReducedAndOtherGroupsKeepTheirForms

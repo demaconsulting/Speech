@@ -9,8 +9,8 @@ package.
 - Constants: `ModelId` = `piper-onnx-libritts-r-en-us-medium` and `SpeakerParameterId` = `speaker`
 - Declared facts: `DisplayName`, `Role` = Synthesis, `LicenseName` = `CC BY 4.0`, `LicenseUrl` =
   <https://creativecommons.org/licenses/by/4.0/>, `AudioTagSupport` = `None`, the preferred audio format mono 22,050 Hz,
-  and `TextAnalyzer`, one `EnglishTextAnalyzer` (normalization and reading annotations selected) created on first use
-  and shared by every instance
+  and `TextAnalyzer`, one `EnglishTextAnalyzer` (normalization, reading and part-of-speech annotations selected) created
+  on first use and shared by every instance
 - `CapabilityProfile`: the shared `PiperCapabilityProfile` (internal helper of this unit, below)
 - `Parameters`: one `NumericParameter` for the speaker: integer, 0 to 903, step 1, default 0
 - `DownloadDescriptor`: one `SpeechModelDownloadFile`: the HTTPS URL of

@@ -63,7 +63,7 @@ internal static class EspeakWordRules
             var element = phones[low..high];
             if (!phone.IsVowel)
             {
-                builder.Append(IsSchwaCarriedR(element, i - low) ? string.Empty : Consonant(phones, i));
+                builder.Append(IsSchwaCarriedR(element, i - low) ? string.Empty : Consonant(phones, i, high));
                 continue;
             }
 
@@ -266,8 +266,12 @@ internal static class EspeakWordRules
     /// </summary>
     /// <param name="phones">The phones.</param>
     /// <param name="index">The index of the consonant.</param>
+    /// <param name="elementEnd">
+    ///     The index after the last phone of the compound element the consonant is in (the length of the word for a word
+    ///     that is not a compound pronounced part by part).
+    /// </param>
     /// <returns>The IPA symbols.</returns>
-    private static string Consonant(ReadOnlySpan<Phone> phones, int index)
+    private static string Consonant(ReadOnlySpan<Phone> phones, int index, int elementEnd)
     {
         var symbol = phones[index].BaseSymbol;
         if (symbol == "T" && IsFlap(phones, index))
@@ -275,8 +279,9 @@ internal static class EspeakWordRules
             return "ɾ";
         }
 
-        // n before a velar stop is the velar nasal
-        if (symbol == "N" && SymbolAt(phones, index + 1) is "K" or "G")
+        // n before a velar stop of the same element is the velar nasal (ink, anger); across the joint of a compound the
+        // n of the first element stays an n (vine-clad, sun-glasses), so the first element keeps its own sound
+        if (symbol == "N" && index + 1 < elementEnd && SymbolAt(phones, index + 1) is "K" or "G")
         {
             return "ŋ";
         }

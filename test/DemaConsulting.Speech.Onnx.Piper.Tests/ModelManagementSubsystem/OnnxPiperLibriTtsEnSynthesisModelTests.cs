@@ -1,6 +1,7 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Text.En.AnalysisSubsystem;
 
 namespace DemaConsulting.Speech.Onnx.Piper.Tests.ModelManagementSubsystem;
 
@@ -200,10 +201,12 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Equal(["Consider 5 options:", "Should we pick 7, or wait?"], plan.Segments.Select(s => s.Text));
         Assert.Equal(3, defaultPlan.Segments.Count);
 
-        // Assert: the annotations (the two numbers) stay on their own words in their own sentence
-        var covered = plan.Segments.Select(s => s.Annotations.Select(a => s.Text.Substring(a.Start, a.Length)).ToArray()).ToArray();
+        // Assert: the replacements (the two numbers) stay on their own words in their own sentence, and every word's part of
+        // speech stays inside its sentence
+        var covered = plan.Segments.Select(s => s.Annotations.Where(a => a.Kind != TextEnAnnotations.PartOfSpeech).Select(a => s.Text.Substring(a.Start, a.Length)).ToArray()).ToArray();
         Assert.Equal(["5"], covered[0]);
         Assert.Equal(["7"], covered[1]);
+        Assert.All(plan.Segments, s => Assert.All(s.Annotations, a => Assert.InRange(a.Start + a.Length, 1, s.Text.Length)));
     }
 
     /// <summary>

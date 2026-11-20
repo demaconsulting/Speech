@@ -42,18 +42,19 @@ Kokoro's own tokenizer file.
 
 **Piper (espeak-style) rules.** The textbook ARPAbet to IPA mapping, with the stress mark before the vowel it belongs
 to, one symbol per sound (`tʃ`, `oʊ`, `ɜː`), the flap `ɾ` for a `t` between a vowel or `r` and an unstressed vowel (a
-final `-y` that the dictionary stresses secondarily counts as unstressed: *ability*, *identity*), `ŋ` before `k` or `g`,
-a linking `ɹ` after a word-final `ɚ` or `ɜː` before a vowel-initial word, the unstressed `AH0`, `IH0` and `IY0` by
-environment (`ᵻ` for `-ed` after `t` or `d` and `-es` after a sibilant, `ɐ` word-initially, `ɛ` for `ex-` and `en-`, `ɪ`
-for `-ing`, `-ic`, `-age`; an `IY0` after a consonant and before a consonant and the primary stress, the end of a prefix
-or of the first element of a compound, is lax, `ᵻ` after `r` and `ɪ` otherwise: `sˌɛmɪsˈɜːkəl`, `mˌʌltɪkˈʌlɚd`, because
-the voice reads the tense `i` as the end of a word and pauses after it inside one), `ɔ` before `ŋ f θ s`, the secondary
-stress dropped next to the primary and on a final `-y`, and the numbers thirteen to nineteen (and only those) stressed
-on the first syllable. Quotation marks, brackets and dashes become a comma (a pause) because the voice has no symbol for
-them, an ellipsis stays three dots, and the clause marks `, ; : . ! ?` pass through. The vowels before `r` follow the
-training engine (`IY` before `r` is the lax `ɪ`: `hˈɪɹ`; `AY` and `AW` before `r` take a schwa that carries the `r`:
-`aɪɚ`, `aʊɚ`; `UW` before `r` is the short vowel of *cure*). A hyphenated compound has one primary stress, on its first
-part, and a secondary stress on each later part, written even next to the primary one (`wˈɛlnˌoʊn`, `bˈæɾəlfˌiːld`).
+final `-y` that the dictionary stresses secondarily counts as unstressed: *ability*, *identity*), `ŋ` before `k` or `g`
+of the same compound element (`vine-clad` keeps its `n`), a linking `ɹ` after a word-final `ɚ` or `ɜː` before a
+vowel-initial word, the unstressed `AH0`, `IH0` and `IY0` by environment (`ᵻ` for `-ed` after `t` or `d` and `-es` after
+a sibilant, `ɐ` word-initially, `ɛ` for `ex-` and `en-`, `ɪ` for `-ing`, `-ic`, `-age`; an `IY0` after a consonant and
+before a consonant and the primary stress, the end of a prefix or of the first element of a compound, is lax, `ᵻ` after
+`r` and `ɪ` otherwise: `sˌɛmɪsˈɜːkəl`, `mˌʌltɪkˈʌlɚd`, because the voice reads the tense `i` as the end of a word and
+pauses after it inside one), `ɔ` before `ŋ f θ s`, the secondary stress dropped next to the primary and on a final `-y`,
+and the numbers thirteen to nineteen (and only those) stressed on the first syllable. Quotation marks, brackets and
+dashes become a comma (a pause) because the voice has no symbol for them, an ellipsis stays three dots, and the clause
+marks `, ; : . ! ?` pass through. The vowels before `r` follow the training engine (`IY` before `r` is the lax `ɪ`:
+`hˈɪɹ`; `AY` and `AW` before `r` take a schwa that carries the `r`: `aɪɚ`, `aʊɚ`; `UW` before `r` is the short vowel of
+*cure*). A hyphenated compound has one primary stress, on its first part, and a secondary stress on each later part,
+written even next to the primary one (`wˈɛlnˌoʊn`, `bˈæɾəlfˌiːld`).
 
 **Kokoro (misaki) rules.** The same textbook table in the misaki symbols (`A I O W Y ʧ ʤ ɜɹ əɹ`), the flap, `ᵻ`, `ᵊ` for
 a final syllabic `l` after a consonant or `m` and `n` after `t d s z p f`, an unstressed `IH0` as a schwa except in
@@ -69,24 +70,27 @@ person reading a phone number does.
 trained on text where they are. About sixty words have a weak form in one of three classes: a reduced vowel (`the` is
 `ðə`, before a vowel `ðɪ`), the full vowel without the stress mark (`and` is `ænd`) or the full form with a secondary
 stress (`but`, `not`). A function word and the article after it are one group written without a space (`of the` is
-`ʌvðə`). The Piper renderer applies the table by default and a caller can switch it off; the espeak-style details (the
-flap of `it` and `at` before a vowel, `on the` with an unmarked `on`, `for the` as `fɚðə`, the secondary stress of
-`made`, `make`, `which`, `what` and a few more) apply to Piper only. The Kokoro renderer renders full forms by default
-(the renderer's own default), and a caller can ask for the weak forms, which agree better with the reference phonemizer
-for function words; the Kokoro model package asks for them (see *SpeechOnnxKokoro KokoroPhonemePipeline Design*, where
-the pipeline's `UseWeakForms` constant is `true`, so the weak-forms-off default described here is the renderer's, not
-the one Kokoro speech uses). A word with a reduced form keeps its full dictionary form right after a word whose readings
-differ only by the voicing of the final consonant (`close to`, `a house to`, `the use of`; the set is derived from the
-reading table and the lexicon, see *WeakForms*), because the reduced vowel blurs the `s` or `z` that tells the readings
-apart. In the Kokoro rendering a weak form that is a single bare full vowel (`I`) carries a secondary stress mark (`ˌI`,
-as misaki writes it), because the model drops a lone unmarked diphthong symbol after a pause. In the Piper rendering the
-first word of the rendered text, which is the first word of an utterance of the voice (the session speaks every segment
-as its own text, and a part of a long text is another), keeps an unmarked full-vowel weak form but with a secondary
-stress mark before its vowel (`He whispered` is `hˌiː wˈɪspɚd`), because the voice swallows an unmarked weak form at the
-start of an utterance (`should`, `could`, `my` were recognized in none of 24 renderings and in 24, 19 and 16 with the
-mark); a reduced form, `the` and `for` are unchanged, and a word after a comma inside the text is not first. The
-Kokoro model does not have this problem (its first words were recognized as often with and without the mark), so its
-rendering is unchanged.
+`ʌvðə`; `of a` is the reduced `əvə`, because the word-initial `ɐ` joined after a full vowel makes the voice pause inside
+the group). A word of the table that the text analysis tags as a noun or a proper noun (`my will`, `the can`), or `will`
+and `can` tagged as a main verb, is a content word and keeps its dictionary form and stress in both renderers; the tag
+reaches the renderers on the phonemized item. The Piper renderer applies the table by default and a caller can switch it
+off; the espeak-style details (the flap of `it` and `at` before a vowel, `on the` with an unmarked `on`, `for the` as
+`fɚðə`, the secondary stress of `made`, `make`, `which`, `what` and a few more) apply to Piper only. The Kokoro renderer
+renders full forms by default (the renderer's own default), and a caller can ask for the weak forms, which agree better
+with the reference phonemizer for function words; the Kokoro model package asks for them (see *SpeechOnnxKokoro
+KokoroPhonemePipeline Design*, where the pipeline's `UseWeakForms` constant is `true`, so the weak-forms-off default
+described here is the renderer's, not the one Kokoro speech uses). A word with a reduced form keeps its full dictionary
+form right after a word whose readings differ only by the voicing of the final consonant (`close to`, `a house to`,
+`the use of`; the set is derived from the reading table and the lexicon, see *WeakForms*), because the reduced vowel
+blurs the `s` or `z` that tells the readings apart. In the Kokoro rendering a weak form that is a single bare full vowel
+(`I`) carries a secondary stress mark (`ˌI`, as misaki writes it), because the model drops a lone unmarked diphthong
+symbol after a pause. In the Piper rendering the first word of the rendered text, which is the first word of an
+utterance of the voice (the session speaks every segment as its own text, and a part of a long text is another), keeps
+an unmarked full-vowel weak form but with a secondary stress mark before its vowel (`He whispered` is `hˌiː wˈɪspɚd`),
+because the voice swallows an unmarked weak form at the start of an utterance (`should`, `could`, `my` were recognized
+in none of 24 renderings and in 24, 19 and 16 with the mark); a reduced form, `the` and `for` are unchanged, and a word
+after a comma inside the text is not first. The Kokoro model does not have this problem (its first words were recognized
+as often with and without the mark), so its rendering is unchanged.
 
 **Layout and parts.** Both renderers join the rendered pieces of the items with one space between words, a closing mark
 attached to the word before and an opening mark attached to the word after (`PhonemeStream.Join`). `RenderParts` renders

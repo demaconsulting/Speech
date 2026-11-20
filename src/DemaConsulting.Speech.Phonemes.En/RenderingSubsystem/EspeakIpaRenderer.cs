@@ -120,6 +120,7 @@ public sealed class EspeakIpaRenderer
     {
         ArgumentNullException.ThrowIfNull(items);
         var pieces = new string[items.Count];
+        var grouped = _useWeakForms ? WeakForms.GroupedWithPrevious(items) : null;
         var previousMark = false;
         var textStart = true;
         for (var i = 0; i < items.Count; i++)
@@ -139,6 +140,15 @@ public sealed class EspeakIpaRenderer
                 default:
                     pieces[i] = string.Empty;
                     break;
+            }
+        }
+
+        // A function word and the article joined to it are said as one group, whose forms can differ from the words' own (of a is əvə)
+        for (var i = 1; grouped is not null && i < items.Count; i++)
+        {
+            if (grouped[i])
+            {
+                (pieces[i - 1], pieces[i]) = WeakForms.InGroup(items[i - 1].Text, pieces[i - 1], items[i].Text, pieces[i]);
             }
         }
 
@@ -185,13 +195,14 @@ public sealed class EspeakIpaRenderer
 
         var demoted = false;
         var weak = string.Empty;
-        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord, previousWord, espeakStyle: true, out weak, out demoted);
+        var known = _useWeakForms && item.Source == PronunciationSource.Lexicon && !WeakForms.IsContentUse(item) && WeakForms.TryGet(item.Text, nextStartsWithVowel, nextWord, previousWord, espeakStyle: true, out weak, out demoted);
 
         // The first word of the text (of an utterance) gets a secondary stress on a full-vowel weak form: the voice swallows an unmarked one there
         if (known && weak.Length > 0 && textStart)
         {
             weak = WeakForms.AtTextStart(item.Text, weak);
         }
+
 
         var text = known && weak.Length > 0 ? weak : EspeakWordRules.Render(item.Pronunciation.Phones, demoted, item.ElementStarts);
 

@@ -26,8 +26,10 @@ public sealed class PhonemizedItem
     /// <param name="readingId">The reading id the text analysis requested for the word, if any.</param>
     /// <param name="ipaOverride">A host-supplied IPA pronunciation for the word, if any.</param>
     /// <param name="elementStarts">The indexes of the first phone of each element after the first of a hyphenated compound pronounced part by part, or <see langword="null"/>.</param>
-    internal PhonemizedItem(PhonemizedItemKind kind, string text, Pronunciation? pronunciation, PronunciationSource source, string? readingId = null, string? ipaOverride = null, IReadOnlyList<int>? elementStarts = null)
+    /// <param name="partOfSpeech">The part of speech the text analysis tagged the word with (a Universal Dependencies tag), or <see langword="null"/>.</param>
+    internal PhonemizedItem(PhonemizedItemKind kind, string text, Pronunciation? pronunciation, PronunciationSource source, string? readingId = null, string? ipaOverride = null, IReadOnlyList<int>? elementStarts = null, string? partOfSpeech = null)
     {
+        PartOfSpeech = partOfSpeech;
         Kind = kind;
         Text = text;
         Pronunciation = pronunciation ?? Pronunciation.Empty;
@@ -78,6 +80,13 @@ public sealed class PhonemizedItem
     /// </summary>
     public string? IpaOverride { get; }
 
+    /// <summary>
+    ///     Gets the part of speech the text analysis tagged the word with (a Universal Dependencies tag such as
+    ///     <c>NOUN</c> or <c>AUX</c>), or <see langword="null"/> when the text was not analyzed or the word was replaced.
+    ///     A renderer uses it to tell a function word from the content word of the same spelling (<i>my will</i>).
+    /// </summary>
+    internal string? PartOfSpeech { get; }
+
     /// <summary>Gets the pronunciation as the internal value type; empty when there are no phones.</summary>
     internal Pronunciation Pronunciation { get; }
 
@@ -94,6 +103,14 @@ public sealed class PhonemizedItem
     ///     the first part of such a compound can demote the primary stresses from this phone on.
     /// </summary>
     internal int CompoundBreak => ElementStarts.Count > 0 ? ElementStarts[0] : -1;
+
+    /// <summary>
+    ///     Gets a copy of this item with a part of speech.
+    /// </summary>
+    /// <param name="partOfSpeech">The part of speech, or <see langword="null"/>.</param>
+    /// <returns>The copy; every other property is unchanged.</returns>
+    internal PhonemizedItem WithPartOfSpeech(string? partOfSpeech) =>
+        new(Kind, Text, Pronunciation, Source, ReadingId, IpaOverride, ElementStarts, partOfSpeech);
 
     /// <summary>
     ///     Returns a readable form: the word and its phones, or the punctuation mark.

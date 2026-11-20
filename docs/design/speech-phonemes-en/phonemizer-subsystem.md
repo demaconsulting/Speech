@@ -11,8 +11,9 @@ turns its result into a phoneme string. It contains the following units:
 
 - **EnglishPhonemizer**: the public entry point, with the public result types `PhonemizedText`, `PhonemizedItem`,
   `PhonemizedItemKind` and `PronunciationSource`; it drives the other units
-- **WordTokenizer**: the spoken text (the text with its replacements applied, `SpokenText`), the index of the reading
-  and pronunciation annotations (`AnnotationIndex`) and the tokenizer that cuts the spoken text into tokens
+- **WordTokenizer**: the spoken text (the text with its replacements applied, `SpokenText`), the index of the reading,
+  pronunciation and part-of-speech annotations (`AnnotationIndex`) and the tokenizer that cuts the spoken text into
+  tokens
 - **WordPronouncer**: the pronunciation of one word by the priority list, with the rules for compounds, diacritics and
   prefixes
 
@@ -96,6 +97,16 @@ good: it lists *nobly* as `N AA1 B L IY0` (the vowel of *knobbly*). `data/phonem
 few reviewed corrections (a lower-case word, the pronunciation, the reason), embedded by link and consulted by the word
 pronouncer before the dictionary; the dictionary image and its pins stay untouched. The phonemizer's test over every
 word of the dictionary proves that these rows are the only words that are not pronounced as the dictionary lists them.
+`data/phonemes-en/lexicon-additions.tsv` holds, in the same format, the few reviewed additions of words the dictionary
+lacks (`agave`, `aquiver`), consulted after the dictionary.
+
+**Words the dictionary lacks.** Before the letter-to-sound model, a word not written with a capital is tried as a
+British spelling of a dictionary word (`manoeuvring` as `maneuvering`), and a word written with a capital that ends in
+`-mouth` as an English place name with the reduced `M AH0 TH` (`Rhinemouth`); see *WordPronouncer Design*.
+
+**Part of speech.** The phonemizer keeps the tag the text analysis gave each word (`en.upos`, on the word's exact
+original span) on its item (`PhonemizedItem.PartOfSpeech`, internal), so a renderer can tell the noun *will* from the
+auxiliary and keep it stressed (see *WeakForms Design*). A word that was replaced or carries a clitic has no tag.
 
 **Error handling.** A null text throws `ArgumentNullException`; no other input throws. A reading that cannot be applied
 to its word is not an error: the word keeps its default pronunciation and the item records the requested id with

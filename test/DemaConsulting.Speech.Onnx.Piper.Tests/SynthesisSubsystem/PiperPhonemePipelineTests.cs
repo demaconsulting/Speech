@@ -265,6 +265,30 @@ public sealed class PiperPhonemePipelineTests
     }
 
     /// <summary>
+    ///     Proves the model's own text analysis tags each word, so a function-word spelling used as a noun keeps its stress in
+    ///     the utterance (<i>my will</i> has the primary stress mark on <i>will</i>, unlike the auxiliary's weak form), while
+    ///     the same text without annotations keeps the weak form.
+    /// </summary>
+    [Fact]
+    public void PiperPhonemePipeline_ToUtterances_ModelAnalysis_KeepsANounOfAFunctionWordStressed()
+    {
+        // The IPA primary stress mark
+        const string PrimaryStress = "\u02C8";
+
+        // Arrange
+        const string sentence = "Only I did not want to go; my will was all the other way about.";
+        var analysis = Model.TextAnalyzer!.Analyze(sentence, CancellationToken.None);
+
+        // Act
+        var analyzed = Assert.Single(Pipeline.ToUtterances(sentence, analysis.Annotations));
+        var plain = Assert.Single(Pipeline.ToUtterances(sentence, null));
+
+        // Assert
+        Assert.Contains("maɪ w" + PrimaryStress + "ɪl wʌz", analyzed.Phonemes, StringComparison.Ordinal);
+        Assert.Contains("maɪ wɪl wʌz", plain.Phonemes, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Proves that a segment longer than one utterance is split into utterances that each fit the limit, that no text
     ///     is dropped, and that the utterances end after a clause mark when the text has them.
     /// </summary>

@@ -9,8 +9,8 @@ into tokens. Three internal classes serve this one responsibility: `SpokenText`,
 - `SpokenText`: the spoken string `Text`, the original index of each spoken character (`-1` for a character that a
   replacement introduced), the end of the original span each character stands for and whether each character belongs to
   a spelled replacement. Immutable once built
-- `AnnotationIndex`: the reading ids and the pronunciation overrides (scheme and phonemes) keyed by the original span
-  (`Start`, `Length`); at most one of each kind per span, the first kept
+- `AnnotationIndex`: the reading ids, the pronunciation overrides (scheme and phonemes) and the part-of-speech tags
+  keyed by the original span (`Start`, `Length`); at most one of each kind per span, the first kept
 - `Token(Kind, Start, End)` with `TokenKind`: `Word`, `Letter`, `Digits`, `Clitic`, `Punctuation`, `Unsupported`
 
 **Key Methods**:
@@ -24,8 +24,9 @@ into tokens. Three internal classes serve this one responsibility: `SpokenText`,
   the range starts with original text, which is the condition for a reading or pronunciation annotation to apply to a
   token or to its headword
 - **AnnotationIndex.Build(annotations)**: reads each annotation with the typed readers of the text analysis package
-  (`TryReadReading`, `TryReadPronunciation`); a malformed annotation is not indexed. **TryGetReading** also accepts an
-  annotation that covers only the start of a token and reports the covered length
+  (`TryReadReading`, `TryReadPronunciation`, `TryReadPartOfSpeech`); a malformed annotation is not indexed.
+  **TryGetReading** also accepts an annotation that covers only the start of a token and reports the covered length;
+  **PartOfSpeechOf** returns the tag of exactly one span, or `null`
 - **WordTokenizer.Tokenize(spoken, lexicon)**: the rules in the order given in *PhonemizerSubsystem Design*: skip
   whitespace and U+FFFC; a spelled letter; digits; a word (Latin letters with inner apostrophes and hyphens, and a
   trailing apostrophe after `s` or when the lexicon lists the word with one, as it does for the dropped-g headwords

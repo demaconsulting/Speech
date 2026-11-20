@@ -17,7 +17,8 @@ namespace DemaConsulting.Speech.Phonemes.En.PhonemizerSubsystem;
 ///     its default pronunciation (the first variant of the CMU Pronouncing Dictionary) and nothing is normalized, so
 ///     numbers and abbreviations are only as good as the text. With annotations it applies the replacements
 ///     (<c>en.norm</c> and <c>en.spell</c>), speaks spelled letters by name, uses the pronunciation of the heteronym
-///     reading the text analysis chose (<c>en.reading</c>) and honors host pronunciation overrides (<c>en.pron</c>).
+///     reading the text analysis chose (<c>en.reading</c>), honors host pronunciation overrides (<c>en.pron</c>) and keeps
+///     the part of speech of each word (<c>en.upos</c>) for the renderers.
 ///     </para>
 ///     <para>
 ///     <b>Priority for each word.</b> host override, then the reading's pronunciation, then the lexicon's first
@@ -68,7 +69,8 @@ public sealed class EnglishPhonemizer
     /// <param name="text">The segment text.</param>
     /// <param name="annotations">
     ///     The segment's annotations, offsets relative to <paramref name="text"/>, or <see langword="null"/> or
-    ///     empty for none. Kinds the phonemizer does not use (such as <c>en.upos</c>) are ignored.
+    ///     empty for none. The part of speech (<c>en.upos</c>) of a word is kept on its item for the renderers (a noun is not a weak form);
+    ///     kinds the phonemizer does not use are ignored.
     /// </param>
     /// <returns>The words and punctuation of the spoken text, each with its pronunciation and provenance.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
@@ -243,15 +245,23 @@ public sealed class EnglishPhonemizer
         {
             var hasOverride = index.TryGetPronunciation(sourceStart, sourceLength, unchangedPrefix, out var scheme, out var phonemes, out var overrideCovered);
             var hasReading = index.TryGetReading(sourceStart, sourceLength, unchangedPrefix, out var readingId, out var readingCovered);
+            PhonemizedItem item;
             if (hasOverride && (!hasReading || overrideCovered >= readingCovered))
             {
-                return Override(text, SpokenLength(overrideCovered, sourceLength, text), scheme, phonemes) ?? Item(text, _pronouncer.Pronounce(text, null), null);
+                item = Override(text, SpokenLength(overrideCovered, sourceLength, text), scheme, phonemes) ?? Item(text, _pronouncer.Pronounce(text, null), null);
+            }
+            else if (hasReading)
+            {
+                item = WithReading(text, readingId, SpokenLength(readingCovered, sourceLength, text));
+            }
+            else
+            {
+                item = Item(text, _pronouncer.Pronounce(text, null), null);
             }
 
-            if (hasReading)
-            {
-                return WithReading(text, readingId, SpokenLength(readingCovered, sourceLength, text));
-            }
+            // The tag the text analysis gave exactly this word, so a renderer can tell my will from will go
+            var partOfSpeech = index.PartOfSpeechOf(sourceStart, sourceLength);
+            return partOfSpeech is null || item.Kind != PhonemizedItemKind.Word ? item : item.WithPartOfSpeech(partOfSpeech);
         }
 
         return Item(text, _pronouncer.Pronounce(text, null), null);

@@ -73,10 +73,10 @@ provenance.
 
 **Text analysis.** The model's `TextAnalyzer` is one `EnglishTextAnalyzer` of Text.En, created on first use and
 shared by every instance (the analysis loads trained data, so one instance keeps every model instance cheap).
-It is configured with the normalization and reading annotations only: the spoken forms of numbers, currency,
-dates and abbreviations, and the reading of each heteronym (`record` the noun or the verb), which the session
-hands to the annotated engine. The part-of-speech annotations stay inside the analysis, where only the classifier
-needs them.
+It is configured with the normalization, reading and part-of-speech annotations: the spoken forms of numbers,
+currency, dates and abbreviations, the reading of each heteronym (`record` the noun or the verb) and the tag of each
+word, which the session hands to the annotated engine. The renderer uses the tag to keep a content word of a
+function-word spelling stressed (`my will`, `the can`) where it would otherwise use the weak form.
 
 `KokoroPhonemeVocabulary` loads an embedded copy of Kokoro v1.0's own `tokenizer.json`, parses its
 `model.vocab` JSON object into a `char`-to-integer-id dictionary (confirmed to contain no

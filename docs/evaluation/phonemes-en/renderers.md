@@ -474,6 +474,60 @@ and compounds of the audit (*antisocial*, *overpriced*, *underground*, *nonstop*
 lengthened vowel at the joint and did not change. Kokoro writes a schwa there (`sˌɛməsˈɜɹkᵊl`) and did not change. The
 Phonemes.En goldens changed in one line of the compound golden (`anti-war`).
 
+### Listening Fixes 5
+
+The fifth round (Piper LibriTTS-R, speaker 0) flagged eight sentences. Durations below are of the voice with the noise
+off (`noise_scale` and `noise_w` 0), so they are deterministic; a phrase is rendered alone, a sentence as the engine
+splits it.
+
+1. **A pause before *a* in *the wall of a gallery*.** The weak forms joined *of a* into `ʌvɐ`: the open `ɐ` is the
+   espeak-style vowel of a word-initial reduced syllable, and joined after a full vowel it reads as the start of a new
+   word. Over five phrases `ʌvɐ` was the longest of five spellings every time (`ʌvɐ`, `ʌv ɐ`, `ʌvə`, `əvə`, `ʌv ə`):
+   *the wall of a gallery high overhead* 1,660 ms against 1,498 to 1,533 ms for the others. espeak-ng writes the group
+   `əvə`, so the group now has those forms (`WeakForms.InGroup`); *was a* keeps the engine's `wʌzɐ`, which the voice
+   does not lengthen. The flagged sentence: 7.06 s to 6.85 s.
+2. ***Rhinemouth* as *Rhine ... mouth*.** The letter-to-sound model gave `R AY1 N M AW2 TH`, and the unstressed full
+   diphthong after the primary stress made the voice say two words: `ɹˈaɪnmaʊθ` in *of the ... were* is 1,324 ms against
+   1,033 ms with a space between the two words. English place names reduce `-mouth` (the dictionary lists `Dartmouth`,
+   `Falmouth`, `Monmouth`, `Plymouth`, `Portsmouth` and `Weymouth` with `M AH0 TH`, and espeak-ng says `ɹˈaɪnməθ`), so a
+   capitalized word the dictionary lacks that ends in `-mouth` is now its first element plus `M AH0 TH`: `ɹˈaɪnməθ`, 929
+   ms. Lower-case *cottonmouth* and *frogmouth* keep the full vowel in the dictionary, so the rule is for capitalized
+   words only.
+3. ***my will* said like the auxiliary.** The weak-form table reduced every *will* (`wɪl`). The text analysis tags the
+   noun `NOUN`; the tag now reaches the renderers (the models' analyzers select the part-of-speech annotations too) and
+   a word of the table tagged `NOUN` or `PROPN`, or *will* and *can* tagged `VERB`, keeps its dictionary form:
+   `maɪ wˈɪl`. The same applies to *the can*, *a must* and *Will* as a name; the auxiliaries are untouched
+   (`hˌiː wɪl ɡˈoʊ`).
+4. ***aquiver* and *agave*.** Neither is in the dictionary; the letter-to-sound model said `ɐkwˈaɪvɚ` and `ɐɡˈeɪv`.
+   A rule for the predicative `a-` plus a dictionary word was measured over the dictionary's own words of that shape
+   and rejected: it gives the listed pronunciation for 195 of 507 (38.5 percent; *above*, *acorn* and *agave* itself
+   are not `a` plus a word). Both words are now reviewed additions (`data/phonemes-en/lexicon-additions.tsv`):
+   `ɐkwˈɪvɚ` and `ɐɡˈɑːvi`.
+5. ***vine-clad* as `vˈaɪŋklˌæd`.** The `n` before a velar stop became `ŋ` across the joint of the compound. espeak-ng
+   assimilates there too (`vˈaɪŋklˈæd`, `sˈʌŋɡlæsᵻz`), but the first element then no longer sounds like its word
+   (*vying-clad*); the rule now applies inside one element only: `vˈaɪnklˌæd`. Hyphenated compounds are not in the
+   measurement corpora, so the figures do not move.
+6. ***Piccola* as *Pi ... cola*.** The unstressed `IY0` before the stress was the tense `i` of *Listening Fixes 4*;
+   that change already gives `pɪkˈoʊlə` (the flagged sentence 10.68 s at the flagged phonemes, 10.23 s now). The stress
+   on the second syllable is the dictionary's (`P IY0 K OW1 L AH0`; Italian stresses the first) and is not changed:
+   foreign words are not special-cased.
+7. ***manoeuvring* (not flagged, same sentence as *Rhinemouth*).** The dictionary is American, so the letter-to-sound
+   model read the British spelling letter by letter (`mˈænoʊˌuːvɹɪŋ`). A word not written with a capital that the
+   dictionary lacks is now respelled by the systematic British to American correspondences, alone and up to three
+   together, and taken when the respelling is a dictionary word: `mənˈuːvɹɪŋ` (*maneuvering*), as espeak-ng says it.
+   On the lower-case words of the repository's text corpora that the dictionary lacks, the rules rewrite 23 word types,
+   22 of them right (*analyse* 112 times, *calibre*, *civilisation*, *labours*, *quarrelling*, *unrivalled* ...; the
+   wrong one is the French *lettres*); over the dictionary's own pairs, the wrong respellings are names (*Kraemer*,
+   *Oehler*), which is why a capitalized word is not respelled. *Capri* (`kˈæpɹi`, the dictionary's first variant;
+   espeak-ng says `kɐpɹˈiː`) is noted and not changed.
+
+**Measured effect on the gates** (Piper against espeak-ng, the local comparison of *Listening Fixes 4* on the
+`measure-oracle` export before and after these changes): the 450 tuning sentences 90.86 to 90.89 percent stress-free
+word match and 2.70 to 2.69 percent PER; the 60 held-out sentences 92.33 to 92.49 and 2.22 to 2.15; the tuning and
+held-out word passes do not change. The only changed items are the one occurrence of *of a* in each sentence set (`ʌv ɐ`
+to `əv ə`). Kokoro's renderings of the corpora do not change. No gated figure gets worse. The Piper golden did not
+change; the Kokoro golden did not change.
+
 ## Residual Classes
 
 The largest disagreements that remain are idiosyncrasies of the two engines, not renderer faults, and no phone-only rule

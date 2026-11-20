@@ -75,6 +75,7 @@ reported by name. The precondition test shows that the tables are the real ones 
 `RenderingSubsystem_SoundRules_TBeforeAFinalSecondaryStressedY_IsFlapped`,
 `RenderingSubsystem_SoundRules_UnstressedIBeforeTheStressInsideAWord_IsLaxWithoutAWordBreak`,
 `RenderingSubsystem_Layout_PrefixedWordInASentence_IsOneWordBetweenItsNeighbors`,
+`RenderingSubsystem_SoundRules_NasalBeforeAVelarAcrossACompoundJoint_StaysAnN`,
 `RenderingSubsystem_SoundRules_TeenNumbers_AreStressedOnTheFirstSyllableAndOtherWordsAreNot`,
 `RenderingSubsystem_ArpabetOverrides_RenderLikeTheDictionaryWordWithTheSamePhones`,
 `RenderingSubsystem_IpaOverrides_AreTranslatedIntoTheSymbolsOfEachVoice`
@@ -86,7 +87,8 @@ the prefixed and compound words `semicircle`, `semi-circle`, `semicolon`, `multi
 `anti-war`, `anymore` and `rebuild` (the unstressed i before the stressed syllable is lax for Piper, `sˌɛmɪsˈɜːkəl`,
 and neither voice has a space or a pause mark inside the word) against `happiness`, `everybody` and `email` (the tense
 `i` after the primary stress and at the start of a word), and the sentence of the owner's listening test, in which
-`semicircle` is one word between `the` and `above` in both voices;
+`semicircle` is one word between `the` and `above` in both voices; `vine-clad` (`vˈaɪnklˌæd`) and `sun-glasses` keep
+the `n` of their first element before the velar stop of the next, while `sunken` and `ink` keep the velar nasal;
 `a well-known author` and `a battle-field and twenty-one self-evident ones` (one primary stress, the later parts
 secondary, next to the primary or not); the compound golden (`compounds-golden.tsv`: `co-operate`, `non-fiction`,
 `re-enter`, `pre-war`, `anti-war`, `ex-wife`, `self-evident`, `battle-field`, `well-known`, `e-mail` with the stress of
@@ -103,7 +105,9 @@ its word.
 **Tests**: `RenderingSubsystem_WeakForms_FunctionWords_AreUnstressedOnlyWhenEnabled`,
 `RenderingSubsystem_WeakForms_EveryEntry_RendersAVowelNucleusInBothVoices`,
 `RenderingSubsystem_WeakForms_FirstWordOfTheText_HasASecondaryStressOnItsFullVowel`,
-`RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt`
+`RenderingSubsystem_WeakForms_FirstWordOfEveryPart_HasASecondaryStressAndOnlyPiperHasIt`,
+`RenderingSubsystem_WeakForms_ContentUseOfAFunctionWord_IsStressed`,
+`RenderingSubsystem_WeakForms_OfAGroup_HasReducedVowels`
 
 `a cup of the tea` renders `ɐ kˈʌp ʌvðə tˈiː` for Piper with weak forms and `ɐ kˈʌp ˈʌv ðə tˈiː` without; the stress of
 `of` stays for Kokoro by default and goes when weak forms are enabled. Every word of the table, alone, before a
@@ -113,7 +117,10 @@ first word of an utterance of the Piper voice, keeps a full-vowel weak form with
 is `hˌiː wˈɪspɚd`, `Should we go` is `ʃˌʊd wiː ɡˈoʊ`, a word after an opening quote is first too), while `The cat`,
 `A cat`, `An apple`, `For years`, `Because of this` and every word after the first (`Well, he said that he left`) keep
 their forms; the first word of each part of a long text is treated the same way, the rule is off with the weak forms
-switched off, and Kokoro's rendering of `He left` is unchanged.
+switched off, and Kokoro's rendering of `He left` is unchanged. With the tags of the real text analysis, the noun
+`will` of `my will was all the other way` and `She has a strong will`, `can` of `Put it in the can` and `must` of
+`It is a must` are stressed in both voices (`maɪ wˈɪl wʌz` for Piper), while the auxiliary of `He will go` stays weak
+(`wɪl ɡˈoʊ`). `the wall of a gallery` renders `wˈɔːl əvə ɡˈælɚɹi` and `It was a one-time offer` keeps `wʌzɐ`.
 
 #### Parts
 
