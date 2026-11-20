@@ -38,6 +38,28 @@ internal readonly record struct HeteronymPrediction(int ReadingIndex, double Con
 ///     the decision stays integer-only; the training never sees it, so the model and its training record are unchanged.
 ///     </para>
 ///     <para>
+///     <b>Noun-form cue.</b> A reading can be a noun of its lemma and still never a noun of a given form: <c>wind.coil</c>
+///     is a noun as <i>a wind</i> (a bend), but <i>wound</i> is only its past tense. When the tagger tags such a form
+///     <c>NOUN</c> and exactly one candidate can be a noun of it (<see cref="ReadingInventory.CanBeNoun"/>), that
+///     candidate gets a prior of <see cref="NounFormCueLogOdds"/> (the flagged <i>a knife wound</i> got the coil reading
+///     at 0.55). The prior is small on purpose: the tagger also tags a verb <c>NOUN</c> now and then (<i>the tape wound
+///     onto the spool</i>), and a strong prior or a hard constraint lost that development row; a cue for every noun or
+///     verb tag over all heteronyms lost 1 to 2 points of development accuracy and 11 rows of the external set, so the
+///     cue is limited to the forms that rule a reading out by themselves.
+///     </para>
+///     <para>
+///     <b>Past-time cue.</b> A sentence with <i>yesterday</i>, <i>ago</i>, <i>previously</i> or <i>last</i> before a word of time
+///     gives a past-tense candidate a prior of <see cref="PastTimeCueLogOdds"/>, unless the word follows an auxiliary or a
+///     particle (<i>did not read</i>, <i>to read</i>), which take the base form whatever the time.
+///     </para>
+///     <para>
+///     <b>Context cues.</b> A short table of cue words per reading marks a use the training data seldom shows: a word of
+///     the body or of a material within <see cref="ContextCueWindow"/> words of <i>tear</i> (<i>a deep muscle tear</i>, <i>a
+///     tear in the fabric</i>, <i>wear and tear</i>) gives the rip reading a prior of <see cref="ContextCueLogOdds"/>. The
+///     training data has one noun use of that reading; adding rows was tried, but retraining the single-epoch model
+///     re-rolled other readings, so the evidence is a prior instead.
+///     </para>
+///     <para>
 ///     <b>Confidence.</b> With scores <c>s</c> and the top score <c>m</c>, the confidence is
 ///     <c>1 / sum(exp((s - m) / (scale * temperature)))</c> over the candidates, clamped to [0, 1]. Only this
 ///     reported number uses <see cref="Math.Exp(double)"/>; it can differ in the last bits between platforms,
@@ -53,8 +75,58 @@ internal sealed class HeteronymClassifier
     /// <summary>The prior log-odds the adjective cue adds to an adjective reading (ln 9: odds of about 9 to 1).</summary>
     internal const double AdjectiveCueLogOdds = 2.2;
 
+    /// <summary>The prior log-odds the noun-form cue adds to the one reading that can be a noun (1: odds of about 2.7 to 1).</summary>
+    internal const double NounFormCueLogOdds = 1.0;
+
     /// <summary>The tag code of <c>ADJ</c>.</summary>
     private static readonly byte AdjectiveTag = HeteronymContext.UposCode("ADJ");
+
+    /// <summary>The tag code of <c>NOUN</c>.</summary>
+    private static readonly byte NounTag = HeteronymContext.UposCode("NOUN");
+
+    /// <summary>The tag code of <c>AUX</c>.</summary>
+    private static readonly byte AuxiliaryTag = HeteronymContext.UposCode("AUX");
+
+    /// <summary>The tag code of <c>PART</c>.</summary>
+    private static readonly byte ParticleTag = HeteronymContext.UposCode("PART");
+
+    /// <summary>The prior log-odds the past-time cue adds to a past-tense reading (ln 9: odds of about 9 to 1).</summary>
+    internal const double PastTimeCueLogOdds = 2.2;
+
+    /// <summary>The hashes of the words that place a clause in the past on their own (<i>yesterday</i>, <i>ago</i>).</summary>
+    private static readonly HashSet<uint> PastTimeWords = [.. new[] { "yesterday", "ago", "previously" }.Select(word => FeatureHashing.Fnv1a(word))];
+
+    /// <summary>The prior log-odds a context cue adds to its reading (ln 9: odds of about 9 to 1).</summary>
+    internal const double ContextCueLogOdds = 2.2;
+
+    /// <summary>The number of words on each side of a word that a context cue is looked for in.</summary>
+    internal const int ContextCueWindow = 3;
+
+    /// <summary>
+    ///     The words that, near a word, mark one of its readings where the training data has too few examples of that use
+    ///     for the model to have learned it: a rip of the body or of a material (<i>a deep muscle tear</i>, <i>a tear in the
+    ///     fabric</i>, <i>wear and tear</i>), whose noun use the training data has once, against the verb uses of the rip
+    ///     reading and the noun uses of the drop from the eye.
+    /// </summary>
+    private static readonly (string ReadingId, HashSet<uint> Words)[] ContextCues =
+    [
+        ("tear.rip", [.. new[]
+        {
+            "muscle", "muscles", "ligament", "ligaments", "tendon", "tendons", "hamstring", "meniscus", "cartilage", "rotator",
+            "cuff", "acl", "labrum", "groin", "fabric", "cloth", "canvas", "sail", "seam", "sleeve", "lining", "denim", "wear",
+        }.Select(word => FeatureHashing.Fnv1a(word))]),
+    ];
+
+    /// <summary>The hash of <i>last</i>, which places a clause in the past before a word of time (<i>last night</i>).</summary>
+    private static readonly uint LastHash = FeatureHashing.Fnv1a("last");
+
+    /// <summary>The hashes of the words of time after <i>last</i> (<i>last night</i>, <i>last week</i>).</summary>
+    private static readonly HashSet<uint> TimeNouns =
+    [
+        .. new[] { "night", "evening", "morning", "week", "weekend", "month", "year", "summer", "winter", "spring", "autumn", "fall", "time" }
+            .Select(word => FeatureHashing.Fnv1a(word)),
+    ];
+
 
     /// <summary>The tag code of <c>ADV</c>.</summary>
     private static readonly byte AdverbTag = HeteronymContext.UposCode("ADV");
@@ -78,6 +150,15 @@ internal sealed class HeteronymClassifier
 
     /// <summary>The integer score the adjective cue adds to an adjective reading: <see cref="AdjectiveCueLogOdds"/> on the model's scale.</summary>
     private readonly int _adjectiveCueBonus;
+
+    /// <summary>The integer score the noun-form cue adds: <see cref="NounFormCueLogOdds"/> on the model's scale.</summary>
+    private readonly int _nounFormCueBonus;
+
+    /// <summary>The integer score the past-time cue adds: <see cref="PastTimeCueLogOdds"/> on the model's scale.</summary>
+    private readonly int _pastTimeCueBonus;
+
+    /// <summary>The integer score a context cue adds: <see cref="ContextCueLogOdds"/> on the model's scale.</summary>
+    private readonly int _contextCueBonus;
 
     /// <summary>The optional observer called after each model-scored classification, for tests.</summary>
     private readonly Action<int>? _classified;
@@ -120,6 +201,9 @@ internal sealed class HeteronymClassifier
         _model = model;
         _classified = classified;
         _adjectiveCueBonus = (int)Math.Round((double)model.Scale * model.Temperature * AdjectiveCueLogOdds, MidpointRounding.AwayFromZero);
+        _nounFormCueBonus = (int)Math.Round((double)model.Scale * model.Temperature * NounFormCueLogOdds, MidpointRounding.AwayFromZero);
+        _pastTimeCueBonus = (int)Math.Round((double)model.Scale * model.Temperature * PastTimeCueLogOdds, MidpointRounding.AwayFromZero);
+        _contextCueBonus = (int)Math.Round((double)model.Scale * model.Temperature * ContextCueLogOdds, MidpointRounding.AwayFromZero);
     }
 
     /// <summary>Gets the inventory whose candidates this classifier chooses among.</summary>
@@ -160,6 +244,8 @@ internal sealed class HeteronymClassifier
         var mask = _model.Mask;
         var weights = new ModelWeights(_model);
         var cue = HasAdjectiveCue(sentence, target);
+        var noun = OnlyNounOfTheForm(sentence[target].Upos, formIndex, candidates);
+        var past = HasPastTimeCue(sentence, target);
         Span<int> scores = stackalloc int[candidates.Length];
         var best = 0;
         for (var c = 0; c < candidates.Length; c++)
@@ -168,6 +254,21 @@ internal sealed class HeteronymClassifier
             if (cue && Inventory.IsAdjective(candidates[c]))
             {
                 score += _adjectiveCueBonus;
+            }
+
+            if (c == noun)
+            {
+                score += _nounFormCueBonus;
+            }
+
+            if (past && Inventory.IsPastTense(candidates[c]))
+            {
+                score += _pastTimeCueBonus;
+            }
+
+            if (HasContextCue(sentence, target, Inventory.ReadingIdAt(candidates[c])))
+            {
+                score += _contextCueBonus;
             }
 
             scores[c] = score;
@@ -238,6 +339,110 @@ internal sealed class HeteronymClassifier
         }
 
         return IsTagged(sentence, next, AdjectiveTag);
+    }
+
+    /// <summary>
+    ///     Finds the one candidate that can be a noun of this form, when the word is tagged as a noun and the form itself
+    ///     rules out a reading that is a noun for its lemma.
+    /// </summary>
+    /// <param name="tag">The tag code of the word.</param>
+    /// <param name="formIndex">The form of the word.</param>
+    /// <param name="candidates">The candidate readings.</param>
+    /// <returns>
+    ///     The index in <paramref name="candidates"/> of the only reading that can be a noun of the form (see
+    ///     <see cref="ReadingInventory.CanBeNoun"/>) when the word is tagged <c>NOUN</c> and another candidate's reading is a
+    ///     noun only in other forms of its lemma (<c>wound</c>: <c>wind.coil</c> is a noun as <i>a wind</i>, a bend, but
+    ///     <i>wound</i> is its past tense); -1 otherwise.
+    /// </returns>
+    private int OnlyNounOfTheForm(byte tag, int formIndex, ReadOnlySpan<int> candidates)
+    {
+        if (tag != NounTag)
+        {
+            return -1;
+        }
+
+        var found = -1;
+        var ruledOut = false;
+        for (var c = 0; c < candidates.Length; c++)
+        {
+            if (!Inventory.CanBeNoun(formIndex, candidates[c]))
+            {
+                ruledOut |= Inventory.IsNounOfItsLemma(candidates[c]);
+                continue;
+            }
+
+            if (found >= 0)
+            {
+                return -1;
+            }
+
+            found = c;
+        }
+
+        return ruledOut ? found : -1;
+    }
+    /// <summary>
+    ///     Tells whether a cue word of a reading stands near the word.
+    /// </summary>
+    /// <param name="sentence">The tokens of the sentence.</param>
+    /// <param name="target">The index of the word.</param>
+    /// <param name="readingId">The candidate reading.</param>
+    /// <returns><see langword="true"/> when the reading has cue words and one is within <see cref="ContextCueWindow"/> words of the target.</returns>
+    internal static bool HasContextCue(ReadOnlySpan<ContextToken> sentence, int target, string readingId)
+    {
+        foreach (var (cueReading, words) in ContextCues)
+        {
+            if (!string.Equals(cueReading, readingId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            for (var i = Math.Max(0, target - ContextCueWindow); i <= Math.Min(sentence.Length - 1, target + ContextCueWindow); i++)
+            {
+                if (i != target && words.Contains(sentence[i].LowerHash))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Tells whether the sentence places a word that may be a past tense in the past.
+    /// </summary>
+    /// <param name="sentence">The tokens of the sentence.</param>
+    /// <param name="target">The index of the word.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the sentence has <i>yesterday</i>, <i>ago</i>, <i>previously</i> or <i>last</i> before a
+    ///     word of time (<i>last night</i>, <i>last week</i>), and the word does not follow an auxiliary or a particle
+    ///     (<i>did not read</i>, <i>wanted to read</i>, <i>will read</i>, which take the base form whatever the time).
+    /// </returns>
+    internal static bool HasPastTimeCue(ReadOnlySpan<ContextToken> sentence, int target)
+    {
+        // The base form after an auxiliary or a particle, one adverb allowed between (did not read, to quickly read)
+        var before = target - 1;
+        if (IsTagged(sentence, before, AdverbTag) || (IsTagged(sentence, before, ParticleTag) && IsTagged(sentence, before - 1, AuxiliaryTag)))
+        {
+            before--;
+        }
+
+        if (IsTagged(sentence, before, AuxiliaryTag) || IsTagged(sentence, before, ParticleTag))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < sentence.Length; i++)
+        {
+            var hash = sentence[i].LowerHash;
+            if (PastTimeWords.Contains(hash) || (hash == LastHash && i + 1 < sentence.Length && TimeNouns.Contains(sentence[i + 1].LowerHash)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

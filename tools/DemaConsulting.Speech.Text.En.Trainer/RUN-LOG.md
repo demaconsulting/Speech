@@ -272,3 +272,39 @@ unchanged.
 **Flagged sentence after the change:** `minute.tiny` at 0.861. *They were very close* (`close.adj-noun`), *She was so
 content* (`content.satisfied`), *Wait a minute* (`minute.time`) and *Most content is free* (`content.noun`) are read as
 before.
+
+## Noun-form, past-time and context cues (2026-11-20)
+
+**Trigger.** A listener flagged *It has been compared to a knife wound or a deep muscle tear*: the analyzer chose
+`wind.coil` for *wound* at 0.55 (the tagger tagged it `NOUN`) and `tear.drop` for *tear* at 0.72.
+
+**Experiments, not kept.** (1) A part-of-speech cue for every word whose `NOUN` or `VERB` tag allows exactly one
+candidate, at log-odds 2.2, 4.6 and a hard constraint: development 3,083 to 3,050, 3,028 and 3,017 of 3,235, and
+`whd-eval` 1,501 to 1,490 of 1,615 (tagging errors on noun/verb heteronyms); `NOUN` only 3,049, `VERB` only 3,062. (2)
+The same cue limited to forms that rule a reading out by themselves (*wound* under `wind.coil`) at log-odds 4.6: one
+development row lost (*The tape wound onto the spool*, the verb tagged `NOUN`). (3) A fourth synthetic round of 110
+reviewed rows (noun uses of `tear.rip`, *wound* after a modifier, *tear gas*) and retraining: development 3,091, natural
+holdout 1,128 (seed mean 96.43 to 97.02 percent), independent holdout 1,894, but the retrained single-epoch model
+re-rolled readings of the golden sentences (*The bass player caught a bass*, *He had a tear in his eye*, *I read every
+night*, *this minute detail*) and of the analyzer test *Yesterday I read the whole book*; 30 more rows for *read* made
+it worse. The data, the model and the records were restored.
+
+**Change.** No data, setting or model changed (`train --check` exits 0, image SHA-256
+`73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0`). `HeteronymClassifier` adds three priors on the
+model's calibrated scale: the noun-form cue (log-odds 1.0) to the only candidate that can be a noun of the form when
+the word is tagged `NOUN` and the form rules out another candidate's noun use (`ReadingInventory.CanBeNoun`); the
+past-time cue (2.2) to a past-tense candidate when the sentence has *yesterday*, *ago*, *previously* or *last* before
+a word of time and the word does not follow an auxiliary or a particle; and context cues (2.2) to `tear.rip` when one
+of 23 words of the body or of materials is within three words.
+
+**Development set and gate run:** 3,083 of 3,235 unchanged; `evaluate --gate` passed with the same figures, 96.23
+percent (1,123 of 1,167) on the natural holdout; the independent holdout is 1,882 of 1,972 unchanged; the confidence
+strata moved by one development word. `evaluate --write` and `evaluate --check` exit 0.
+
+**External record** (informational): `whd-eval` 1,501 to 1,502 (`tear.rip` 3 to 4 of 9), `whd-train` 13,270 to 13,278
+(`tear.rip` 39 to 44 of 57, `wound.injury` 56 to 59 of 61), `bench` 278 to 279 (`tear.rip` 7 to 8 of 8); no reading
+lost a row.
+
+**Flagged sentence after the change:** `wound.injury` at 0.689 and `tear.rip` at 0.774. *A tear ran down her cheek*
+(`tear.drop`), *The tape wound onto the spool* (`wind.coil`) and *Yesterday I read the whole book* (`read.past`) are
+read as expected.

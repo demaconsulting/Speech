@@ -71,6 +71,27 @@ sections:
                   - HeteronymClassifier_Classify_AdjectiveCue_DecidesAWeaklyContestedAdjective
                   - HeteronymClassifier_Classify_AdjectiveCueAgainstAConfidentModel_ModelWins
 
+              - id: SpeechTextEn-Heteronym-HeteronymClassifier-FormTenseAndContextCues
+                title: >-
+                  The HeteronymClassifier class shall add a prior worth odds of about 2.7 to 1 to the
+                  only candidate that can be a noun of the form when the tagger tags the word NOUN and
+                  the form itself rules out another candidate's noun use, a prior worth odds of about 9
+                  to 1 to a past-tense candidate when the sentence has a past-time word and the word
+                  does not follow an auxiliary or a particle, and a prior worth odds of about 9 to 1 to
+                  a candidate with one of its cue words within three words, and nothing otherwise.
+                justification: |
+                  A listener flagged "a knife wound" read as the past of wind, which is never a noun in
+                  that form, and "a deep muscle tear" read as the drop from the eye, a use of the rip
+                  reading the training data has once. The tense of read depends on words such as
+                  yesterday that the sparse features rarely see with it. Retraining with added rows
+                  re-rolled other readings of the single-epoch model, so the evidence is added as
+                  priors that leave a confident model its reading; the noun-form prior is small
+                  because a strong one lost a development row to a tagging error.
+                tests:
+                  - HeteronymClassifier_Classify_NounFormCue_DecidesAFormThatOnlyOneReadingMakesANoun
+                  - HeteronymClassifier_Classify_PastTimeCue_DecidesTheTenseOfAWeaklyContestedVerb
+                  - HeteronymClassifier_Classify_ContextCue_DecidesAReadingTheTrainingDataSeldomShows
+
               - id: SpeechTextEn-Heteronym-HeteronymClassifier-ModelCompatibility
                 title: >-
                   The HeteronymClassifier constructor shall throw InvalidDataException for a model

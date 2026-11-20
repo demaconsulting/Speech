@@ -64,6 +64,10 @@ are percentages of the words of the set.
   For the shipped model it changed no decision on the development set (it raised the confidence of 22 words, all already
   right) or on either holdout; the accuracies above are unchanged, and the record changed only in the confidence strata
   and in three seed models' independent-holdout counts (one word fewer each).
+- **Noun-form, past-time and context cues.** Three more priors of the classifier (see *HeteronymClassifier Design*;
+  added 2026-11-20 for the flagged *a knife wound or a deep muscle tear*). For the shipped model they changed no
+  decision on the development set or on either holdout; externally `whd-eval` gained 1 row, `whd-train` 8 and `bench` 1
+  (`tear.rip` and `wound.injury`), and no reading lost a row (see `RUN-LOG.md`).
 - **Seeds.** Five training runs with seeds 1 to 5 and the same settings give 95.46 to 97.00 percent on the natural
   holdout (mean 96.43) and 95.44 to 97.06 percent on the independent holdout (mean 96.34). The shipped model is seed 1,
   chosen before any holdout was evaluated, not the best seed.

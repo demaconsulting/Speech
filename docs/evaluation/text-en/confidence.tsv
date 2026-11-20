@@ -1,6 +1,6 @@
 set	confidence	rows	correct	accuracy_bp	upos_baseline_correct
-dev	<0.600	62	36	5806	0
-dev	0.600-0.899	343	261	7609	0
+dev	<0.600	63	37	5873	0
+dev	0.600-0.899	342	260	7602	0
 dev	>=0.900	2827	2786	9855	0
 dev	none	3	0	0	0
 holdout-independent	<0.600	53	30	5660	0

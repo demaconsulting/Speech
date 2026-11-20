@@ -73,6 +73,11 @@ and reading occurs once.
   **LabelSalt**, **RoleSalt**, **FormCount** and **ReadingCount** (internal): the index-based accessors of the
   classifier (which reads `IsAdjective` for its adjective cue), the override validation and the tests; the candidates
   are returned as a span over the shared array, in table order
+- **CanBeNoun(formIndex, readingIndex)**, **IsNounOfItsLemma** and **IsPastTense** (internal): the part-of-speech facts
+  of the noun-form and past-time cues of the classifier. `IsNounOfItsLemma` is whether the reading's hint includes
+  `NOUN`; `CanBeNoun` is that, and the form is the lemma itself or a form of it in `-s`, `-ing` or `-er` (a form of
+  another lemma that ends otherwise, *wound* under `wind.coil`, is a past form and never a noun); `IsPastTense` is
+  whether the reading's role is `past` (`read.past`, `dive.past`)
 - **Parse(readings, forms, version)** (internal): the factory behind `Default` that parses two `TextReader`s with the
   limits above; tests use it to feed hand-built tables. It reads each line through a bounded buffer, so an endless
   line is stopped at the limit

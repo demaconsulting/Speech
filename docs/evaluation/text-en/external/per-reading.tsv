@@ -10,8 +10,8 @@ whd-eval	tear.drop	1	0	0	0
 whd-eval	minute.time	9	2	2222	9
 whd-eval	lead.metal	3	1	3333	0
 whd-eval	sake.drink	3	1	3333	3
-whd-eval	tear.rip	9	3	3333	3
 whd-eval	age.verb	9	4	4444	3
+whd-eval	tear.rip	9	4	4444	3
 whd-eval	invite.noun	2	1	5000	2
 whd-eval	rodeo.event	10	5	5000	4
 whd-eval	supplement.verb	4	2	5000	2
@@ -276,7 +276,6 @@ whd-train	read.past	52	34	6538	51
 whd-train	compound.verb	3	2	6667	2
 whd-train	polish.shine	3	2	6667	0
 whd-train	progress.verb	15	10	6667	10
-whd-train	tear.rip	57	39	6842	36
 whd-train	lead.guide	83	57	6867	83
 whd-train	blessed.adj	42	30	7143	0
 whd-train	learned.adj	7	5	7143	5
@@ -292,6 +291,7 @@ whd-train	conflict.verb	4	3	7500	3
 whd-train	mobile.city	4	3	7500	3
 whd-train	recount.narrate	25	19	7600	0
 whd-train	axis.plural	47	36	7660	0
+whd-train	tear.rip	57	44	7719	36
 whd-train	invalid.noun	22	17	7727	15
 whd-train	associate.verb	9	7	7778	8
 whd-train	august.name	9	7	7778	0
@@ -370,7 +370,6 @@ whd-train	contest.verb	12	11	9167	11
 whd-train	convert.noun	12	11	9167	12
 whd-train	postulate.noun	60	55	9167	55
 whd-train	record.verb	12	11	9167	11
-whd-train	wound.injury	61	56	9180	0
 whd-train	estimate.noun	62	57	9194	58
 whd-train	jesus.english	88	81	9205	88
 whd-train	predicate.noun	89	82	9213	82
@@ -439,6 +438,7 @@ whd-train	contrast.noun	89	86	9663	87
 whd-train	job.work	89	86	9663	87
 whd-train	ravel.composer	89	86	9663	79
 whd-train	transform.noun	30	29	9667	29
+whd-train	wound.injury	61	59	9672	0
 whd-train	nestle.company	63	61	9683	62
 whd-train	recount.again	65	63	9692	65
 whd-train	confine.noun	73	71	9726	71
@@ -566,7 +566,6 @@ bench	content.satisfied	8	7	8750	6
 bench	read.past	8	7	8750	8
 bench	row.argument	8	7	8750	8
 bench	sow.pig	8	7	8750	8
-bench	tear.rip	8	7	8750	7
 bench	bass.music	2	2	10000	0
 bench	bow.bend	2	2	10000	2
 bench	close.adj-noun	8	8	10000	8
@@ -608,6 +607,7 @@ bench	separate.adj	2	2	10000	2
 bench	separate.verb	8	8	10000	7
 bench	sow.plant	2	2	10000	2
 bench	tear.drop	2	2	10000	2
+bench	tear.rip	8	8	10000	7
 bench	use.noun	7	7	10000	7
 bench	use.verb	2	2	10000	2
 bench	wind.air	2	2	10000	2
