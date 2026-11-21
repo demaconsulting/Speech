@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 /// </summary>
 /// <remarks>
 ///     Digital silence (exact zeros) drives the log-mel features to the constant
-///     <c>log(1e-10)</c> floor, an input the streaming encoder was never trained on and which
+///     <c>log(2^-24)</c> floor, an input the streaming encoder was never trained on and which
 ///     can destabilize its caches. Adding noise far below audibility (default amplitude
 ///     <c>1e-5</c>, about -100 dBFS) keeps the features in a realistic range. The sequence is
 ///     seeded so a given input always produces the same transcript, which keeps tests and

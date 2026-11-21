@@ -88,6 +88,8 @@
        data/stt-en/MANIFEST.tsv) is copied beside the test assembly under TestData/stt-en. -->
   <ItemGroup>
     <None Include="..\..\data\stt-en\**" LinkBase="TestData\stt-en" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Feature-extractor golden values (provenance and recipe in TestData/NOTICE.md). -->
+    <None Include="TestData\*.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
