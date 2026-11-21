@@ -1,0 +1,13 @@
+---
+title: Speech Technical Overview
+subtitle: How the English Front End Works and How It Improves
+author: DEMA Consulting
+description: Technical overview of the English front end of the Speech library
+lang: en-US
+keywords:
+  - Speech
+  - .NET
+  - Library
+  - Technical Overview
+  - Text-to-Speech
+---

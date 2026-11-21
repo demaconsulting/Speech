@@ -852,9 +852,42 @@ jobs:
           --results artifacts/fileassert-user-guide.trx
           user-guide
 
+      # === COMPILE TECHNICAL OVERVIEW ===
+      # This section generates the Technical Overview document (an informational theory-of-operation
+      # document, not a compliance artifact) using Pandoc and WeasyPrint.
+      # FileAssert validates that the HTML and PDF outputs contain expected content.
+      # Downstream projects: Add any additional technical overview steps here.
+
+      - name: Create technical overview output directory
+        shell: bash
+        run: mkdir -p docs/technical_overview/generated
+
+      - name: Generate Technical Overview HTML with Pandoc
+        shell: bash
+        run: >
+          dotnet pandoc
+          --defaults docs/technical_overview/definition.yaml
+          --metadata version="${{ inputs.version }}"
+          --metadata date="$(date +'%Y-%m-%d')"
+          --output docs/technical_overview/generated/technical_overview.html
+
+      - name: Generate Technical Overview PDF with WeasyPrint
+        run: >
+          dotnet weasyprint
+          --pdf-variant pdf/a-3u
+          docs/technical_overview/generated/technical_overview.html
+          "docs/generated/Speech Technical Overview.pdf"
+
+      - name: Assert Technical Overview Documents with FileAssert
+        run: >
+          dotnet fileassert
+          --results artifacts/fileassert-technical-overview.trx
+          technical-overview
+
       # === FILEASSERT SELF-VALIDATION ===
-      # By this point Pandoc and WeasyPrint have each produced 7 validated documents
-      # (Build Notes, Code Quality, Review Plan, Review Report, Design, Verification, User Guide),
+      # By this point Pandoc and WeasyPrint have each produced 8 validated documents
+      # (Build Notes, Code Quality, Review Plan, Review Report, Design, Verification, User Guide,
+      # Technical Overview),
       # providing strong OTS evidence for both tools before ReqStream runs. FileAssert
       # self-validation confirms the assertion tool itself is operational.
       # Downstream projects: Add any additional FileAssert self-validation steps here.

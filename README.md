@@ -1,4 +1,4 @@
-# Speech
+# ![Speech banner: the Speech name with the tagline 'Local speech for .NET: text to voice, voice to text.' and the text 'Reads English text and audio tags; speaks to speakers or WAV files, and streams recognized text from a mic.' Shown with the C# call 'await engine.SpeakAsync(speakers, "Hello, world.");' and the note '.NET 8–11 · Windows, Linux, macOS'. English text, Natural Language Audio Tags, microphone audio, and downloaded ONNX models flow into the Speech .NET library, and arrows lead out to what the library produces: spoken audio, the phonemes of a heteronym such as read in the past tense, live partial and final recognized text, and WAV files][hero]
 
 [![GitHub forks][badge-forks]][link-forks]
 [![GitHub stars][badge-stars]][link-stars]
@@ -9,656 +9,125 @@
 [![Security][badge-security]][link-security]
 [![NuGet][badge-nuget]][link-nuget]
 
-DemaConsulting.Speech is a cross-platform .NET library providing local, offline speech-to-text
-(STT) and text-to-speech (TTS) services for desktop applications.
+<!-- IMPORTANT: All links in this file must be absolute URLs.
+     This file is distributed in packages and relative links will not resolve. -->
 
-The diagram below shows how an application uses the core library and the optional model packages to recognize
-and synthesize speech.
+## Overview
 
-![Speech architecture: your desktop application uses the engine-neutral DemaConsulting.Speech core, whose Recognition, Synthesis, and ModelManagement subsystems build on the Audio and Diagnostics subsystems, with optional Sherpa, Kokoro, Piper, NemotronStt, and ChatterboxTurbo model packages plugged in, to turn microphone audio into recognized text and tagged text into synthesized audio, built on PortAudioSharp2, sherpa-onnx, and ONNX Runtime][architecture]
+DemaConsulting.Speech is a cross-platform .NET library for local, offline text-to-speech and speech-to-text in desktop
+applications. Models are downloaded on demand into a per-user store and run on the machine, with no cloud service. The
+English voices speak through a DEMA English front end that reads numbers, dates and heteronyms in context and
+pronounces words from the CMU Pronouncing Dictionary, with a trained letter-to-sound model for words it lacks.
 
 ## Features
 
-- 🎙️ Streaming speech-to-text recognition
-- 🔊 Streaming text-to-speech synthesis
-- 🧩 Mockable, cross-platform audio interfaces
-- 📦 On-demand model download & verification
-- 🏷️ Natural Language Audio Tag support
-- 🔤 English part-of-speech and text normalization analysis for synthesis models, including numbers, currency, dates,
-  times, units, web addresses, and host pronunciation overrides (preview)
-- 🗣️ Raw ONNX Runtime English voices (Kokoro and the 904-speaker Piper LibriTTS-R) with heteronym-aware phonemization
-  (preview)
-- ✍️ Casing & punctuation restoration
-- 🎚️ Per-model tunable voice parameters
-- 🖥️ Runs on Windows, Linux, macOS
-- 🧵 Targets .NET 8, 9, 10, and 11
-- 🛡️ Degrades gracefully without hardware
-
-Compliance evidence is generated automatically on every CI run, following the
-[Continuous Compliance][link-continuous-compliance] methodology.
+- 🔊 **Text-to-speech** - Piper (904 speakers) and Kokoro (29 voices) English voices on ONNX Runtime
+- 🔤 **English front end** - numbers, dates, units, web addresses and heteronyms read in context
+- 🗣️ **Pronunciation** - CMU Pronouncing Dictionary lexicon with a trained letter-to-sound fallback
+- 🎙️ **Speech-to-text** - streaming recognition with NVIDIA Nemotron 3.5 on ONNX Runtime
+- 🧬 **Voice cloning** - Chatterbox Turbo speaks in the voice of a short reference clip
+- 🏷️ **Audio tags** - Natural Language Audio Tags such as `[whispers]` and `[short pause]`
+- 📦 **Model management** - on-demand download with SHA-256 verification
+- 🧩 **Audio devices** - mockable, cross-platform devices that degrade gracefully without hardware
+- 💻 **Tools** - the `speech-cli` command-line tool and an Avalonia demo application
+- 🧵 **Wide support** - libraries for .NET 8, 9, 10 and 11 on Windows, Linux and macOS
+- ✅ [**Continuous Compliance**][link-continuous-compliance] - evidence generated on every CI run
 
 ## Installation
 
-Prerequisites: a .NET SDK that targets .NET 8, 9, 10, or 11 (the packages multi-target all four), and
-for live audio a machine with a capture or playback device. Without a device or a runtime, the
-library still composes and reports the affected capability as unavailable.
-
-Install the core library and the sherpa-onnx-backed models package using the .NET CLI:
+Add the Piper voice package to your project. It brings the core library, the English front end and ONNX Runtime with
+it, and it is published only in pre-release versions:
 
 ```bash
-dotnet add package DemaConsulting.Speech
-dotnet add package DemaConsulting.Speech.Sherpa
+dotnet add package DemaConsulting.Speech.Onnx.Piper --prerelease
 ```
 
-`DemaConsulting.Speech` is the engine-neutral core: it ships zero built-in models and has no dependency on any
-speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate, sibling package supplying the four
-sherpa-onnx-backed models used by this README's examples (and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies
-they require); calling `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
-`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via `.AddKokoroModels()`
-(it analyzes the English text with `DemaConsulting.Speech.Text.En` - numbers, dates, abbreviations and heteronyms such
-as the noun and the verb `record` - and phonemizes it with `DemaConsulting.Speech.Phonemes.En`; its British voices speak
-General American phonemes, so expect an American pronunciation in a British voice), the optional
-`DemaConsulting.Speech.Onnx.Piper` package adds a sixth, raw ONNX Runtime Piper LibriTTS-R English (US, 904 speakers)
-voice via `.AddPiperModels()` (same text analysis and phonemization as Kokoro, rendered as espeak-style IPA, with no
-espeak-ng; see [Kokoro and Piper on raw ONNX Runtime](#kokoro-and-piper-on-raw-onnx-runtime-preview) below), and the
-optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime streaming NVIDIA Nemotron 3.5 ASR
-recognition model via `.AddNemotronSttModels()`. The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds
-a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via `.AddChatterboxTurboModels(options)`. A host that only
-needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel` implementation - can
-depend on the core package alone. A synthesis model can optionally supply an `ITextAnalyzer` whose language-neutral
-annotations reach an `IAnnotatedSynthesisBackend`; see the usage guide. The preview `DemaConsulting.Speech.Text.En`
-package (pre-release, installed with `--prerelease`) supplies such an analyzer for English: part of speech, sentence
-boundaries, normalization of abbreviations, symbols and numbers, host pronunciation overrides and heteronym readings.
-See [English text analysis (preview)](#english-text-analysis-preview) below and the
-[text analysis chapter of the user guide][link-text-analysis].
+To use the library from the command line instead, install the `speech-cli` .NET tool (it targets .NET 10):
 
-### PortAudio runtime support
-
-The library references `PortAudioSharp2`, which in turn brings the following native runtime
-packages transitively at restore time:
-
-- `org.k2fsa.portaudio.runtime.win-x64`
-- `org.k2fsa.portaudio.runtime.linux-x64`
-- `org.k2fsa.portaudio.runtime.linux-aarch64`
-- `org.k2fsa.portaudio.runtime.osx-x64`
-- `org.k2fsa.portaudio.runtime.osx-arm64`
-
-No `win-arm64` PortAudio runtime package is available through this dependency chain. On an unsupported RID, or
-if PortAudio fails to initialize on a machine, the library
-still composes safely but reports audio devices as unavailable.
-
-### Combining the raw ONNX packages (Kokoro, Piper, Nemotron STT, Chatterbox Turbo) with sherpa-onnx
-
-`DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.Piper`,
-`DemaConsulting.Speech.Onnx.NemotronStt` and `DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
-Microsoft's `Microsoft.ML.OnnxRuntime` (they require version 1.28.0 or newer, the lowest release they are built
-and tested against, so a consumer is free to choose a version), and the sherpa-onnx native runtime packages
-ship their own native ONNX Runtime library with the same file name (1.28.2 for sherpa-onnx 1.13.8). An
-application that references both would restore two copies of that file into the same `runtimes/<rid>/native/`
-folder, and only one can be loaded. Two rules decide which one has to stay:
-
-- On Linux, sherpa-onnx's native library is linked against the versioned symbols of its own ONNX Runtime
-  (`VERS_1.28.2`), so **sherpa's copy must be the one that stays**: with Microsoft's copy in its place
-  (any version, including 1.28.0) sherpa fails to load with "version 'VERS_1.28.2' not found".
-- Microsoft's managed API requires a native library at least as new as itself (an older one fails with
-  "The requested API version [31] is not available"), so with sherpa's 1.28.2 the **managed API must not be newer
-  than 1.28**.
-
-Therefore an application that combines the two families references `Microsoft.ML.OnnxRuntime` directly at
-`1.28.0` (the 1.28 release of the managed package; Microsoft ships no later 1.28 patch) with
-`ExcludeAssets="native"`, which makes sherpa's native library the only one in the output on every platform.
-The `speech-cli` tool and the Demo application do exactly that and run both model families (Kokoro, Piper,
-Nemotron 3.5 and Chatterbox Turbo on the raw ONNX packages; the Sherpa Piper, Kokoro and Zipformer/Nemotron
-models) on `win-x64` and `linux-x64`; this was verified on both. When you move to a newer sherpa-onnx, keep the
-managed version equal to the ONNX Runtime release that its native runtime package bundles. An application
-that does not use sherpa-onnx needs no such pin: the raw ONNX packages then bring Microsoft's managed API
-and native runtime together, and to use an accelerated provider (for example DirectML or CUDA) it references
-the matching `Microsoft.ML.OnnxRuntime.*` package instead of the CPU one.
-
-### Speech engine runtime support
-
-The library is **designed for extensibility**: each speech engine is a self-contained
-`IRecognitionModel`/`ISynthesisModel`-backed class, registered into a `SpeechModelCatalog` via an
-`AddModels`/`Add*Models`-style extension method - `DemaConsulting.Speech.Sherpa` supplies
-`AddSherpaModels()` for the four sherpa-onnx models and `DemaConsulting.Speech.Onnx.Kokoro`
-supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model, `DemaConsulting.Speech.Onnx.Piper`
-supplies `AddPiperModels()` for the raw ONNX Runtime Piper model, and `DemaConsulting.Speech.Onnx.NemotronStt`
-supplies `AddNemotronSttModels()` for the raw ONNX Runtime Nemotron model - so adding a new engine is a new model class
-and extension method, not a redesign of the core library. Native runtimes restore transitively
-through the managed `org.k2fsa.sherpa.onnx` package; if one is missing for your target RID,
-composition still succeeds and the factory reports the engine as unavailable instead of crashing.
-None of the model bytes below are bundled with the library - `SpeechModelCatalog.DownloadAsync`
-fetches each one on demand and verifies its SHA-256 checksum before installing it. It's safe to
-call on every launch: for an already-installed model it's a cheap no-op, returning an `Installed`
-result without touching the network. On first download it can instead return `ChecksumMismatch`,
-`NetworkBlocked` (TLS interception, DNS or connection failure, or a timeout that was not caused by
-your own cancellation), `HttpError` (the server answered with a failure status code), `IoFailure`
-(a local file-system failure), or `Failed` (the generic fallback for any other failure), with the
-underlying exception in `SpeechModelDownloadResult.Error`; an unrecognized model id throws
-`ArgumentException`.
-
-This release ships eight models through five packages. `DemaConsulting.Speech.Sherpa`
-(`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
-(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.Piper`
-(`AddPiperModels()`) supplies the raw ONNX Runtime Piper LibriTTS-R model; `DemaConsulting.Speech.Onnx.NemotronStt`
-(`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model; and
-`DemaConsulting.Speech.Onnx.ChatterboxTurbo` (`AddChatterboxTurboModels(options)`) supplies the
-Chatterbox Turbo voice-cloning model:
-
-| Model | Role | License |
-| --- | --- | --- |
-| `SherpaOnnxZipformerEnRecognitionModel` | Streaming STT | Apache-2.0 (likely) |
-| `SherpaOnnxNemotronStreamingEnRecognitionModel` | Streaming STT | NVIDIA Open Model License |
-| `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
-| `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
-| `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
-| `OnnxPiperLibriTtsEnSynthesisModel` | TTS, 904 speakers (Piper LibriTTS-R, `speaker` 0-903) | CC BY 4.0 |
-| `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | MIT and NVIDIA Open Model License |
-| `OnnxChatterboxTurboEnglishSynthesisModel` | TTS, voice cloning from your reference clip | MIT |
-
-The Nemotron 3.5 model (`nemotron-3.5-asr-streaming-0.6b-onnx-int4`) is an int4-quantized ONNX
-export of about 790 MB. It runs on the CPU by default, with the encoder optionally accelerated
-through `AddNemotronSttModels(preferredExecutionProviderNames)`, and falls back to the CPU when an
-accelerated provider cannot run the model. The model is dual-licensed under the MIT License and
-the NVIDIA Open Model License, and both apply; review the NVIDIA license's terms before
-redistributing the model. To select the spoken
-language, pass the `language` parameter (`en-US` by default, or `en-GB`), for example
-`speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB
---input speech.wav`.
-When a download mirror is used, files are fetched from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`.
-The engine shortens any run of near-silence longer than 400 ms (leading silence or low-level
-noise would otherwise make the model emit nothing), calibrates its quiet threshold from the first
-400 ms of audio, and ends an utterance after 2.5 seconds of quiet following speech.
-
-The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
-model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
-(`chatterbox-turbo-onnx-en`, the ONNX export of ResembleAI's Chatterbox Turbo, 24,000 Hz, licensed
-**MIT**). The model has no built-in voices: you supply one or
-more short reference clips (1 to 30 seconds of clean speech, WAV or FLAC of any sample rate and
-channel count, or in-memory samples) and the model speaks in that voice. The first voice is the
-default and the `voice` choice parameter selects among them. You are responsible for having the
-right to clone any voice you use. WAV and FLAC files are decoded by the core package's managed
-`AudioFileReader` (no native decoder), which you can also use directly:
-`AudioFileReader.Read("clip.flac")` returns an `AudioClip` of float samples, and `AudioResampler`
-down-mixes and resamples it.
-
-```csharp
-using DemaConsulting.Speech.ModelManagementSubsystem;
-using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
-using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
-
-var options = new ChatterboxTurboModelOptions
-{
-    ReferenceVoices =
-    [
-        ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav"),
-    ],
-    // Or load every .wav and .flac file in a folder as a voice named after the file:
-    // ReferenceVoiceDirectory = "voices",
-};
-
-using var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
+```bash
+dotnet tool install -g DemaConsulting.Speech.Cli --prerelease
 ```
 
-The package bundles no voice audio, but the core package can download an optional **reference-voice
-pack** and keeps a folder for your own clips, and the model lists all of them as voices
-automatically when registered through `AddChatterboxTurboModels(options)` (set `IncludeStoreVoices = false`
-to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **CC0 1.0 Universal**,
-[source](https://github.com/OwenTyme/voice-zero)). Install it with `ReferenceVoiceLibrary`:
-
-```csharp
-using var voices = new ReferenceVoiceLibrary(catalog.Store);
-// ~570 MiB download, ~572 MiB installed with emotions
-await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);
-// Base voices only (about 44 MiB installed): InstallPackAsync(id, includeEmotions: false)
-// Your own .wav/.flac clips go in voices.UserDirectory (voices.EnsureUserDirectory() creates it).
-```
-
-See the [user guide][link-user-guide] for the pack contents, mood tags, model variants and generation limits.
-
-The table above is a convenience view for at-a-glance browsing, not the sole source of license
-information: every model also reports its license programmatically via
-`ISpeechModel.LicenseName`/`LicenseUrl` (also available through `SpeechModelCatalog.Enumerate()`'s
-`SpeechModelDescriptor.LicenseName`/`LicenseUrl`), so a host can discover licensing for any
-installed or installable model without parsing `DisplayName`. See the
-[user guide][link-user-guide] for full model details, license rationale, and voice/speaker
-selection.
+If the newest version on NuGet does not contain these packages yet, build from a clone of this repository instead:
+reference `src/DemaConsulting.Speech.Onnx.Piper/DemaConsulting.Speech.Onnx.Piper.csproj` from your project, and run
+the tool with `dotnet run --project src/DemaConsulting.Speech.Cli --` followed by its arguments.
 
 ## Usage
 
-There is no manual mono/stereo or sample-rate configuration to get wrong. Each model declares its
-own required `AudioFormat` (recognition) or `PreferredAudioFormat` (synthesis hint), and passing
-it to `CreateCaptureDevice`/`CreatePlaybackDevice` opens the device at that rate/channel-count
-when the OS allows it. If a mismatch remains anyway, the library's own anti-aliased FIR resampler
-bridges it transparently - you always get correct audio, never a manual format to configure.
-
-The two examples below are complete, runnable programs: each downloads its model on first run
-(into a per-user store under `LocalApplicationData`) and reuses it on every later run.
-
-### Speech-to-text
+This program downloads the Piper voice on its first run (it is SHA-256 verified and reused afterwards) and speaks a
+sentence through the default speakers:
 
 ```csharp
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
-using DemaConsulting.Speech.RecognitionSubsystem;
-using DemaConsulting.Speech.Sherpa;
-
-// 1. The catalog is the library's only "what models exist" entry point - nothing below names a
-//    concrete model class, so new models added in a future release show up automatically.
-using var catalog = new SpeechModelCatalog().AddSherpaModels();
-
-// 2. Pick a recognition model. Any model with the recognition role will do - this is the
-//    idiomatic pattern for an app that just wants "a" speech-to-text model:
-var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
-// To pick a *specific* model when more than one of the same role is installed, match on name
-// instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Zipformer"));
-var model = (IRecognitionModel)descriptor.Model;
-
-// 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
-//    every launch - it's a cheap no-op once installed (see above for details).
-await catalog.DownloadAsync(model.Id);
-
-// 4. Create a capture device matching the model's own required audio format - there is no
-//    manual mono/stereo or sample-rate configuration to get wrong.
-var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
-    AudioDeviceSelection.SystemDefault,
-    model.AudioFormat);
-
-// 5. Load the engine once, create a session bound to the capture device, and stream
-//    recognized text as it arrives. LoadAsync never throws for an ordinary machine state
-//    (model not installed, no microphone) - check IsAvailable instead.
-await using var engine = await SpeechRecognizerFactory.LoadAsync(model, catalog);
-if (engine.IsAvailable)
-{
-    await using var session = await engine.CreateSessionAsync(captureDevice);
-
-    await session.StartAsync();
-    Console.WriteLine("Listening - press any key to stop...");
-
-    var resultsTask = Task.Run(async () =>
-    {
-        await foreach (var evt in session.GetResultsAsync())
-        {
-            var status = evt.Result.IsFinal ? "final" : "partial";
-            Console.WriteLine($"{status}: {evt.Result.Text}");
-        }
-    });
-
-    Console.ReadKey(intercept: true);
-    await session.StopAsync();
-    await resultsTask;
-}
-```
-
-### Text-to-speech
-
-```csharp
-using DemaConsulting.Speech.AudioSubsystem;
-using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper;
 using DemaConsulting.Speech.SynthesisSubsystem;
-using DemaConsulting.Speech.Sherpa;
 
-// 1. The catalog is the library's only "what models exist" entry point - nothing below names a
-//    concrete model class, so new models added in a future release show up automatically.
-using var catalog = new SpeechModelCatalog().AddSherpaModels();
-
-// 2. Pick a synthesis model. Any model with the synthesis role will do - this is the idiomatic
-//    pattern for an app that just wants "a" text-to-speech model:
-var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis);
-// To pick a *specific* model when more than one of the same role is installed, match on name
-// instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Kokoro"));
-var model = (ISynthesisModel)descriptor.Model;
-
-// 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
-//    every launch - it's a cheap no-op once installed.
+using var catalog = new SpeechModelCatalog().AddPiperModels();
+var model = (ISynthesisModel)catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis).Model;
 await catalog.DownloadAsync(model.Id);
 
-// 4. Create a playback device matching the model's own preferred audio format hint.
-var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
-    AudioDeviceSelection.SystemDefault,
-    model.PreferredAudioFormat);
-
-// 5. Load the engine and speak a one-shot phrase. LoadAsync never throws for an ordinary
-//    machine state (model not installed, no speakers) - check IsAvailable instead.
+var speakers = new AudioDeviceFactory().CreatePlaybackDevice(AudioDeviceSelection.SystemDefault, model.PreferredAudioFormat);
 await using var engine = await SpeechSynthesizerFactory.LoadAsync(model, catalog);
 if (engine.IsAvailable)
 {
-    await engine.SpeakAsync(playbackDevice, "To be, or not to be. [short pause] That is the question.");
+    await engine.SpeakAsync(speakers, "I read the record on May 5th.");
 }
 ```
 
-Both `LoadAsync(...)` factories never throw for an ordinary machine state: a model that isn't
-installed, a machine with no microphone/speakers, and a missing speech-engine native runtime all
-return `IsAvailable == false` instead of an exception. `AudioDeviceFactory` also exposes
-`RefreshDevices()` to re-scan for hot-plugged hardware, surfacing `AudioDeviceInUseException` if a
-device from the factory is currently active.
+`LoadAsync` does not throw for an ordinary machine state such as a missing model or no speakers; it reports
+`IsAvailable` as `false` instead. For the Kokoro voices, use the `DemaConsulting.Speech.Onnx.Kokoro` package and
+`.AddKokoroModels()`.
 
-`SpeakAsync` recognizes Natural Language Audio Tags (such as `[whispers]`, `[short pause]`, or
-`[excited]`), renders each one per the model's own declared capability, chunks narration into
-sentence-sized pieces, and pipelines synthesis with playback - an earlier chunk plays while a
-later chunk is still synthesizing. Passing a canceled `CancellationToken` to `SpeakAsync` cancels
-an in-flight call deterministically.
-
-For a model that declares tunable parameters - such as Kokoro's `voice` choice or VITS/Piper's
-numeric `speaker` id - pass a `parameterValues` bag keyed by each parameter's `Id` to `LoadAsync(...)`:
-
-```csharp
-await using var engine = await SpeechSynthesizerFactory.LoadAsync(
-    model,
-    catalog,
-    parameterValues: new Dictionary<string, object> { ["voice"] = "af_bella" });
-```
-
-A `parameterValues` key that names a parameter *not* declared by the target model is silently
-ignored (composition still succeeds, with only an `Info`-level diagnostic reported if a
-diagnostics sink is wired up) - this deliberately keeps one settings dictionary reusable across
-different models without breaking composition. A supplied value for a parameter the model *does*
-declare, but that fails that parameter's own validation - the wrong CLR type, a number outside
-its declared range, a fractional value for a whole-number-only parameter, or a string that
-matches none of a `ChoiceParameter`'s declared options - throws `ArgumentException` synchronously
-from `LoadAsync(...)`, naming the parameter, the model, and the reason the value is invalid. This
-same rule applies to `SpeechRecognizerFactory.LoadAsync`'s `parameterValues` argument.
-
-See the [user guide][link-user-guide] for the full API walkthrough, voice/speaker catalogs, and
-Natural Language Audio Tag vocabulary.
-
-Automated tests in this repository verify selection logic, preferred-host filtering, fallback to
-host-API defaults, and degradation when PortAudio cannot initialize. They do **not** prove true
-end-to-end hardware I/O in CI, because CI runners cannot guarantee access to a real microphone or
-speaker. Opening a real device and moving audio through it remains a manual/local verification step.
-The recognition and synthesis pipelines are likewise verified against deterministic test engines
-rather than real speech, so recognition accuracy and synthesized speech quality are manual/local
-verification steps too.
-
-## English text analysis (preview)
-
-The optional, pre-release `DemaConsulting.Speech.Text.En` package gives a synthesis model sentence-level English
-context. A model returns its `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer`, and an annotation-aware
-backend reads the annotations of each chunk; the text itself is never rewritten:
-
-```csharp
-// In your ISynthesisModel implementation (one shared instance is thread-safe):
-public ITextAnalyzer? TextAnalyzer { get; } = new EnglishTextAnalyzer();
-
-// In your IAnnotatedSynthesisBackend, for each annotation of a chunk:
-if (TextEnAnnotations.TryReadReplacement(annotation, out var spoken, out var isSpelled)) { /* speak it */ }
-```
-
-| Annotation kind | Meaning |
-| --- | --- |
-| `en.upos` | Universal Dependencies part of speech of a word (`NOUN`) |
-| `en.norm` | Words to speak instead of the covered text (`Dr.` is `Doctor`, `$5` is `five dollars`) |
-| `en.spell` | Letters to speak by letter name (`FBI` is `F B I`) |
-| `en.pron` | Phonemes (`ipa:` or `arpabet:`) for a word that a host gave a pronunciation |
-| `en.reading` | Reading id of a heteronym such as "record" (`record.noun`) |
-| `en.reading-confidence` | The model's confidence in that reading, `0.000` to `1.000` |
-
-A host corrects a word the built-in rules get wrong with a pronunciation override dictionary, built in code or loaded
-from a tab-separated file:
-
-```csharp
-var overrides = PronunciationOverrides.Create([PronunciationOverrideEntry.Say("Nginx", "engine ex")]);
-var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions { Overrides = overrides });
-```
-
-The embedded model that chooses a heteronym's reading agrees with the labeled reading for this share of the words of
-held-out sentences it never saw:
-
-| Held-out set | Words | Model | Part of speech alone |
-| --- | ---: | ---: | ---: |
-| Natural sentences | 1,167 | 96.2% | 90.7% |
-| Sentences written blind by a different model family | 1,972 | 95.4% | 91.2% |
-| External: Wikipedia homographs (WHD) | 1,615 | 93.0% | 90.6% |
-| External: heteronym-bench | 299 | 93.0% | 80.3% |
-
-These are agreement with labels, not listener-judged pronunciation. The internal labels were chosen by a rule or a
-language model and are not human-verified, the natural set shares data with the tagger, and the external sets are
-informational: they cover only 162 of the 207 heteronym words and are lower. A reading below a confidence of 0.60 is
-right only about half the time.
-
-Limitations: US English only; Roman numerals, names before a number (`mid-1990s`), prefix currency codes, file names
-such as `report.pdf`, and markup are passed through unchanged (URLs, e-mail addresses, bare domains, letter-digit
-identifiers such as `A4`, and `12-year-old`-style compounds are read); the heteronym model sees one sentence at a
-time; and the package is a preview whose annotation details may still change, with no command-line or demo switch of its
-own (the Kokoro and Piper voices below use it). The annotations, options,
-diagnostics, accuracy with its caveats and the limitations are described in the [text analysis chapter of the user
-guide][link-text-analysis].
-
-## Kokoro and Piper on raw ONNX Runtime (preview)
-
-The optional `DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.Piper` packages run an English voice
-directly on ONNX Runtime. A voice graph takes phonemes, not text, so each package does the whole pipeline: the English
-text analysis of `DemaConsulting.Speech.Text.En` (numbers, dates, currency, URLs, e-mail addresses and the reading of
-each heteronym), then `DemaConsulting.Speech.Phonemes.En`, which gives every word a pronunciation and renders it in the
-phoneme symbols of the voice. Both preview packages flow in transitively with a model package. The data of
-`DemaConsulting.Speech.Phonemes.En` comes from the CMU Pronouncing Dictionary only (BSD-style license), plus a small
-letter-to-sound model trained on that dictionary by this repository for words the dictionary does not have; no misaki,
-WikiPron or espeak-ng data is used.
-
-| | Kokoro | Piper |
-| --- | --- | --- |
-| Model id | `kokoro-onnx-v1_0-en` | `piper-onnx-libritts-r-en-us-medium` |
-| Registration | `.AddKokoroModels()` | `.AddPiperModels()` |
-| Voices | 29 English voices (`voice=af_heart`) | 904 speakers (`speaker=0` to `903`) |
-| Sample rate | 24,000 Hz | 22,050 Hz |
-| License | Apache-2.0 | CC BY 4.0 |
-
-Kokoro downloads from the Hugging Face `onnx-community/Kokoro-82M-v1.0-ONNX` repository. The Piper voice downloads from
-the sherpa-onnx release archive of the same voice (about 82 MB); both are SHA-256 verified. Only the voice graph and its
-configuration file are extracted from the Piper archive, and the espeak-ng data in it is discarded. The Piper license
-requires you to credit the LibriTTS-R corpus and the Piper project.
+The same sentence from the command line, written to a WAV file (leave out `--output-audio` to play it):
 
 ```bash
 speech-cli download piper-onnx-libritts-r-en-us-medium
-speech-cli speak --tts-model piper-onnx-libritts-r-en-us-medium --tts-param speaker=5 \
-  --text "I will record the record. Write to help@example.com." --output-audio piper.wav
+speech-cli speak --tts-model piper-onnx-libritts-r-en-us-medium --text "I read the record on May 5th." --output-audio hello.wav
 ```
 
-In a synthesis session the text is always analyzed, so `record` the verb and `record` the noun are read differently,
-numbers and dates are spoken as words, and a word that no dictionary knows is spoken by the trained letter-to-sound
-model instead of being skipped. A long text is split between words into parts that fit the voice graph and the audio is
-joined; nothing is truncated. A host that calls a backend's plain `Generate(text, ...)` directly, outside a session,
-gets the default reading of each word and no normalization. Caveats: Kokoro's British voices speak American phonemes, so
-expect an American pronunciation in a British voice; the Piper speaking style is a rule-based approximation of the
-espeak-ng style the voice was trained with, not espeak-ng itself; the heteronym model can pick the wrong reading
-(see the accuracy figures above); and the Sherpa model `vits-piper-en_US-libritts_r-medium` is a different
-implementation of the same LibriTTS-R voice that phonemizes with espeak-ng inside sherpa-onnx. See the
-[synthesizing chapter of the user guide][link-user-guide] for details.
+Run `speech-cli --help` for every command, including speech recognition, model and device management, and voices.
 
-## Demo Application
+## Building
 
-An Avalonia desktop demo exercises the library through its public API only - audio devices,
-model catalog/download, text-to-speech, and streaming speech-to-text, each in its own tab:
-
-![Demo application - Audio Devices tab][image-demo-audio-devices]
-
-```bash
-dotnet run --project src/DemaConsulting.Speech.Demo
+```pwsh
+pwsh ./build.ps1
 ```
 
-Every panel reports its own honest state (no devices, no model installed, missing native
-runtime) instead of failing silently, and a shared Model Settings view renders whichever
-parameters the selected model declares (sliders/numeric up-downs, combo boxes, checkboxes) with
-no per-model code in the demo. Model pickers lock while a model is actively recording or
-playing, so you can't switch models mid-session.
+The demo application runs with `dotnet run --project src/DemaConsulting.Speech.Demo`.
 
-The demo accepts the same `--models-dir <path>` and `--mirror-url <url>`/`--mirror-user
-<user>`/`--mirror-password <pass>`/`--mirror-bearer-token <token>` launch options as
-`speech-cli` (see `speech-cli`'s own
-[Downloading from an internal mirror](https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
-section for their validation rules), read once at start-up before the main window opens; run
-`dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the full list. The Model
-Catalog panel's mirror-settings fields also let you change the mirror from the running
-application - no restart required - using the same validation rules.
+## More Information
 
-The demo also hosts the Chatterbox Turbo voice-cloning model. Its Model Catalog tab has a
-**Reference voices** section where you can install or remove the optional `voice-zero-1.0` pack
-(about 570 MiB download, about 572 MiB installed with emotion variants or about 44 MiB without; an
-**Include emotion variants** checkbox chooses, and **Add emotions** upgrades a voices-only install;
-CC0 1.0 Universal, attribution: voice-zero by OwenTyme) and shows the
-folder for your own `.wav`/`.flac` voices; `--voices-dir <path>` (an existing folder) adds your
-own voices at launch. Installing or removing a pack refreshes the Text-to-Speech voice dropdown
-immediately, keeping your other settings (the pack row itself also refreshes after every install
-outcome, including failures and cancellations), and the Text-to-Speech tab shows the consent note
-(only clone voices you have permission to use) and the pack's attribution under the voice
-dropdown.
+The generated documents are attached as PDFs to every release on the [releases page][link-releases]: the build notes,
+the user guide, the technical overview, the software design, the verification design, the requirements with the trace
+matrix, and the code quality and review reports. Their sources are in the repository:
 
-## SpeechCli
-
-`speech-cli` is a cross-platform .NET global tool that exposes the library's model management,
-audio device inspection, text-to-speech, and speech-to-text capabilities directly from the
-command line - useful for scripting, CI smoke checks, or trying a model without writing any code.
-
-```bash
-dotnet tool install -g DemaConsulting.Speech.Cli
-```
-
-The tool targets .NET 10 and bundles the native inference runtime for `win-x64`, `linux-x64`,
-and `osx-arm64` only.
-
-| Command | Purpose |
-| --- | --- |
-| `list-models` | List known models, optionally filtered by role or download state |
-| `model-info <modelId>` | Show full detail for one known model |
-| `download <modelId> [<modelId>...]` | Download one or more models |
-| `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
-| `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
-| `list-voices` | List reference voices (id, source) for the voice-cloning model, as a table or JSON |
-| `voices packs\|install [--no-emotions]\|uninstall` | List, download, or remove the optional reference-voice pack |
-| `list-devices` / `devices test` / `doctor` | Inspect audio devices and overall environment health |
-| `speak` | Synthesize text to a real playback device or a WAV file |
-| `recognize` | Recognize speech from a WAV file or the microphone |
-| `ask` | Speak a prompt, then listen for the reply |
-
-```bash
-speech-cli download streaming-zipformer-en-2023-06-26
-speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --input meeting.wav
-```
-
-Run `speech-cli --help` for the full flag reference. See the
-[CLI package README][link-cli-readme] and [user guide][link-user-guide] for install details, the
-full command reference, and worked examples.
-
-### Reference voices (Chatterbox Turbo)
-
-The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
-least one voice to speak. Voices come from three places, all listed by `list-voices`:
-
-- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download; about 44 MiB
-  installed for the base voices, about 572 MiB with the 13 emotion variants per voice, which are
-  included by default): `speech-cli voices install voice-zero-1.0` (add `--no-emotions` for the base
-  voices only; installing with emotions over a voices-only install removes and downloads the pack
-  again; `voices packs` shows its sizes and state, `voices uninstall voice-zero-1.0` removes it;
-  `list-voices` shows a Moods column). Installation honors `--models-dir` and
-  `--mirror-*` (the mirror serves `{mirror-url}/voice-zero-1.0/voice-zero-1.0.zip`)
-- the **user folder** `<models-dir>/reference-voices/user`: drop `.wav` or `.flac` files here
-- any folder given with `--voices-dir <path>` (must exist)
-
-Each voice file must be 1-30 seconds of clean speech; the file name (without extension) is the
-voice id. Choose a voice with `--tts-param voice=<id>`:
-
-```bash
-speech-cli voices install voice-zero-1.0
-speech-cli list-voices
-speech-cli speak --tts-model chatterbox-turbo-onnx-en --tts-param voice=<id> --text "Hello"
-```
-
-Newly installed voices appear on the next invocation. Voice files in `--voices-dir` are decoded
-only when a voice is used, so an undecodable file does not break other commands: `list-voices`
-still runs and lists it, and synthesizing with that voice fails with an error naming the file.
-
-> **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
-> `voices install`, and `--help` all repeat this note.
-
-### Voice Conversation Example
-
-`speak` and `ask` together are the intended integration pattern for an AI agent holding a
-two-way voice conversation with a person through this CLI: `speak` for a one-way statement,
-`ask` when a reply is expected. `ask` pre-warms (constructs and loads) its STT recognizer
-concurrently with speaking the prompt, rather than only afterward, so the reply can be heard with
-minimal added latency; see the [user guide's "Hot TTS/STT" section][link-user-guide] for the same
-low-latency create-once/reuse-many pattern applied inside a long-lived host process.
-
-```bash
-# Make a statement
-speech-cli speak --tts-model vits-piper-en_US-libritts_r-medium --text "Backup finished successfully."
-
-# Ask a question and read the reply, allowing up to 20 seconds to start speaking and
-# ending the turn after 1.5 seconds of silence
-speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model streaming-zipformer-en-2023-06-26 \
-  --text "Do you want me to continue?" --start-timeout 20 --silence-timeout 1.5
-```
-
-## Documentation
-
-Generated documentation is published as release artifacts on the
-[GitHub Releases page][link-releases] and includes:
-
-- **API Reference**: Gradual-disclosure Markdown API docs (index → namespace → type), packed
-  into the NuGet package's `api/` folder for downstream tools and agents to consume
-- **Build Notes**: Release information and changes
-- **User Guide**: Installation and usage guidance
-- **Code Quality Report**: CodeQL and SonarCloud analysis results
-- **Requirements**: Functional and non-functional requirements
-- **Requirements Justifications**: Detailed requirement rationale
-- **Trace Matrix**: Requirements-to-test traceability
+- [User Guide][link-user-guide] - installation, models, speech-to-text, text-to-speech, audio tags and the CLI
+- [Technical Overview][link-technical-overview] - the English front end, the listening-improvement loop and the
+  accuracy figures
+- [Software Design][link-design] - the structure of the libraries, the tool and the demo
+- [speech-cli README][link-cli-readme] - the command-line tool and its options
+- [Proofreader][link-proofreader] - the developer tool for listening to synthesized text and flagging errors
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md][link-contributing] for development setup, coding
-standards, and the pull request process.
+Contributions are welcome. See [CONTRIBUTING.md][link-contributing] for development setup, coding standards, and the
+pull request process.
 
 ## License
 
-Copyright (c) DEMA Consulting. Licensed under the MIT License. See [LICENSE][link-license] for
-details.
-
-The `DemaConsulting.Speech.Onnx.Kokoro` package embeds the Kokoro v1.0 phoneme vocabulary (Apache-2.0) and ships its
-license text and attribution in its `THIRD-PARTY-NOTICES.md` file at the package root. Its pronunciations come from the
-`DemaConsulting.Speech.Phonemes.En` package (derived from the CMU Pronouncing Dictionary, a BSD-style license, with
-the notice in that package) and its English text analysis from `DemaConsulting.Speech.Text.En`; both packages carry
-their own license files. No pronunciation data of the misaki project is used.
-
-The `DemaConsulting.Speech.Onnx.Piper` package (pre-release) declares `MIT AND CC-BY-4.0` in its `PACKAGE-LICENSE.md`.
-Its code is under the MIT License; it embeds no voice data, and the voice it downloads on demand (Piper
-`en_US-libritts_r-medium`, trained on the LibriTTS-R corpus, 904 speakers) is licensed CC BY 4.0, which requires
-attribution: credit the LibriTTS-R corpus (Koizumi et al.; OpenSLR resource 141) and the Piper project. The suggested
-credit, the source archive and its SHA-256 are in the package's `THIRD-PARTY-NOTICES.md`. Only the voice graph and its
-configuration file are kept from the downloaded archive; the espeak-ng data in it (a different license) is never
-installed. The pronunciation data again comes from `DemaConsulting.Speech.Phonemes.En` (CMU Pronouncing Dictionary
-only).
-
-The `DemaConsulting.Speech.Phonemes.En` package (pre-release) declares `MIT AND LicenseRef-CMUdict` in its
-`PACKAGE-LICENSE.md`: its code is under the MIT License and its embedded pronunciation lexicon is derived from the CMU
-Pronouncing Dictionary, whose license text and the statement of the changes are in the package's
-`THIRD-PARTY-NOTICES.md`; the same notice covers the package's small letter-to-sound model, which DEMA Consulting
-trained on that dictionary. No other pronunciation source is used.
-
-The `DemaConsulting.Speech.Text.En` package (pre-release) declares `MIT AND CC-BY-3.0-US` in its `PACKAGE-LICENSE.md`.
-Its code and two small lexicon tables (abbreviations and acronyms) that DEMA Consulting wrote from scratch are under the
-MIT License, and its reading inventory is dedicated to the public domain under CC0-1.0. Its embedded heteronym model is
-a set of trained weights without any sentence text; because it was trained in part on sentences adapted from the
-Manually Annotated Sub-Corpus (CC BY 3.0 US), the weights are provided under the terms of that license, with the
-attribution and the statement of the changes in the package's `THIRD-PARTY-NOTICES.md`. The rest of the training data is
-public domain or CC0-1.0, and the content generated or labeled by language models for it is dedicated to the public
-domain under CC0 1.0 by DEMA Consulting. The package depends on the separate `DemaConsulting.PartOfSpeech` package,
-which carries its own license files and embeds data adapted from Open English WordNet (CC BY 4.0, derived from Princeton
-WordNet) and the Manually Annotated Sub-Corpus (CC BY 3.0 US); that file also reproduces that attribution, as a
-dependency notice, for your convenience.
-
-The repository folder `data/text-en/` holds the training, development and holdout data, the reading inventory and the
-provenance records of the English heteronym classifier. It is not itself part of any package; the trained model that
-`tools/DemaConsulting.Speech.Text.En.Trainer` derives from its training and development files is embedded in the
-`DemaConsulting.Speech.Text.En` package. Each row of
-the data carries its own license (CC0-1.0, Public-Domain or CC-BY-3.0-US, with the attribution for the Manually
-Annotated Sub-Corpus sentences in its `ATTRIBUTION.md`); the content generated or labeled by language models for this
-repository by DEMA Consulting is dedicated to the public domain under CC0 1.0. The data uses no Misaki data, and the
-evaluation-only corpora used to measure the classifier are never committed.
+Copyright (c) DEMA Consulting. The code is licensed under the MIT License; see [LICENSE][link-license]. Packages that
+embed third-party data, such as the English front end, carry their own `PACKAGE-LICENSE.md` and
+`THIRD-PARTY-NOTICES.md`, and every downloaded model has its own license, which it reports through the API. The Piper
+voice is licensed CC BY 4.0 and requires attribution of the LibriTTS-R corpus and the Piper project.
 
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 
+## Support
+
+- [Report a bug or request a feature][link-issues]
+
 <!-- Badge References -->
-[architecture]: https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/architecture.png
 [badge-forks]: https://img.shields.io/github/forks/demaconsulting/Speech?style=plastic
 [badge-stars]: https://img.shields.io/github/stars/demaconsulting/Speech?style=plastic
 [badge-contributors]: https://img.shields.io/github/contributors/demaconsulting/Speech?style=plastic
@@ -680,11 +149,13 @@ By contributing to this project, you agree that your contributions will be licen
 [link-nuget]: https://www.nuget.org/packages/DemaConsulting.Speech
 [link-continuous-compliance]: https://github.com/demaconsulting/ContinuousCompliance
 [link-contributing]: https://github.com/demaconsulting/Speech/blob/main/CONTRIBUTING.md
-[link-user-guide]: https://github.com/demaconsulting/Speech/tree/main/docs/user_guide
-[link-text-analysis]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/text-analysis.md
 [link-releases]: https://github.com/demaconsulting/Speech/releases
+[link-user-guide]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md
+[link-technical-overview]: https://github.com/demaconsulting/Speech/blob/main/docs/technical_overview/introduction.md
+[link-design]: https://github.com/demaconsulting/Speech/blob/main/docs/design/introduction.md
 [link-cli-readme]: https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md
+[link-proofreader]: https://github.com/demaconsulting/Speech/blob/main/tools/DemaConsulting.Speech.Proofreader/README.md
+[link-issues]: https://github.com/demaconsulting/Speech/issues
 
 <!-- Image References -->
-[image-demo-audio-devices]:
-  https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/demo-audio-devices.png
+[hero]: https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/hero.png

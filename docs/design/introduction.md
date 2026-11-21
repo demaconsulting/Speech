@@ -1158,4 +1158,6 @@ The SysML2 model intentionally follows these rules; they are not omissions:
 ## References
 
 - Speech User Guide — the compiled User Guide document for this repository.
+- Speech Technical Overview — the informational theory-of-operation document of the English front end (the text
+  analysis, the phonemizer, the listening-improvement loop and the evaluation figures).
 - Speech Repository — the Speech source repository hosted on GitHub.
