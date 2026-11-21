@@ -41,7 +41,7 @@ regression_accuracy_bp	9830
 regression_ci_lower_bp	9716
 regression_ci_upper_bp	9924
 regression_threshold_bp	9601
-regression_fixed	1
+regression_fixed	0
 regression_broken	0
 regression_pass	yes
 verdict	pass

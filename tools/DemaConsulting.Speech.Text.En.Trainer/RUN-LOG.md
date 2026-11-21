@@ -2232,3 +2232,14 @@ and `--check` (`seeds.tsv`), and with the new sentence the regression counts of 
 509 (mean 517.0, sample SD 4.53), which give 9,601 basis points by the rule (508 of 529). The threshold is set to that
 value, so the recorded threshold stays the rule applied to the committed data; the other three sets are unchanged. No
 per-row result of seeds 2 to 5 was printed or opened. The gate passes on every set.
+
+## Cleanup after PR B: the replacement golden gets a new id (2026-11-21)
+
+The second pull request review found that keeping the id `reg-0532` for the replacement sentence made the gate's
+per-row history compare two different sentences: with the same model image the record kept the old row's previous
+reading (`nominate.verb`), so `flips.tsv` reported a `fixed` row although only the data had changed. The replacement is
+therefore the new overlay row `reg-0536` (same reading, `readings-golden.tsv:265`, the round-2 sentence), and `reg-0532`
+is retired and never reused. The audit record keeps both: `reg-0532` round 1 (replaced) and `reg-0536` round 2 (the
+judgment staged under the id `reg-0532`). The rotation gives the new row the previous reading `-`, so the flip report
+is empty again. Rule from now on: **an overlay id is never reused for another sentence.** The counts and thresholds of
+the entry above are unchanged (the same 529 rows and sentences).

@@ -238,9 +238,11 @@ owner's present example *I read every night before bed, and I still do.* was jud
 *The doctor will confine her to bed.* was `unsure` only because `forms.tsv` lists `confines` and not `confine`; it cannot
 be scored without an inventory change and was not added (`reg-0529` is unused). `reg-0520` to `reg-0524` are unused as
 well (a failed attempt used them; see the trainer's `RUN-LOG.md`). After pull request review, the forced row
-*The senator nominate awaited the vote.* (`reg-0532`, ungrammatical) was replaced in the readings golden and the overlay
-by *The nominate subspecies lives farther north than the others.*, which a second blind round confirmed as
-`nominate.adj` (round 2 of the record).
+*The senator nominate awaited the vote.* (`reg-0532`, ungrammatical) was replaced in the readings golden by
+*The nominate subspecies lives farther north than the others.*, which a second blind round confirmed as `nominate.adj`
+(round 2 of the record); in the overlay it is the new row `reg-0536`, and `reg-0532` is retired. **An id is never
+reused for another sentence**: a replaced sentence gets a new id, so the gate's per-row history
+(`docs/evaluation/text-en/gate-rows.tsv`) never compares two different sentences under one id.
 
 ### Generalization set (written blind)
 

@@ -77,9 +77,9 @@ seed 7) is reported and does not decide.
 | `generalization` | 242 | 64 | 177 | 73.14% | 67.05% to 79.10% | 69.02% | yes |
 
 The `regression` set is the regression overlay: goldens, analyzer tests, listening flags and selected data rows.
-**Verdict: pass.** The model is the one of the first record of the statistical gate, so the flip report lists only
-`reg-0532` as `fixed`: its ungrammatical readings-golden sentence was replaced after review by one the model reads
-right.
+**Verdict: pass.** The flip report is empty: the model is the one of the first record of the statistical gate. The
+ungrammatical readings-golden sentence of `reg-0532` was replaced after review under the new id `reg-0536` (a new row
+has no previous reading), because an id is never reused for another sentence.
 
 ### How the Thresholds Were Derived
 
@@ -102,8 +102,9 @@ The thresholds live in `EvaluationSettings.Default` of the trainer and in `train
 the two differ. The regression overlay is not selected only for the shipped model's correct answers: it holds 8 `forced`
 rows of the readings golden (the shipped model's misses) and the present fork of the ambiguous golden, which the shipped
 model reads wrong. The regression counts are those after the ungrammatical `nominate.adj` sentence of `reg-0532` was
-replaced; before that the seed study gave 9,603 basis points (see `RUN-LOG.md`). Re-deriving the thresholds is a
-deliberate recipe change: run `evaluate --seeds` once, log it before anything else, and update the code and the record.
+replaced (by `reg-0536`); before that the seed study gave 9,603 basis points (see `RUN-LOG.md`). Re-deriving the
+thresholds is a deliberate recipe change: run `evaluate --seeds` once, log it before anything else, and update the code
+and the record.
 
 ### Flip Report
 

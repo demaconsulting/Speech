@@ -503,7 +503,7 @@ reg-0528	1	bass.music	bass.music	true	high	keep	-
 reg-0529	1	confine.verb	unsure	false	low	drop	label plainly right (a verb after 'will'), but 'confine' is not a listed form of any reading in forms.tsv (only 'confines'), so the row cannot be scored without an inventory change, which this cleanup does not make; readings-golden.tsv:80 is not added to the overlay and reg-0529 is unused
 reg-0530	1	life.plural	life.plural	true	high	keep	-
 reg-0531	1	moderate.adj-noun	moderate.adj-noun	true	high	keep	-
-reg-0532	1	nominate.adj	nominate.adj	true	high	keep	-
+reg-0532	1	nominate.adj	nominate.adj	true	high	replace	the sentence 'The senator nominate awaited the vote.' is ungrammatical (found in pull request review); retired and replaced by reg-0536
 reg-0533	1	reading.town	reading.town	true	high	keep	-
 reg-0534	1	recount.narrate	recount.narrate	true	high	keep	-
 reg-0535	1	sewer.seamstress	sewer.seamstress	true	high	keep	-
@@ -512,4 +512,4 @@ fork-2	1	read.present	read.past	false	medium	reject	present candidate 1 (the own
 fork-3	1	read.past	read.past	true	high	fork	past candidate 1, confirmed; the sentence of reg-0525 (pipeline golden e11)
 fork-4	1	read.present	read.present	true	high	unused	present candidate 3; present candidate 2 (fork-5) was confirmed first
 fork-5	1	read.present	read.present	true	high	fork	present candidate 2, confirmed; the new sentence of reg-0050 (pipeline golden e05)
-reg-0532	2	nominate.adj	nominate.adj	true	high	replace	the round-1 sentence 'The senator nominate awaited the vote.' (readings-golden.tsv:265) is ungrammatical (pull request review); replaced in the readings golden and the overlay by 'The nominate subspecies lives farther north than the others.', judged blind in round 2
+reg-0536	2	nominate.adj	nominate.adj	true	high	keep	replacement of reg-0532 (staged under that id): 'The nominate subspecies lives farther north than the others.' (readings-golden.tsv:265), judged blind in round 2; a new id because an id is never reused for another sentence

@@ -3905,7 +3905,7 @@ regression	reg-0527	axe.tool	axis.plural	axis.plural
 regression	reg-0528	bass.music	bass.fish	bass.fish
 regression	reg-0530	life.plural	live.verb	live.verb
 regression	reg-0531	moderate.adj-noun	moderate.verb	moderate.verb
-regression	reg-0532	nominate.adj	nominate.verb	nominate.adj
 regression	reg-0533	reading.town	reading.act	reading.act
 regression	reg-0534	recount.narrate	recount.again	recount.again
 regression	reg-0535	sewer.seamstress	sewer.drain	sewer.drain
+regression	reg-0536	nominate.adj	-	nominate.adj
