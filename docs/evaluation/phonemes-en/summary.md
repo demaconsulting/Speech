@@ -79,8 +79,9 @@ Notes:
   test enforces at least 98% for the main endings. For `est` the exact figure is 79.48% because the lexicon mixes two
   reduced vowels (it was 96.07% and 78.17% before the velar stop of `longest`, `strongest` and `youngest` was added to
   the rule). The measurement tool prints the full table.
-- Classifier hit rate: the real text analyzer over the own-written sentences of the readings golden; the test gate is
-  95%. The 10 misses are pinned as forced readings and the golden was not bent to hide them.
+- Classifier hit rate: the real text analyzer over the own-written sentences of the readings golden; informational,
+  not a test gate (the classifier is judged by the Text.En trainer's statistical gate, whose regression overlay scores
+  these sentences). The 10 misses are pinned as forced readings and the golden was not bent to hide them.
 - Out-of-vocabulary words: our own trained model has 11.59% phoneme error rate against 25.53% for the rules baseline
   (45% of it); see [oov.md](oov.md).
 - Kokoro old lexicon against the new pipeline: 59,940 words compared, 68.75% identical, 5.91% phoneme error rate; see

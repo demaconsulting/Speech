@@ -2185,3 +2185,31 @@ readings-golden rows and the present fork, which the shipped model reads wrong (
 The thresholds are recorded in `EvaluationSettings.Default` and `training.json` (`evaluation.gate`). `train --check`
 now also reports a record whose evaluation settings differ from the code's.
 
+## Cleanup after PR B: the statistical gate in force (2026-11-21)
+
+**First gate run.** `evaluate --write --gate` and then `evaluate --check --gate` on the shipped model (image
+`73de5a3f...3df0`, unchanged): every gate set passes, the verdict is `pass`, both runs exit 0, and the flip report is
+empty, because this is the first record of the statistical gate (the previous readings are the current ones).
+
+| Gate set | Correct | Accuracy | 95 % interval | Threshold |
+| --- | ---: | ---: | --- | ---: |
+| `generalization` | 177 of 242 | 73.14 % | 67.05 % to 79.10 % (64 families) | 69.02 % |
+| `holdout-independent` | 1,882 of 1,972 | 95.44 % | 94.47 % to 96.30 % | 94.83 % |
+| `holdout-natural` | 1,123 of 1,167 | 96.23 % | 94.32 % to 97.98 % (266 documents) | 95.20 % |
+| `regression` | 519 of 529 | 98.11 % | 96.98 % to 99.24 % | 96.03 % |
+
+`train --check` passes: `heteronyms.bin` and the `inputs` and `result` of `training.json` are unchanged; only its
+`schema` (2) and `evaluation.gate` changed.
+
+**Retired.** The D13 gate (93.0 percent pooled on the natural holdout and an interval of the improvement over the own
+tag above zero) and the PR B guards (natural at least 1,123 of 1,167, every golden right on the shipped seed,
+generalization at least 177). The improvement over the own tag and its interval stay reported in `summary.tsv`. The
+analyzer tests that asserted the classifier's reading on single sentences now assert the reading contract only (one
+reading that is a candidate of the word, with a confidence); their labeled readings are scored by the gate through the
+regression overlay. The readings-golden hit-rate test of Phonemes.En is removed; the goldens stay byte-for-byte pins of
+the committed pipeline. The model and the cue priors are unchanged.
+
+**Commit references after the rebase onto `7106220`** (the SysML2 sync, #85): the commits of the original branch named
+in the entries above are now `27e5898` (C1, was `ffecb8e`), `73caf39` (C2, was `dfb90c9`) and `82d2bd3` (the PR B log,
+was `2bef559`). The cleanup's own commits follow them on the branch `feat/text-en-stat-gate-cleanup`. The SHA-256 of the
+two fourth-round prompts are unchanged by the rebase (the files were not edited).

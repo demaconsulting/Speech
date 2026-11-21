@@ -197,7 +197,8 @@ re-run by an operator with local copies of the evaluation sets before any change
 Two evaluation files sit beside the splits. They are not splits: they are not part of the split separation, the per-reading
 counts or `gaps-v4.tsv`, nothing is trained on them, and `check-data` checks them with rules of their own (`overlay`
 findings). The protocol and the pre-registered use of both are in the trainer's `RUN-LOG.md`, entry "Word-cluster
-subsystem (PR A)".
+subsystem (PR A)". Since the cleanup after PR B both are gate sets of the trainer's statistical quality gate, with the
+two holdouts (`evaluate --gate`; thresholds and figures in `docs/evaluation/text-en/README.md`).
 
 ### Regression overlay: 529 rows
 

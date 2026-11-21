@@ -9,9 +9,9 @@ One sub-agent judges every scored golden of the regression overlay blind: every 
 descriptions in a seeded shuffled order, never the label, and freezes its judgments by SHA-256 before it compares them
 with the labels. The rules that act on the judgments are fixed in that entry, item 4: agree keeps the row; an `unsure`
 answer, or a disagreement that makes the sentence two-way, forks a golden into one unambiguous sentence per reading (and
-both forks are reviewed again with this prompt, in a new round); a `listening` row is never edited and goes to the owner;
-a disagreement where the label is plainly right is kept with the reasoning noted; a golden without a clean fork is
-dropped. The review is recorded as `audit/regression-review.tsv`.
+both forks are reviewed again with this prompt, in a new round); a `listening` row is never edited and goes to the
+owner; a disagreement where the label is plainly right is kept with the reasoning noted; a golden without a clean fork
+is dropped. The review is recorded as `audit/regression-review.tsv`.
 
 | Field | Value |
 | --- | --- |
