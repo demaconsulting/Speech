@@ -66,9 +66,10 @@ folder.
 
 **Mirror only, politely (decision).** Books are fetched only over HTTPS from an allowed official mirror
 (`gutenberg.pglaf.org`, or `aleph.gutenberg.org` with `--mirror`), never from the main web site: the source list refuses
-any other address and the fetcher refuses any other host. Requests are sequential with at least `--delay-ms` (default
-2,000, minimum 1,000) between them, a failed request is retried at most three times after 5, 15 and 45 seconds, and HTTP
-403 or 429 stops the run. Only missing or failing files are requested.
+any other address and the fetcher refuses any other host and never follows a redirect (a redirect fails that book).
+Requests are sequential with at least `--delay-ms` (default 2,000, minimum 1,000) between them, a failed request is
+retried at most three times after 5, 15 and 45 seconds, and HTTP 403 or 429 stops the run. Only missing or failing
+files are requested.
 
 **Pins and snapshot (decision).** Each used book's normalized body is pinned by size and SHA-256 in
 `cluster-sources.tsv`; a pin is filled only when the row has none and `--write-pins` is given, and is never overwritten.

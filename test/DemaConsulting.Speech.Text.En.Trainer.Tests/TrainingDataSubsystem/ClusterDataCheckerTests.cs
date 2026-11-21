@@ -81,6 +81,32 @@ public sealed class ClusterDataCheckerTests
         Assert.Contains($"does not match {file}", finding.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     Proves an edit of an evaluation file after the audit adds an information line naming both hashes, never a
+    ///     finding, and current evaluation files add no such line.
+    /// </summary>
+    [Fact]
+    public void ClusterDataChecker_Run_EvaluationFilesChanged_InformsWithoutFinding()
+    {
+        // Arrange: a record written for the evaluation files as they are now
+        using var fixture = new DatasetFixture();
+        fixture.WriteClusterFiles();
+        var current = fixture.CheckClusters();
+
+        // Act: a development row changes after the audit
+        fixture.Replace("dev.tsv", "They lead the march.", "They lead the parade.");
+        var changed = fixture.CheckClusters();
+
+        // Assert
+        Assert.Empty(current.Findings);
+        Assert.DoesNotContain(current.Info, static line => line.Contains("audited against other evaluation files", StringComparison.Ordinal));
+        Assert.Empty(changed.Findings);
+        var info = Assert.Single(changed.Info, static line => line.Contains("audited against other evaluation files", StringComparison.Ordinal));
+        Assert.Contains(ClusterDataChecker.EvaluationListingShaField, info, StringComparison.Ordinal);
+        Assert.Contains(ClusterDataChecker.EvaluationListingSha256(fixture.Root), info, StringComparison.Ordinal);
+        Assert.Contains("not a failure", info, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves a record from another tokenizer is a finding, and an unknown tokenizer version skips the comparison.</summary>
     [Fact]
     public void ClusterDataChecker_Run_TokenizerVersion_IsCompared()

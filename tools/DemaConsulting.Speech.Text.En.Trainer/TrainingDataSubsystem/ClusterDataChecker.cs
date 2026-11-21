@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
@@ -17,8 +18,10 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 ///     describes the committed files: the SHA-256 of the source list, the removals and the table, the number of table
 ///     rows and distinct paths, the book counts, the minimum count, and the tokenizer version the removals were computed
 ///     with. Any edit to a pin, a removal or the table, or an upgrade of the tokenizer package, therefore fails the check
-///     until the table is induced again. The record's hash of the evaluation files is not compared: it changes with any
-///     development-data edit and is verified by the manual <c>cluster --check</c> instead.
+///     until the table is induced again. The record's hash of the evaluation files is compared too, but never as a
+///     finding: it changes with any development-data edit, which must not force an induction, so a difference
+///     adds an information line (no finding) that points to the manual <c>cluster --audit</c>, which tells whether the
+///     removals are still current.
 ///     </para>
 ///     <para>
 ///     When none of the four files exists the check is skipped (an informational line says so); when some exist, all four
@@ -275,6 +278,27 @@ internal sealed class ClusterDataChecker
         {
             CheckRecord(record, sources, removals, table);
         }
+    }
+
+    /// <summary>
+    ///     Hashes the evaluation files of a data folder: the hash the leakage audit records as
+    ///     <c>evaluationListingSha256</c>, so the record shows which evaluation data the removals were made for.
+    /// </summary>
+    /// <param name="dataRoot">The data folder.</param>
+    /// <returns>
+    ///     The lowercase hexadecimal SHA-256 of the UTF-8 listing <c>file TAB sha256 LF</c> over
+    ///     <see cref="EvaluationFiles"/> in attribution order (<c>-</c> for a missing file).
+    /// </returns>
+    public static string EvaluationListingSha256(string dataRoot)
+    {
+        ArgumentNullException.ThrowIfNull(dataRoot);
+        var listing = new StringBuilder();
+        foreach (var file in EvaluationFiles)
+        {
+            listing.Append(file).Append('\t').Append(File.Exists(Path.Combine(dataRoot, file)) ? FileSha256(dataRoot, file) : None).Append('\n');
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(listing.ToString()))).ToLowerInvariant();
     }
 
     /// <summary>
@@ -602,6 +626,7 @@ internal sealed class ClusterDataChecker
                 inputs.GetProperty(UsedBooksField).GetInt32(),
                 inputs.GetProperty(ExcludedBooksField).GetInt32(),
                 inputs.GetProperty(RemovalsShaField).GetString() ?? string.Empty,
+                inputs.GetProperty(EvaluationListingShaField).GetString() ?? string.Empty,
                 inputs.GetProperty(TokenizerVersionField).GetString() ?? string.Empty,
                 result.GetProperty(TableShaField).GetString() ?? string.Empty,
                 result.GetProperty(WordsField).GetInt64(),
@@ -648,6 +673,14 @@ internal sealed class ClusterDataChecker
         }
 
         _report.AddInfo($"word-cluster table: {table.Rows} words, {table.Paths} paths, {removals} removals, compared with {RecordFile}");
+
+        // The evaluation files may change without an induction (development data grows), so a difference is only reported
+        var listing = EvaluationListingSha256(_data.Root);
+        if (!string.Equals(listing, record.EvaluationListing, StringComparison.Ordinal))
+        {
+            _report.AddInfo(
+                $"word-cluster removals were audited against other evaluation files ({EvaluationListingShaField} {record.EvaluationListing}, now {listing}); not a failure: run 'cluster --audit' (needs the corpus cache) to see whether {RemovalsFile} is still current");
+        }
     }
 
     /// <summary>
@@ -679,6 +712,7 @@ internal sealed class ClusterDataChecker
     /// <param name="UsedBooks">The used books.</param>
     /// <param name="ExcludedBooks">The listed books not used.</param>
     /// <param name="RemovalsSha256">The removals hash.</param>
+    /// <param name="EvaluationListing">The hash of the evaluation files the audit read.</param>
     /// <param name="TokenizerVersion">The tokenizer version.</param>
     /// <param name="TableSha256">The table hash.</param>
     /// <param name="Words">The table rows.</param>
@@ -690,6 +724,7 @@ internal sealed class ClusterDataChecker
         int UsedBooks,
         int ExcludedBooks,
         string RemovalsSha256,
+        string EvaluationListing,
         string TokenizerVersion,
         string TableSha256,
         long Words,

@@ -311,7 +311,8 @@ internal sealed record CorpusFetchResult(string SourceId, string Outcome, string
 ///     renamed only when complete, so a failed or interrupted fetch never leaves a truncated file. Only books with
 ///     status <c>used</c> are fetched, only missing or failing files are requested, requests are sequential with at least
 ///     the configured delay between them (the first request of a run is not delayed), a failed request is retried at most
-///     three times after 5, 15 and 45 seconds, and a refusal (HTTP 403 or 429) stops the whole run. The network is
+///     three times after 5, 15 and 45 seconds, a refusal (HTTP 403 or 429) stops the whole run, and a redirect (which
+///     the default fetcher never follows) fails only that book, without a retry. The network is
 ///     reached only through the fetcher delegate and the pause only through the sleeper delegate, so tests run offline
 ///     and instantly. Not thread-safe.
 ///     </para>
@@ -626,9 +627,10 @@ internal sealed class ClusterCorpusCache
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <exception cref="IOException">The mirror refused the request, or every attempt failed.</exception>
     /// <exception cref="HttpRequestException">The file does not exist on the mirror (HTTP 404).</exception>
+    /// <exception cref="InvalidDataException">The URL is not an allowed mirror, the mirror answered with a redirect, or the download is too large.</exception>
     private void Download(Uri url, string path, CancellationToken cancellationToken)
     {
-        if (url.Scheme != Uri.UriSchemeHttps || !ClusterSourceList.AllowedHosts.Contains(url.Host))
+        if (!GutenbergMirrorFetcher.IsAllowedMirror(url))
         {
             throw new InvalidDataException($"refusing to fetch {url}: not an allowed mirror");
         }
@@ -711,49 +713,92 @@ internal sealed class ClusterCorpusCache
 ///     Opens a file on an official e-book mirror over HTTPS with an identifying user agent.
 /// </summary>
 /// <remarks>
-///     A non-success status becomes an <see cref="HttpRequestException"/> carrying the status code, so the cache can stop
-///     on a refusal and skip a missing file. Thread-safe (one shared client).
+///     The client never follows a redirect: its handler has automatic redirects off and any 3xx answer becomes an
+///     <see cref="InvalidDataException"/>, so a book can never be fetched from the main web site through a redirect and
+///     the cache fails only that book, without a retry. Any other non-success status becomes an
+///     <see cref="HttpRequestException"/> carrying the status code, so the cache can stop on a refusal and skip a missing
+///     file. Thread-safe (one shared client).
 /// </remarks>
 internal static class GutenbergMirrorFetcher
 {
+    /// <summary>The user agent that identifies every request.</summary>
+    public const string UserAgent = "DemaConsulting.Speech.Text.En.Trainer (+https://github.com/demaconsulting/Speech)";
+
     /// <summary>The shared client; a request that takes longer than five minutes fails.</summary>
     private static readonly HttpClient Client = CreateClient();
 
     /// <summary>
-    ///     Opens a URL.
+    ///     Checks whether a URL may be fetched: HTTPS on a host of <see cref="ClusterSourceList.AllowedHosts"/>.
+    /// </summary>
+    /// <param name="uri">The URL.</param>
+    /// <returns>True when the URL is HTTPS on an allowed mirror.</returns>
+    public static bool IsAllowedMirror(Uri uri)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+        return uri.Scheme == Uri.UriSchemeHttps && ClusterSourceList.AllowedHosts.Contains(uri.Host);
+    }
+
+    /// <summary>
+    ///     Opens a URL with the shared client.
     /// </summary>
     /// <param name="uri">The HTTPS URL on an allowed mirror.</param>
     /// <param name="cancellation">The cancellation token.</param>
     /// <returns>The response body; the caller disposes it.</returns>
-    /// <exception cref="InvalidDataException">The URL is not HTTPS on an allowed mirror.</exception>
+    /// <exception cref="InvalidDataException">The URL is not HTTPS on an allowed mirror, or the mirror answered with a redirect.</exception>
     /// <exception cref="HttpRequestException">The request fails or the status is not a success.</exception>
-    public static Stream Open(Uri uri, CancellationToken cancellation)
+    public static Stream Open(Uri uri, CancellationToken cancellation) => Open(Client, uri, cancellation);
+
+    /// <summary>
+    ///     Opens a URL with a given client; the seam that lets tests answer through a fake handler.
+    /// </summary>
+    /// <param name="client">The client; it must not follow redirects (see <see cref="CreateHandler"/>).</param>
+    /// <param name="uri">The HTTPS URL on an allowed mirror.</param>
+    /// <param name="cancellation">The cancellation token.</param>
+    /// <returns>The response body; the caller disposes it.</returns>
+    /// <exception cref="InvalidDataException">The URL is not HTTPS on an allowed mirror, or the mirror answered with a redirect.</exception>
+    /// <exception cref="HttpRequestException">The request fails or the status is not a success.</exception>
+    public static Stream Open(HttpClient client, Uri uri, CancellationToken cancellation)
     {
+        ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(uri);
-        if (uri.Scheme != Uri.UriSchemeHttps || !ClusterSourceList.AllowedHosts.Contains(uri.Host))
+        if (!IsAllowedMirror(uri))
         {
             throw new InvalidDataException($"refusing to fetch {uri}: not HTTPS on an allowed mirror");
         }
 
-        var response = Client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellation).GetAwaiter().GetResult();
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.UserAgent.ParseAdd(UserAgent);
+        var response = client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellation).GetAwaiter().GetResult();
+        var code = (int)response.StatusCode;
+
+        // A redirect is never followed: it could lead away from the mirror, for example to the main web site
+        if (code is >= 300 and <= 399)
+        {
+            var location = response.Headers.Location;
+            response.Dispose();
+            throw new InvalidDataException(
+                $"refusing the redirect of {uri} (HTTP {code}) to {location?.ToString() ?? "no location"}: books are fetched only from an allowed mirror and redirects are never followed");
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             var status = response.StatusCode;
             response.Dispose();
-            throw new HttpRequestException($"HTTP {(int)status} for {uri}", null, status);
+            throw new HttpRequestException($"HTTP {code} for {uri}", null, status);
         }
 
         return response.Content.ReadAsStream(cancellation);
     }
 
     /// <summary>
+    ///     Creates the handler of the shared client, with automatic redirects off.
+    /// </summary>
+    /// <returns>The handler.</returns>
+    public static SocketsHttpHandler CreateHandler() => new() { AllowAutoRedirect = false };
+
+    /// <summary>
     ///     Creates the client.
     /// </summary>
     /// <returns>The client.</returns>
-    private static HttpClient CreateClient()
-    {
-        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("DemaConsulting.Speech.Text.En.Trainer (+https://github.com/demaconsulting/Speech)");
-        return client;
-    }
+    private static HttpClient CreateClient() => new(CreateHandler()) { Timeout = TimeSpan.FromMinutes(5) };
 }

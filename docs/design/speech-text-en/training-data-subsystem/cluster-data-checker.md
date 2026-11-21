@@ -24,6 +24,9 @@ the writer and the check cannot drift:
 
 - **ClusterDataChecker(data, report, tokenizerVersion)**: stores the arguments; a null data set or report throws
   `ArgumentNullException`.
+- **EvaluationListingSha256(dataRoot)** (static): the lowercase SHA-256 of the UTF-8 lines `file TAB sha256 LF` over the
+  five evaluation files in attribution order (`-` for a missing file). The leakage audit records this hash as
+  `evaluationListingSha256` and `CorpusLeakageAudit` delegates to this method, so the two cannot compute it differently.
 - **Tables**: the names of the three tables, which `TextEnDataSet` leaves out of its generic format pass because this
   unit loads them with their exact headers.
 - **Run()**: when the data folder holds none of the four files, adds the information line that the check is skipped
@@ -53,11 +56,15 @@ the writer and the check cannot drift:
     `removalsSha256` and `tableSha256`; `usedBooks` and `excludedBooks` equal the used and other rows of the source
     list; `words` and `paths` equal the table's rows and distinct paths; `tokenizerVersion` equals the version of the
     build. With no version given, an information line says the version was not compared. A summary information line
-    gives the words, paths and removals.
+    gives the words, paths and removals. When the current `EvaluationListingSha256` of the data folder differs from the
+    record's `evaluationListingSha256`, an information line (never a finding) names both hashes, says it is not a
+    failure and points to `cluster --audit`; when they are equal, nothing is printed.
 
-The record's `evaluationListingSha256` (the hash of the five evaluation files the audit read) is deliberately not
-compared: it changes with every development-data edit, and gating it would force a new induction for each. The manual
-`cluster --check` verifies it, together with the snapshot hash and the byte-identical re-induction. The unit does not
+The record's `evaluationListingSha256` (the hash of the five evaluation files the audit read) is deliberately compared
+without a finding: it changes with every development-data edit, and gating it would force a new induction for each,
+but a reviewer should see on every run that the removals may be stale. The manual `cluster --audit` tells whether they
+still are current, and `cluster --check` verifies the hash, together with the snapshot hash and the byte-identical
+re-induction. The unit does not
 compute lookup hashes either (the data check uses only the base class library); the uniqueness of the table's lookup
 keys is verified by a trainer test on the committed table.
 

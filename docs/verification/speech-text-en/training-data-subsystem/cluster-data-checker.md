@@ -6,11 +6,13 @@
 `test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/ClusterDataCheckerTests.cs`. Each test builds
 the small valid data folder of the dataset fixture and, where needed, a small consistent set of word-cluster files: a
 source list with one used book and one development book excluded from the corpus, one removal, a table of three words in
-three clusters, and a record written by the real `ClusteringRecord` writer with the hashes of those files (so a drift
-between the writer's and the check's field names fails the tests). A test then breaks exactly one thing, rewrites the
-record where only the rule under test should fail, loads the folder with the real `TextEnDataSet` and runs the checker
-with a real `CheckReport`. Nothing is mocked. The check of the committed files and the check-data integration are
-verified by subsystem tests (see *TrainingDataSubsystem Verification* and *ClusteringSubsystem Verification*).
+three clusters, and a record written by the real `ClusteringRecord` writer with the hashes of those files and the
+current hash of the evaluation files (so a drift between the writer's and the check's field names fails the tests, and
+the check reports no evaluation drift until a test edits an evaluation file). A test then breaks exactly one thing,
+rewrites the record where only the rule under test should fail, loads the folder with the real `TextEnDataSet` and runs
+the checker with a real `CheckReport`. Nothing is mocked. The check of the committed files and the check-data
+integration are verified by subsystem tests (see *TrainingDataSubsystem Verification* and *ClusteringSubsystem
+Verification*).
 
 #### Test Environment
 
@@ -44,6 +46,10 @@ naming both versions, and no tokenizer version gives no finding and an informati
 differ from the files are findings; an unparsable record, a record of schema 2 and a record without its objects are
 findings.
 
+**Evaluation drift** (`EvaluationDrift`). With the evaluation files as recorded, no finding and no drift line; after an
+edit of a development row, still no finding, and exactly one information line that names `evaluationListingSha256`, the
+current hash, and says it is not a failure.
+
 #### Test Scenarios
 
 ##### Presence
@@ -76,3 +82,10 @@ The theory points the provenance of the development row and of the natural-holdo
 **Tests**: `ClusterDataChecker_Run_FileChangedAfterInduction_RecordIsStale`,
 `ClusterDataChecker_Run_TokenizerVersion_IsCompared`, `ClusterDataChecker_Run_RecordCountsDiffer_IsFinding`,
 `ClusterDataChecker_Run_UnreadableRecord_IsFinding`
+
+##### Evaluation drift
+
+**Test**: `ClusterDataChecker_Run_EvaluationFilesChanged_InformsWithoutFinding`
+
+The check runs once on the consistent files, then again after the sentence of the development row `syn-00003` changes;
+the second run adds the drift information line and no finding.

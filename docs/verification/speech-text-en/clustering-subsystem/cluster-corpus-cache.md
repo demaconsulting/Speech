@@ -8,7 +8,9 @@ clustering fixture (`Fakes/ClusteringFixture.cs`): a temporary data folder with 
 generated books served by a fake mirror. The network and the pause are the injected dependencies: the fetcher delegate
 answers from memory (or with a configured HTTP status, or a test-specific failure sequence) and records every requested
 address, and the sleeper records every pause, so no test waits or reaches the network. `GutenbergBody` and
-`CorpusSnapshot` are used as they are.
+`CorpusSnapshot` are used as they are. The default fetcher's own HTTP path is tested through its
+`GutenbergMirrorFetcher.Open(HttpClient, uri, token)` overload with a fake `HttpMessageHandler` that answers from a
+callback and records every request (still no network); its production handler is inspected directly.
 
 #### Test Environment
 
@@ -27,7 +29,9 @@ address, a plain-HTTP address, a pin on an excluded book and descending numbers 
 **Polite fetch.** Unpinned books are fetched (two requests each) with the delay before every request but the first and
 only from the allowed host; HTTP 429 stops the run after one request; two transient failures are retried after 5 and
 15 seconds; a missing file fails only its book without a retry; the mirror option replaces the host and a host off the
-allow-list is refused.
+allow-list is refused. The production handler does not follow redirects; a success answer returns the body and carries
+the identifying user agent; an HTTP 302 to `www.gutenberg.org` is refused after one request without being followed;
+within `Fetch`, a redirected book fails once, without a retry, and the other books are pinned.
 
 **Verified bodies.** A pinned, cached corpus makes no request; a tampered body is refused at reading and restored from
 the raw download without a request; a mirror text that differs from its pin fails the book and writes no body; an
@@ -55,6 +59,20 @@ the extracted body's. HTTP 429 throws `IOException` after one request. With two 
 s, 15 s, 2 s and 2 s and the book is pinned after four calls. Without the text of one book that book fails after one
 request for it and the others are pinned. With the mirror `aleph.gutenberg.org` every request goes there, and the host
 `www.gutenberg.org` is refused with `ArgumentException`.
+
+##### Redirects
+
+**Tests**: `GutenbergMirrorFetcher_CreateHandler_Default_DoesNotFollowRedirects`,
+`GutenbergMirrorFetcher_Open_Success_ReturnsBodyWithUserAgent`,
+`GutenbergMirrorFetcher_Open_RedirectToMainSite_RefusedWithoutFollowing`,
+`ClusterCorpusCache_Fetch_MirrorRedirects_FailsBookWithoutRetry`
+
+The handler of the shared client has `AllowAutoRedirect` off. Through a fake handler, a 200 answer returns the body
+bytes after one request that carries the identifying user agent. An HTTP 302 from the mirror to the same file on
+`www.gutenberg.org` throws `InvalidDataException` naming the redirect and its target after exactly one request, and no
+request reaches `www.gutenberg.org`. With the real fetcher over a fake handler that redirects the text of one book,
+`Fetch` fails that book with a redirect problem, pins the other two, requests the redirected text exactly once (six
+requests in all, every one to the mirror) and never pauses for the 5 s retry.
 
 ##### Verified bodies
 

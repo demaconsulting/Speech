@@ -11,8 +11,11 @@ reaches the network or opens a file of the corpus cache.
 - `ClusterSourceList`: the file bytes (the record pins them), their SHA-256, the rows in file order and the used rows in
   ordinal id order (`UsedInCorpusOrder`); `Load` and `WithPins`
 - `ClusterCorpusCache`: the cache folder, the **fetcher** (a delegate that opens a URL as a stream; the default
-  `GutenbergMirrorFetcher` sends an identifying user agent, accepts only HTTPS on an allowed mirror and turns a
-  non-success status into an `HttpRequestException` with the status), the **sleeper** (a delegate that pauses; the
+  `GutenbergMirrorFetcher` sends an identifying user agent, accepts only HTTPS on an allowed mirror, uses a handler with
+  automatic redirects off (`CreateHandler`), turns any 3xx answer into an `InvalidDataException` (that book fails,
+  without a retry) and any other non-success status into an `HttpRequestException` with the status; the overload
+  `Open(HttpClient, uri, token)` is the seam the tests answer through a fake handler, and `IsAllowedMirror` is the one
+  HTTPS-and-allowed-host rule that the fetcher and `Download` share), the **sleeper** (a delegate that pauses; the
   default sleeps the thread), the delay and the optional mirror host; the number of requests made. Not thread-safe
 - `CorpusFetchResult`: per used book, the outcome `cached`, `fetched`, `pinned` (a new pin was computed) or `failed`,
   the problem and the body
@@ -40,8 +43,8 @@ Every file is written to a `.partial` sibling and renamed, so a reader never see
   written. One line per book goes to the log
 - **Download (private)**: refuses a URL that is not HTTPS on an allowed mirror; pauses for the delay before every
   request except the first of the run; on HTTP 403 or 429 throws `IOException` (the run stops); on HTTP 404 rethrows
-  (the book fails); on any other failure retries after 5, 15 and 45 seconds and then throws `IOException`; reads at most
-  64 MiB
+  (the book fails); a redirect refused by the fetcher (`InvalidDataException`) is not retried and fails the book; on any
+  other failure retries after 5, 15 and 45 seconds and then throws `IOException`; reads at most 64 MiB
 - **CheckBody(source)** and **ReadBodies(sources)**: verify each used book's cached body against its pin, without the
   network, and return the bodies in ordinal id order
 - **ReadBodiesFromSnapshot(sources, path)**: reads the members of a snapshot with `CorpusSnapshot.Read` and returns each
@@ -49,8 +52,10 @@ Every file is written to a `.partial` sibling and renamed, so a reader never see
 
 **Error Handling**: null arguments throw `ArgumentNullException`; a mirror off the allow-list or a negative delay throws
 `ArgumentException`. An invalid list, an unpinned or missing body, a body that differs from its pin, and a snapshot that
-lacks a body throw `InvalidDataException`. A refusal by the mirror or exhausted retries throw `IOException`. Within
-`Fetch`, a book whose download or extraction fails becomes a `failed` result and the other books continue.
+lacks a body throw `InvalidDataException`. A refusal by the mirror or exhausted retries throw `IOException`. The
+default fetcher never follows a redirect: a 3xx answer throws `InvalidDataException`, because a redirect could lead from
+the mirror to the main web site. Within `Fetch`, a book whose download or extraction fails (including a redirect)
+becomes a `failed` result and the other books continue.
 
 **Dependencies**: the .NET base class library (HTTP client, files, hashing), `GutenbergBody`, `CorpusSnapshot`
 (reading a snapshot), and the TrainingDataSubsystem's `TsvTable` and `CheckReport`.

@@ -278,4 +278,123 @@ public sealed class ClusterCorpusCacheTests
         Assert.Throws<InvalidDataException>(() => ClusterCorpusCache.ReadBodiesFromSnapshot(sources, missing));
         Assert.Throws<InvalidDataException>(() => ClusterCorpusCache.ReadBodiesFromSnapshot(sources, changed));
     }
+
+    /// <summary>Proves the shared client of the mirror fetcher is built on a handler that never follows a redirect.</summary>
+    [Fact]
+    public void GutenbergMirrorFetcher_CreateHandler_Default_DoesNotFollowRedirects()
+    {
+        // Act
+        using var handler = GutenbergMirrorFetcher.CreateHandler();
+
+        // Assert
+        Assert.False(handler.AllowAutoRedirect);
+    }
+
+    /// <summary>Proves a success answer returns the body and the request carries the identifying user agent.</summary>
+    [Fact]
+    public void GutenbergMirrorFetcher_Open_Success_ReturnsBodyWithUserAgent()
+    {
+        // Arrange
+        var url = ClusteringFixture.TextUrl(101);
+        var body = Encoding.UTF8.GetBytes("a body\n");
+        using var handler = new FakeMirrorHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(body) });
+        using var client = new HttpClient(handler);
+
+        // Act
+        using var stream = GutenbergMirrorFetcher.Open(client, url, TestContext.Current.CancellationToken);
+        using var read = new MemoryStream();
+        stream.CopyTo(read);
+
+        // Assert
+        Assert.Equal(body, read.ToArray());
+        Assert.Equal([url], handler.Requests);
+        Assert.Equal([GutenbergMirrorFetcher.UserAgent], handler.UserAgents);
+    }
+
+    /// <summary>Proves a redirect from the mirror to the main web site is refused after one request and never followed.</summary>
+    [Fact]
+    public void GutenbergMirrorFetcher_Open_RedirectToMainSite_RefusedWithoutFollowing()
+    {
+        // Arrange: the mirror answers HTTP 302 to the same file on the main web site
+        var url = ClusteringFixture.TextUrl(101);
+        var mainSite = new Uri("https://www.gutenberg.org/cache/epub/101/pg101.txt");
+        using var handler = new FakeMirrorHandler(request => request.RequestUri == url
+            ? Redirect(mainSite)
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1]) });
+        using var client = new HttpClient(handler);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => GutenbergMirrorFetcher.Open(client, url, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Contains("redirect", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("www.gutenberg.org", exception.Message, StringComparison.Ordinal);
+        Assert.Equal([url], handler.Requests);
+        Assert.DoesNotContain(handler.Requests, static uri => uri.Host == "www.gutenberg.org");
+    }
+
+    /// <summary>Proves a mirror that redirects a book's text fails only that book, after one request and without a retry.</summary>
+    [Fact]
+    public void ClusterCorpusCache_Fetch_MirrorRedirects_FailsBookWithoutRetry()
+    {
+        // Arrange: the real fetcher over a fake handler that serves the fixture's mirror but redirects the text of 101
+        using var fixture = new ClusteringFixture();
+        var redirected = ClusteringFixture.TextUrl(101);
+        using var handler = new FakeMirrorHandler(request =>
+            request.RequestUri == redirected
+                ? Redirect(new Uri("https://www.gutenberg.org/cache/epub/101/pg101.txt"))
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(fixture.Mirror[request.RequestUri!]) });
+        using var client = new HttpClient(handler);
+        var cache = CacheOf(fixture, (uri, token) => GutenbergMirrorFetcher.Open(client, uri, token));
+
+        // Act
+        var results = cache.Fetch(Sources(fixture), TextWriter.Null, TestContext.Current.CancellationToken);
+
+        // Assert: 101 failed on the redirect, the others are pinned, and no retry and no request off the mirror happened
+        var failed = results.Single(static result => result.SourceId == "gutenberg-101");
+        Assert.Equal("failed", failed.Outcome);
+        Assert.Contains("redirect", failed.Problem, StringComparison.Ordinal);
+        Assert.Equal(2, results.Count(static result => result.Outcome == "pinned"));
+        Assert.Single(handler.Requests, uri => uri == redirected);
+        Assert.Equal(6, handler.Requests.Count);
+        Assert.All(handler.Requests, static uri => Assert.Equal(ClusteringFixture.Host, uri.Host));
+        Assert.DoesNotContain(ClusterCorpusCache.RetryWaits[0], fixture.Sleeps);
+    }
+
+    /// <summary>
+    ///     Creates an HTTP 302 answer.
+    /// </summary>
+    /// <param name="location">The redirect target.</param>
+    /// <returns>The answer.</returns>
+    private static HttpResponseMessage Redirect(Uri location)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.Found);
+        response.Headers.Location = location;
+        return response;
+    }
+
+    /// <summary>
+    ///     A fake HTTP handler that answers every request through a callback and records the URL and user agent of each.
+    /// </summary>
+    /// <remarks>
+    ///     Like any handler other than the sockets handler it never follows a redirect itself, so a 3xx reaches the
+    ///     fetcher unchanged; nothing touches the network.
+    /// </remarks>
+    /// <param name="answer">Builds the answer to a request.</param>
+    private sealed class FakeMirrorHandler(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
+    {
+        /// <summary>Gets the URLs requested so far, in order.</summary>
+        public List<Uri> Requests { get; } = [];
+
+        /// <summary>Gets the user agent of each request so far, in order.</summary>
+        public List<string> UserAgents { get; } = [];
+
+        /// <inheritdoc />
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request.RequestUri!);
+            UserAgents.Add(request.Headers.UserAgent.ToString());
+            return Task.FromResult(answer(request));
+        }
+    }
 }

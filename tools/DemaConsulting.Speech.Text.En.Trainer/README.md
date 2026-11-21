@@ -196,11 +196,11 @@ and its record `data/text-en/clustering.json` from the US public-domain books li
 
 - `--fetch [--write-pins]`: fetch the plain text and metadata of every `used` book that is missing from the cache or
   fails its pin, only over HTTPS from an official mirror (`gutenberg.pglaf.org`; `aleph.gutenberg.org` with
-  `--mirror`), never from the main web site, one request at a time with `--delay-ms` (default 2,000, at least 1,000)
-  between requests, at most three retries after 5, 15 and 45 seconds, and a stop on HTTP 403 or 429. The body (the text
-  between the start and end markers, without credits, license text or any paragraph naming the archive) is pinned by
-  size and SHA-256; `--write-pins` fills the pins of rows that have none and never changes a pin. Exit `1` when a book
-  failed
+  `--mirror`), never from the main web site and never through a redirect (a redirect fails that book), one request at a
+  time with `--delay-ms` (default 2,000, at least 1,000) between requests, at most three retries after 5, 15 and 45
+  seconds, and a stop on HTTP 403 or 429. The body (the text between the start and end markers, without credits, license
+  text or any paragraph naming the archive) is pinned by size and SHA-256; `--write-pins` fills the pins of rows that
+  have none and never changes a pin. Exit `1` when a book failed
 - `--audit [--write]`: compare every corpus sentence with every sentence of `dev.tsv`, `holdout-natural.tsv`,
   `holdout-independent.tsv`, `regression.tsv` and `generalization.tsv` (rules `exact`, `near`, `contains`) and print the
   removals per file and rule; `--write` writes `cluster-removals.tsv` (ids and hashes only), otherwise exit `1` when it
@@ -252,8 +252,10 @@ The command is never run by `build.ps1`, `lint.ps1` or a workflow; only its test
 books. CI instead runs the cheap offline gate of `check-data` (check `clusters`): the record must still match the
 committed source list, removals and table byte for byte and the tokenizer of the build. Any later edit of those files,
 or a tokenizer upgrade (which moves the sentence boundaries the removals refer to), therefore fails `check-data` until
-`cluster --audit --write` and `cluster --write` are run again. The record's hash of the evaluation files is checked only
-by the manual `cluster --check`, so editing development data does not force a new induction.
+`cluster --audit --write` and `cluster --write` are run again. The record's hash of the evaluation files is not gated,
+so editing development data does not force a new induction: `check-data` prints an informational line, not a failure,
+when the evaluation files changed since the audit, and `cluster --audit` (manual, needs the corpus cache) tells whether
+the removals are still current; the manual `cluster --check` verifies the hash.
 
 ## Files
 

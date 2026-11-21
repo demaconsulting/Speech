@@ -65,8 +65,7 @@ internal static class CorpusLeakageAudit
     public static readonly IReadOnlyList<string> Rules = ["exact", "near", "contains"];
 
     /// <summary>The evaluation files in attribution order.</summary>
-    public static readonly IReadOnlyList<string> EvaluationFiles =
-        ["dev.tsv", "holdout-natural.tsv", "holdout-independent.tsv", TextEnDataSet.RegressionFile, TextEnDataSet.GeneralizationFile];
+    public static readonly IReadOnlyList<string> EvaluationFiles = ClusterDataChecker.EvaluationFiles;
 
     /// <summary>The minimum number of words for the near and contains tests (the data check's value).</summary>
     private const int NearMinimumWords = 8;
@@ -107,18 +106,11 @@ internal static class CorpusLeakageAudit
     /// </summary>
     /// <param name="dataRoot">The data folder.</param>
     /// <returns>The SHA-256 of the listing <c>file TAB sha256 LF</c> in attribution order (<c>-</c> for a missing file).</returns>
-    public static string EvaluationListingSha256(string dataRoot)
-    {
-        ArgumentNullException.ThrowIfNull(dataRoot);
-        var listing = new StringBuilder();
-        foreach (var file in EvaluationFiles)
-        {
-            var path = Path.Combine(dataRoot, file);
-            listing.Append(file).Append('\t').Append(File.Exists(path) ? GutenbergBody.Sha256Hex(File.ReadAllBytes(path)) : "-").Append('\n');
-        }
-
-        return GutenbergBody.Sha256Hex(Encoding.UTF8.GetBytes(listing.ToString()));
-    }
+    /// <remarks>
+    ///     The data check owns the computation (<see cref="ClusterDataChecker.EvaluationListingSha256"/>) so that
+    ///     <c>check-data</c> can report offline when the evaluation files changed after the audit.
+    /// </remarks>
+    public static string EvaluationListingSha256(string dataRoot) => ClusterDataChecker.EvaluationListingSha256(dataRoot);
 
     /// <summary>
     ///     Audits the corpus against the evaluation sentences.

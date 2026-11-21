@@ -135,7 +135,8 @@ sections:
               The TrainingDataSubsystem shall check the committed word-cluster files on every run, offline: the
               schema of the pinned source list, the removals and the table; that no book of the corpus is a
               development or natural-holdout document; and that the word-cluster record still matches the
-              committed source list, removals and table and the tokenizer of the build.
+              committed source list, removals and table and the tokenizer of the build, and shall report, without
+              failing, when the evaluation files changed since the audit.
             justification: |
               The induction of the word-cluster table is a manual command that runs for minutes to hours and
               needs the network, so CI cannot repeat it. A cheap comparison of hashes and counts catches every
@@ -148,6 +149,7 @@ sections:
               - SpeechTextEn-TrainingData-ClusterDataChecker-Removals
               - SpeechTextEn-TrainingData-ClusterDataChecker-Table
               - SpeechTextEn-TrainingData-ClusterDataChecker-Record
+              - SpeechTextEn-TrainingData-ClusterDataChecker-EvaluationDrift
               - SpeechTextEn-TrainingData-LicenseChecker-ClusterTableHeader
               - SpeechTextEn-TrainingData-CheckDataCommand-ClusterCheck
             tests:

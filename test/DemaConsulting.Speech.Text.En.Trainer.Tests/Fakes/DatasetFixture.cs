@@ -213,7 +213,8 @@ internal sealed class DatasetFixture : IDisposable
     /// <remarks>
     ///     <c>gutenberg-1</c> is the used book and <c>gutenberg-2</c> a development book excluded from the corpus; the table
     ///     has three words in three clusters with a minimum count of 5. The record is written by the real record writer, so a
-    ///     field-name drift between the writer and the check fails the tests.
+    ///     field-name drift between the writer and the check fails the tests; it carries the current hash of the evaluation
+    ///     files, so the check reports no evaluation drift until a test edits one of them.
     /// </remarks>
     public void WriteClusterFiles(string tokenizerVersion = ClusterTokenizerVersion)
     {
@@ -239,7 +240,7 @@ internal sealed class DatasetFixture : IDisposable
         var record = new ClusteringRecord(
             ClusterDataChecker.RecordSchema,
             new ClusteringSettings(3, 0, 5, 1, 1, 1),
-            new ClusteringInputs(Sha(ClusterDataChecker.SourcesFile), 1, 1, Sha(ClusterDataChecker.RemovalsFile), new string('c', 64), tokenizerVersion, new string('d', 64), 10240, 3, string.Empty),
+            new ClusteringInputs(Sha(ClusterDataChecker.SourcesFile), 1, 1, Sha(ClusterDataChecker.RemovalsFile), ClusterDataChecker.EvaluationListingSha256(Root), tokenizerVersion, new string('d', 64), 10240, 3, string.Empty),
             new ClusteringCorpus(4, 9, 75, 3, 4, 1, 6, 1, 1),
             new ClusteringResult(Sha(ClusterDataChecker.TableFile), 3, 3, 0, 0, 10000));
         WriteBytes(ClusterDataChecker.RecordFile, record.Write());

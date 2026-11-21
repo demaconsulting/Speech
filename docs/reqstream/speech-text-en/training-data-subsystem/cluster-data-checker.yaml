@@ -99,10 +99,23 @@ sections:
                   The full induction is a manual, long-running command, so this cheap offline comparison is the
                   gate that runs on every change: an edited pin, removal or table, or a tokenizer upgrade that
                   moves the sentence boundaries the removals refer to, fails the data check until the table is
-                  induced again. The hash of the evaluation files is not compared, because every development-data
-                  edit would otherwise force a new induction; the manual re-induction verifies it.
+                  induced again. The hash of the evaluation files is not gated, because every development-data
+                  edit would otherwise force a new induction; it is reported instead (see EvaluationDrift).
                 tests:
                   - ClusterDataChecker_Run_FileChangedAfterInduction_RecordIsStale
                   - ClusterDataChecker_Run_TokenizerVersion_IsCompared
                   - ClusterDataChecker_Run_RecordCountsDiffer_IsFinding
                   - ClusterDataChecker_Run_UnreadableRecord_IsFinding
+
+              - id: SpeechTextEn-TrainingData-ClusterDataChecker-EvaluationDrift
+                title: >-
+                  The ClusterDataChecker class shall add an information line, and no finding, when the SHA-256 of
+                  the listing of the five evaluation files differs from the evaluationListingSha256 of
+                  clustering.json, naming both hashes and the manual audit that tells whether the removals are
+                  still current, and shall add no such line when they are equal.
+                justification: |
+                  Development data grows without a new induction, so an evaluation-file edit must not fail the
+                  data check; but the audit removals were computed against the recorded evaluation files, and a
+                  reviewer must be able to see on every run that they may be stale.
+                tests:
+                  - ClusterDataChecker_Run_EvaluationFilesChanged_InformsWithoutFinding

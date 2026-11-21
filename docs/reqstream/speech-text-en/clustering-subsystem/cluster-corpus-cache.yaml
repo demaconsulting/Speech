@@ -47,17 +47,24 @@ sections:
                   from an allowed mirror (optionally a configured allowed mirror in place of the listed one), one
                   request at a time with the configured pause before every request but the first, retry a failed
                   request at most three times after 5, 15 and 45 seconds, fail only that book when a file does not
-                  exist, and stop the whole run with IOException when the mirror refuses a request with HTTP 403 or
-                  429.
+                  exist, never follow an HTTP redirect, failing only that book without a retry when the mirror
+                  answers with one, and stop the whole run with IOException when the mirror refuses a request with
+                  HTTP 403 or 429.
                 justification: |
                   The archive asks automated clients to use its mirrors, one connection at a time and slowly; a
-                  refusal means the client must stop, and a transient failure must not cost a whole run.
+                  refusal means the client must stop, and a transient failure must not cost a whole run. A redirect
+                  could lead from the mirror to the main web site, which automated clients must not use, so it is
+                  refused rather than followed.
                 tests:
                   - ClusterCorpusCache_Fetch_UnpinnedBooks_FetchesPoliteAndPins
                   - ClusterCorpusCache_Fetch_TooManyRequests_StopsRun
                   - ClusterCorpusCache_Fetch_TransientFailure_RetriesWithBackoff
                   - ClusterCorpusCache_Fetch_NotFound_FailsBookWithoutRetry
                   - ClusterCorpusCache_Mirror_ReplacesHostAndRefusesOthers
+                  - ClusterCorpusCache_Fetch_MirrorRedirects_FailsBookWithoutRetry
+                  - GutenbergMirrorFetcher_CreateHandler_Default_DoesNotFollowRedirects
+                  - GutenbergMirrorFetcher_Open_RedirectToMainSite_RefusedWithoutFollowing
+                  - GutenbergMirrorFetcher_Open_Success_ReturnsBodyWithUserAgent
 
               - id: SpeechTextEn-Clustering-ClusterCorpusCache-VerifiedBodies
                 title: >-
