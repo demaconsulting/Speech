@@ -164,7 +164,8 @@ internal sealed class LicenseChecker
 
     /// <summary>
     ///     Scans a TSV file for restricted-license terms; for the labeled data files only the id, source and license
-    ///     cells are scanned, and for the evaluation overlays every cell except the sentence.
+    ///     cells are scanned, for the evaluation overlays every cell except the sentence, and for the word-cluster table
+    ///     only the header row.
     /// </summary>
     /// <param name="relativePath">The path relative to the data root.</param>
     private void ScanForRestrictedTerms(string relativePath)
@@ -172,10 +173,18 @@ internal sealed class LicenseChecker
         // The sentence column is free text from other works and is never scanned: only the metadata is
         var isDataFile = TextEnDataSet.DataFiles.Any(file => file.FileName == relativePath);
         var isOverlay = relativePath is TextEnDataSet.RegressionFile or TextEnDataSet.GeneralizationFile;
+
+        // The word-cluster table holds corpus words, not license metadata: only its header row is scanned
+        var headerOnly = relativePath == ClusterDataChecker.TableFile;
         var lineNumber = 0;
         foreach (var line in File.ReadLines(Path.Combine(_root, relativePath)))
         {
             lineNumber++;
+            if (headerOnly && lineNumber > 1)
+            {
+                break;
+            }
+
             var text = line;
             if (isDataFile)
             {

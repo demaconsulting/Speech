@@ -461,6 +461,9 @@ internal sealed class TextEnDataSet
             typed.Add(file.FileName);
         }
 
+        // The word-cluster tables are loaded with their exact headers by the word-cluster check
+        typed.UnionWith(ClusterDataChecker.Tables);
+
         foreach (var relative in DataManifest.EnumerateDataFiles(root).Where(file => file.EndsWith(".tsv", StringComparison.Ordinal) && !typed.Contains(file)))
         {
             TsvTable.Load(Path.Combine(root, relative), relative, report);

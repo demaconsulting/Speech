@@ -80,6 +80,24 @@ public sealed class LicenseCheckerTests
         Assert.Equal($"{TextEnDataSet.RegressionFile}:3", finding.Location);
     }
 
+    /// <summary>Proves the word-cluster table is scanned in its header only, while the source list and removals are scanned in full.</summary>
+    [Fact]
+    public void LicenseChecker_Run_WordClusterTable_OnlyHeaderIsScanned()
+    {
+        // Arrange: a restricted word as a table row (corpus text), and the same term in a source list title (metadata)
+        using var fixture = new DatasetFixture();
+        fixture.WriteClusterFiles();
+        fixture.AppendRow(ClusterDataChecker.TableFile, "wikipedia", "1", "5");
+        fixture.EditRow(ClusterDataChecker.SourcesFile, "gutenberg-2", ("title", "Wikipedia Copy"));
+
+        // Act
+        var report = fixture.CheckLicense();
+
+        // Assert: one finding, on the source list only
+        var finding = Assert.Single(report.Findings);
+        Assert.Equal($"{ClusterDataChecker.SourcesFile}:3", finding.Location);
+    }
+
     /// <summary>Proves a harvested row without a provenance entry is reported.</summary>
     [Fact]
     public void LicenseChecker_Run_HarvestRowWithoutProvenance_ReportsFinding()

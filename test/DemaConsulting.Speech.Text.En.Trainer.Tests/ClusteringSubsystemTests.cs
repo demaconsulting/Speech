@@ -2,6 +2,8 @@ using System.Text;
 using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
+using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
+using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests;
 
@@ -140,6 +142,35 @@ public sealed class ClusteringSubsystemTests
         Assert.All(entries, static entry => Assert.Equal(FeatureHashing.Fnv1a(entry.Word), HeteronymContext.Create(entry.Word, 0, entry.Word.Length, null, 0).LowerHash));
     }
 
+    /// <summary>
+    ///     Proves the committed table parses with the committed record's limits, matches the record's hash and word count,
+    ///     and has only unique runtime keys, each equal to the analyzer's key of the word itself.
+    /// </summary>
+    [Fact]
+    public void ClusteringSubsystem_CommittedTable_WordsAreUniqueRuntimeKeys()
+    {
+        // Arrange: find the committed table and record above the test binaries
+        string? data = null;
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null && data is null; directory = directory.Parent)
+        {
+            var candidate = Path.Combine(directory.FullName, "data", "text-en");
+            data = File.Exists(Path.Combine(directory.FullName, "Speech.slnx")) && File.Exists(Path.Combine(candidate, WordClusterTable.FileName)) ? candidate : null;
+        }
+
+        Assert.SkipUnless(data is not null, "The committed word-cluster table is absent in this checkout.");
+        var bytes = File.ReadAllBytes(Path.Combine(data, WordClusterTable.FileName));
+        var record = ClusteringRecord.Parse(File.ReadAllBytes(Path.Combine(data, ClusteringRecord.FileName)));
+
+        // Act: parsing also rejects any shared lookup hash
+        var entries = WordClusterTable.Parse(bytes, record.Settings.Clusters, record.Settings.MinCount);
+
+        // Assert
+        Assert.Equal(record.Result.TableSha256, GutenbergBody.Sha256Hex(bytes));
+        Assert.Equal(record.Result.Words, entries.Count);
+        Assert.Equal(entries.Count, entries.Select(static entry => FeatureHashing.Fnv1a(entry.Word)).Distinct().Count());
+        Assert.All(entries, static entry => Assert.Equal(FeatureHashing.Fnv1a(entry.Word), HeteronymContext.Create(entry.Word, 0, entry.Word.Length, null, 0).LowerHash));
+    }
+
     /// <summary>Proves <c>--check</c> reports a hand-edited table as stale.</summary>
     [Fact]
     public void ClusteringSubsystem_Cluster_EditedTable_CheckIsStale()
@@ -157,6 +188,39 @@ public sealed class ClusteringSubsystemTests
         // Assert
         Assert.Equal(1, exitCode);
         Assert.Contains("word-clusters.tsv stale", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves the written table and record pass the offline consistency check of <c>check-data</c>, and that a later
+    ///     edit of the source list fails it until the table is induced again.
+    /// </summary>
+    [Fact]
+    public void ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck()
+    {
+        // Arrange
+        using var fixture = new ClusteringFixture();
+        fixture.Prepare();
+        fixture.Run("--write", "--clusters", "4", "--min-count", "1");
+        fixture.Data.RewriteManifest();
+
+        // Act
+        (int ExitCode, string Output) CheckData()
+        {
+            var output = new StringWriter();
+            var exitCode = CheckDataCommand.Run(["--data", fixture.Data.Root], output, new StringWriter(), fixture.BaseDirectory, fixture.BaseDirectory, _ => null, TrainingCorpus.TaggerVersion);
+            return (exitCode, output.ToString());
+        }
+
+        var current = CheckData();
+        fixture.Data.Replace(ClusterSourceList.FileName, "A Test Book 101", "A Test Book One");
+        fixture.Data.RewriteManifest();
+        var edited = CheckData();
+
+        // Assert
+        Assert.True(current.ExitCode == 0, current.Output);
+        Assert.Contains("word-cluster table: ", current.Output, StringComparison.Ordinal);
+        Assert.Equal(1, edited.ExitCode);
+        Assert.Contains("check-data: clusters: clustering.json: sourcesSha256 ", edited.Output, StringComparison.Ordinal);
     }
 
     /// <summary>Proves the snapshot alone reproduces the table: the cache's bodies can be deleted and <c>--check --from-snapshot</c> passes.</summary>

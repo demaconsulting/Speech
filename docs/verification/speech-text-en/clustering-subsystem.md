@@ -38,13 +38,17 @@ exit 2, naming the book, with no table written.
 **Leakage audit.** A book that contains a development sentence of the fixture data loses exactly that sentence (rule
 exact, file `dev.tsv`), the record counts one removed sentence of six tokens, and its words do not reach the table.
 
-**Runtime keys.** Every word of the written table is unique by lookup hash and hashes to the analyzer's key of itself.
+**Runtime keys.** Every word of the written table is unique by lookup hash and hashes to the analyzer's key of itself;
+so is every word of the committed table, which also parses with the committed record's limits and matches the record's
+hash and word count.
 
 **Determinism.** One and three threads write byte-identical tables and records, and the fixture corpus gives the golden
 table.
 
 **Record and check.** A check after a write reports every output current; a hand-edited table is reported stale (exit
-1); the snapshot alone, with the cache deleted, reproduces the table without any request.
+1); the snapshot alone, with the cache deleted, reproduces the table without any request; the written table and record
+pass the offline word-cluster check of `check-data` with this build's tokenizer, and an edit of the source list
+afterwards fails it, naming the stale hash.
 
 ### Test Scenarios
 
@@ -68,9 +72,13 @@ word "howled" is not in the table.
 
 #### Runtime keys
 
-**Tests**: `ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys`
+**Tests**: `ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys`,
+`ClusteringSubsystem_CommittedTable_WordsAreUniqueRuntimeKeys`
 
 Every table word has a distinct `FeatureHashing.Fnv1a` hash, equal to `HeteronymContext.Create(word, ...).LowerHash`.
+The committed-table test finds `data/text-en/word-clusters.tsv` above the test binaries (it is skipped, and says so,
+when the checkout has no table), parses it with the clusters and minimum count of the committed `clustering.json`, and
+checks the table hash and word count against the record.
 
 #### Determinism
 
@@ -83,10 +91,14 @@ fixture corpus with four clusters gives exactly the golden table text.
 #### Record and check
 
 **Tests**: `ClusteringSubsystem_Cluster_EditedTable_CheckIsStale`,
-`ClusteringSubsystem_Cluster_FromSnapshot_ReproducesTable`
+`ClusteringSubsystem_Cluster_FromSnapshot_ReproducesTable`,
+`ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck`
 
 After a path in the table is edited, `--check` exits 1 and reports the table stale. With the snapshot copied out and
-the cache deleted, `--check --from-snapshot` exits 0 and makes no request.
+the cache deleted, `--check --from-snapshot` exits 0 and makes no request. After a write, the manifest of the fixture
+data is regenerated and `check-data` (with `TrainingCorpus.TaggerVersion`) exits 0 and reports the word-cluster table;
+after a title in the source list is changed and the manifest regenerated again, it exits 1 with a `clusters` finding on
+`sourcesSha256`.
 
 See also *SpeechTextEn System Verification* and the unit documents `gutenberg-body.md`, `cluster-corpus-cache.md`,
 `corpus-snapshot.md`, `corpus-leakage-audit.md`, `cluster-corpus-reader.md`, `cluster-inducer.md`,

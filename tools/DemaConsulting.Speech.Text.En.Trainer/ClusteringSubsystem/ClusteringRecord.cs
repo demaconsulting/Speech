@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
+using static DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem.ClusterDataChecker;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 
@@ -78,7 +80,8 @@ internal sealed record ClusteringResult(
 /// <remarks>
 ///     Every field is an integer or a string and nothing depends on the machine, the time or the thread count, so the
 ///     same induction always writes the same bytes: two-space indentation, a fixed field order, LF line endings and a
-///     final LF. The field names are constants so a consistency check can read them without this type. Immutable.
+///     final LF. The field names are the constants of <see cref="ClusterDataChecker"/>, the offline consistency check
+///     that reads the record without this type, so the two cannot drift. Immutable.
 /// </remarks>
 /// <param name="Schema">The record schema version.</param>
 /// <param name="Settings">The settings.</param>
@@ -88,52 +91,10 @@ internal sealed record ClusteringResult(
 internal sealed record ClusteringRecord(int Schema, ClusteringSettings Settings, ClusteringInputs Inputs, ClusteringCorpus Corpus, ClusteringResult Result)
 {
     /// <summary>The file name of the record in the data folder.</summary>
-    public const string FileName = "clustering.json";
+    public const string FileName = ClusterDataChecker.RecordFile;
 
     /// <summary>The current schema version.</summary>
-    public const int CurrentSchema = 1;
-
-    /// <summary>The field name of the schema version.</summary>
-    public const string SchemaField = "schema";
-
-    /// <summary>The field name of the settings object.</summary>
-    public const string SettingsField = "settings";
-
-    /// <summary>The field name of the inputs object.</summary>
-    public const string InputsField = "inputs";
-
-    /// <summary>The field name of the corpus object.</summary>
-    public const string CorpusField = "corpus";
-
-    /// <summary>The field name of the result object.</summary>
-    public const string ResultField = "result";
-
-    /// <summary>The field name of the number of clusters.</summary>
-    public const string ClustersField = "clusters";
-
-    /// <summary>The field name of the vocabulary limit.</summary>
-    public const string MaxWordsField = "maxWords";
-
-    /// <summary>The field name of the minimum count.</summary>
-    public const string MinCountField = "minCount";
-
-    /// <summary>The field name of the sources hash.</summary>
-    public const string SourcesShaField = "sourcesSha256";
-
-    /// <summary>The field name of the removals hash.</summary>
-    public const string RemovalsShaField = "removalsSha256";
-
-    /// <summary>The field name of the tokenizer version.</summary>
-    public const string TokenizerVersionField = "tokenizerVersion";
-
-    /// <summary>The field name of the table hash.</summary>
-    public const string TableShaField = "tableSha256";
-
-    /// <summary>The field name of the number of table rows.</summary>
-    public const string WordsField = "words";
-
-    /// <summary>The field name of the number of distinct paths.</summary>
-    public const string PathsField = "paths";
+    public const int CurrentSchema = ClusterDataChecker.RecordSchema;
 
     /// <summary>
     ///     Writes the record.
@@ -150,40 +111,40 @@ internal sealed record ClusteringRecord(int Schema, ClusteringSettings Settings,
             json.WriteNumber(ClustersField, Settings.Clusters);
             json.WriteNumber(MaxWordsField, Settings.MaxWords);
             json.WriteNumber(MinCountField, Settings.MinCount);
-            json.WriteNumber("clustererVersion", Settings.ClustererVersion);
-            json.WriteNumber("readerVersion", Settings.ReaderVersion);
-            json.WriteNumber("auditVersion", Settings.AuditVersion);
+            json.WriteNumber(ClustererVersionField, Settings.ClustererVersion);
+            json.WriteNumber(ReaderVersionField, Settings.ReaderVersion);
+            json.WriteNumber(AuditVersionField, Settings.AuditVersion);
             json.WriteEndObject();
             json.WriteStartObject(InputsField);
             json.WriteString(SourcesShaField, Inputs.SourcesSha256);
-            json.WriteNumber("usedBooks", Inputs.UsedBooks);
-            json.WriteNumber("excludedBooks", Inputs.ExcludedBooks);
+            json.WriteNumber(UsedBooksField, Inputs.UsedBooks);
+            json.WriteNumber(ExcludedBooksField, Inputs.ExcludedBooks);
             json.WriteString(RemovalsShaField, Inputs.RemovalsSha256);
-            json.WriteString("evaluationListingSha256", Inputs.EvaluationListingSha256);
+            json.WriteString(EvaluationListingShaField, Inputs.EvaluationListingSha256);
             json.WriteString(TokenizerVersionField, Inputs.TokenizerVersion);
-            json.WriteString("snapshotSha256", Inputs.SnapshotSha256);
-            json.WriteNumber("snapshotBytes", Inputs.SnapshotBytes);
-            json.WriteNumber("snapshotFiles", Inputs.SnapshotFiles);
-            json.WriteString("snapshotUrl", Inputs.SnapshotUrl);
+            json.WriteString(SnapshotShaField, Inputs.SnapshotSha256);
+            json.WriteNumber(SnapshotBytesField, Inputs.SnapshotBytes);
+            json.WriteNumber(SnapshotFilesField, Inputs.SnapshotFiles);
+            json.WriteString(SnapshotUrlField, Inputs.SnapshotUrl);
             json.WriteEndObject();
             json.WriteStartObject(CorpusField);
-            json.WriteNumber("paragraphs", Corpus.Paragraphs);
-            json.WriteNumber("sentences", Corpus.Sentences);
-            json.WriteNumber("tokens", Corpus.Tokens);
-            json.WriteNumber("types", Corpus.Types);
-            json.WriteNumber("bigramTypes", Corpus.BigramTypes);
-            json.WriteNumber("removedSentences", Corpus.RemovedSentences);
-            json.WriteNumber("removedTokens", Corpus.RemovedTokens);
-            json.WriteNumber("matchedEvaluationSentences", Corpus.MatchedEvaluationSentences);
-            json.WriteNumber("booksAffected", Corpus.BooksAffected);
+            json.WriteNumber(ParagraphsField, Corpus.Paragraphs);
+            json.WriteNumber(SentencesField, Corpus.Sentences);
+            json.WriteNumber(TokensField, Corpus.Tokens);
+            json.WriteNumber(TypesField, Corpus.Types);
+            json.WriteNumber(BigramTypesField, Corpus.BigramTypes);
+            json.WriteNumber(RemovedSentencesField, Corpus.RemovedSentences);
+            json.WriteNumber(RemovedTokensField, Corpus.RemovedTokens);
+            json.WriteNumber(MatchedEvaluationSentencesField, Corpus.MatchedEvaluationSentences);
+            json.WriteNumber(BooksAffectedField, Corpus.BooksAffected);
             json.WriteEndObject();
             json.WriteStartObject(ResultField);
             json.WriteString(TableShaField, Result.TableSha256);
             json.WriteNumber(WordsField, Result.Words);
             json.WriteNumber(PathsField, Result.Paths);
-            json.WriteNumber("droppedHashCollisions", Result.DroppedHashCollisions);
-            json.WriteNumber("droppedIneligible", Result.DroppedIneligible);
-            json.WriteNumber("tokenCoveragePerTenThousand", Result.TokenCoveragePerTenThousand);
+            json.WriteNumber(DroppedHashCollisionsField, Result.DroppedHashCollisions);
+            json.WriteNumber(DroppedIneligibleField, Result.DroppedIneligible);
+            json.WriteNumber(TokenCoverageField, Result.TokenCoveragePerTenThousand);
             json.WriteEndObject();
             json.WriteEndObject();
         }
@@ -221,37 +182,37 @@ internal sealed record ClusteringRecord(int Schema, ClusteringSettings Settings,
                     settings.GetProperty(ClustersField).GetInt32(),
                     settings.GetProperty(MaxWordsField).GetInt32(),
                     settings.GetProperty(MinCountField).GetInt32(),
-                    settings.GetProperty("clustererVersion").GetInt32(),
-                    settings.GetProperty("readerVersion").GetInt32(),
-                    settings.GetProperty("auditVersion").GetInt32()),
+                    settings.GetProperty(ClustererVersionField).GetInt32(),
+                    settings.GetProperty(ReaderVersionField).GetInt32(),
+                    settings.GetProperty(AuditVersionField).GetInt32()),
                 new ClusteringInputs(
                     String(inputs, SourcesShaField),
-                    inputs.GetProperty("usedBooks").GetInt32(),
-                    inputs.GetProperty("excludedBooks").GetInt32(),
+                    inputs.GetProperty(UsedBooksField).GetInt32(),
+                    inputs.GetProperty(ExcludedBooksField).GetInt32(),
                     String(inputs, RemovalsShaField),
-                    String(inputs, "evaluationListingSha256"),
+                    String(inputs, EvaluationListingShaField),
                     String(inputs, TokenizerVersionField),
-                    String(inputs, "snapshotSha256"),
-                    inputs.GetProperty("snapshotBytes").GetInt64(),
-                    inputs.GetProperty("snapshotFiles").GetInt32(),
-                    String(inputs, "snapshotUrl")),
+                    String(inputs, SnapshotShaField),
+                    inputs.GetProperty(SnapshotBytesField).GetInt64(),
+                    inputs.GetProperty(SnapshotFilesField).GetInt32(),
+                    String(inputs, SnapshotUrlField)),
                 new ClusteringCorpus(
-                    corpus.GetProperty("paragraphs").GetInt64(),
-                    corpus.GetProperty("sentences").GetInt64(),
-                    corpus.GetProperty("tokens").GetInt64(),
-                    corpus.GetProperty("types").GetInt64(),
-                    corpus.GetProperty("bigramTypes").GetInt64(),
-                    corpus.GetProperty("removedSentences").GetInt64(),
-                    corpus.GetProperty("removedTokens").GetInt64(),
-                    corpus.GetProperty("matchedEvaluationSentences").GetInt64(),
-                    corpus.GetProperty("booksAffected").GetInt64()),
+                    corpus.GetProperty(ParagraphsField).GetInt64(),
+                    corpus.GetProperty(SentencesField).GetInt64(),
+                    corpus.GetProperty(TokensField).GetInt64(),
+                    corpus.GetProperty(TypesField).GetInt64(),
+                    corpus.GetProperty(BigramTypesField).GetInt64(),
+                    corpus.GetProperty(RemovedSentencesField).GetInt64(),
+                    corpus.GetProperty(RemovedTokensField).GetInt64(),
+                    corpus.GetProperty(MatchedEvaluationSentencesField).GetInt64(),
+                    corpus.GetProperty(BooksAffectedField).GetInt64()),
                 new ClusteringResult(
                     String(result, TableShaField),
                     result.GetProperty(WordsField).GetInt64(),
                     result.GetProperty(PathsField).GetInt64(),
-                    result.GetProperty("droppedHashCollisions").GetInt64(),
-                    result.GetProperty("droppedIneligible").GetInt64(),
-                    result.GetProperty("tokenCoveragePerTenThousand").GetInt64()));
+                    result.GetProperty(DroppedHashCollisionsField).GetInt64(),
+                    result.GetProperty(DroppedIneligibleField).GetInt64(),
+                    result.GetProperty(TokenCoverageField).GetInt64()));
         }
         catch (Exception exception) when (exception is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {

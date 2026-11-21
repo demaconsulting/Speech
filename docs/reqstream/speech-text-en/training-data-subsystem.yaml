@@ -130,6 +130,30 @@ sections:
               - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
               - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
 
+          - id: SpeechTextEn-TrainingData-ClusterChecks
+            title: >-
+              The TrainingDataSubsystem shall check the committed word-cluster files on every run, offline: the
+              schema of the pinned source list, the removals and the table; that no book of the corpus is a
+              development or natural-holdout document; and that the word-cluster record still matches the
+              committed source list, removals and table and the tokenizer of the build.
+            justification: |
+              The induction of the word-cluster table is a manual command that runs for minutes to hours and
+              needs the network, so CI cannot repeat it. A cheap comparison of hashes and counts catches every
+              later edit of the table or its inputs, and a tokenizer upgrade, which would make the recorded
+              removals point at other sentences.
+            children:
+              - SpeechTextEn-TrainingData-ClusterDataChecker-Presence
+              - SpeechTextEn-TrainingData-ClusterDataChecker-Sources
+              - SpeechTextEn-TrainingData-ClusterDataChecker-Leakage
+              - SpeechTextEn-TrainingData-ClusterDataChecker-Removals
+              - SpeechTextEn-TrainingData-ClusterDataChecker-Table
+              - SpeechTextEn-TrainingData-ClusterDataChecker-Record
+              - SpeechTextEn-TrainingData-LicenseChecker-ClusterTableHeader
+              - SpeechTextEn-TrainingData-CheckDataCommand-ClusterCheck
+            tests:
+              - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
+              - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
+
           - id: SpeechTextEn-TrainingData-OverlayChecks
             title: >-
               The TrainingDataSubsystem shall check the regression overlay and the generalization set on every

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using DemaConsulting.Speech.Text.En.HeteronymSubsystem;
+using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 
@@ -30,7 +31,7 @@ internal sealed record WordClusterEntry(string Word, string Path, long Count);
 internal static class WordClusterTable
 {
     /// <summary>The file name of the table in the data folder.</summary>
-    public const string FileName = "word-clusters.tsv";
+    public const string FileName = ClusterDataChecker.TableFile;
 
     /// <summary>The header line of the table.</summary>
     public const string Header = "word\tpath\tcount";

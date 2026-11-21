@@ -91,6 +91,7 @@ internal static class Program
             error,
             currentDirectory,
             AppContext.BaseDirectory,
-            Environment.GetEnvironmentVariable);
+            Environment.GetEnvironmentVariable,
+            TrainingCorpus.TaggerVersion);
     }
 }

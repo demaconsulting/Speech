@@ -32,6 +32,10 @@ sign; with a staged file outside the data folder that repeats a training sentenc
 finding located in the staged file that carries the generic reason, says which file it checked and names no training
 row; a staged file that does not exist is a usage error with exit code 2.
 
+**Word-cluster check** (`ClusterCheck`). With word-cluster files whose record names one tokenizer version, the command
+exits 1 with a `clusters` finding naming both versions when it is given another version, and 0 when it is given the
+recorded one.
+
 #### Test Scenarios
 
 ##### Exit codes
@@ -64,3 +68,7 @@ directory below it.
 
 **Tests**: `CheckDataCommand_Run_StagedGeneralization_ChecksStagedFileWithGenericReasons`,
 `CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo`, `CheckDataCommand_TryParse_GeneralizationOption_IsParsed`
+
+##### Word-cluster check
+
+**Test**: `CheckDataCommand_Run_TokenizerVersion_IsComparedWithClusterRecord`

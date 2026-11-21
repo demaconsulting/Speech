@@ -544,7 +544,8 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   repeats or quotes an evaluation sentence removed; the induction is deterministic for any thread count and has no
   platform-dependent arithmetic (see *ClusteringSubsystem Design*). The table keys words exactly as the analyzer looks
   them up and leaves out every word of a shared lookup hash. Fetching and inducing are manual steps that no build runs;
-  the table changes no model until a later change consumes it
+  instead `check-data` (in CI) compares the record with the committed table, source list, removal list and the
+  tokenizer of the build, offline. The table changes no model until a later change consumes it
 
 ## Design Constraints
 

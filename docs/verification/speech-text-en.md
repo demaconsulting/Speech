@@ -284,8 +284,10 @@ local run, are committed as the external evaluation record and are claimed exact
 them. The word-class induction runs on three generated books served by a fake mirror: fetching with pins, the audit, the
 write and a full re-induction check succeed, a book quoting a development sentence loses exactly that sentence, the
 table words are the analyzer's lookup keys, one and three threads give byte-identical files, and a fixed-input
-clustering, a fixture corpus and a snapshot have golden results that every CI platform must reproduce. The induction of
-the real corpus is a manual step recorded in the trainer's run log.
+clustering, a fixture corpus and a snapshot have golden results that every CI platform must reproduce; the written table
+and record pass the offline word-cluster check of `check-data`, which a later edit of the source list fails. The
+induction of the real corpus is a manual step recorded in the trainer's run log, and the committed table and record pass
+`check-data` with the tokenizer of the build.
 
 ## Acceptance Criteria
 

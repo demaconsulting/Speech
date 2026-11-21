@@ -28,10 +28,11 @@ suffix `-llm`. The expected header of every table is a public constant of the cl
 
 - **Load(root, report)**: reads every table through `TsvTable` with its expected header, converts each row to a typed
   record, parses `start` and `end` as invariant-culture integers, indexes the forms by reading, applies the format rules
-  to every other `.tsv` file of the folder, and returns the loaded set. A missing required file, a header that does not
-  match, a format defect or a value that is not an integer is a finding that names the file and line; for an integer it
-  keeps the row (with a null offset), for a wrong header it loads no row of that file; the load continues and never
-  throws for a defect in the data.
+  to every other `.tsv` file of the folder except the three word-cluster tables (`ClusterDataChecker.Tables`, which that
+  check loads with their exact headers, so a defect is reported once), and returns the loaded set. A missing required
+  file, a header that does not match, a format defect or a value that is not an integer is a finding that names the file
+  and line; for an integer it keeps the row (with a null offset), for a wrong header it loads no row of that file; the
+  load continues and never throws for a defect in the data.
 - **LoadRegression(path, name, report)** and **LoadGeneralization(path, name, report)**: read one overlay file with its
   exact header through `TsvTable`, carry `name` as the file of every record (the committed file name, or
   `staged:<file>` for a staged generalization set) and report a non-integer offset as a `schema` finding that keeps the

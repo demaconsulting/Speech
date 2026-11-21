@@ -31,6 +31,9 @@ needs-review:
   - "data/text-en/regression.tsv"                                   # Text.En regression overlay (references to flagged, golden and existing sentences)
   - "data/text-en/generalization.tsv"                               # Text.En blind generalization test set
   - "data/text-en/audit/generalization-review.tsv"                  # Text.En blind label review of the generalization set
+  - "data/text-en/cluster-sources.tsv"                              # Text.En word-cluster corpus pins and license record
+  - "data/text-en/cluster-removals.tsv"                             # Text.En word-cluster leakage-audit removals (ids and hashes only)
+  - "data/text-en/clustering.json"                                  # Text.En word-cluster record (pins the table, its inputs and the tokenizer)
   - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
   - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"        # Text.En heteronym model protocol, dev exploration and gate runs
   - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"     # Text.En heteronym model training record (pins the model image hash)
@@ -3797,6 +3800,7 @@ reviews:
   # SpeechTextEn-TrainingDataProvenance Review (one per system data set)
   # The large tables of data/text-en are not review files (see the needs-review note above); the reviewed
   # MANIFEST.tsv pins every one of them, so a change to any data file changes this review set's fingerprint.
+  # The word-cluster table word-clusters.tsv is such a large table; it is pinned by MANIFEST.tsv and clustering.json.
   - id: SpeechTextEn-TrainingDataProvenance
     title: Review that SpeechTextEn Training Data Provenance and Licensing are Complete and Accurate
     context:
@@ -3809,6 +3813,9 @@ reviews:
       - "data/text-en/leakage-report.tsv"                           # recorded external leakage result
       - "data/text-en/audit/audit-summary.md"                       # blind audit summary
       - "data/text-en/prompts/*.md"                                 # prompts that produced the generated and labeled data
+      - "data/text-en/cluster-sources.tsv"                          # word-cluster corpus: books, license basis and body pins
+      - "data/text-en/cluster-removals.tsv"                         # word-cluster leakage-audit removals
+      - "data/text-en/clustering.json"                              # word-cluster record (settings and hashes)
 
   # SpeechTextEn-EvaluationOverlays Review (one per system data set)
   - id: SpeechTextEn-EvaluationOverlays
@@ -3992,6 +3999,22 @@ reviews:
       - "docs/verification/speech-text-en/training-data-subsystem/evaluation-overlay-checker.md"
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/EvaluationOverlayChecker.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/EvaluationOverlayCheckerTests.cs"
+
+  # SpeechTextEn-TrainingDataSubsystem-ClusterDataChecker Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-ClusterDataChecker
+    title: >-
+      Review that SpeechTextEn TrainingDataSubsystem ClusterDataChecker Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-data-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-data-subsystem/cluster-data-checker.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/cluster-data-checker.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/cluster-data-checker.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/ClusterDataChecker.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/ClusterDataCheckerTests.cs"
 
   # SpeechTextEn-TrainingDataSubsystem-CheckDataCommand Review (one per unit)
   - id: SpeechTextEn-TrainingDataSubsystem-CheckDataCommand

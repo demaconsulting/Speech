@@ -53,38 +53,28 @@ internal sealed record ClusterSource(
 internal sealed class ClusterSourceList
 {
     /// <summary>The file name of the list in the data folder.</summary>
-    public const string FileName = "cluster-sources.tsv";
+    public const string FileName = ClusterDataChecker.SourcesFile;
 
     /// <summary>The status of a book that is part of the corpus.</summary>
-    public const string UsedStatus = "used";
+    public const string UsedStatus = ClusterDataChecker.UsedStatus;
 
     /// <summary>The cell that marks a missing pin, year or value.</summary>
-    public const string None = "-";
+    public const string None = ClusterDataChecker.None;
 
     /// <summary>The header of the list.</summary>
-    public static readonly IReadOnlyList<string> Header =
-        ["source_id", "group", "title", "author", "year", "url", "license_basis", "basis_ref", "body_sha256", "body_bytes", "status"];
+    public static readonly IReadOnlyList<string> Header = ClusterDataChecker.SourcesHeader;
 
     /// <summary>The selection groups.</summary>
-    public static readonly IReadOnlySet<string> Groups = new HashSet<string>(StringComparer.Ordinal)
-    {
-        "core-open", "core-silver", "domain-anatomy", "domain-textiles", "domain-sport", "domain-music", "domain-clocks",
-    };
+    public static readonly IReadOnlySet<string> Groups = ClusterDataChecker.Groups;
 
     /// <summary>The statuses.</summary>
-    public static readonly IReadOnlySet<string> Statuses = new HashSet<string>(StringComparer.Ordinal)
-    {
-        UsedStatus, "excluded-dev", "excluded-holdout", "rejected-license", "rejected-content",
-    };
+    public static readonly IReadOnlySet<string> Statuses = ClusterDataChecker.Statuses;
 
     /// <summary>The only hosts books may be fetched from: official mirrors, never the main web site.</summary>
-    public static readonly IReadOnlySet<string> AllowedHosts = new HashSet<string>(StringComparer.Ordinal)
-    {
-        "gutenberg.pglaf.org", "aleph.gutenberg.org",
-    };
+    public static readonly IReadOnlySet<string> AllowedHosts = ClusterDataChecker.AllowedHosts;
 
     /// <summary>The latest year of first publication accepted (the US public-domain rule the corpus applies).</summary>
-    private const int LatestYear = 1929;
+    private const int LatestYear = ClusterDataChecker.LatestYear;
 
     /// <summary>The number of problems listed in the exception of an invalid list.</summary>
     private const int ReportedProblems = 10;

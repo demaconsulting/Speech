@@ -582,7 +582,8 @@ sections:
           table word exactly as the analyzer looks a word up and leaves out every word whose lookup key is
           shared, and that produces the same table on every run, for any number of threads and on every
           supported operating system, together with a record of its settings, input hashes and table hash and a
-          way to re-verify the table against a fresh induction.
+          way to re-verify the table against a fresh induction. The data check shall fail when the committed
+          table, pin list, removal list or tokenizer version no longer matches the record.
         tags: [system]
         justification: |
           Word classes induced from a large public-domain corpus let a later model generalize from the words
@@ -593,15 +594,19 @@ sections:
           lookup key collides with another word's would silently take that word's class, so such keys are
           left out. A table that differs between machines or thread counts could not be reviewed or
           reproduced, so the induction is deterministic, its inputs are recorded by hash, and a full
-          re-induction can show that the committed table is exactly what the recorded inputs produce.
+          re-induction can show that the committed table is exactly what the recorded inputs produce. The full
+          re-induction is manual, so the data check that runs on every change compares the record with the
+          committed files and the tokenizer instead, which catches any later edit or upgrade cheaply.
         children:
           - SpeechTextEn-Clustering-PinnedCorpus
           - SpeechTextEn-Clustering-LeakageAudit
           - SpeechTextEn-Clustering-RuntimeKeys
           - SpeechTextEn-Clustering-Deterministic
           - SpeechTextEn-Clustering-RecordAndCheck
+          - SpeechTextEn-TrainingData-ClusterChecks
         tests:
           - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
+          - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck
           - ClusteringSubsystem_Cluster_BookQuotingEvaluation_SentenceRemoved
           - ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys
           - ClusteringSubsystem_Cluster_DifferentThreadCounts_IdenticalFiles

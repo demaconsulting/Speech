@@ -16,7 +16,9 @@ so the table's origin can be verified offline and its induction repeated exactly
 - `ClusteringResult`: the table's SHA-256, its words and distinct paths, the words dropped for a shared hash or an
   ineligible character, and the token coverage in ten-thousandths
 - `ClusteringRecord`: the schema (1) and the four parts. Every field is an integer or a string; nothing depends on the
-  machine, the time or the thread count. The JSON field names that a consistency check needs are public constants
+  machine, the time or the thread count. The file name, the schema version and every JSON field name are the
+  constants of `ClusterDataChecker` (TrainingDataSubsystem), the offline consistency check of `check-data` that reads
+  the record without this type, so the writer and the check cannot drift
 
 **Key Methods**:
 
@@ -28,6 +30,7 @@ so the table's origin can be verified offline and its induction repeated exactly
 **Error Handling**: invalid JSON, another schema, a missing field or a field of the wrong type throw
 `InvalidDataException` naming the file.
 
-**Dependencies**: the .NET base class library only (the JSON reader and writer).
+**Dependencies**: `ClusterDataChecker` for the file name, schema and field names; the .NET base class library (the JSON
+reader and writer).
 
 **Callers**: `ClusterCommand` and the unit and subsystem tests.

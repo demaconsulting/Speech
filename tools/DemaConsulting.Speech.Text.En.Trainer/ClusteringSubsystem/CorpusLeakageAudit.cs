@@ -56,7 +56,7 @@ internal static class CorpusLeakageAudit
     public const int AuditVersion = 1;
 
     /// <summary>The file name of the removals in the data folder.</summary>
-    public const string FileName = "cluster-removals.tsv";
+    public const string FileName = ClusterDataChecker.RemovalsFile;
 
     /// <summary>The header line of the removals.</summary>
     public const string Header = "source_id\tparagraph\tsentence\trule\teval_file\teval_id\ttext_sha256";

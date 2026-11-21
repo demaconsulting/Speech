@@ -29,7 +29,7 @@ internal sealed record CheckDataOptions(
 /// </summary>
 /// <remarks>
 ///     The checks run in a fixed order so the output is deterministic: manifest, dataset load (file formats),
-///     schema, license, internal leakage, evaluation overlays, optional external leakage, summary. Every check runs even when an earlier
+///     schema, license, internal leakage, evaluation overlays, word-cluster files, optional external leakage, summary. Every check runs even when an earlier
 ///     one found problems, so one run lists everything. The exit code is <c>0</c> when no check found a violation,
 ///     <c>1</c> when at least one did, and <c>2</c> for a usage or I/O error (bad option, missing folder or malformed
 ///     path, an evaluation-set folder that is missing or empty, a staged generalization set that does not exist, an evaluation file with no sentences, an unreadable
@@ -52,8 +52,8 @@ internal static class CheckDataCommand
         Usage: check-data [options]
 
         Verifies the Text.En training data (manifest, file format, schema, strict whole-word spans,
-        licenses, split separation, the regression overlay and the generalization set) and optionally
-        its separation from evaluation sets.
+        licenses, split separation, the regression overlay, the generalization set and the word-cluster
+        table against its record) and optionally its separation from evaluation sets.
 
         Options:
           --data <dir>            The data folder (default: data/text-en, searched upward from the current
@@ -83,6 +83,10 @@ internal static class CheckDataCommand
     /// <param name="currentDirectory">The directory relative paths are resolved against.</param>
     /// <param name="baseDirectory">The tool's own folder, the second place the default data folder is searched from.</param>
     /// <param name="getEnvironmentVariable">Reads an environment variable (null when unset).</param>
+    /// <param name="tokenizerVersion">
+    ///     The version of the tokenizer package of this build, compared with the word-cluster record;
+    ///     <see langword="null"/> skips that comparison.
+    /// </param>
     /// <returns>The exit code: 0, 1 or 2.</returns>
     public static int Run(
         IReadOnlyList<string> args,
@@ -90,7 +94,8 @@ internal static class CheckDataCommand
         TextWriter error,
         string currentDirectory,
         string baseDirectory,
-        Func<string, string?> getEnvironmentVariable)
+        Func<string, string?> getEnvironmentVariable,
+        string? tokenizerVersion = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(output);
@@ -135,7 +140,7 @@ internal static class CheckDataCommand
                 return UsageError(error, $"the staged generalization set '{stagedPath}' was not found");
             }
 
-            return RunChecks(options, root, evalPath, reportPath, stagedPath, output);
+            return RunChecks(options, root, evalPath, reportPath, stagedPath, tokenizerVersion, output);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException or NotSupportedException)
         {
@@ -256,9 +261,10 @@ internal static class CheckDataCommand
     /// <param name="evalPath">The evaluation-set folder, or <see langword="null"/>.</param>
     /// <param name="reportPath">The leakage report file, or <see langword="null"/>.</param>
     /// <param name="stagedPath">The staged generalization set to check in place of the committed one, or <see langword="null"/>.</param>
+    /// <param name="tokenizerVersion">The tokenizer version of this build, or <see langword="null"/>.</param>
     /// <param name="output">The output writer.</param>
     /// <returns>The exit code, 0 or 1.</returns>
-    private static int RunChecks(CheckDataOptions options, string root, string? evalPath, string? reportPath, string? stagedPath, TextWriter output)
+    private static int RunChecks(CheckDataOptions options, string root, string? evalPath, string? reportPath, string? stagedPath, string? tokenizerVersion, TextWriter output)
     {
         var report = new CheckReport(options.MaxFindings);
         report.AddInfo($"check-data: data folder {root}");
@@ -272,6 +278,7 @@ internal static class CheckDataCommand
         var leakage = new LeakageChecker(data, report);
         leakage.CheckInternal();
         RunOverlayChecks(data, report, stagedPath);
+        new ClusterDataChecker(data, report, tokenizerVersion).Run();
         RunExternalLeakage(leakage, report, root, evalPath, reportPath);
 
         report.WriteTo(output);

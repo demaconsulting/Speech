@@ -21,6 +21,9 @@ altered, mislabeled, restricted, undocumented or leaking evaluation material. It
 - **LeakageChecker**: the internal split separation checks and the optional check against external evaluation sets
 - **EvaluationOverlayChecker**: the checks of the regression overlay and of the blind generalization set (references,
   seen-in-training marks, holdout separation, novelty and the quotas of the set)
+- **ClusterDataChecker**: the offline checks of the committed word-cluster files (the schema of the source list, the
+  removals and the table, the document-level leakage rule of the corpus, and the record's hashes, counts and tokenizer
+  version against the committed files and the build)
 - **CheckDataCommand**: the command line entry that orchestrates the other units (the `Program.cs` glue of the tool
   dispatches to it)
 
@@ -55,9 +58,11 @@ and runs the checks in a fixed order, each of which adds findings to the report 
 5. `LeakageChecker` checks the separation of the splits.
 6. `EvaluationOverlayChecker` checks the regression overlay and the generalization set (or, with `--generalization`,
    a staged copy of the set in place of the committed one).
-7. `LeakageChecker`, only when an evaluation folder is supplied, compares the rows with the sentences of the external
+7. `ClusterDataChecker` checks the word-cluster files against `clustering.json` and the tokenizer version the program
+   passes in (skipped when the folder has no word-cluster file).
+8. `LeakageChecker`, only when an evaluation folder is supplied, compares the rows with the sentences of the external
    evaluation sets.
-8. `CheckReport` prints the summary and gives the exit code.
+9. `CheckReport` prints the summary and gives the exit code.
 
 **Unit collaboration.** The checkers are independent of each other: each takes the loaded `TextEnDataSet` and the
 `CheckReport` (`LicenseChecker` also the data folder, because it inspects the file names and the documents), and no
@@ -65,8 +70,11 @@ checker knows another. `TsvTable` is the only unit that parses a data file, `Dat
 them, `SpanValidator` the only one that knows what a whole-word span is, and `CheckReport` the only one that decides
 the exit code. The dependency direction is `CheckDataCommand` to the units it runs, the checkers to `TextEnDataSet`,
 `SpanValidator` and `CheckReport` (`LicenseChecker` also to `DataManifest` for the list of files, and
-`EvaluationOverlayChecker` also to the `SentenceKeys` normalization of the leakage unit), and `TextEnDataSet`
-and `DataManifest` to `TsvTable` and `CheckReport` (`TextEnDataSet` also to `DataManifest`); there are no cycles.
+`EvaluationOverlayChecker` also to the `SentenceKeys` normalization of the leakage unit, `ClusterDataChecker` also to
+`TsvTable`), and `TextEnDataSet` and `DataManifest` to `TsvTable` and `CheckReport` (`TextEnDataSet` also to
+`DataManifest`, and to `ClusterDataChecker` for the names of the tables it leaves to that check); there are no cycles.
+The ClusteringSubsystem depends on `ClusterDataChecker` for the shared file names, headers and record field names, never
+the other way round.
 
 **Data Model: the dataset as a tool input.** The dataset in `data/text-en/` is not a software item. It is reviewed
 through its own review sets (see the review configuration) and pinned by `MANIFEST.tsv`. Every table is UTF-8 text
@@ -99,6 +107,15 @@ The files and their columns are:
   family (the unit of the bootstrap), `cue_forms` the designated cue words and `cue_unsolvable` whether the curated cues
   of the classifier cannot solve the row; committed with its header only until a blind writer had written it, then
   frozen with 242 rows
+- `cluster-sources.tsv` (`source_id group title author year url license_basis basis_ref body_sha256 body_bytes
+  status`): every candidate book of the word-cluster corpus with its US public-domain basis, its mirror URL and, for a
+  used book, the SHA-256 and size of its normalized body; excluded and rejected books stay listed with `-` pins
+- `cluster-removals.tsv` (`source_id paragraph sentence rule eval_file eval_id text_sha256`): the corpus sentences
+  the leakage audit removed, by position and hash only
+- `word-clusters.tsv` (`word path count`): the induced word-cluster table, one row per word in ordinal order; a large
+  table, pinned by the manifest and the record
+- `clustering.json`: the record of the table (settings, input hashes, tokenizer version, snapshot hash, corpus counts
+  and table hash)
 - `MANIFEST.tsv` (`file sha256 bytes rows`): the pinned hash, size and row count of every other file
 - the other tables, `README.md`, `ATTRIBUTION.md`, `audit/`, `prompts/` and `check-output.txt`: documentation and
   records, covered by the manifest
@@ -131,6 +148,14 @@ familiar fails the check. The quotas of the set apply only once it has rows: the
 the checks are committed, and a header-only file was valid until then (and stays valid). A staged copy outside the
 repository is checked with `--generalization <file>`; its novelty findings give a generic reason and never name a
 training row, so they can be passed back to the writer.
+
+**Word-cluster files.** The table is induced by the manual `cluster` command of the ClusteringSubsystem (see
+*SpeechTextEn ClusteringSubsystem Design*); the data check cannot repeat that induction. It checks instead that the
+record still describes the committed source list, removals and table byte for byte (by SHA-256) and the tokenizer of the
+build, so an edit of any of them, or a tokenizer upgrade, fails the check until the table is induced again; and that no
+used book is a development or natural-holdout document of the harvest provenance. The record's hash of the evaluation
+files is not gated (a development-data edit would otherwise force a new induction); the manual `cluster --check`
+verifies it. The license scan reads only the header of the table, whose rows are corpus words.
 
 **Manifest.** `MANIFEST.tsv` lists every file of the folder except itself and the local cache folders `external/` and
 `work/`, which are never committed, sorted by ordinal comparison of the forward-slash relative path, with the SHA-256

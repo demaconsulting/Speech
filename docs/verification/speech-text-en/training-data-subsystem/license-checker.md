@@ -29,6 +29,9 @@ reported.
 **Overlay metadata** (`OverlayMetadata`). A restricted term in a reference of the regression overlay gives one finding
 with its line, while the same term inside an overlay sentence gives none.
 
+**Word-cluster table header** (`ClusterTableHeader`). A restricted term as a word row of the word-cluster table gives no
+finding, while the same term in a title of the word-cluster source list gives one finding with its line.
+
 **Attribution** (`Attribution`). A `CC-BY-3.0-US` row without an attribution file, or with one that does not name the
 corpus, gives a finding, and no such row requires no attribution file; a readme without a `License:` line, a readme with
 a disallowed license and a missing audit summary each give a finding.
@@ -63,3 +66,7 @@ without a license line and one with a disallowed license.
 ##### Overlay metadata
 
 **Test**: `LicenseChecker_Run_OverlayMetadata_IsScannedButNotItsSentence`
+
+##### Word-cluster table header
+
+**Test**: `LicenseChecker_Run_WordClusterTable_OnlyHeaderIsScanned`

@@ -89,6 +89,34 @@ public sealed class CheckDataCommandTests
         Assert.DoesNotContain("harvest-00001", output);
     }
 
+    /// <summary>
+    ///     Proves the command runs the word-cluster check with the tokenizer version it is given: a record from another
+    ///     tokenizer fails the run, the matching version passes it.
+    /// </summary>
+    [Fact]
+    public void CheckDataCommand_Run_TokenizerVersion_IsComparedWithClusterRecord()
+    {
+        // Arrange
+        using var fixture = new DatasetFixture();
+        fixture.WriteClusterFiles("2.0.0");
+
+        // Act
+        string Check(string version)
+        {
+            var output = new StringWriter();
+            var exitCode = CheckDataCommand.Run(["--data", fixture.Root], output, new StringWriter(), fixture.BaseDirectory, fixture.BaseDirectory, _ => null, version);
+            return $"{exitCode}\n{output}";
+        }
+
+        var stale = Check("2.0.1");
+        var current = Check("2.0.0");
+
+        // Assert
+        Assert.StartsWith("1\n", stale, StringComparison.Ordinal);
+        Assert.Contains("check-data: clusters: clustering.json: tokenizerVersion '2.0.0' is not the tokenizer of this build '2.0.1'", stale, StringComparison.Ordinal);
+        Assert.StartsWith("0\n", current, StringComparison.Ordinal);
+    }
+
     /// <summary>Proves a staged generalization set that does not exist is a usage error with exit code 2.</summary>
     [Fact]
     public void CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo()

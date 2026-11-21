@@ -28,9 +28,10 @@ stated order, share one report and agree on the exit codes.
 
 - **Command contract** (`CheckCommand`, `FileFormat`, `SchemaValidation`, `LicenseGate`, `LeakageGate`): a valid fixture
   and the real committed data pass every check with exit code 0 and the summary `check-data: OK (0 findings)` (the
-  fixture run also says that the optional external check was skipped); each of six single violations (a missing final
-  newline, an unknown reading, a restricted license, an evaluation-only file name, a duplicate sentence and a wrong
-  seen mark of the regression overlay) gives exit code 1 with a line that names its check.
+  fixture run also says that the optional external check was skipped); each of eight single violations (a missing final
+  newline, an unknown reading, a restricted license, an evaluation-only file name, a duplicate sentence, a wrong
+  seen mark of the regression overlay, a word-cluster table edited after its record was written and a used corpus book
+  that is a development document) gives exit code 1 with a line that names its check.
 - **Manifest** (`FileFormat`): a changed file is named in a manifest finding until the manifest is regenerated, and then
   the data passes.
 - **External sets** (`LeakageGate`): an evaluation folder with a sentence equal to a row gives an exact-match finding.
@@ -39,6 +40,9 @@ stated order, share one report and agree on the exit codes.
   with the generic reason and no training row named; every golden and test reference of the committed regression
   overlay resolves to a line or row of the repository's test files or run log that holds its sentence (and, where the
   file names one, its reading).
+- **Word-cluster files** (`ClusterChecks`): a table edited after its record was written gives exit code 1 with a
+  `clusters` finding, and a used corpus book that is the source document of a development row gives a `leakage`
+  finding; the committed folder, with its committed table and record, passes with the tokenizer version of this build.
 
 ### Test Scenarios
 
@@ -47,19 +51,21 @@ stated order, share one report and agree on the exit codes.
 **Tests**: `TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks`,
 `TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks`
 
-The command runs over the valid fixture and over the committed folder; both give exit code 0 and no finding, and the
-fixture run says that the optional external check was skipped. The committed-folder test is the system-level evidence
+The command runs over the valid fixture and over the committed folder, with the tokenizer version of this build as the
+trainer passes it; both give exit code 0 and no finding, and the fixture run says that the optional external check was
+skipped. The committed-folder test is the system-level evidence
 that the repository's data is open, consistent, separated and documented.
 
 #### Single violations
 
 **Test**: `TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck`
 
-A theory over six named mutations of the valid fixture, one per check family: the format, the schema, the licenses (a
+A theory over eight named mutations of the valid fixture, one per check family: the format, the schema, the licenses (a
 share-alike license and a file named after an evaluation-only corpus), the separation of the splits (a duplicate
-sentence) and the evaluation overlays (a wrong seen mark). Each mutation recomputes the manifest and runs the command;
-the exit code is 1 and the output contains a line that names the expected check and the failure summary. The finer cases
-of each check are unit-level tests.
+sentence), the evaluation overlays (a wrong seen mark) and the word-cluster files (a consistent set of word-cluster
+files, then an edited table, or a development document as a used book). Each mutation recomputes the manifest and runs
+the command; the exit code is 1 and the output contains a line that names the expected check and the failure summary.
+The finer cases of each check are unit-level tests.
 
 #### Manifest drift
 
@@ -89,4 +95,4 @@ skipped, and says so, only when the repository root or the overlay is absent.
 
 See also *SpeechTextEn System Verification* and the unit documents `tsv-table.md`, `text-en-data-set.md`,
 `data-manifest.md`, `span-validator.md`, `check-report.md`, `schema-checker.md`, `license-checker.md`,
-`leakage-checker.md`, `evaluation-overlay-checker.md` and `check-data-command.md`.
+`leakage-checker.md`, `evaluation-overlay-checker.md`, `cluster-data-checker.md` and `check-data-command.md`.

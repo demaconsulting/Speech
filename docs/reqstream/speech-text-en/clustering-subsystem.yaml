@@ -91,6 +91,7 @@ sections:
               - SpeechTextEn-Clustering-ClusterCommand-Preflight
             tests:
               - ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys
+              - ClusteringSubsystem_CommittedTable_WordsAreUniqueRuntimeKeys
 
           - id: SpeechTextEn-Clustering-Deterministic
             title: >-
@@ -141,3 +142,4 @@ sections:
               - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
               - ClusteringSubsystem_Cluster_EditedTable_CheckIsStale
               - ClusteringSubsystem_Cluster_FromSnapshot_ReproducesTable
+              - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck

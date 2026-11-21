@@ -30,6 +30,10 @@ Verifies the data folder and reports every violation as `check-data: <check>: <f
 - `leakage`: the splits stay disjoint (sentences, source documents, synthetic templates)
 - `overlay`: the regression overlay (references, seen-in-training marks, no holdout contact) and the generalization
   set (novelty rules N1 to N3 against the training and development data, and its quotas once it has rows)
+- `clusters`: the word-cluster files, offline: the schema of `cluster-sources.tsv`, `cluster-removals.tsv` and
+  `word-clusters.tsv`, and `clustering.json` against the SHA-256 of all three and the tokenizer version of this build
+  (a `leakage` finding when a used corpus book is a development or natural-holdout document); skipped when the folder
+  has none of the four files
 
 Options:
 
@@ -222,15 +226,21 @@ of logarithms of small counts), only `+`, `-`, `*` and `/` are used in a fixed o
 disjoint cells and are separated by barriers; ties go to the lowest slots. The table is therefore byte-identical for any
 `--threads` and on every operating system; golden tests check it in every CI job. `--write` prints the progress every
 1,000 words with the time left, and the time of each stage, so a run can be benchmarked. A micro-benchmark with 512
-clusters measured about 5 ms per word on one thread and about 1.1 ms per word with 8 or more threads (28-thread laptop):
-about 4 minutes and 1 minute for 50,000 words, plus tokenization, counting and the audit.
+clusters measured about 5 ms per word on one thread and about 1.1 ms per word with 8 or more threads (28-thread laptop).
+The committed table (280 books, 31.4 million tokens, 60,000 words, 512 clusters) took 1 minute 23 seconds with 28
+threads and 6 minutes 19 seconds with one thread, most of it the induction; both runs gave the same bytes (see
+`RUN-LOG.md`).
 
 **Lookup keys.** Words are tokenized and normalized exactly as the analyzer does (the command stops if a word does not
 hash to the analyzer's key). When two vocabulary words share a lookup hash, both are left out of the table, so no word
 can take another word's class.
 
 The command is never run by `build.ps1`, `lint.ps1` or a workflow; only its tests run in CI, offline, on generated
-books.
+books. CI instead runs the cheap offline gate of `check-data` (check `clusters`): the record must still match the
+committed source list, removals and table byte for byte and the tokenizer of the build. Any later edit of those files,
+or a tokenizer upgrade (which moves the sentence boundaries the removals refer to), therefore fails `check-data` until
+`cluster --audit --write` and `cluster --write` are run again. The record's hash of the evaluation files is checked only
+by the manual `cluster --check`, so editing development data does not force a new induction.
 
 ## Files
 
@@ -238,7 +248,8 @@ books.
   the feature stream, the tagger and format versions and the SHA-256 of the uncompressed model image. `train --check`
   verifies it, with `src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin` (the model the package embeds), by
   retraining. A model or a record is only ever written by `train`; do not edit either by hand.
-- `RUN-LOG.md`: the protocol, the development-set exploration, and every run of the gate with its numbers
+- `RUN-LOG.md`: the protocol, the development-set exploration, and every run of the gate with its numbers, and the
+  word-cluster corpus, audit, preflight, induction and re-induction check
 - `docs/evaluation/text-en/` (in the repository root): the committed evaluation record that `evaluate --write` writes
   and `evaluate --check` verifies, with the headline results and the limits of the evidence in its `README.md`
 - `external-sources.json`, `external-files.tsv`: the pins of the external evaluation datasets (see `evaluate-external`)
