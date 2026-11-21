@@ -898,3 +898,124 @@ gets every regression row right; no feature-set-1 model gets every `listening` r
 the order-only reference for the PR B candidates (the same data and features as the shipped model, the keyed order):
 dev natural 1,266, dev end to end 3,097, regression 511 with the cues and 511 alone. The models are in scratch folders
 outside the repository and were not committed.
+
+## PR B: procedure fixed before any training with word classes (2026-11-21)
+
+Written before any model with word classes or the new features exists, before any synthetic-v4 row was written, and
+before any PR B candidate was trained. Committed together with the writer and review prompts of the data round
+(`data/text-en/prompts/generation-synthetic-v4.md` and `review-synthetic-v4.md`). Sets read for this entry: none. The
+pre-registered criterion (entry "protocol and pre-registration", 2026-11-20) and its amendment (2026-11-21) are
+unchanged; this entry fixes how PR B gets to the single read.
+
+**Feature specification** (decided now, implemented before the first candidate):
+
+- **Model file format 2** (`HETW` version 2; the 80-byte header keeps its offsets): byte 13 holds the feature options
+  (bit 0 the curated layer, other bits zero), the 32-bit field at offset 44 holds the section count (1 to 8), bytes 14
+  and 15 stay zero. After inflating, a directory of `(u16 id, u16 zero, u32 length)` entries with strictly increasing
+  ids is followed by the sections in id order, whose lengths sum exactly to the payload. Section 1 holds the weights in
+  today's layout (required); section 2 holds the word classes (optional: absent means a model without word classes,
+  model B); ids 3 and up are reserved and rejected, as are a duplicate id, a missing weights section, a length mismatch
+  and trailing bytes. A version 1 file is rejected. The word-class section: a cluster count C (1 to 4,096), C entries of
+  path length (1 to 32) and path bits, a word count W (1 to 262,144), then W gap-coded 32-bit lookup hashes (strictly
+  increasing), W 16-bit fingerprints and W cluster indexes below C; every count is checked before any allocation.
+- **Lookup fingerprint: 16 bits.** Each token carries, beside its 32-bit FNV-1a lookup hash, a 16-bit fingerprint (a
+  Murmur3-style 32-bit mix with its own seed over the same normalized code units, folded as `x ^ (x >> 16)`). A word
+  gets a table word's class only when both the hash and the fingerprint match, so a word outside the table borrows a
+  class with a probability of about 60,000 / 2^48 per token. 16 rather than 32 bits keeps about 120 KB of
+  incompressible bytes out of the model. The width is fixed here and is not changed after the read.
+- **Feature set 2**: the 32 templates of feature set 1 unchanged, plus: the classes of the words at offsets -2, -1, +1
+  and +2 at the prefixes of 4, 6 and 10 bits and the full path (conjoined); the classes of the neighbors at -1 and +1 at
+  4 and 6 bits (shared); a bag of the classes of the content words within 8 tokens (6 and 10 bits; conjoined); the 6-bit
+  class next to the target with the target's part of speech (shared); the target form with its part of speech
+  (conjoined). A word without a class emits no class feature, so an empty table is exactly "without word classes".
+- **Curated layer** (features, no longer priors; only when the model's options enable it): a degree adverb right before
+  the target (the 29 adverbs of the classifier), a coordinated adjective on either side, and a past-time word
+  (*yesterday*, *ago*, *previously*, or *last* with one of the 13 time nouns) in the target's own clause (bounded by a
+  coordinating or subordinating conjunction or a semicolon, not by a comma), with its side and whether an auxiliary or
+  particle stands right before the target. The lists move from the classifier into the extractor unchanged; the 23
+  context-cue words of *tear* are not carried over. The four cue priors are removed from the classifier.
+- **Primary part-of-speech sharing**: every shared feature is scored through the reading's role salt and through the
+  salt of the first tag of its `pos_hint`, in the classifier and the trainer alike.
+- **Keyed visiting order** becomes the default (trainer version 2); positional stays an experiment option.
+- **Variants** for the criterion: `train --clusters none` (no word-class section) and `--curated off` (options bit 0
+  clear), both experiment options; the 2 by 2 ablation runs every cell end to end through the analyzer from the model
+  file alone.
+
+**Settings.** Training starts from the committed settings (seed 1, 22 hash bits, scale 64, prune threshold 2, natural
+weight 3, at most 12 epochs, the temperature grid) with the keyed order. Before the read the only knobs are:
+
+- the prune threshold, for size, by the development rule (the highest number of development natural rows decided
+  correctly, ties to the smaller model);
+- data replacement and top-up through the data-round procedure below;
+- defect fixes.
+
+Nothing else (hash bits, scale, natural weight, epochs, seed, the feature templates, the fingerprint width, the
+512-class table) changes before the read.
+
+**Data round (synthetic-v4).** 465 rows by the committed prompts, balanced per reading and written as contrastive pairs
+(`quotas-v4.tsv` in the prompt): part 0 tear, wound, minute and read (285 rows); part 1 bass, lead, close, live, wind
+and content (180 rows). This follows the owner's split, which puts *read* in part 0 (the plan had it in part 1); the
+quotas are those of the plan.
+
+- **Model families.** Writers `claude-sonnet-5.5` (one `general-purpose` instance per part; top-ups by new instances of
+  the same model); blind reviewer `gpt-6.1-sol`.
+- **Stage.** Outside the repository, holding only copies of `readings.tsv`, `forms.tsv`, `train.tsv`, `dev.tsv`, the
+  quota file and the prompts, the prompt text exactly as committed with only the staging folder substituted.
+- **Mechanical filters** (a script; nobody reads generalization rows): a row is dropped when it fails its offsets, form
+  or single-target check; repeats exactly or nearly (the "Leakage" rule of the data README) a sentence of train, dev,
+  either holdout, `regression.tsv` or `generalization.tsv`; breaks the novelty rule N2 or N3 of any generalization row
+  of its lemma group; would make a regression row seen in training; or has a (reading, template) pair already in train
+  or dev.
+- **Top-ups.** At most 2 rounds for readings under quota, with a generic note only (never a training, regression or
+  generalization sentence), then filtered again.
+- **Blind review.** Every surviving row; a disagreement or `unsure` drops the row, never relabels it. A reading below 90
+  percent of its quota gets one further top-up and a second review instance on the new rows only. Recorded as
+  `audit/review-synthetic-v4.tsv` with round and decision columns.
+- **Development rows.** The round-1 rule: per reading, the templates in SHA-1 order, about 12 percent of the reading's
+  new rows to dev, never splitting a (reading, template) pair.
+- **Gate of the data.** `check-data` exit 0 (with the generalization novelty rules against the final train and dev
+  data) and the external leakage check over the cached evaluation sets.
+
+**Freeze checklist** (readiness, not binding; the read is taken also when it is not met, and the result says so):
+
+- the regression overlay is 100 percent on the `listening`, `analyzer-test` and every `golden-*` origin for model A at
+  seed 1, and each such row is right on at least 4 of the 5 seeds;
+- the model file is at most 0.70 MB;
+- the development set end to end is reported against the shipped 3,083 of 3,235 (not a gate).
+
+**The read.** One run of `evaluate --ablation --ablation-dir <scratch>`: it trains the four cells (clusters off and on
+by curated layer off and on) at seed 1 and models A and B at seeds 2 to 5, all from scratch paths, evaluates them as
+pre-registered and exits 0 on a pass and 1 on a fail. Its console output for the generalization set is aggregate only
+(the pre-registered slices, the per-seed figures and the image hashes; no per-row or per-reading generalization detail),
+so that a second candidate, if the failure path needs one, stays as uninformed as possible. Its figures are logged here
+before anything else is done.
+
+**Retirement of the cue-unsolvable verification.** The evaluator's check that no cue prior acts on a
+`cue_unsolvable=yes` overlay row is retired together with the priors: its referent no longer exists in PR B's models.
+The 80 marked rows were verified against the priors on 2026-11-21 (entry "baseline of the shipped model on the
+overlays"), the set is pinned by SHA-256 (`b2b33140...937e`), and the mark stays as a frozen stratum label for the
+pre-registered subset analysis. The overlays are then reported for the model under test only, by slice, with clustered
+intervals.
+
+**Not built in PR B.** The "fresh natural audit set" planned in PR A is outside PR B's scope (owner decision); the
+legacy natural holdout is the natural guard, as the criterion states.
+
+**Failure path.**
+
+1. A failed criterion or guard at the read (difference below +300 basis points, a lower bound at or below 0, a seed mean
+   at or below 0, or generalization A below 177 of 242) is logged. No tuning on the generalization set or a holdout:
+   the diagnosis uses the development set and the regression overlay only. At most one further frozen candidate, after
+   an entry "PR B: second pre-registration" that states the change, its development and regression basis, that the
+   generalization set has been read once, and that the next read is read 2 (both reads are reported).
+2. A failed gate (natural holdout below 1,123 of 1,167) or a failed golden after a passing read is treated the same way;
+   no golden is edited or demoted.
+3. Still failing: stop with the result incomplete and all figures; nothing is pushed and the word-class and cue-removal
+   commits are not made. The branch keeps the commits up to the read log (the shipped model and the cue priors intact),
+   and the working tree is saved for the owner outside the repository.
+
+**Discipline until the read** (the amendment, applied): candidates live in scratch folders and are evaluated only with
+`evaluate --set dev --set regression` and the trainer's development figures; never `--set generalization`,
+`--set holdout-natural`, `--gate`, `--seeds`, `--write` or `--check` on a candidate; from the first change of the
+runtime until the read, neither `build.ps1` nor the trainer tests whose names contain `Committed` are run (they evaluate
+the holdouts and the generalization set of the working-tree model); no candidate model or record is committed before the
+read is logged here.
