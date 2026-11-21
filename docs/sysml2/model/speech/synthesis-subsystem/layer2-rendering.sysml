@@ -22,7 +22,7 @@ package Speech_Layer2Rendering {
              * processed. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/IModelCapabilityProfile.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultModelCapabilityProfile.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechPlan.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSegment.cs");
+            sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/IModelCapabilityProfile.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultModelCapabilityProfile.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSegment.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechPlan.cs");
             testFiles = ("test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultModelCapabilityProfileTests.cs");
             designFiles = ("docs/design/speech/synthesis-subsystem/layer2-rendering.md");
             verificationFiles = ("docs/verification/speech/synthesis-subsystem/layer2-rendering.md");

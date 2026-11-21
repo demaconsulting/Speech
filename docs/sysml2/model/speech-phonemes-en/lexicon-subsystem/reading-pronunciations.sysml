@@ -10,7 +10,7 @@ package SpeechPhonemesEn_ReadingPronunciations {
              * headword, a regular inflection of it or an override, reporting everything else as an explicit gap. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/ReadingPronunciations.cs", "src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/LexiconCorrections.cs");
+            sourceFiles = ("src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/ReadingPronunciations.cs", "data/phonemes-en/reading-pronunciations.tsv", "data/phonemes-en/form-overrides.tsv", "src/DemaConsulting.Speech.Phonemes.En/LexiconSubsystem/LexiconCorrections.cs");
             testFiles = ("test/DemaConsulting.Speech.Phonemes.En.Tests/LexiconSubsystemTests.Readings.cs");
             designFiles = ("docs/design/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.md");
             verificationFiles = ("docs/verification/speech-phonemes-en/lexicon-subsystem/reading-pronunciations.md");

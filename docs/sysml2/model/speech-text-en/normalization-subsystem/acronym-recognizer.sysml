@@ -8,7 +8,7 @@ package SpeechTextEn_AcronymRecognizer {
              * against all-capital shouting. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AcronymRecognizer.cs");
+            sourceFiles = ("src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AcronymRecognizer.cs", "src/DemaConsulting.Speech.Text.En/Resources/acronyms.tsv");
             testFiles = ("test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AcronymRecognizerTests.cs");
             designFiles = ("docs/design/speech-text-en/normalization-subsystem/acronym-recognizer.md");
             verificationFiles = ("docs/verification/speech-text-en/normalization-subsystem/acronym-recognizer.md");

@@ -14,7 +14,7 @@ package Speech_SynthesisBackend {
              * SpeechSherpa. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackend.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackendFactory.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultSynthesisBackendFactory.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/IAnnotatedSynthesisBackend.cs");
+            sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackend.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/IAnnotatedSynthesisBackend.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/ISynthesisBackendFactory.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/DefaultSynthesisBackendFactory.cs");
             testFiles = ("test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs", "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultSynthesisBackendFactoryTests.cs");
             designFiles = ("docs/design/speech/synthesis-subsystem/synthesis-backend.md");
             verificationFiles = ("docs/verification/speech/synthesis-subsystem/synthesis-backend.md");

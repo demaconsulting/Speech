@@ -11,7 +11,7 @@ package SpeechTextEn_ReadingInventory {
              * share. It is immutable and thread-safe. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/ReadingInventory.cs");
+            sourceFiles = ("src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/ReadingInventory.cs", "data/text-en/readings.tsv", "data/text-en/forms.tsv");
             testFiles = ("test/DemaConsulting.Speech.Text.En.Tests/HeteronymSubsystem/ReadingInventoryTests.cs");
             designFiles = ("docs/design/speech-text-en/heteronym-subsystem/reading-inventory.md");
             verificationFiles = ("docs/verification/speech-text-en/heteronym-subsystem/reading-inventory.md");

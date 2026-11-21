@@ -18,6 +18,7 @@ package Speech_DownloadMirror {
             requirementFiles = ("docs/reqstream/speech/model-management-subsystem/download-mirror.yaml");
         }
 
+        attribute baseUri : String;
         attribute bearerToken : String [0..1];
     }
 }

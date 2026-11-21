@@ -15,6 +15,7 @@ package Speech_PortAudioHostApiInfo {
         }
 
         attribute name : String;
+        attribute type : Speech_PortAudioHostApiType::PortAudioHostApiTypeKind;
         attribute defaultInputDeviceIndex : Integer;
         attribute defaultOutputDeviceIndex : Integer;
         attribute deviceCount : Integer;

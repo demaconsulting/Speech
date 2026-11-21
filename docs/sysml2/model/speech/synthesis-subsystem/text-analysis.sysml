@@ -11,7 +11,7 @@ package Speech_TextAnalysis {
              * span); and the supporting TextAnalysisResult, SegmentAnnotation and TextAnalysisConventions types. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/ITextAnalyzer.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisResult.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/SegmentAnnotation.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/AnnotationList.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisConventions.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisMapper.cs");
+            sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/ITextAnalyzer.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisResult.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/SegmentAnnotation.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisConventions.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/TextAnalysisMapper.cs", "src/DemaConsulting.Speech/SynthesisSubsystem/AnnotationList.cs");
             testFiles = ("test/DemaConsulting.Speech.Tests/SynthesisSubsystem/TextAnalysisMapperTests.cs", "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SegmentAnnotationTests.cs", "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/TextAnalysisResultTests.cs");
             designFiles = ("docs/design/speech/synthesis-subsystem/text-analysis.md");
             verificationFiles = ("docs/verification/speech/synthesis-subsystem/text-analysis.md");

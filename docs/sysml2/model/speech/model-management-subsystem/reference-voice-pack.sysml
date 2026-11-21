@@ -26,12 +26,15 @@ package Speech_ReferenceVoicePack {
 
         attribute id : String;
         attribute displayName : String;
+        attribute uri : String;
         attribute sha256Checksum : String;
         attribute sizeBytes : Integer;
         attribute archiveFileName : String;
         attribute archiveRootFolder : String;
         attribute licenseName : String;
+        attribute licenseUrl : String;
         attribute attribution : String;
+        attribute sourceUrl : String;
         attribute voicesBytes : Integer;
         attribute emotionsBytes : Integer;
 

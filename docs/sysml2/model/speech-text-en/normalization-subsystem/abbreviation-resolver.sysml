@@ -28,7 +28,7 @@ package SpeechTextEn_AbbreviationResolver {
              * elsewhere, and recognizes the name suffixes and credentials (Jr., Ph.D., III) that continue a name. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AbbreviationResolver.cs");
+            sourceFiles = ("src/DemaConsulting.Speech.Text.En/NormalizationSubsystem/AbbreviationResolver.cs", "src/DemaConsulting.Speech.Text.En/Resources/abbreviations.tsv");
             testFiles = ("test/DemaConsulting.Speech.Text.En.Tests/NormalizationSubsystem/AbbreviationResolverTests.cs");
             designFiles = ("docs/design/speech-text-en/normalization-subsystem/abbreviation-resolver.md");
             verificationFiles = ("docs/verification/speech-text-en/normalization-subsystem/abbreviation-resolver.md");

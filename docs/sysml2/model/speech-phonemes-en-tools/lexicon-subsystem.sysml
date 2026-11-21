@@ -7,8 +7,7 @@ package SpeechPhonemesEnTools_LexiconSubsystem {
 
     part def LexiconSubsystem {
         doc /* The build-lexicon command and its helpers: reads the pinned CMU Pronouncing Dictionary, writes the
-             * embedded lexicon image and verifies the committed image and the data manifest; also the
-             * measure-morphology command. */
+             * embedded lexicon image and verifies the committed image against the data manifest. */
 
         metadata info : SoftwareInfo {
         }

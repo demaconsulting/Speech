@@ -14,6 +14,8 @@ package Speech_SpeechModelDownloadDescriptor {
             requirementFiles = ("docs/reqstream/speech/model-management-subsystem/speech-model-download-descriptor.yaml");
         }
 
+        part files : Speech_SpeechModelDownloadFile::SpeechModelDownloadFile [0..*];
+
         // Lists the individual download files needed to install a model.
         dependency SpeechModelDownloadDescriptor to SpeechModelDownloadFile;
     }

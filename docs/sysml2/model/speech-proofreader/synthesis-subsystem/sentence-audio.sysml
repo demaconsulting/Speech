@@ -11,6 +11,7 @@ package SpeechProofreader_SentenceAudio {
         }
 
         attribute error : String [0..1];
+        attribute isSuccess : Boolean;
 
         // Holds the engine output and the RecordingSynthesisModel captures for one synthesized sentence.
         dependency SentenceAudio to RecordingSynthesisModel;

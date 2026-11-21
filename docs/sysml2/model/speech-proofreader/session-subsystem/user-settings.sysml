@@ -15,6 +15,7 @@ package SpeechProofreader_UserSettings {
         }
 
         attribute abMode : Boolean;
+        attribute lastCategory : SpeechProofreader_FlagCategory::FlagCategoryKind [0..1];
 
         // Saves session model selections and the last FlagCategory using SessionFile-style JSON
         // persistence.

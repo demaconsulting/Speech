@@ -1,6 +1,8 @@
 package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
     private import SoftwareItemMetadata::*;
+    private import SpeechOnnxNemotronStt_NemotronEncoder::*;
     private import SpeechOnnxNemotronStt_NemotronRnntGreedyDecoder::*;
+    private import SpeechOnnxNemotronStt_NemotronRnntNetwork::*;
     private import SpeechOnnxNemotronStt_NemotronVocabulary::*;
     private import SpeechOnnxNemotronStt_OnnxNemotronRecognitionEngine::*;
 
@@ -20,7 +22,9 @@ package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
 
         // Declares the model contract and downloads, then builds the Nemotron engine, decoder, and
         // vocabulary.
+        dependency OnnxNemotronMultilingualRecognitionModel to NemotronEncoder;
         dependency OnnxNemotronMultilingualRecognitionModel to NemotronRnntGreedyDecoder;
+        dependency OnnxNemotronMultilingualRecognitionModel to NemotronRnntNetwork;
         dependency OnnxNemotronMultilingualRecognitionModel to NemotronVocabulary;
         dependency OnnxNemotronMultilingualRecognitionModel to OnnxNemotronRecognitionEngine;
         dependency OnnxNemotronMultilingualRecognitionModel to SpeechOnnx_OnnxExecutionProviderSelector::OnnxExecutionProviderSelector;

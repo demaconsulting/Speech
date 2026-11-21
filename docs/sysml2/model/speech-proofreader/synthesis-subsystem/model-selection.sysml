@@ -12,6 +12,9 @@ package SpeechProofreader_ModelSelection {
 
         attribute modelId : String;
         attribute displayName : String;
+        // Parameters: one entry per key; parameters_key[i] maps to parameters_value[i].
+        attribute parameters_key : String [0..*];
+        attribute parameters_value : ScalarValue [0..*];
         attribute key : String;
     }
 }

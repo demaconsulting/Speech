@@ -1,5 +1,7 @@
 package SpeechOnnxNemotronStt_NemotronRnntNetwork {
     private import SoftwareItemMetadata::*;
+    private import SpeechOnnxNemotronStt_NemotronEncoder::*;
+    private import SpeechOnnxNemotronStt_OnnxNemotronRecognitionEngine::*;
 
     part def NemotronRnntNetwork {
         doc /* ONNX-backed decoder and joint networks implementing the IRnntNetwork seam used by the RNN-T greedy
@@ -12,5 +14,11 @@ package SpeechOnnxNemotronStt_NemotronRnntNetwork {
             verificationFiles = ("docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md");
             requirementFiles = ("docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.yaml");
         }
+
+        // Runs the ONNX Runtime decoder and joint networks that the recognition engine's greedy decoder
+        // calls.
+        dependency NemotronRnntNetwork to NemotronEncoder;
+        dependency NemotronRnntNetwork to OnnxNemotronRecognitionEngine;
+        dependency NemotronRnntNetwork to OtsDependencies::MicrosoftMlOnnxRuntime;
     }
 }

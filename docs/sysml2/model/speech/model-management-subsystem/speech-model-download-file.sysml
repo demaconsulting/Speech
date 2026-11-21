@@ -14,6 +14,7 @@ package Speech_SpeechModelDownloadFile {
             requirementFiles = ("docs/reqstream/speech/model-management-subsystem/speech-model-download-file.yaml");
         }
 
+        attribute uri : String;
         attribute sha256Checksum : String;
         attribute relativeInstallPath : String;
     }

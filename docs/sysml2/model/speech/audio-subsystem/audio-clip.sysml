@@ -18,6 +18,8 @@ package Speech_AudioClip {
         attribute sampleRate : Integer;
         attribute channelCount : Integer;
         attribute bitsPerSample : Integer;
+        attribute frameCount : Integer;
+        attribute duration : Real;
 
         // Delegates its derived mono and resampled views to the audio resampler.
         dependency AudioClip to AudioResampler;

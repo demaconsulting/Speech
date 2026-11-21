@@ -8,7 +8,7 @@ package Speech_SpeechSynthesizerUnavailableException {
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerUnavailableException.cs");
-            testFiles = ("test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs");
+            testFiles = ("test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs", "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSynthesisSessionTests.cs");
             designFiles = ("docs/design/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md");
             verificationFiles = ("docs/verification/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md");
             requirementFiles = ("docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.yaml");

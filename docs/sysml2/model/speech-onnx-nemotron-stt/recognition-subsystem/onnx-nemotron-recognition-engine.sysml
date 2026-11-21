@@ -31,5 +31,6 @@ package SpeechOnnxNemotronStt_OnnxNemotronRecognitionEngine {
         dependency OnnxNemotronRecognitionEngine to SilenceRunLimiter;
         dependency OnnxNemotronRecognitionEngine to Speech_RecognitionBackend::RecognitionBackend;
         dependency OnnxNemotronRecognitionEngine to Speech_SpeechRecognitionResult::SpeechRecognitionResult;
+        dependency OnnxNemotronRecognitionEngine to OtsDependencies::MicrosoftMlOnnxRuntime;
     }
 }
