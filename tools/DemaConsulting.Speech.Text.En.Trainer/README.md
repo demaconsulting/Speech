@@ -227,13 +227,26 @@ disjoint cells and are separated by barriers; ties go to the lowest slots. The t
 `--threads` and on every operating system; golden tests check it in every CI job. `--write` prints the progress every
 1,000 words with the time left, and the time of each stage, so a run can be benchmarked. A micro-benchmark with 512
 clusters measured about 5 ms per word on one thread and about 1.1 ms per word with 8 or more threads (28-thread laptop).
-The committed table (280 books, 31.4 million tokens, 60,000 words, 512 clusters) took 1 minute 23 seconds with 28
-threads and 6 minutes 19 seconds with one thread, most of it the induction; both runs gave the same bytes (see
-`RUN-LOG.md`).
+The committed table (280 books, 31.3 million tokens, 60,000 words, 512 clusters) took 1 minute 24 seconds with 28
+threads and 6 minutes 9 seconds with one thread, most of it the induction; both re-induction checks gave the same bytes
+(see `RUN-LOG.md`).
 
 **Lookup keys.** Words are tokenized and normalized exactly as the analyzer does (the command stops if a word does not
 hash to the analyzer's key). When two vocabulary words share a lookup hash, both are left out of the table, so no word
 can take another word's class.
+
+**Corpus snapshot.** `--write` and `--check` also build `cluster-corpus.tar` in the cache: a ustar archive of
+`cluster-sources.tsv`, a `NOTICE.txt` and every normalized body in a fixed order, with zero timestamps, owners and
+modes fixed, so the archive is byte-reproducible and its SHA-256, size and file count go into `clustering.json`. It is
+not published. The proposal, an open question for the owner, is to attach it to a release of the repository as
+`text-en-cluster-corpus-<first 8 hex digits of its SHA-256>.tar` and put its URL in `snapshotUrl` (a later `--check`
+keeps the URL while the hash matches). Anyone could then verify it by its SHA-256 and run
+`cluster --check --from-snapshot <file>` without the mirror.
+
+**Adding or removing a book.** Edit its row in `cluster-sources.tsv` (a domain book is used only with its publication
+year and the evidence for it read from the book itself), run `cluster --fetch --write-pins`, then
+`cluster --audit --write`, `cluster --preflight` (the vocabulary rule of `RUN-LOG.md`), `cluster --write` with the
+recorded settings and both `cluster --check --threads 1` and with all threads, and record the run in `RUN-LOG.md`.
 
 The command is never run by `build.ps1`, `lint.ps1` or a workflow; only its tests run in CI, offline, on generated
 books. CI instead runs the cheap offline gate of `check-data` (check `clusters`): the record must still match the

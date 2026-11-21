@@ -1,7 +1,7 @@
 # Checksums of the files of data/text-en/, verified by the check-data command of the Text.En trainer; MANIFEST.tsv itself and the local caches external/ and work/ are not listed
 # columns = file, sha256, bytes, rows (lines minus the header for .tsv files, lines for all other files)
 ATTRIBUTION.md	841bf1862cbf3017dd1090243835c262d3a5a438a12eb2411c47abf0b83e1e0c	2698	39
-README.md	5dac0544ddfa1e8cc68b9bb4a5616a4c3bcc4f0dc6a7bfcc7cfc101956eb2210	51569	486
+README.md	8beb1aceacb0ee05e246cd5d60aba9238ea28746e8979d9edbc2b200be384017	52124	490
 audit/adjudication.tsv	143c53f1e124b2d5e3d7fe16f2a761f13117cea12238412f80b7ce2aa198e6ec	9952	85
 audit/audit-summary.md	2c5067b5d599a458a0b84da5c4332c5e51a3c8abec30ca522f0b501e93e1db2e	9312	121
 audit/consistency-fixes.tsv	ce8e67110b396db315f93a56975b9b97d1c96fcb1d444530524eeb46e68b4c00	3072	27
@@ -12,8 +12,8 @@ audit/holdout-review.tsv	0b5036e120178cb2298d742074f26cec895c671eacd54f56103d9fa
 bench-mapping.tsv	952070776ee0977c01a06dc75117638ddac56e4c2d135db7ae72f223b7591e8d	1378	60
 check-output.txt	048eecd3a88c518c346b989a1a74449f336c9f3573e7ce743b7850208ad51fb4	6281	85
 cluster-removals.tsv	84794fd8752dba2a9a8e85d30ab1ee2cfc2ed12ba1c1ba685541d058dfc1e77b	781	6
-cluster-sources.tsv	749286baf21cd72f00f6d81b1c044c908b3bf84e7f6b475ea5901df26c92a8c0	184524	336
-clustering.json	eac0c9882ab60e29ac26eb78f42ef2778c9dd51780651ee206a44b7336cf1ee0	1230	42
+cluster-sources.tsv	18f4437765c8ef4dc2752a41b996c320563afd1a29a18a5a353c9f7599fba820	184763	336
+clustering.json	9b617c4093ce94241dee0fa111e84d5b2389e886377cfdcc4b8d2f356a3acea5	1230	42
 dev.tsv	77146c9651e00e70e4b15bc026a260fac929b01a303d433e62d49c68c74102c5	484614	3235
 exclusions.tsv	18acd8badaa11560280740256b08e7e32b19ed3959d4be8e6d3343b1142a17c6	3269	70
 extension-candidates.tsv	cf4fa4a42412b5fd1af84aeadbbed83254add32b98f71c098136c90925454800	6827	60
@@ -43,4 +43,4 @@ regression.tsv	e6a14cc53b70f000b496cf743f419c241f1f394ecbfa2e5d76d6b305268c4b1e	
 synthetic-provenance.tsv	7a6046134adc513670efeac9a52334b78aeec6fe854a258f0dd6d48e99596e99	755409	14998
 train.tsv	6213c5709bf777c8a30e2d2ab50e7e465934da5593a1a7b2382da2c9ef6b309f	2929339	19865
 whd-mapping.tsv	65e3a5df5e7efde532bf116f3d7c637169295c4ecd902d4546af723054b30c5e	8410	326
-word-clusters.tsv	aaa3fe0c024bb666cc6b92ec489da997e5e51b20ab21da01b83a6288d28cca38	1410769	60000
+word-clusters.tsv	17e94d11a69627513a92679370432697d452011b6ffb3168ecc35f5643d5007b	1403795	60000

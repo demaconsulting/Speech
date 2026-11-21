@@ -693,3 +693,91 @@ and a `NOTICE.txt`. Where to host it remains an open question for the owner.
 `cluster-sources.tsv`, `cluster-removals.tsv` and `word-clusters.tsv` (SHA-256), the tokenizer version of the build,
 the book, word and path counts, and that no used book is a development or natural-holdout document. Nothing in the
 classifier, its features, `heteronyms.bin`, `training.json` or the cue priors was changed; PR B consumes the table.
+
+## Word-cluster subsystem (PR A): corpus revision after the publication-year review (2026-11-21)
+
+This entry revises the corpus of the two entries above; they stay as they were written. No model, classifier, cue prior,
+`heteronyms.bin` or `training.json` changed, and the generalization set was not read.
+
+**Why.** For 49 of the 56 accepted domain books the earlier year rule took the latest year printed in the first 200 body
+lines, which can be a year mentioned in the text (for example 1814 in *A Book of Operas*), so it did not establish the
+publication year. The owner's condition is a pre-1930 book with a license check recorded for each.
+
+**Review.** For each domain book, the title page, imprint, copyright or entry line, edition statement and preface dates
+were read by hand. The whole body was also scanned for every year from 1500 to 2099. A book was kept only if both hold:
+
+- the evidence shows the first publication, or the transcribed edition, in 1929 or earlier;
+- the RDF rights read "Public domain in the USA.".
+
+The `year` column now holds that year for every domain book, and `license_basis` states the evidence, for example
+"title page: New York, Harper & Brothers, 1891; copyright 1891". Five books have no imprint year in the transcription:
+
+- 4523 (*On Conducting*): the translator's note gives Leipzig, 1869. The translation cites works up to 1883, and the
+  translator died in 1905.
+- 4939 (*Chopin*): the bibliography runs to February 1900. The publisher's list quotes a review of June 1915, and the
+  author died in 1921.
+- 5724 (*A Book of Operas*): the latest year in the text is 1909, and the author died in 1923.
+- 19975 (*Base-ball*): the text cites the rules of 1887 and looks ahead to the season of 1888. The author died in 1925.
+- 54537 (*Musical Instruments*): the series editor's note is dated August 1875, and the PG title gives 1876.
+
+For each of these five, the basis gives the latest year in the text and the death year.
+
+- **Rejected: 13291** (*The World's Great Men of Music*). Its title page reads 1922, but the transcribed text has
+  chapters on three conductors, Toscanini among them. Those chapters cite 1924 and 1926 and give Toscanini's age as
+  seventy-five (about 1942), years after the author's death in 1928. The transcribed edition cannot be shown to be from
+  1929 or earlier, so the book is now `rejected-license` with that reason and no pin.
+- **Accepted: 25731** (*Ancient Egyptian and Greek Looms*, Roth, died 1925). Its earlier R7 rejection was a false
+  positive of the mechanical rule ("B.C. 2000"). The title page and preface name a museum in Halifax and the date April
+  1913, and the only years from 1930 to 2099 in the body are B.C. dates. The body is 87,589 bytes, 96 percent prose,
+  and it is not an edition of another listed book. The one request was `cluster --fetch --write-pins --delay-ms 2000`
+  from `gutenberg.pglaf.org`; the RDF was already cached. The body is pinned as `08b29477...928b`.
+- The other 55 books are confirmed. Their years are 1805 to 1922: 15 before 1870, 22 from 1870 to 1899, 18 from 1900
+  to 1922. The full-body scan found no year from 1930 to 2099 that is a date, except the B.C. dates of 25731 and 54537;
+  the other matches are counts and measures.
+
+**Corpus.** 280 books are still used (224 core, 56 domain): anatomy and first aid 16, textiles and sewing 11, sport 14,
+music 12, clocks 3. There are 11 rejected candidates (8 `rejected-license`, 3 `rejected-content`), and
+`cluster-sources.tsv` has 336 rows (SHA-256 `18f44377...a820`). The corpus has 467,991 paragraphs, 1,336,563
+sentences, 31,278,545 tokens before the removals and 31,278,354 after, and 222,070 types.
+
+**Leakage audit.** `cluster --audit --write --threads 28` (exit 0; 9.5 seconds wall clock, audit 3.8 seconds) gives the
+same result as before: the same 6 sentences from the same 5 books. The per-file and per-rule counts are unchanged.
+`cluster-removals.tsv` is byte-identical (SHA-256 `84794fd8...e77b`).
+
+**Preflight** (the pre-registered rule, unchanged). `cluster --preflight --min-count 5 --threads 28` (exit 0, 13.2
+seconds) found 66,710 words with a count of at least 5. Token coverage is the same to two decimals: 97.99, 98.56, 98.89,
+99.11 and 99.22 percent for 30,000 to 75,000 words.
+
+- **hamstring** (count 7, rank 53,751) is still the only word that needs 60,000, so **V stays 60,000**.
+- No nominated word changed its cut. gashes 13 and lacerations 12 are in from 50,000, and tarpaulin 21 from 40,000.
+  meniscus 4, rotator 1, acl 0, labrum 4 and denim 1 are still too rare.
+- Counts moved slightly with the swap of the two books. The changes of 1 percent or more are fabric 491 to 505, cloth
+  2,182 to 2,221, linen 1,133 to 1,153, spool 30 to 40, rod 790 to 805, cello 33 to 28 and viola 174 to 169; every other
+  nominated count moved by less than 1 percent.
+
+**Induction.** `cluster --write --clusters 512 --max-words 60000 --min-count 5 --threads 28` (exit 0) ran on the same
+i7-13850HX with 28 logical processors. The stages took: tokenization 3.4 seconds, audit 3.9 seconds, counting 4.6
+seconds (3,136,242 bigram types), induction 1 minute 11.0 seconds. The **total was 1 minute 24.0 seconds** (1 minute
+28.5 seconds wall clock).
+
+- Table: **60,000 words**, 512 paths (3 to 17 bits; cluster sizes 1 to 1,887, median 24), **1,403,795 bytes**, SHA-256
+  `17e94d11a69627513a92679370432697d452011b6ffb3168ecc35f5643d5007b`. Token coverage is 99.11 percent. There are 0
+  shared lookup hashes and 0 ineligible words.
+- Snapshot: **152,852,480 bytes**, 282 files, SHA-256
+  `3d1e4e8cb64e19b926385483e55d495eba11f6c9258ba7fcb87a6522173f471d`. It is not published; the proposed asset name
+  becomes `text-en-cluster-corpus-3d1e4e8c.tar`.
+- Record: sources `18f44377...a820`, removals `84794fd8...e77b`, evaluation listing `f5e5f6ee...bcc0` (unchanged),
+  tokenizer `0.1.0-beta.5`, 280 used and 56 other books.
+- Spot checks look sensible: {very, extremely, comparatively, exceedingly, remarkably, …}; {to-day, to-morrow,
+  yesterday, to-night, …}; {year, week, century, minute, month, …}. *hamstring* is again with "lower, upper,
+  external, internal".
+
+**Manual re-induction check and determinism** (both from the cache, with the settings of the committed record):
+
+| `cluster --check` | Tokenize | Audit | Count | Induce | Total | Wall clock | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `--threads 1` | 5.2 s | 21.5 s | 7.8 s | 5 min 33.1 s | **6 min 8.6 s** | 6 min 11.1 s | all current |
+| `--threads 28` | 2.5 s | 3.2 s | 4.6 s | 1 min 7.4 s | **1 min 18.5 s** | 1 min 20.5 s | all current |
+
+Both runs reproduced the committed table byte for byte (`17e94d11...d007b`), the record byte for byte and the snapshot
+(`3d1e4e8c...f471d`). One thread and 28 threads give identical output.

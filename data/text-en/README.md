@@ -31,7 +31,7 @@ recorded per file and per row. Nothing here is legal advice.
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
 | [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
 | [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 80 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
-| [cluster-sources.tsv](cluster-sources.tsv) | 336 | the word-cluster corpus: every candidate Project Gutenberg book with its US public-domain basis, mirror URL and, for the 280 used books, the SHA-256 and size of its normalized body; 45 development and holdout books excluded and 11 domain candidates rejected, each with the reason (see "Word-Cluster Corpus") | CC0-1.0 |
+| [cluster-sources.tsv](cluster-sources.tsv) | 336 | the word-cluster corpus: every candidate Project Gutenberg book with its US public-domain basis, mirror URL and, for the 280 used books, the SHA-256 and size of its normalized body; 45 development and holdout books excluded and 11 domain candidates rejected, each with the reason; for every domain book, the publication year and its evidence (see "Word-Cluster Corpus") | CC0-1.0 |
 | [cluster-removals.tsv](cluster-removals.tsv) | 6 | the corpus sentences the leakage audit removed, by book, paragraph, sentence and SHA-256 (no text) | CC0-1.0 |
 | [word-clusters.tsv](word-clusters.tsv) | 60,000 | the word-cluster table: one row per word (`word path count`), 512 clusters of a binary hierarchy induced from the corpus; not yet used by any model | CC0-1.0 |
 | [clustering.json](clustering.json) | | the record of the table: settings, the hashes of its inputs, the tokenizer version, the snapshot hash, the corpus counts and the table hash; verified by `check-data` | CC0-1.0 |
@@ -278,15 +278,19 @@ books only; no model uses them yet. The book texts are never committed: they are
   PartOfSpeech recorded (copied verbatim; `basis_ref` names the PartOfSpeech file), minus the 26 books that hold
   development sentences (`excluded-dev`) and the 19 that hold natural-holdout sentences (`excluded-holdout`), recomputed
   from `harvest-provenance.tsv`. `check-data` recomputes them on every run.
-- **56 domain books** published in 1929 or earlier (anatomy and first aid 16, textiles and sewing 10, sport 14, music 13,
+- **56 domain books** published in 1929 or earlier (anatomy and first aid 16, textiles and sewing 11, sport 14, music 12,
   clocks 3), chosen from the mirror's catalog and accepted only when the book's RDF metadata states the rights "Public
-  domain in the USA.", the language is English, a publication year of 1929 or earlier is in the metadata or printed in
-  the first 200 body lines, no creator died after 1929, no creator or printer is a government body, the body has at least
-  50,000 bytes of prose, no year from 1930 to 2099 is printed in the first 200 body lines, and the book is not an edition
-  of another listed book. `license_basis` records the evidence and `basis_ref` the RDF URL, its SHA-256 and the retrieval
-  date. **11 candidates were rejected** and stay listed with the reason and no pin (8 `rejected-license`: no publication
-  year found, or a later edition year in the front matter; 3 `rejected-content`: too short, or no plain text on the
-  mirror).
+  domain in the USA.", the language is English, no creator died after 1929, no creator or printer is a government body,
+  the body has at least 50,000 bytes of prose, no year from 1930 to 2099 is printed in the first 200 body lines (except a
+  B.C. date), the book is not an edition of another listed book, and **the publication year of the transcribed edition is
+  1929 or earlier by evidence read in the book itself**. Each book's title page, imprint, copyright line and preface
+  dates were read by hand, and the whole body was scanned for later years. The `year` column holds that year, and
+  `license_basis` states the evidence, for example "title page: New York, Harper & Brothers, 1891; copyright 1891". For
+  the five books with no imprint year in the transcription, the basis gives the latest year in the text and the author's
+  death year. `basis_ref` holds the RDF URL, its SHA-256 and the retrieval date. **11 candidates were rejected** and
+  stay listed with the reason and no pin (8 `rejected-license`: no publication year found, a later edition year in the
+  front matter, or a transcribed text with chapters written after the author's death; 3 `rejected-content`: too short,
+  or no plain text on the mirror).
 - No US-government text and no sentence of this folder's CC0 training data is part of the corpus.
 
 Every book was fetched only from the official mirror `gutenberg.pglaf.org` (never the main web site), one request at a
@@ -301,8 +305,8 @@ other books; none of the independent holdout or the generalization set); `cluste
 and hash.
 
 **Table and record.** 512 clusters over the 60,000 most frequent words with a count of at least 5 (99.11 percent of the
-31,363,141 corpus tokens). The size of 60,000 was chosen by a rule fixed before the count was seen: the smallest of
-30,000 to 75,000 words that holds every nominated cue word with a count of at least 5 (here *hamstring*, rank 53,818).
+31,278,354 corpus tokens). The size of 60,000 was chosen by a rule fixed before the count was seen: the smallest of
+30,000 to 75,000 words that holds every nominated cue word with a count of at least 5 (here *hamstring*, rank 53,751).
 Words are normalized exactly as the analyzer looks them up; a word whose lookup hash another table word shares would be
 left out (none was). `clustering.json` records the settings, the SHA-256 of `cluster-sources.tsv`, `cluster-removals.tsv`
 and the table, the hash of the evaluation files, the tokenizer version and the SHA-256 of a byte-reproducible snapshot
