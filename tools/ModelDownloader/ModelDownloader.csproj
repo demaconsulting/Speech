@@ -27,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->
