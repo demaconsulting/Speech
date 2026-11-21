@@ -29,10 +29,10 @@ random property tests of the alignment contract live at that level. System and u
 
 The non-shipped trainer has its own test project, `test/DemaConsulting.Speech.Text.En.Trainer.Tests`, and no
 system-level test class: its system requirements are evidenced by the subsystem-level tests of the
-TrainingDataSubsystem, TrainingSubsystem and ExternalEvaluationSubsystem, which drive its three commands through their
-one observable interface each. This cross-level link is deliberate and documented here once; a few Heteronym system
-requirements likewise link the analyzer unit tests that can inject a damaged model, which the system level cannot do
-through the public API.
+TrainingDataSubsystem, TrainingSubsystem, ExternalEvaluationSubsystem and ClusteringSubsystem, which drive its commands
+through their one observable interface each. This cross-level link is deliberate and documented here once; a few
+Heteronym system requirements likewise link the analyzer unit tests that can inject a damaged model, which the system
+level cannot do through the public API.
 
 Automated coverage does not extend to the accuracy of the tagger beyond a few unambiguous golden sentences: the analyzer
 relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only sentences whose tags the
@@ -261,9 +261,9 @@ project file.
 ### Training Data, Training and External Evaluation
 
 **Tests**: the `TrainingDataSubsystem_CheckData_*`, `TrainingSubsystem_Train_*`, `TrainingSubsystem_TrainCheck_*`,
-`TrainingSubsystem_Evaluate_*` and `ExternalEvaluationSubsystem_*` tests in
+`TrainingSubsystem_Evaluate_*`, `ExternalEvaluationSubsystem_*` and `ClusteringSubsystem_*` tests in
 `test/DemaConsulting.Speech.Text.En.Trainer.Tests` that the requirements `SpeechTextEn-TrainingData-*`,
-`SpeechTextEn-Training-*` and `SpeechTextEn-Evaluation-*` link (see the verification documents of the three subsystems)
+`SpeechTextEn-Training-*` and `SpeechTextEn-Evaluation-*` link (see the verification documents of the four subsystems)
 
 Verifies the trainer's requirements through the one observable interface of each command. The real committed
 `data/text-en` folder passes `check-data`, and each class of defect written into a temporary copy (a restricted license,
@@ -281,7 +281,11 @@ the real datasets or a sentence of them**. A tampered or malformed source is ref
 unusable rows are counted by reason, the seed study reports its spread and intervals, and neither the output nor the
 record holds any dataset text. The external figures themselves are not asserted by any automated test: they come from a
 local run, are committed as the external evaluation record and are claimed exactly as that record and its limits state
-them.
+them. The word-class induction runs on three generated books served by a fake mirror: fetching with pins, the audit, the
+write and a full re-induction check succeed, a book quoting a development sentence loses exactly that sentence, the
+table words are the analyzer's lookup keys, one and three threads give byte-identical files, and a fixed-input
+clustering, a fixture corpus and a snapshot have golden results that every CI platform must reproduce. The induction of
+the real corpus is a manual step recorded in the trainer's run log.
 
 ## Acceptance Criteria
 

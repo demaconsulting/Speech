@@ -1,0 +1,43 @@
+---
+# Software Unit Requirements for WordClusterTable
+#
+# These requirements describe the design-level behavior of the WordClusterTable unit, the part of the Text.En trainer
+# that builds, writes and validates word-clusters.tsv, decomposing the parent SpeechTextEn ClusteringSubsystem
+# requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/WordClusterTableTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ClusteringSubsystem Requirements
+        sections:
+          - title: WordClusterTable Requirements
+            requirements:
+              - id: SpeechTextEn-Clustering-WordClusterTable-Collisions
+                title: >-
+                  The WordClusterTable unit shall leave out of the table every word whose lookup hash is shared by two
+                  or more vocabulary words and every word with an ineligible character or length, and report how many
+                  words it left out for each reason.
+                justification: |
+                  Dropping only one word of a shared hash would let the other word's entry answer the dropped word's
+                  lookups; dropping all of them means no word can inherit another word's class.
+                tests:
+                  - WordClusterTable_Build_SharedHash_DropsEveryWordOfThatHash
+                  - WordClusterTable_Build_IneligibleWord_IsDroppedAndCounted
+
+              - id: SpeechTextEn-Clustering-WordClusterTable-Format
+                title: >-
+                  The WordClusterTable unit shall write the table as the header word, path, count and one row per word
+                  in ordinal word order with LF line endings, and when parsing throw InvalidDataException for a wrong
+                  header, a line ending other than LF, a malformed row, an ineligible word, words that are not unique
+                  and ordered, a path that is not a bit string or is a prefix of another, more distinct paths than
+                  clusters, a count below the minimum, or two words with the same lookup hash; inconsistent build input
+                  throws ArgumentException.
+                justification: |
+                  The committed table is pinned by hash and later embedded; a fixed text form makes the hash
+                  meaningful and every rule the builder guarantees is checked again when the table is read.
+                tests:
+                  - WordClusterTable_WriteAndParse_RoundTrip
+                  - WordClusterTable_Parse_BrokenTables_Throw
+                  - WordClusterTable_Build_InconsistentInput_Throws

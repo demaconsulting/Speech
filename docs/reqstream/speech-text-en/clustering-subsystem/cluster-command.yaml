@@ -1,0 +1,85 @@
+---
+# Software Unit Requirements for ClusterCommand
+#
+# These requirements describe the design-level behavior of the ClusterCommand unit, the cluster command of the Text.En
+# trainer and its dispatch from the trainer's command line, decomposing the parent SpeechTextEn ClusteringSubsystem
+# requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCommandTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ClusteringSubsystem Requirements
+        sections:
+          - title: ClusterCommand Requirements
+            requirements:
+              - id: SpeechTextEn-Clustering-ClusterCommand-Usage
+                title: >-
+                  The ClusterCommand unit shall be reachable as the trainer's cluster command, require exactly one of
+                  the fetch, audit, preflight, write and check modes, accept each option only with the modes it applies
+                  to and with a valid value (at least 2 clusters, at least 1 thread, a pause of at least 1,000
+                  milliseconds, an allowed mirror), default to 512 clusters, a minimum count of 5, no vocabulary limit,
+                  the processor count of threads and a 2,000-millisecond pause, refuse a cache inside the repository
+                  but outside its ignored external folder, and print its usage on request with exit 0 and a usage error
+                  with exit 2.
+                justification: |
+                  The command is run by hand for long, network-bound or expensive work; a wrong combination must be
+                  refused before anything starts, and downloaded books must never land in tracked files.
+                tests:
+                  - ClusterCommand_TryParse_Write_UsesDefaults
+                  - ClusterCommand_TryParse_AuditWrite_WritesRemovals
+                  - ClusterCommand_TryParse_InvalidArguments_ReportReason
+                  - ClusterCommand_Run_HelpAndUsageError
+                  - ClusterCommand_Run_CacheInsideRepository_IsRefused
+                  - Program_Run_Cluster_IsDispatched
+
+              - id: SpeechTextEn-Clustering-ClusterCommand-Fetch
+                title: >-
+                  The ClusterCommand unit shall, in fetch mode, make every used book available, print a summary of
+                  cached, fetched, unpinned and failed books with the number of requests and the time taken, write the
+                  new pins into the source list only when asked, and exit with 1 when a book failed.
+                justification: |
+                  Pins are reviewed, so they are recorded only on request, and a failed book must be visible in the
+                  exit code of an unattended run.
+                tests:
+                  - ClusterCommand_Run_FetchWritePins_RecordsPins
+                  - ClusterCommand_Run_FetchWithoutPins_LeavesListAndReportsFailure
+
+              - id: SpeechTextEn-Clustering-ClusterCommand-Audit
+                title: >-
+                  The ClusterCommand unit shall, in audit mode, print the removals per evaluation file and rule, write
+                  the removal list when asked, and otherwise exit with 1 when the committed list is missing or differs.
+                justification: |
+                  The removals are reviewed before they are committed, and an unchanged audit must be confirmable
+                  without writing anything.
+                tests:
+                  - ClusterCommand_Run_Audit_ReportsMissingThenCurrent
+
+              - id: SpeechTextEn-Clustering-ClusterCommand-Preflight
+                title: >-
+                  The ClusterCommand unit shall, in preflight mode, print the token coverage of each candidate
+                  vocabulary size from 30,000 to 75,000 words and, for each nominated word (by default the
+                  pre-registered list), its count and rank and whether it is in each candidate cut, or that it is too
+                  rare.
+                justification: |
+                  The vocabulary size is chosen by a rule fixed before the preflight runs; the report gives exactly the
+                  numbers that rule needs.
+                tests:
+                  - ClusterCommand_Run_Preflight_ReportsWords
+
+              - id: SpeechTextEn-Clustering-ClusterCommand-WriteAndCheck
+                title: >-
+                  The ClusterCommand unit shall, in write mode, refuse to induce (exit 1) while the committed removal
+                  list is missing or differs from the audit, and otherwise write the table and the record to the
+                  output folder and the snapshot to the cache, printing the progress with the time left, the time of
+                  each stage, the table and snapshot hashes and the thread count; and in check mode repeat the
+                  induction with the settings of the record in the output folder (a usage error when there is none)
+                  and report the table, the record and the snapshot as current (exit 0) or stale (exit 1).
+                justification: |
+                  The write produces the committed evidence and the check proves it; timings and hashes printed by the
+                  run are what the run log records.
+                tests:
+                  - ClusterCommand_Run_WriteWithoutRemovals_Exits1
+                  - ClusterCommand_Run_CheckWithoutRecord_Exits2
+                  - ClusterCommand_Run_WriteThenCheck_CurrentThenStale

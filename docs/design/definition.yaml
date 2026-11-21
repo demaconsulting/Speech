@@ -248,6 +248,16 @@ input-files:
   - docs/design/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.md
   - docs/design/speech-text-en/external-evaluation-subsystem/external-evaluation-record.md
   - docs/design/speech-text-en/external-evaluation-subsystem/evaluate-external-command.md
+  - docs/design/speech-text-en/clustering-subsystem.md
+  - docs/design/speech-text-en/clustering-subsystem/gutenberg-body.md
+  - docs/design/speech-text-en/clustering-subsystem/cluster-corpus-cache.md
+  - docs/design/speech-text-en/clustering-subsystem/corpus-snapshot.md
+  - docs/design/speech-text-en/clustering-subsystem/corpus-leakage-audit.md
+  - docs/design/speech-text-en/clustering-subsystem/cluster-corpus-reader.md
+  - docs/design/speech-text-en/clustering-subsystem/cluster-inducer.md
+  - docs/design/speech-text-en/clustering-subsystem/word-cluster-table.md
+  - docs/design/speech-text-en/clustering-subsystem/clustering-record.md
+  - docs/design/speech-text-en/clustering-subsystem/cluster-command.md
   - docs/design/speech-phonemes-en.md
   - docs/design/speech-phonemes-en/lexicon-subsystem.md
   - docs/design/speech-phonemes-en/lexicon-subsystem/cmu-lexicon.md

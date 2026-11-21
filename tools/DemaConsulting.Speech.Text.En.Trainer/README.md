@@ -4,7 +4,8 @@ Developer tool for the Text.En training data in `data/text-en/` and for the hete
 It is never packed or shipped. The `check-data` units use only the base class library; the `train` and `evaluate`
 units reference the Text.En library (its internals are visible to this tool) so a model is trained with the
 analyzer's own tokenization, part-of-speech tagging, feature extractor, scoring and model format, not a copy of them.
-The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache.
+The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache. The `cluster`
+units induce the word-cluster table from a pinned public-domain corpus with the analyzer's own tokenizer.
 
 Commands:
 
@@ -12,6 +13,7 @@ Commands:
 - `train`: train the heteronym model, or verify a committed one with `--check`
 - `evaluate`: measure a model on the development and holdout sets and decide the quality gate
 - `evaluate-external`: measure the embedded model on external, evaluation-only datasets fetched at evaluation time
+- `cluster`: fetch, audit and cluster the word-cluster corpus, or re-verify the table by re-induction
 
 ## check-data
 
@@ -168,6 +170,58 @@ ordinal path order. Changing a pin is a reviewed change: a different commit mean
 WHD is Apache-2.0 code with Wikipedia text (CC BY-SA 3.0); the heteronym-bench data is CC BY-SA 4.0. Neither is
 committed, embedded or used to train. The record and the two mapping files contain no text of either dataset, only
 numbers, the pins and our own ids.
+
+## cluster
+
+```text
+dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- cluster <mode> [options]
+```
+
+Induces the word-cluster table `data/text-en/word-clusters.tsv` (one row per word: `word`, bit-string `path`, `count`)
+and its record `data/text-en/clustering.json` from the US public-domain books listed in
+`data/text-en/cluster-sources.tsv`. It changes no model. Give exactly one mode:
+
+- `--fetch [--write-pins]`: fetch the plain text and metadata of every `used` book that is missing from the cache or
+  fails its pin, only over HTTPS from an official mirror (`gutenberg.pglaf.org`; `aleph.gutenberg.org` with
+  `--mirror`), never from the main web site, one request at a time with `--delay-ms` (default 2,000, at least 1,000)
+  between requests, at most three retries after 5, 15 and 45 seconds, and a stop on HTTP 403 or 429. The body (the text
+  between the start and end markers, without credits, license text or any paragraph naming the archive) is pinned by
+  size and SHA-256; `--write-pins` fills the pins of rows that have none and never changes a pin. Exit `1` when a book
+  failed
+- `--audit [--write]`: compare every corpus sentence with every sentence of `dev.tsv`, `holdout-natural.tsv`,
+  `holdout-independent.tsv`, `regression.tsv` and `generalization.tsv` (rules `exact`, `near`, `contains`) and print the
+  removals per file and rule; `--write` writes `cluster-removals.tsv` (ids and hashes only), otherwise exit `1` when it
+  is missing or differs
+- `--preflight [--words a,b,...]`: print the token coverage of vocabulary sizes 30,000 to 75,000 and the count, rank and
+  cut of each nominated word (default: the pre-registered list in `RUN-LOG.md`). It never reads the generalization set
+- `--write`: verify the pins, require the committed removals to be current, count, induce, then write the table and the
+  record to `--out` (default the data folder) and the snapshot `cluster-corpus.tar` to the cache
+- `--check`: repeat `--write` with the settings of the record in `--out` and compare the table, the record and the
+  snapshot hash byte for byte; exit `1` when stale
+
+Options: `--clusters <n>` (default 512, `--write` only), `--max-words <n>` (default 0, no limit) and `--min-count <n>`
+(default 5) for `--write` and `--preflight`; `--threads <n>` (default the processor count; the output does not depend on
+it); `--out <dir>`; `--delay-ms <n>`; `--mirror <host>`; `--cache <dir>` (default
+`data/text-en/external/cluster-corpus`, git-ignored; it must be inside `data/text-en/external` or outside the
+repository); `--from-snapshot <file>` (read the bodies from a snapshot instead of the cache, verified against the pins);
+`--data <dir>`.
+
+Exit codes: `0` done or current, `1` stale or a book failed, `2` usage, I/O or data error.
+
+**Determinism.** Counts are integers, every logarithm is the trainer's own `DeterministicMath.Log` (also for the table
+of logarithms of small counts), only `+`, `-`, `*` and `/` are used in a fixed order, and the parallel phases write
+disjoint cells and are separated by barriers; ties go to the lowest slots. The table is therefore byte-identical for any
+`--threads` and on every operating system; golden tests check it in every CI job. `--write` prints the progress every
+1,000 words with the time left, and the time of each stage, so a run can be benchmarked. A micro-benchmark with 512
+clusters measured about 5 ms per word on one thread and about 1.1 ms per word with 8 or more threads (28-thread laptop):
+about 4 minutes and 1 minute for 50,000 words, plus tokenization, counting and the audit.
+
+**Lookup keys.** Words are tokenized and normalized exactly as the analyzer does (the command stops if a word does not
+hash to the analyzer's key). When two vocabulary words share a lookup hash, both are left out of the table, so no word
+can take another word's class.
+
+The command is never run by `build.ps1`, `lint.ps1` or a workflow; only its tests run in CI, offline, on generated
+books.
 
 ## Files
 

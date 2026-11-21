@@ -1,0 +1,79 @@
+---
+# Software Unit Requirements for ClusterCorpusReader
+#
+# These requirements describe the design-level behavior of the ClusterCorpusReader unit, the part of the Text.En
+# trainer that tokenizes the word-cluster corpus with the analyzer's tokenizer and counts its words and bigrams,
+# decomposing the parent SpeechTextEn ClusteringSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCorpusReaderTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ClusteringSubsystem Requirements
+        sections:
+          - title: ClusterCorpusReader Requirements
+            requirements:
+              - id: SpeechTextEn-Clustering-ClusterCorpusReader-Tokenization
+                title: >-
+                  The ClusterCorpusReader unit shall split each body into paragraphs at blank lines with their lines
+                  joined by single spaces, split each paragraph into sentences and tokens with the analyzer's
+                  tokenizer, normalize each token with the analyzer's rule (curly single quotes become the apostrophe,
+                  only ASCII capitals are lower-cased, a token with a digit and no letter becomes the number form), and
+                  treat a form longer than 40 characters or with a character outside U+0021 to U+007E, U+00A1 to U+00FF
+                  and U+2010 to U+2027 as not a word that also breaks adjacency.
+                justification: |
+                  The table must hold exactly the forms the analyzer will look up, and only characters whose text is
+                  the same on every platform.
+                tests:
+                  - ClusterCorpusReader_Paragraphs_BlankLines_SplitAndJoin
+                  - ClusterCorpusReader_Normalize_RuntimeRule
+                  - ClusterCorpusReader_NormalizeEligible_Boundaries
+                  - ClusterCorpusReader_Count_IneligibleToken_BreaksAdjacency
+
+              - id: SpeechTextEn-Clustering-ClusterCorpusReader-RuntimeKeys
+                title: >-
+                  The ClusterCorpusReader unit shall check, once per distinct token text, that the hash of its
+                  normalized form equals the analyzer's lookup key of the token, throwing InvalidOperationException
+                  otherwise, so that every vocabulary word hashes to the analyzer's key of itself.
+                justification: |
+                  A difference between the reader's normalization and the analyzer's would make table words that are
+                  never found; the check stops the induction instead of producing such a table.
+                tests:
+                  - ClusterCorpusReader_Count_Words_HashToRuntimeKey
+
+              - id: SpeechTextEn-Clustering-ClusterCorpusReader-Counts
+                title: >-
+                  The ClusterCorpusReader unit shall count every word and every pair of adjacent vocabulary words within
+                  a sentence as integers, order the vocabulary by count descending and then ordinally, keep only words
+                  with at least the minimum count and at most the vocabulary limit, keep the count of every eligible
+                  form, and report the token coverage of the first words in ten-thousandths.
+                justification: |
+                  Integer counts in a fixed order are the deterministic input of the clustering; the counts of rare
+                  forms and the coverage answer the vocabulary preflight.
+                tests:
+                  - ClusterCorpusReader_Count_SimpleCorpus_CountsWordsAndBigrams
+                  - ClusterCorpusReader_Count_MinCountAndMaxWords_CutVocabulary
+                  - ClusterCorpusReader_CoveragePerTenThousand_FirstWords
+
+              - id: SpeechTextEn-Clustering-ClusterCorpusReader-Removals
+                title: >-
+                  The ClusterCorpusReader unit shall leave every listed removed sentence out of the counts and report
+                  the removed sentences and tokens, throwing InvalidDataException when a removal names a book,
+                  paragraph or sentence that does not exist or a sentence whose text no longer has the recorded
+                  SHA-256.
+                justification: |
+                  A removal list made for another tokenization or another corpus would remove the wrong sentences;
+                  verifying each by its text hash makes a stale list fail instead.
+                tests:
+                  - ClusterCorpusReader_Count_SkippedSentence_IsNotCounted
+                  - ClusterCorpusReader_Count_StaleSkippedSentence_Throws
+
+              - id: SpeechTextEn-Clustering-ClusterCorpusReader-Determinism
+                title: >-
+                  The ClusterCorpusReader unit shall give the same vocabulary, counts and bigrams for any number of
+                  threads.
+                justification: |
+                  The counts feed a committed table, so they must not depend on how the work was divided.
+                tests:
+                  - ClusterCorpusReader_Count_DifferentThreadCounts_SameCounts

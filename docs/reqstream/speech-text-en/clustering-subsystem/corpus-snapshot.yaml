@@ -1,0 +1,42 @@
+---
+# Software Unit Requirements for CorpusSnapshot
+#
+# These requirements describe the design-level behavior of the CorpusSnapshot unit, the part of the Text.En trainer
+# that builds and reads the byte-reproducible snapshot archive of the word-cluster corpus, decomposing the parent
+# SpeechTextEn ClusteringSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusSnapshotTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: ClusteringSubsystem Requirements
+        sections:
+          - title: CorpusSnapshot Requirements
+            requirements:
+              - id: SpeechTextEn-Clustering-CorpusSnapshot-Reproducible
+                title: >-
+                  The CorpusSnapshot unit shall build an uncompressed ustar archive holding a generated notice, the
+                  source list and every body in ordinal source-id order, with modification time 0, mode 0644, owner and
+                  group 0 and empty owner and group names, padded to whole 10,240-byte records, so that the same inputs
+                  in any order give the same bytes on every platform, and report the archive's SHA-256, size and file
+                  count.
+                justification: |
+                  The record names the snapshot by its hash; that hash only identifies the corpus when building the
+                  archive twice, anywhere, gives exactly the same bytes.
+                tests:
+                  - CorpusSnapshot_Build_FixedInputs_GoldenShaAndByteEqual
+                  - CorpusSnapshot_Build_ReversedInput_SameArchive
+                  - CorpusSnapshot_Build_HeaderFields_AreFixed
+
+              - id: SpeechTextEn-Clustering-CorpusSnapshot-Read
+                title: >-
+                  The CorpusSnapshot unit shall read every member of a snapshot archive, throwing InvalidDataException
+                  for a missing file, a file that is not a valid archive, or a member that is not a regular file with
+                  a unique, safe relative name.
+                justification: |
+                  A snapshot may come from elsewhere; a member that could escape its folder or is not a plain file
+                  must be refused before any body is used.
+                tests:
+                  - CorpusSnapshot_Read_BuiltArchive_ReturnsMembers
+                  - CorpusSnapshot_Read_UnsafeOrMissing_Throws

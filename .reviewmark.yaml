@@ -4305,6 +4305,164 @@ reviews:
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/EvaluateExternalCommandTests.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/DirectoryLink.cs"  # directory link helper of the link tests
 
+  # SpeechTextEn-ClusteringSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-ClusteringSubsystem
+    title: Review that SpeechTextEn ClusteringSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/reqstream/speech-text-en.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"   # subsystem requirements
+      - "docs/design/speech-text-en/clustering-subsystem.md"        # subsystem design
+      - "docs/verification/speech-text-en/clustering-subsystem.md"  # subsystem verification
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/ClusteringFixture.cs"   # generated books, fake mirror and recording pause
+
+  # SpeechTextEn-ClusteringSubsystem-GutenbergBody Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-GutenbergBody
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem GutenbergBody Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/gutenberg-body.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/gutenberg-body.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/gutenberg-body.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/GutenbergBody.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/GutenbergBodyTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-ClusterCorpusCache Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-ClusterCorpusCache
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem ClusterCorpusCache Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-cache.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/cluster-corpus-cache.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-cache.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCorpusCache.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCorpusCacheTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-CorpusSnapshot Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-CorpusSnapshot
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem CorpusSnapshot Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/corpus-snapshot.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/corpus-snapshot.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/corpus-snapshot.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/CorpusSnapshot.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusSnapshotTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-CorpusLeakageAudit Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-CorpusLeakageAudit
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem CorpusLeakageAudit Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/corpus-leakage-audit.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/corpus-leakage-audit.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/corpus-leakage-audit.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/CorpusLeakageAudit.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusLeakageAuditTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-ClusterCorpusReader Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-ClusterCorpusReader
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem ClusterCorpusReader Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-reader.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/cluster-corpus-reader.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-reader.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCorpusReader.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCorpusReaderTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-ClusterInducer Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-ClusterInducer
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem ClusterInducer Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-inducer.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/cluster-inducer.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/cluster-inducer.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterInducer.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterInducerTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-WordClusterTable Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-WordClusterTable
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem WordClusterTable Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/word-cluster-table.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/word-cluster-table.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/word-cluster-table.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/WordClusterTable.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/WordClusterTableTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-ClusteringRecord Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-ClusteringRecord
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem ClusteringRecord Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/clustering-record.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/clustering-record.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/clustering-record.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusteringRecord.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusteringRecordTests.cs"
+
+  # SpeechTextEn-ClusteringSubsystem-ClusterCommand Review (one per unit)
+  - id: SpeechTextEn-ClusteringSubsystem-ClusterCommand
+    title: >-
+      Review that SpeechTextEn ClusteringSubsystem ClusterCommand Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-command.yaml"
+      - "docs/design/speech-text-en/clustering-subsystem/cluster-command.md"
+      - "docs/verification/speech-text-en/clustering-subsystem/cluster-command.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCommand.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCommandTests.cs"
+
   # SpeechPhonemesEn-Architecture Review (one per system)
   - id: SpeechPhonemesEn-Architecture
     title: Review that SpeechPhonemesEn Architecture Satisfies Requirements
