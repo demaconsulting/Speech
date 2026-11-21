@@ -11,10 +11,10 @@ public sealed class EvaluationRecordTests : IDisposable
     /// <summary>A temporary folder for record files.</summary>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "texten-record-" + Guid.NewGuid().ToString("N"));
 
-    /// <summary>A hand-built evaluation: one natural holdout set and two seeds.</summary>
+    /// <summary>A hand-built evaluation: one natural holdout set, gated at 94.00%, with three rows of readings, and two seeds.</summary>
     private static readonly EvaluationReport Sample = new(
         "abc123",
-        EvaluationSettings.Default,
+        EvaluationSettings.Default with { GateThresholds = [new GateThreshold("holdout-natural", 9400)] },
         [
             new SetEvaluation(
                 "holdout-natural",
@@ -30,9 +30,14 @@ public sealed class EvaluationRecordTests : IDisposable
                 [new GroupTally("read.past", 20, 12, 20), new GroupTally("record.noun", 30, 30, 29)],
                 [new GroupTally("<0.600", 40, 20, 0), new GroupTally("0.600-0.899", 100, 80, 0), new GroupTally(">=0.900", 1027, 1000, 0), new GroupTally("none", 0, 0, 0)],
                 new BootstrapInterval(266, 360, 150, 580, true),
-                new ParityCounts(1167, 0, 0)),
+                new ParityCounts(1167, 0, 0),
+                new BootstrapInterval(266, 9426, 9300, 9550, true),
+                [new RowReading("h-2", "read.past", "read.past"), new RowReading("h-1", "read.past", "read.present"), new RowReading("h-3", "bass.fish", "bass.music")]),
         ],
-        [new SeedResult(1, 1167, 1100, 1972, 1900), new SeedResult(2, 1167, 1090, 1972, 1910)]);
+        [
+            new SeedResult(1, [new SeedSetCount("holdout-independent", 1972, 1900), new SeedSetCount("holdout-natural", 1167, 1100)]),
+            new SeedResult(2, [new SeedSetCount("holdout-independent", 1972, 1910), new SeedSetCount("holdout-natural", 1167, 1090)]),
+        ]);
 
     /// <inheritdoc/>
     public void Dispose()
@@ -57,28 +62,27 @@ public sealed class EvaluationRecordTests : IDisposable
         Assert.Equal(string.Empty, lines[2]);
     }
 
-    /// <summary>Proves the gate file decides the verdict from the natural holdout and shows the thresholds.</summary>
+    /// <summary>Proves the gate file holds per gate set the counts, the accuracy interval, the threshold, the flips and the decision, then the verdict.</summary>
     [Fact]
-    public void EvaluationRecord_Render_Gate_HasThresholdsAndVerdict()
+    public void EvaluationRecord_Render_Gate_HasPerSetFiguresAndVerdict()
     {
         // Act
         var gate = EvaluationRecord.Render(Sample)[EvaluationRecord.GateFile];
 
-        // Assert
-        Assert.Contains("image_sha256\tabc123\n", gate);
-        Assert.Contains("gate_min_pooled_accuracy_per_thousand\t930\n", gate);
-        Assert.Contains("confidence_percent\t95\n", gate);
-        Assert.Contains("accuracy_ok\tyes\n", gate);
-        Assert.Contains("interval_ok\tyes\n", gate);
+        // Assert: 1100/1167 = 94.26% reaches 94.00%
+        Assert.StartsWith("key\tvalue\nimage_sha256\tabc123\nprevious_image_sha256\tabc123\nconfidence_percent\t95\n", gate, StringComparison.Ordinal);
+        Assert.Contains("holdout-natural_rows\t1167\nholdout-natural_clusters\t266\nholdout-natural_correct\t1100\nholdout-natural_accuracy_bp\t9426\n", gate);
+        Assert.Contains("holdout-natural_ci_lower_bp\t9300\nholdout-natural_ci_upper_bp\t9550\nholdout-natural_threshold_bp\t9400\n", gate);
+        Assert.Contains("holdout-natural_fixed\t0\nholdout-natural_broken\t0\nholdout-natural_pass\tyes\n", gate);
         Assert.EndsWith("verdict\tpass\n", gate, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves the verdict is fail when a condition does not hold and not evaluated when there is no natural holdout.</summary>
+    /// <summary>Proves the verdict is fail when a set is below its threshold and not evaluated when a gate set is missing.</summary>
     [Fact]
     public void EvaluationRecord_Render_Gate_FailAndNotEvaluated()
     {
         // Arrange
-        var weak = Sample with { Sets = [Sample.Sets[0] with { Correct = 1000, Interval = new BootstrapInterval(266, 360, 0, 580, false) }] };
+        var weak = Sample with { Sets = [Sample.Sets[0] with { Correct = 1000 }] };
         var none = Sample with { Sets = [] };
 
         // Act
@@ -86,10 +90,73 @@ public sealed class EvaluationRecordTests : IDisposable
         var skipped = EvaluationRecord.Render(none)[EvaluationRecord.GateFile];
 
         // Assert
-        Assert.Contains("accuracy_ok\tno\n", failing);
-        Assert.Contains("interval_ok\tno\n", failing);
+        Assert.Contains("holdout-natural_pass\tno\n", failing);
         Assert.EndsWith("verdict\tfail\n", failing, StringComparison.Ordinal);
         Assert.EndsWith("verdict\tnot evaluated\n", skipped, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a first write lists every gate row ordered by id with the previous reading equal to the current one, so the flip report is empty.</summary>
+    [Fact]
+    public void EvaluationRecord_Write_FirstWrite_PreviousEqualsCurrentAndNoFlips()
+    {
+        // Act
+        EvaluationRecord.Write(Sample, _directory);
+
+        // Assert
+        Assert.Equal(
+            "set\tid\tgold\tprevious\tcurrent\n"
+            + "holdout-natural\th-1\tread.past\tread.present\tread.present\n"
+            + "holdout-natural\th-2\tread.past\tread.past\tread.past\n"
+            + "holdout-natural\th-3\tbass.fish\tbass.music\tbass.music\n",
+            File.ReadAllText(Path.Combine(_directory, EvaluationRecord.GateRowsFile)));
+        Assert.Equal("set\tid\tgold\tprevious\tcurrent\tchange\n", File.ReadAllText(Path.Combine(_directory, EvaluationRecord.FlipsFile)));
+        Assert.Empty(EvaluationRecord.Compare(Sample, _directory));
+    }
+
+    /// <summary>Proves a rewrite with the same model image keeps the committed previous column and image, and a new row gets '-'.</summary>
+    [Fact]
+    public void EvaluationRecord_Write_SameModel_KeepsThePreviousColumn()
+    {
+        // Arrange: a committed record of the model before, then the current model, then the current model with one row more
+        var before = WithReadings(Sample with { ImageSha256 = "old" }, ("h-1", "read.past"), ("h-2", "read.past"), ("h-3", "bass.music"));
+        EvaluationRecord.Write(before, _directory);
+        EvaluationRecord.Write(Sample, _directory);
+        var grown = WithReadings(Sample, ("h-1", "read.present"), ("h-2", "read.past"), ("h-3", "bass.music"), ("h-4", "read.past"));
+
+        // Act
+        EvaluationRecord.Write(grown, _directory);
+
+        // Assert: the previous column and image stay those of the model before; h-4 is new
+        var rows = File.ReadAllText(Path.Combine(_directory, EvaluationRecord.GateRowsFile));
+        Assert.Contains("holdout-natural\th-1\tread.past\tread.past\tread.present\n", rows);
+        Assert.Contains("holdout-natural\th-4\tread.past\t-\tread.past\n", rows);
+        Assert.Contains("previous_image_sha256\told\n", File.ReadAllText(Path.Combine(_directory, EvaluationRecord.GateFile)));
+        Assert.Equal(
+            "set\tid\tgold\tprevious\tcurrent\tchange\nholdout-natural\th-1\tread.past\tread.past\tread.present\tbroken\n",
+            File.ReadAllText(Path.Combine(_directory, EvaluationRecord.FlipsFile)));
+    }
+
+    /// <summary>Proves a write with a new model image rotates: the committed current column becomes the previous one, and the flips and their counts follow.</summary>
+    [Fact]
+    public void EvaluationRecord_Write_NewModel_RotatesAndReportsFlips()
+    {
+        // Arrange
+        EvaluationRecord.Write(Sample, _directory);
+        var retrained = WithReadings(Sample with { ImageSha256 = "def456" }, ("h-1", "read.past"), ("h-2", "none"), ("h-3", "bass.music"));
+
+        // Act
+        EvaluationRecord.Write(retrained, _directory);
+
+        // Assert
+        Assert.Equal(
+            "set\tid\tgold\tprevious\tcurrent\tchange\n"
+            + "holdout-natural\th-1\tread.past\tread.present\tread.past\tfixed\n"
+            + "holdout-natural\th-2\tread.past\tread.past\tnone\tbroken\n",
+            File.ReadAllText(Path.Combine(_directory, EvaluationRecord.FlipsFile)));
+        var gate = File.ReadAllText(Path.Combine(_directory, EvaluationRecord.GateFile));
+        Assert.Contains("image_sha256\tdef456\nprevious_image_sha256\tabc123\n", gate);
+        Assert.Contains("holdout-natural_fixed\t1\nholdout-natural_broken\t1\n", gate);
+        Assert.Empty(EvaluationRecord.Compare(retrained, _directory));
     }
 
     /// <summary>Proves the group files list every group of every set with its basis-point accuracy.</summary>
@@ -109,7 +176,7 @@ public sealed class EvaluationRecordTests : IDisposable
         Assert.Contains("holdout-natural\t>=0.900\t1027\t1000\t9737\t0\n", files[EvaluationRecord.ConfidenceFile]);
     }
 
-    /// <summary>Proves the seed file lists each seed and the mean, minimum and maximum of the basis-point accuracies.</summary>
+    /// <summary>Proves the seed file lists each seed per gate set and the mean, minimum, maximum and threshold by rule.</summary>
     [Fact]
     public void EvaluationRecord_Render_Seeds_HasRowsAndSpread()
     {
@@ -118,12 +185,13 @@ public sealed class EvaluationRecordTests : IDisposable
 
         // Assert: natural 1100/1167 = 9426 and 1090/1167 = 9340; independent 1900/1972 = 9635 and 1910/1972 = 9686
         Assert.Equal(
-            "seed\tnatural_rows\tnatural_correct\tnatural_bp\tindependent_rows\tindependent_correct\tindependent_bp\n"
-            + "1\t1167\t1100\t9426\t1972\t1900\t9635\n"
-            + "2\t1167\t1090\t9340\t1972\t1910\t9686\n"
-            + "mean\t\t\t9383\t\t\t9661\n"
-            + "min\t\t\t9340\t\t\t9635\n"
-            + "max\t\t\t9426\t\t\t9686\n",
+            "seed\tholdout-independent_rows\tholdout-independent_correct\tholdout-independent_bp\tholdout-natural_rows\tholdout-natural_correct\tholdout-natural_bp\n"
+            + "1\t1972\t1900\t9635\t1167\t1100\t9426\n"
+            + "2\t1972\t1910\t9686\t1167\t1090\t9340\n"
+            + "mean\t\t\t9661\t\t\t9383\n"
+            + "min\t\t\t9635\t\t\t9340\n"
+            + "max\t\t\t9686\t\t\t9426\n"
+            + $"threshold_by_rule\t\t\t{HeteronymEvaluator.DeriveGateThreshold([1900, 1910], 1972)}\t\t\t{HeteronymEvaluator.DeriveGateThreshold([1100, 1090], 1167)}\n",
             seeds);
     }
 
@@ -228,6 +296,20 @@ public sealed class EvaluationRecordTests : IDisposable
         // Assert
         Assert.Empty(current);
         Assert.Equal([EvaluationRecord.SeedsFile, EvaluationRecord.SummaryFile], stale);
+    }
+
+    /// <summary>
+    ///     Returns a report whose holdout-natural set has the given current readings, labeled as in <see cref="Sample"/>
+    ///     (a new id is labeled <c>read.past</c>).
+    /// </summary>
+    /// <param name="report">The report.</param>
+    /// <param name="readings">The id and the emitted reading of every row.</param>
+    /// <returns>The report with the readings.</returns>
+    private static EvaluationReport WithReadings(EvaluationReport report, params (string Id, string Emitted)[] readings)
+    {
+        var gold = report.Sets[0].RowReadings!.ToDictionary(static row => row.Id, static row => row.Gold, StringComparer.Ordinal);
+        var rows = readings.Select(reading => new RowReading(reading.Id, gold.GetValueOrDefault(reading.Id, "read.past"), reading.Emitted)).ToList();
+        return report with { Sets = [report.Sets[0] with { RowReadings = rows }] };
     }
 
     /// <summary>Proves percentages format from basis points with two decimals and an optional sign.</summary>

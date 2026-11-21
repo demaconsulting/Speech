@@ -19,9 +19,8 @@ use the check name `license`. Its fixed rules are:
   `share-?alike|by-sa|by-nc|by-nd|non-?commercial|no-?derivat|wikipedia|misaki|creativecommons\.org/licenses/by-` is
   applied to every line of every `.tsv` file except the manifest, but for the four data files only to the `id`, `source`
   and `license` cells, for the evaluation overlays `regression.tsv` and `generalization.tsv` to every cell except
-  the sentence (column 3), so the sentence is never scanned, and for the word-cluster table `word-clusters.tsv` to its
-  header row only, because its rows are words counted in public-domain books, not license metadata. The word-cluster
-  source list and removals are scanned in full.
+  the sentence (column 3), so the sentence is never scanned. The corpus source list and removals are scanned in
+  full.
 - **Evaluation-only paths**: the case-insensitive pattern
   `wikipedia|whd|heteronym-bench|heteronymbench|llama|ewt|semcor|brown|misaki|\.conllu$` is applied to the relative path
   of every file under the folder, except exactly `whd-mapping.tsv` (which holds identifiers only); the local cache

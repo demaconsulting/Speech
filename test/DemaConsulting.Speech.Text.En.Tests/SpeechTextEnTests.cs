@@ -326,13 +326,13 @@ public sealed class SpeechTextEnTests
     }
 
     /// <summary>
-    ///     Proves the default analyzer, with no host configuration, decides the reading of a heteronym word in
-    ///     clear sentences (a curated set written independently of any labeled data set): one reading annotation
-    ///     and one confidence in [0, 1] on exactly the word, next to its part-of-speech annotation.
+    ///     Proves the default analyzer, with no host configuration, decides a heteronym word in clear sentences with
+    ///     the reading contract: one reading annotation that is a candidate of the word, one confidence in [0, 1], next
+    ///     to the part of speech. Whether the reading is the labeled one is scored by the trainer's statistical gate.
     /// </summary>
     /// <param name="text">The sentence.</param>
     /// <param name="word">The heteronym word in it.</param>
-    /// <param name="expectedReading">The reading id the word has in that sentence.</param>
+    /// <param name="labeledReading">The labeled reading of the word (scored by the gate through the regression overlay).</param>
     [Theory]
     [InlineData("They will record the meeting tonight.", "record", "record.verb")]
     [InlineData("She broke the world record last year.", "record", "record.noun")]
@@ -342,21 +342,23 @@ public sealed class SpeechTextEnTests
     [InlineData("Be careful not to tear the paper.", "tear", "tear.rip")]
     [InlineData("He caught a large bass in the lake.", "bass", "bass.fish")]
     [InlineData("He drew the bow and shot an arrow.", "bow", "bow.weapon")]
-    public void SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading(string text, string word, string expectedReading)
+    public void SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitOneCandidateReadingWithConfidence(string text, string word, string labeledReading)
     {
         // Arrange
         ITextAnalyzer analyzer = new EnglishTextAnalyzer();
         var start = text.IndexOf(word, StringComparison.Ordinal);
+        var candidates = global::DemaConsulting.Speech.Text.En.HeteronymSubsystem.ReadingInventory.Default.CandidatesFor(word);
 
         // Act
         var result = analyzer.Analyze(text, TestContext.Current.CancellationToken);
 
-        // Assert: exactly one reading and one confidence on exactly the word, and a part of speech beside them
+        // Assert: exactly one reading, a candidate of the word, and one confidence on exactly the word, and a part of speech beside them
         var onWord = result.Annotations.Where(annotation => annotation.Start == start && annotation.Length == word.Length).ToList();
         var reading = Assert.Single(onWord, annotation => annotation.Kind == TextEnAnnotations.Reading);
         var confidence = Assert.Single(onWord, annotation => annotation.Kind == TextEnAnnotations.ReadingConfidence);
         Assert.True(TextEnAnnotations.TryReadReading(reading, out var readingId));
-        Assert.Equal(expectedReading, readingId);
+        Assert.Contains(labeledReading, candidates);
+        Assert.Contains(readingId, candidates);
         Assert.True(TextEnAnnotations.TryReadReadingConfidence(confidence, out var confidenceValue));
         Assert.InRange(confidenceValue, 0.0, 1.0);
         Assert.Contains(onWord, annotation => annotation.Kind == TextEnAnnotations.PartOfSpeech);

@@ -38,6 +38,20 @@ sections:
                   - EvaluationOverlayChecker_CheckRegression_GoldenSentenceInTraining_MustBeSeen
                   - EvaluationOverlayChecker_CheckRegression_MalformedRow_IsFinding
 
+              - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-TestOnly
+                title: >-
+                  The EvaluationOverlayChecker class shall report a finding on the leakage check for every
+                  regression overlay row of the origins listening, analyzer-test, golden-pipeline and
+                  golden-sentences whose sentence the training data refers to, repeats or nearly repeats,
+                  whatever its seen-in-training mark says.
+                justification: |
+                  Golden, test and listening sentences are for testing only: a test sentence that is also a
+                  training row measures memory, not the model, so the forks of an ambiguous golden can never
+                  become training rows. The readings golden is not included, because some of its legacy rows
+                  repeat training sentences; its seen-in-training mark is recomputed and checked instead.
+                tests:
+                  - EvaluationOverlayChecker_CheckRegression_TestOnlySentenceInTraining_IsLeakage
+
               - id: SpeechTextEn-TrainingData-EvaluationOverlayChecker-GeneralizationRows
                 title: >-
                   The EvaluationOverlayChecker class shall report a finding for a generalization row whose

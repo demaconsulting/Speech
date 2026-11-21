@@ -47,6 +47,21 @@ sections:
                   - AveragedPerceptronTrainer_Train_SameSeedTwice_GivesIdenticalWeights
                   - AveragedPerceptronTrainer_Train_PruneThreshold_DropsSmallWeights
 
+              - id: SpeechTextEn-Training-AveragedPerceptronTrainer-StableRowOrder
+                title: >-
+                  The AveragedPerceptronTrainer class shall offer a visiting order in which adding training
+                  rows does not change the relative order in which the existing rows are visited in any
+                  epoch, and which depends only on the rows, the settings and the seed.
+                justification: |
+                  A shuffle of row positions moves every later row when one row is inserted, so a small
+                  data change retrains the model on a different order and its effect cannot be told apart
+                  from the reshuffle. An order tied to each row's own identity isolates the effect of the
+                  added rows, which a targeted data round needs, and it must stay as repeatable as the
+                  rest of the training.
+                tests:
+                  - AveragedPerceptronTrainer_Train_KeyedOrder_InsertedRowsKeepRelativeOrderOfExistingRows
+                  - AveragedPerceptronTrainer_Train_KeyedOrderSameSeed_IsDeterministic
+
               - id: SpeechTextEn-Training-AveragedPerceptronTrainer-SettingsValidation
                 title: >-
                   The AveragedPerceptronTrainer constructor shall throw InvalidDataException before any

@@ -37,6 +37,8 @@ public sealed class TrainCommandTests
     [InlineData("--seed", "needs a value")]
     [InlineData("--model-dir", "needs a value")]
     [InlineData("--seed abc", "non-negative integer")]
+    [InlineData("--row-order", "needs a value")]
+    [InlineData("--row-order sorted", "positional or keyed")]
     public void TrainCommand_Run_BadCommandLine_ExitsTwoNamingTheProblem(string argument, string message)
     {
         // Arrange
@@ -55,6 +57,8 @@ public sealed class TrainCommandTests
     [InlineData("--model-dir {model} --hash-bits 40", "hashBits")]
     [InlineData("--seed 5", "--model-dir")]
     [InlineData("--check --model-dir {model} --seed 5", "--check")]
+    [InlineData("--row-order keyed", "--model-dir")]
+    [InlineData("--check --model-dir {model} --row-order keyed", "--check")]
     public void TrainCommand_Run_ExperimentOptionMisuse_ExitsTwoAndWritesNothing(string arguments, string message)
     {
         // Arrange
@@ -108,22 +112,54 @@ public sealed class TrainCommandTests
         Assert.Contains("kept " + record.Result.SelectedEpochs + " epochs", output);
     }
 
-    /// <summary>Proves retraining keeps the evaluation and gate settings of an existing record, so retraining cannot move the gate.</summary>
+    /// <summary>
+    ///     Proves the row-order experiment option trains with the keyed order, records it and reports it, that the
+    ///     check retrains with the recorded order (so the keyed model is current), and that the default is positional.
+    /// </summary>
     [Fact]
-    public void TrainCommand_Run_ExistingRecord_KeepsItsEvaluationSettings()
+    public void TrainCommand_Run_RowOrderKeyed_RecordsTheOrderAndChecksWithIt()
     {
         // Arrange
         using var fixture = new TrainingFixture();
-        CommandHarness.TrainFixtureModel(fixture);
-        var recordPath = Path.Combine(fixture.ModelDirectory, Record);
-        File.WriteAllText(recordPath, File.ReadAllText(recordPath).Replace("\"gateMinPooledAccuracyPerThousand\": 930", "\"gateMinPooledAccuracyPerThousand\": 500", StringComparison.Ordinal));
+        var defaultDirectory = Path.Combine(fixture.BaseDirectory, "model-default");
 
         // Act
-        var (exitCode, _, _) = CommandHarness.Train(fixture, "--model-dir", fixture.ModelDirectory, "--hash-bits", "18");
+        var (exitCode, output, _) = CommandHarness.Train(fixture, "--model-dir", fixture.ModelDirectory, "--hash-bits", "18", "--row-order", "keyed");
+        var (checkCode, checkOutput, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
+        var (defaultCode, _, _) = CommandHarness.Train(fixture, "--model-dir", defaultDirectory, "--hash-bits", "18");
 
         // Assert
         Assert.Equal(0, exitCode);
-        Assert.Equal(500, TrainingRecord.Parse(File.ReadAllText(recordPath)).Evaluation.GateMinPooledAccuracyPerThousand);
+        Assert.Contains("row order keyed", output);
+        var record = TrainingRecord.Parse(File.ReadAllText(Path.Combine(fixture.ModelDirectory, Record)));
+        Assert.Equal(RowVisitingOrder.Keyed, record.Training.RowOrder);
+        Assert.Equal(0, checkCode);
+        Assert.Contains("--check: OK", checkOutput);
+        Assert.Equal(0, defaultCode);
+        Assert.Equal(RowVisitingOrder.Positional, TrainingRecord.Parse(File.ReadAllText(Path.Combine(defaultDirectory, Record))).Training.RowOrder);
+    }
+
+    /// <summary>Proves retraining writes the code's evaluation and gate settings, so a threshold changes only by a reviewed code change, and the check reports a record whose settings differ from the code's.</summary>
+    [Fact]
+    public void TrainCommand_Run_ExistingRecord_WritesTheCodeEvaluationSettingsAndCheckReportsDrift()
+    {
+        // Arrange: a record whose gate threshold was edited by hand
+        using var fixture = new TrainingFixture();
+        CommandHarness.TrainFixtureModel(fixture);
+        var recordPath = Path.Combine(fixture.ModelDirectory, Record);
+        var edited = TrainingRecord.Parse(File.ReadAllText(recordPath));
+        edited = edited with { Evaluation = edited.Evaluation with { GateThresholds = [new GateThreshold("holdout-natural", 5000)] } };
+        File.WriteAllText(recordPath, edited.ToJson());
+
+        // Act
+        var (checkCode, checkOutput, _) = CommandHarness.Train(fixture, "--check", "--model-dir", fixture.ModelDirectory);
+        var (exitCode, _, _) = CommandHarness.Train(fixture, "--model-dir", fixture.ModelDirectory, "--hash-bits", "18");
+
+        // Assert
+        Assert.Equal(1, checkCode);
+        Assert.Contains("evaluation and gate settings differ from the code's", checkOutput);
+        Assert.Equal(0, exitCode);
+        Assert.True(TrainingRecord.Parse(File.ReadAllText(recordPath)).Evaluation.SameValues(EvaluationSettings.Default));
     }
 
     /// <summary>Proves a model trained from the data passes the check, also when its file is the same model with an uncompressed payload: only content is compared, never the compressed bytes.</summary>

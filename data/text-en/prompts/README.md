@@ -25,13 +25,17 @@ adjudication and the holdout review).
 | [holdout-review.md](holdout-review.md) | `gpt-6.1-sol` | the blind review of the LLM-labeled holdout-natural rows | `audit/holdout-review.tsv` |
 | [final-review.md](final-review.md) | `gpt-6.1-sol` | the final blind review of the 650 round-3 synthetic rows and 17 holdout rows | `audit/final-review.tsv` |
 | [generalization.md](generalization.md) | `gpt-5.6-luna` | the blind generalization set of the word-cluster work (committed before the set was written, 2026-11-20; written in five rounds and reviewed blind by `claude-sonnet-5.5`, 2026-11-20 and 2026-11-21 UTC; see the record in the prompt file) | `generalization.tsv` (242 rows), `audit/generalization-review.tsv` |
+| [generation-synthetic-v4.md](generation-synthetic-v4.md) | `claude-sonnet-5.5` | the fourth-round synthetic sentences of the word-class work (PR B): 465 targeted rows in two parts, balanced per reading and written as contrastive pairs (committed before any row was written, 2026-11-21; see the record in the prompt file) | none merged: PR B stopped at its first pre-registered read (trainer `RUN-LOG.md`), so no `synthetic-v4` row is in the data; the rows are kept outside the repository with the failed attempt |
+| [review-synthetic-v4.md](review-synthetic-v4.md) | `gpt-6.1-sol` | the blind review of the fourth-round rows; a row is kept only when the review agrees with the writer's label (committed with the writer prompt) | none merged (see the row above) |
+| [review-regression.md](review-regression.md) | the harness's default sub-agent model (it named itself Claude, Anthropic, without a version) | the blind ambiguity screen of the regression overlay, the forced readings-golden rows and the fork candidates of the cleanup after PR B (written before the run and committed with its record, 2026-11-21) | `audit/regression-review.tsv` (513 rows in round 1, 1 in round 2) |
 
 The prompt files are the verbatim task prompts recovered from the session event log of the runs (they are not
 reconstructions). Only local absolute paths were replaced by `<SPIKE>`, `<PARTOFSPEECH>`, `<SPEECH-REPO>` and `<STAGE>`.
 The first-round prompts refer to the working files of the spike (`gaps.tsv`, `labels.tsv`, `harvest-unlabeled.tsv`) and
 to its working reading labels (WikipediaHomographData word ids); the committed rows use the reading ids of
 `readings.tsv`, mapped by a one-off builder script that is not part of the repository. The second-round prompts use the
-reading ids of `readings.tsv` directly.
+reading ids of `readings.tsv` directly. The generalization prompt and the two fourth-round prompts were committed before
+their runs and are given to the sub-agents verbatim, with only the staging folder substituted for `<STAGE>`.
 
 The two blind label reviews of the generalization set have no prompt file here (their task prompt is not recorded). Each
 reviewer saw only the row id, the sentence, the target span and the candidate readings with their descriptions (not the

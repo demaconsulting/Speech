@@ -290,7 +290,7 @@ regression	reg-0046	golden-pipeline	-	no	-	record.verb	record.verb	record.verb	n
 regression	reg-0047	golden-pipeline	-	no	-	live.verb	live.verb	live.verb	no
 regression	reg-0048	golden-pipeline	-	no	-	concert.noun	concert.noun	concert.noun	no
 regression	reg-0049	golden-pipeline	-	no	-	live.adj	live.adj	live.adj	no
-regression	reg-0050	golden-pipeline	-	no	-	read.present	read.present	read.present	no
+regression	reg-0050	golden-pipeline	-	no	-	read.present	read.past	read.past	no
 regression	reg-0051	golden-pipeline	-	no	-	read.past	read.past	read.past	yes
 regression	reg-0052	golden-pipeline	-	no	-	wind.air	wind.air	wind.air	no
 regression	reg-0053	golden-pipeline	-	no	-	wind.coil	wind.coil	wind.coil	no
@@ -760,3 +760,13 @@ regression	reg-0516	data-row	-	yes	-	minute.tiny	minute.tiny	minute.tiny	yes
 regression	reg-0517	data-row	-	yes	-	minute.tiny	minute.tiny	minute.tiny	yes
 regression	reg-0518	data-row	-	no	-	read.past	read.past	read.past	yes
 regression	reg-0519	data-row	-	no	-	minute.tiny	minute.tiny	minute.tiny	yes
+regression	reg-0525	golden-pipeline	-	no	-	read.past	read.past	read.past	no
+regression	reg-0526	golden-readings	-	no	-	associate.verb	associate.adj-noun	associate.adj-noun	no
+regression	reg-0527	golden-readings	-	no	-	axe.tool	axis.plural	axis.plural	no
+regression	reg-0528	golden-readings	-	no	-	bass.music	bass.fish	bass.fish	no
+regression	reg-0530	golden-readings	-	no	-	life.plural	live.verb	live.verb	no
+regression	reg-0531	golden-readings	-	no	-	moderate.adj-noun	moderate.verb	moderate.verb	no
+regression	reg-0533	golden-readings	-	no	-	reading.town	reading.act	reading.act	no
+regression	reg-0534	golden-readings	-	no	-	recount.narrate	recount.again	recount.again	no
+regression	reg-0535	golden-readings	-	no	-	sewer.seamstress	sewer.drain	sewer.drain	no
+regression	reg-0536	golden-readings	-	no	-	nominate.adj	nominate.adj	nominate.adj	no

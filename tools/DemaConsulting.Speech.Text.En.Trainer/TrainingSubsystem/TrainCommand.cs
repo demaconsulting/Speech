@@ -14,15 +14,15 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 ///     <b>Train.</b> Reads only the training and development data and the inventory, chooses the epoch count and
 ///     the calibration temperature on the development set, and writes the model file (Deflate-compressed) and the
 ///     training record (<c>training.json</c>). Without <c>--model-dir</c> the committed locations are written;
-///     experiment options (seed, hash bits, pruning, natural-row weight, epoch count) change the settings and
-///     therefore require <c>--model-dir</c>, so an experiment can never overwrite the committed files.
+///     experiment options (seed, hash bits, pruning, natural-row weight, epoch count, row visiting order) change the
+///     settings and therefore require <c>--model-dir</c>, so an experiment can never overwrite the committed files.
 ///     </para>
 ///     <para>
 ///     <b>Check.</b> Retrains with the settings in the committed record and compares everything that could make the
 ///     committed model stale: the inputs (data, feature stream, tagger, feature set, inventory), the choices and the
 ///     image hash recorded in the record, and the committed model file itself as an uncompressed image (the
-///     compressed bytes depend on the runtime's Deflate implementation and are never compared). Every difference is
-///     named.
+///     compressed bytes depend on the runtime's Deflate implementation and are never compared), and the record's
+///     evaluation and gate settings against the code's. Every difference is named.
 ///     </para>
 ///     <para>
 ///     Exit codes: <c>0</c> success (or a current model), <c>1</c> a stale or missing committed model or record,
@@ -58,6 +58,9 @@ internal static class TrainCommand
           --prune <n>             Experiment: drop weights of magnitude at most n.
           --natural-weight <n>    Experiment: visit each natural row n times per epoch.
           --max-epochs <n>        Experiment: the most epochs trained.
+          --row-order <order>     Experiment: the row visiting order, positional (a seeded shuffle of the row
+                                  positions; the default) or keyed (a seeded key per row id, so added rows keep
+                                  the relative order of the existing ones).
           --help                  Shows this text.
 
         Experiment options require --model-dir and cannot be combined with --check.
@@ -119,8 +122,9 @@ internal static class TrainCommand
     /// <param name="ModelDirectory">The model directory, or null for the committed locations.</param>
     /// <param name="Verify">Whether to verify instead of write.</param>
     /// <param name="Overrides">The experiment overrides applied to the default settings; empty for none.</param>
+    /// <param name="RowOrder">The experiment override of the row visiting order, or null for the default.</param>
     /// <param name="ShowHelp">Whether usage was requested.</param>
-    internal sealed record TrainOptions(string? Data, string? ModelDirectory, bool Verify, IReadOnlyDictionary<string, long> Overrides, bool ShowHelp);
+    internal sealed record TrainOptions(string? Data, string? ModelDirectory, bool Verify, IReadOnlyDictionary<string, long> Overrides, RowVisitingOrder? RowOrder, bool ShowHelp);
 
     /// <summary>
     ///     Parses the arguments.
@@ -135,6 +139,7 @@ internal static class TrainCommand
         string? modelDirectory = null;
         var check = false;
         var help = false;
+        RowVisitingOrder? rowOrder = null;
         var overrides = new Dictionary<string, long>(StringComparer.Ordinal);
 
         var position = 0;
@@ -153,7 +158,7 @@ internal static class TrainCommand
                 case "--check":
                     check = true;
                     break;
-                case "--data" or "--model-dir" or "--seed" or "--hash-bits" or "--prune" or "--natural-weight" or "--max-epochs":
+                case "--data" or "--model-dir" or "--seed" or "--hash-bits" or "--prune" or "--natural-weight" or "--max-epochs" or "--row-order":
                     var value = inline ?? (position < args.Count ? args[position++] : null);
                     if (string.IsNullOrEmpty(value))
                     {
@@ -168,6 +173,16 @@ internal static class TrainCommand
                     else if (name == "--model-dir")
                     {
                         modelDirectory = value;
+                    }
+                    else if (name == "--row-order")
+                    {
+                        if (!TrainingSettings.TryParseRowOrder(value, out var order))
+                        {
+                            parseError = $"option {name} needs {TrainingSettings.PositionalOrderName} or {TrainingSettings.KeyedOrderName}";
+                            return null;
+                        }
+
+                        rowOrder = order;
                     }
                     else if (long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
                     {
@@ -186,13 +201,13 @@ internal static class TrainCommand
             }
         }
 
-        if (!help && overrides.Count > 0 && (modelDirectory is null || check))
+        if (!help && (overrides.Count > 0 || rowOrder is not null) && (modelDirectory is null || check))
         {
             parseError = "experiment options need --model-dir and cannot be combined with --check";
             return null;
         }
 
-        return new TrainOptions(data, modelDirectory, check, overrides, help);
+        return new TrainOptions(data, modelDirectory, check, overrides, rowOrder, help);
     }
 
     /// <summary>
@@ -221,10 +236,16 @@ internal static class TrainCommand
     ///     Applies the experiment overrides to the default settings.
     /// </summary>
     /// <param name="overrides">The overrides by option name.</param>
+    /// <param name="rowOrder">The row visiting order override, or null for the default.</param>
     /// <returns>The settings.</returns>
-    private static TrainingSettings Apply(IReadOnlyDictionary<string, long> overrides)
+    private static TrainingSettings Apply(IReadOnlyDictionary<string, long> overrides, RowVisitingOrder? rowOrder)
     {
         var settings = TrainingSettings.Default;
+        if (rowOrder is { } order)
+        {
+            settings = settings with { RowOrder = order };
+        }
+
         foreach (var (name, value) in overrides)
         {
             settings = name switch
@@ -252,16 +273,18 @@ internal static class TrainCommand
     /// <returns>The exit code, 0.</returns>
     private static int TrainAndWrite(TrainOptions options, string root, string modelPath, string recordPath, TextWriter output)
     {
-        var settings = Apply(options.Overrides);
+        var settings = Apply(options.Overrides, options.RowOrder);
 
-        // An existing record keeps its evaluation and gate settings, so retraining never moves the gate.
-        var evaluation = File.Exists(recordPath) ? TrainingRecord.Parse(File.ReadAllText(recordPath)).Evaluation : EvaluationSettings.Default;
+        // The evaluation and gate settings are the code's; a threshold changes only by a reviewed change of the code,
+        // and the check reports a record whose settings differ from them.
+        var evaluation = EvaluationSettings.Default;
 
         var stopwatch = Stopwatch.StartNew();
         var corpus = TrainingCorpus.Load(root);
         var loaded = stopwatch.Elapsed;
         output.WriteLine($"train: data folder {root}");
         output.WriteLine($"train: {corpus.Train.Count} training rows, {corpus.Dev.Count} development rows prepared in {loaded.TotalSeconds:F1} s");
+        output.WriteLine($"train: seed {settings.Seed}, row order {TrainingSettings.FormatRowOrder(settings.RowOrder)}");
 
         stopwatch.Restart();
         var trained = ModelSelection.Train(corpus, settings);
@@ -320,6 +343,10 @@ internal static class TrainCommand
         var fresh = ModelSelection.Train(corpus, record.Training);
         CompareInputs(record.Inputs, fresh.Inputs, stale);
         CompareResult(record.Result, fresh.Result, stale);
+        if (!record.Evaluation.SameValues(EvaluationSettings.Default))
+        {
+            stale.Add("the record's evaluation and gate settings differ from the code's (retrain to rewrite the record)");
+        }
 
         // The committed model, as an uncompressed image, must equal the retrained one.
         if (!File.Exists(modelPath))

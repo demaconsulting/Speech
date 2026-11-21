@@ -63,17 +63,17 @@ inventory that the dictionary lists is pronounced as the first variant of its en
 ### Readings
 
 **Tests**: `SpeechPhonemesEn_ReadingGolden_EveryReadingIsPronouncedAsReviewed`,
-`SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate`,
 `SpeechPhonemesEn_Render_EveryHeteronymReading_BothVoicesRenderTheChosenPronunciation`
 
 Each of the 395 reading ids has one reviewed sentence; the pronunciation of the target word comes out of the pipeline
 with the reading applied, end to end where the real classifier labels the sentence as intended and with the reading
-forced where it labels it differently (the golden is not bent to the classifier). At least 95 percent of the sentences
-are labeled correctly by the classifier today (97.5 percent measured), and the rows marked as classified end to end are
-re-checked. The same 395 sentences prove that both voices say the chosen reading: the target word as rendered in its
-sentence by the Piper renderer and by the Kokoro renderer (both with function-word tables on) equals what that renderer
-renders for the pronunciation the reading table gives for the reading, on its own (the Piper voice may add the linking
-r), so a rule of one voice that replaces or changes the reading of a heteronym is caught.
+forced where it labels it differently (the golden is not bent to the classifier). The mode of each row is a snapshot of
+the committed classifier, so a retrained model regenerates it; whether the classifier is right is judged by the Text.En
+trainer's statistical gate (see *SpeechTextEn System Verification*), not by a hit-rate test here. The same 395 sentences
+prove that both voices say the chosen reading: the target word as rendered in its sentence by the Piper renderer and by
+the Kokoro renderer (both with function-word tables on) equals what that renderer renders for the pronunciation the
+reading table gives for the reading, on its own (the Piper voice may add the linking r), so a rule of one voice that
+replaces or changes the reading of a heteronym is caught.
 
 ### Source priority
 

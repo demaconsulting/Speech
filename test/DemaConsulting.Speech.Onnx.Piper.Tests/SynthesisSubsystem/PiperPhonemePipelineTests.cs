@@ -15,10 +15,12 @@ namespace DemaConsulting.Speech.Onnx.Piper.Tests.SynthesisSubsystem;
 /// <remarks>
 ///     Three corpora: the renderer's own Piper golden (<c>piper-ipa-golden.tsv</c>, linked from the Phonemes.En tests:
 ///     150 sentences, every symbol of which must be in the voice's table and encode to the ids pinned there), and the
-///     pipeline golden (<c>piper-pipeline-golden.tsv</c>: the 40 sentences of the Kokoro pipeline corpus, 12 of which
+///     pipeline golden (<c>piper-pipeline-golden.tsv</c>: the 41 sentences of the Kokoro pipeline corpus, 12 of which
 ///     carry both readings of a heteronym such as <c>record</c> or <c>wind</c>, run the way a session runs them and
 ///     pinned with their phoneme string and framed ids). A change in the pipeline golden means the audio changes: review
-///     it by listening, not only by reading.
+///     it by listening, not only by reading. For a heteronym the pipeline golden pins the committed model's reading,
+///     right or wrong: whether the reading is right is judged by the Text.En trainer's statistical gate through the
+///     regression overlay, not here.
 /// </remarks>
 public sealed class PiperPhonemePipelineTests
 {

@@ -13,13 +13,23 @@ the tagger for free (source: the Text.En evaluation record, [REF-3]).
 
 | Set | Words | Model | Tag alone | Majority reading |
 | --- | ---: | ---: | ---: | ---: |
-| Natural holdout (the gate) | 1,167 | 96.23% | 90.66% | 82.01% |
-| Independent holdout, written blind by another model family | 1,972 | 95.44% | 91.23% | 51.37% |
+| Natural holdout (a gate set) | 1,167 | 96.23% | 90.66% | 82.01% |
+| Independent holdout, written blind by another model family (a gate set) | 1,972 | 95.44% | 91.23% | 51.37% |
 | Development set (used to choose settings; optimistic) | 3,235 | 95.30% | 88.56% | 65.87% |
 
-- **The gate passed.** On the natural holdout the model is right for 1,123 of 1,167 words, above the threshold of 93.0
-  percent, and its improvement over the tag alone is +5.57 points with a 95 percent interval of +3.16 to +8.15 points
-  (266 document clusters).
+- **The statistical gate passed.** Each of four scored sets must reach a threshold derived from the seed spread of the
+  current recipe (the mean minus two standard deviations over seeds 1 to 5):
+
+  | Gate set | Rows | Model | 95 percent interval | Threshold |
+  | --- | ---: | ---: | --- | ---: |
+  | Regression overlay (goldens, analyzer tests, listening flags) | 529 | 98.30% | 97.16% to 99.24% | 96.01% |
+  | Natural holdout | 1,167 | 96.23% | 94.32% to 97.98% | 95.20% |
+  | Independent holdout | 1,972 | 95.44% | 94.47% to 96.30% | 94.83% |
+  | Generalization set | 242 | 73.14% | 67.05% to 79.10% | 69.02% |
+
+  A flip report lists every scored row whose reading a model change fixes or breaks. On the natural holdout the
+  improvement over the tag alone is +5.57 points with a 95 percent interval of +3.16 to +8.15 points (266 document
+  clusters); it is reported, not gated.
 - **Seeds.** Five training runs with seeds 1 to 5 give 95.46 to 97.00 percent on the natural holdout (mean 96.43). The
   shipped model is seed 1, chosen before any holdout was read, not the best seed.
 - **Confidence.** On the natural holdout the reading was right for 99.33 percent of the words at a confidence of 0.90
@@ -40,17 +50,20 @@ cover only part of the inventory and follow their own labeling, so they are info
 
 ### Evaluation Overlays
 
-Two further sets measure what the gate does not (source: [REF-3]). Neither is part of the gate, and nothing is trained
-on either:
+Two further sets measure the flagged sentences and unseen words and constructions (source: [REF-3]). Both are gate sets,
+and nothing is trained on either:
 
-- **The regression overlay** (519 sentences: listening flags, analyzer and golden test targets, and selected training
-  and development rows) is read correctly in all 519 cases with the cue priors and in 515 without them. The four
-  differences are three flagged listening sentences that the cue priors were written for and one data row of a flagged
-  construction.
+- **The regression overlay** (529 sentences: listening flags, analyzer and golden test targets, the readings-golden
+  sentences the model gets wrong, and selected training and development rows) is read correctly in 520 cases with the
+  cue priors. Its golden *I read every night before bed.* allowed both readings, so it was split into a present and a
+  past sentence; the model reads the present one, *Nowadays I read every night before bed.*, as past.
 - **The generalization set** (242 sentences written blind by another model family around cue words and constructions
   that the training data does not contain) is read correctly in 177 cases, 73.14 percent, against 64.88 percent for the
   tag alone. New cue words and constructions are where the model is weakest, far below its 96.23 percent on the natural
   holdout.
+- **Word classes were tried and not adopted.** Context features from word classes of a public-domain corpus gave no
+  gain on the generalization set (−2.89 points against the same model without them, 95 percent interval −6.61 to +0.79),
+  so they failed the criterion recorded before they were trained and were removed.
 
 ### Limits of This Evidence
 
@@ -63,6 +76,8 @@ on either:
 - **Small counts.** A reading has few holdout rows, so a per-reading figure is noisy; the pooled figures weigh the
   common readings most.
 - **Coverage.** The model decides 395 readings of 207 words of US English, one sentence at a time.
+- **Repeated use.** The gate sets are read on every check, so they guard against regressions; only a fresh set gives an
+  unbiased estimate for comparing methods.
 
 ## Pronunciation and Rendering
 
@@ -90,5 +105,5 @@ the blinded listening packs is still pending (source: the Phonemes.En gate summa
   words, depending on the ending.
 - **Unknown words.** The trained letter-to-sound model has a phoneme error rate of 11.59 percent on held-out
   dictionary words, against 25.53 percent for a rules baseline.
-- **Readings golden.** The real analyzer chooses the intended reading in 385 of the 395 sentences of the readings
-  golden; the 10 misses are pinned as forced readings rather than hidden.
+- **Readings golden.** The real analyzer chooses the intended reading in 386 of the 395 sentences of the readings
+  golden; the 9 misses are pinned as forced readings rather than hidden.

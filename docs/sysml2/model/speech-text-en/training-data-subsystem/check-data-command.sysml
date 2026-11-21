@@ -1,6 +1,7 @@
 package SpeechTextEn_CheckDataCommand {
     private import SoftwareItemMetadata::*;
     private import SpeechTextEn_CheckReport::*;
+    private import SpeechTextEn_CorpusDataChecker::*;
     private import SpeechTextEn_DataManifest::*;
     private import SpeechTextEn_EvaluationOverlayChecker::*;
     private import SpeechTextEn_LeakageChecker::*;
@@ -10,7 +11,7 @@ package SpeechTextEn_CheckDataCommand {
 
     part def CheckDataCommand {
         doc /* Command line entry of the trainer's check-data command: parses the options, finds the data folder, runs
-             * the manifest, load, schema, license and leakage checks in a fixed order and returns the exit code (0
+             * the manifest, load, schema, license, leakage, overlay and corpus checks in a fixed order and returns the exit code (0
              * pass, 1 findings, 2 usage or input error). The Program.cs entry point is glue that dispatches to this
              * unit. */
 
@@ -22,9 +23,10 @@ package SpeechTextEn_CheckDataCommand {
             requirementFiles = ("docs/reqstream/speech-text-en/training-data-subsystem/check-data-command.yaml");
         }
 
-        // Loads the data set and runs manifest, schema, license, leakage and overlay checks into a check
-        // report.
+        // Loads the data set and runs manifest, schema, license, leakage, overlay and corpus checks into a
+        // check report.
         dependency CheckDataCommand to CheckReport;
+        dependency CheckDataCommand to CorpusDataChecker;
         dependency CheckDataCommand to DataManifest;
         dependency CheckDataCommand to EvaluationOverlayChecker;
         dependency CheckDataCommand to LeakageChecker;

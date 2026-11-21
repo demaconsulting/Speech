@@ -19,9 +19,9 @@ sections:
                 title: >-
                   The TrainingRecord class shall write a record as text and read that text back into an
                   equal record, with every training setting, evaluation setting, input description and
-                  result, including the calibration temperature, and shall write the same text for the
-                  same record every time, with line feeds only, a final newline, and no dependence on the
-                  current culture.
+                  result, including the calibration temperature and the row visiting order by name, and
+                  shall write the same text for the same record every time, with line feeds only, a final
+                  newline, and no dependence on the current culture.
                 justification: |
                   The record is the only description of how a model was made, and it is committed to the
                   repository and compared by the check. A record that did not read back to what was
@@ -29,14 +29,17 @@ sections:
                   the machine or the culture would make a current record look stale, or hide a real change.
                 tests:
                   - TrainingRecord_ToJsonThenParse_RoundTripsEveryField
+                  - TrainingRecord_ToJsonThenParse_RowOrder_RoundTripsByName
                   - TrainingRecord_ToJson_IsDeterministicWithLineFeedsAndFinalNewline
                   - TrainingRecord_ToJson_UnderAnotherCulture_IsUnchanged
 
               - id: SpeechTextEn-Training-TrainingRecord-Validation
                 title: >-
                   The TrainingRecord class shall reject with an InvalidDataException text that is not a
-                  record, has an unsupported schema, lacks a property (naming the property) or holds a
-                  setting outside its range.
+                  record, has an unsupported schema (schema 1, before the per-set gate thresholds, included),
+                  lacks a property (naming the property) or holds a setting outside its range, including a
+                  gate threshold outside 1 to 10,000 basis points, an unknown gate set, or gate sets that are
+                  repeated or not in ordinal order.
                 justification: |
                   The record drives retraining and the quality gate. A damaged or hand-edited record must be
                   refused and explained, not trusted.

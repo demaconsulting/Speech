@@ -45,10 +45,13 @@ findings use the check name `overlay`.
   finding whatever the origin; otherwise the origin must be known and the reference must fit its grammar; a `data-row`
   reference must resolve to a row of that file with the same lemma, reading, sentence, offsets and license); the holdout
   separation (the key may not be a holdout key and the sentence may not be a near duplicate of a holdout sentence); and
-  the seen mark, recomputed as `yes` exactly when the row refers to a training row, its key is a training key or it is
-  a near duplicate of a training sentence. It adds an information line with the rows per origin and the seen and
-  unseen counts. Golden and test references are not opened here: the data check does not know the repository layout,
-  so a trainer test resolves them from the repository's test files.
+  the seen mark, recomputed as `yes` exactly when the row refers to a training row, its key is a training key or it is a
+  near duplicate of a training sentence. A row of a test-only origin (`listening`, `analyzer-test`, `golden-pipeline`,
+  `golden-sentences`) whose recomputed mark is `yes` is a finding on the `leakage` check, whatever its mark says: test
+  sentences are never training rows. `golden-readings` is left out, because some of its legacy rows repeat training
+  sentences; the recomputed mark protects it. It adds an information line with the rows per origin and the seen and
+  unseen counts. Golden and test references are not opened here: the data check does not know the repository layout, so
+  a trainer test resolves them from the repository's test files.
 - **CheckGeneralization(rows, revealMatches)**: for every row: the identifier (`gen-NNNN`, unique) and no repeated
   sentence key within the set; the reading, lemma and span; the columns (kind `novel-vocabulary` or
   `novel-construction`; family `{lemma}:{cue-type}` in lower-case ASCII whose lemma is in the row's lemma group;

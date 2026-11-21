@@ -86,14 +86,3 @@ sections:
                   that may mention such words legitimately, as in the data files.
                 tests:
                   - LicenseChecker_Run_OverlayMetadata_IsScannedButNotItsSentence
-
-              - id: SpeechTextEn-TrainingData-LicenseChecker-ClusterTableHeader
-                title: >-
-                  The LicenseChecker class shall scan only the header row of the word-cluster table for
-                  restricted-license terms, and every line of the word-cluster source list and removals.
-                justification: |
-                  The table's rows are words counted in public-domain books, and a word such as a site name is
-                  corpus text, not a license statement; the source list and the removals are metadata written
-                  for the record, where a restricted source could be named.
-                tests:
-                  - LicenseChecker_Run_WordClusterTable_OnlyHeaderIsScanned

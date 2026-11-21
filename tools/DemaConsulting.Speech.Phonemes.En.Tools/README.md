@@ -39,10 +39,16 @@ inputs or to the library code they depend on.
      `-f net10.0`). Each changed sentence fails its own theory case (`..._GoldenSentence_ProducesPinned...`) and the
      assertion prints the expected and the actual string.
   2. Review every difference as a behavior change (it changes the audio): the heteronym sentences must still differ from
-     the default readings, and a wrong output is fixed in the code, never in the golden.
+     the default readings, and a wrong output is fixed in the code, never in the golden. The one exception is the
+     reading a trained heteronym model chooses: the golden pins the committed model's reading, right or wrong, and the
+     Text.En trainer's statistical gate judges whether it is right (`evaluate --gate`); review a changed heteronym
+     reading against the gate's flip report (`docs/evaluation/text-en/flips.tsv`).
   3. Copy the actual phoneme string and id list into the third and fourth tab-separated columns of that row (columns are
      `id`, `sentence`, `phonemes`, `ids`; the parts of one sentence are separated by `|`). Never change the first two
-     columns of `kokoro-pipeline-golden.tsv`: the Piper golden reuses its sentences by id.
+     columns of `kokoro-pipeline-golden.tsv`: the Piper golden reuses its sentences by id. The exception is a golden
+     whose sentence allows two readings, which is forked by owner decision into one unambiguous sentence per reading
+     (the sentence of its id is replaced, the other reading gets a new id, in both files at once, and the regression
+     overlay `data/text-en/regression.tsv` follows); this was done once, for e05 and e11.
   4. Run both test projects again and check with `git diff` that only the intended rows changed.
 
 ## Measurements

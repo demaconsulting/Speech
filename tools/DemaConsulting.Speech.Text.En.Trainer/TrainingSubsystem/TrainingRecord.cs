@@ -5,9 +5,33 @@ using System.Text.Json;
 namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 
 /// <summary>
+///     The order in which the trainer visits the training rows within an epoch.
+/// </summary>
+/// <remarks>
+///     The visiting order is part of what determines a trained model, so it is a recorded setting. The two orders
+///     differ in what happens when training rows are added: a positional shuffle permutes row positions, so one
+///     inserted row moves every later row to a new place in every epoch, while the keyed order gives each row a place
+///     that depends only on its own id, which keeps the relative order of the existing rows.
+/// </remarks>
+internal enum RowVisitingOrder
+{
+    /// <summary>
+    ///     A seeded Fisher-Yates shuffle of the row positions, applied again at the start of every epoch (the order of
+    ///     the first trained models).
+    /// </summary>
+    Positional,
+
+    /// <summary>
+    ///     Each epoch, every visit (a row and its repeat number) is ordered by a seeded key mixed from the seed, the
+    ///     epoch, a hash of the row id and the repeat number; ties go to the ordinal id, then the repeat number.
+    /// </summary>
+    Keyed,
+}
+
+/// <summary>
 ///     The settings that determine a trained model, fixed before training starts.
 /// </summary>
-/// <param name="Seed">The seed of the row-order shuffle.</param>
+/// <param name="Seed">The seed of the row visiting order.</param>
 /// <param name="HashBits">The number of hash bits of the model, 16 to 24.</param>
 /// <param name="Scale">The fixed-point scale of the quantized weights; a positive integer.</param>
 /// <param name="PruneThreshold">Weights whose magnitude is at most this value are dropped from the model; 0 drops only zeros.</param>
@@ -15,6 +39,7 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 /// <param name="MaxEpochs">The most epochs trained; the epoch count actually kept is chosen on the development set.</param>
 /// <param name="TemperatureSteps">The number of candidate calibration temperatures (<c>k / divisor</c> for <c>k</c> from 1).</param>
 /// <param name="TemperatureDivisor">The divisor of the candidate temperatures.</param>
+/// <param name="RowOrder">The order in which the training rows are visited within an epoch.</param>
 internal sealed record TrainingSettings(
     ulong Seed,
     int HashBits,
@@ -23,13 +48,21 @@ internal sealed record TrainingSettings(
     int NaturalWeight,
     int MaxEpochs,
     int TemperatureSteps,
-    int TemperatureDivisor)
+    int TemperatureDivisor,
+    RowVisitingOrder RowOrder)
 {
+    /// <summary>The text of the positional visiting order in the record and on the command line.</summary>
+    public const string PositionalOrderName = "positional";
+
+    /// <summary>The text of the keyed visiting order in the record and on the command line.</summary>
+    public const string KeyedOrderName = "keyed";
+
     /// <summary>Gets the settings the committed model is trained with unless an experiment option overrides them.</summary>
     /// <remarks>
     ///     The prune threshold and natural-row weight were chosen on the development set only (see RUN-LOG.md): the
     ///     pre-registered grid of prune 0, 1, 2 and natural weight 1, 2, 3 was scored by the development natural
-    ///     rows decided correctly, ties going to the smaller model.
+    ///     rows decided correctly, ties going to the smaller model. The committed model was trained with the
+    ///     positional visiting order; the keyed order is an experiment option until a model is trained with it.
     /// </remarks>
     public static TrainingSettings Default { get; } = new(
         Seed: 1,
@@ -39,7 +72,43 @@ internal sealed record TrainingSettings(
         NaturalWeight: 3,
         MaxEpochs: 12,
         TemperatureSteps: 1000,
-        TemperatureDivisor: 20);
+        TemperatureDivisor: 20,
+        RowOrder: RowVisitingOrder.Positional);
+
+    /// <summary>
+    ///     Gets the text form of a visiting order, as written in the record and typed on the command line.
+    /// </summary>
+    /// <param name="order">The order.</param>
+    /// <returns><c>positional</c> or <c>keyed</c>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not a defined order.</exception>
+    public static string FormatRowOrder(RowVisitingOrder order) => order switch
+    {
+        RowVisitingOrder.Positional => PositionalOrderName,
+        RowVisitingOrder.Keyed => KeyedOrderName,
+        _ => throw new ArgumentOutOfRangeException(nameof(order), order, "unknown row order"),
+    };
+
+    /// <summary>
+    ///     Reads the text form of a visiting order.
+    /// </summary>
+    /// <param name="text">The text; exactly <c>positional</c> or <c>keyed</c> (ordinal, case-sensitive). May be null.</param>
+    /// <param name="order">Receives the order when the text names one.</param>
+    /// <returns>Whether the text names an order.</returns>
+    public static bool TryParseRowOrder(string? text, out RowVisitingOrder order)
+    {
+        switch (text)
+        {
+            case PositionalOrderName:
+                order = RowVisitingOrder.Positional;
+                return true;
+            case KeyedOrderName:
+                order = RowVisitingOrder.Keyed;
+                return true;
+            default:
+                order = RowVisitingOrder.Positional;
+                return false;
+        }
+    }
 
     /// <summary>
     ///     Checks that every setting is in its valid range.
@@ -59,6 +128,7 @@ internal sealed record TrainingSettings(
         Require(MaxEpochs is >= 1 and <= 100, "maxEpochs must be 1 to 100");
         Require(TemperatureSteps is >= 1 and <= 100_000, "temperatureSteps must be 1 to 100000");
         Require(TemperatureDivisor is >= 1 and <= 1_000_000, "temperatureDivisor must be 1 to 1000000");
+        Require(RowOrder is RowVisitingOrder.Positional or RowVisitingOrder.Keyed, "rowOrder must be positional or keyed");
     }
 
     /// <summary>
@@ -76,27 +146,47 @@ internal sealed record TrainingSettings(
 }
 
 /// <summary>
-///     The settings of the evaluation and the quality gate, fixed before any holdout is evaluated.
+///     The least accuracy the statistical quality gate accepts on one scored set.
 /// </summary>
-/// <param name="Seeds">The seeds the multi-seed variance report trains with; includes the committed seed.</param>
+/// <param name="Set">The gate set: one of <see cref="HeteronymEvaluator.GateSets"/>.</param>
+/// <param name="MinAccuracyBasisPoints">The least end-to-end accuracy, in basis points (9520 is 95.20%); the set passes when <c>correct × 10,000 ≥ threshold × rows</c>.</param>
+internal sealed record GateThreshold(string Set, int MinAccuracyBasisPoints);
+
+/// <summary>
+///     The settings of the evaluation and the statistical quality gate.
+/// </summary>
+/// <param name="Seeds">The seeds the multi-seed study trains with; includes the committed seed.</param>
 /// <param name="Resamples">The number of bootstrap resamples.</param>
 /// <param name="ConfidencePercent">The confidence level of the bootstrap interval, in percent.</param>
 /// <param name="BootstrapSeed">The seed of the bootstrap resampling.</param>
-/// <param name="GateMinPooledAccuracyPerThousand">The least pooled accuracy on the natural holdout the gate accepts, in thousandths (930 is 93.0%).</param>
+/// <param name="GateThresholds">The threshold of every scored gate set, in the ordinal order of the set names.</param>
 internal sealed record EvaluationSettings(
     IReadOnlyList<ulong> Seeds,
     int Resamples,
     int ConfidencePercent,
     ulong BootstrapSeed,
-    int GateMinPooledAccuracyPerThousand)
+    IReadOnlyList<GateThreshold> GateThresholds)
 {
-    /// <summary>Gets the evaluation settings of the quality gate, committed before the first holdout evaluation.</summary>
+    /// <summary>
+    ///     Gets the evaluation settings of the statistical gate.
+    /// </summary>
+    /// <remarks>
+    ///     Each threshold is the floor of the mean minus two sample standard deviations of the correct counts of the
+    ///     current recipe at the seeds 1 to 5 (<see cref="HeteronymEvaluator.DeriveGateThreshold"/>), recorded by the
+    ///     trainer's <c>RUN-LOG.md</c> entry "Cleanup after PR B: the seed study and the gate thresholds".
+    /// </remarks>
     public static EvaluationSettings Default { get; } = new(
         Seeds: [1UL, 2UL, 3UL, 4UL, 5UL],
         Resamples: 10_000,
         ConfidencePercent: 95,
         BootstrapSeed: 7,
-        GateMinPooledAccuracyPerThousand: 930);
+        GateThresholds:
+        [
+            new GateThreshold("generalization", 6902),
+            new GateThreshold("holdout-independent", 9483),
+            new GateThreshold("holdout-natural", 9520),
+            new GateThreshold("regression", 9601),
+        ]);
 
     /// <summary>
     ///     Checks that every setting is in its valid range.
@@ -104,11 +194,35 @@ internal sealed record EvaluationSettings(
     /// <exception cref="InvalidDataException">A setting is out of range; the message names it.</exception>
     public void Validate()
     {
-        if (Seeds.Count is < 1 or > 100 || Resamples is < 100 or > 1_000_000 || ConfidencePercent is < 50 or > 99
-            || GateMinPooledAccuracyPerThousand is < 1 or > 1000)
+        if (Seeds.Count is < 1 or > 100 || Resamples is < 100 or > 1_000_000 || ConfidencePercent is < 50 or > 99)
         {
             throw new InvalidDataException("the evaluation settings are out of range");
         }
+
+        // At least one gate set, each known, in ordinal order without repeats, with a threshold in range
+        var sets = GateThresholds.Select(static threshold => threshold.Set).ToList();
+        if (sets.Count == 0
+            || !sets.All(set => HeteronymEvaluator.GateSets.Contains(set, StringComparer.Ordinal))
+            || !sets.SequenceEqual(sets.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal), StringComparer.Ordinal)
+            || GateThresholds.Any(static threshold => threshold.MinAccuracyBasisPoints is < 1 or > 10_000))
+        {
+            throw new InvalidDataException("the gate thresholds must name known gate sets once each, in ordinal order, with a threshold of 1 to 10000 basis points");
+        }
+    }
+
+    /// <summary>
+    ///     Tells whether two settings are equal value by value, including the seeds and the thresholds.
+    /// </summary>
+    /// <param name="other">The other settings.</param>
+    /// <returns><see langword="true"/> when every value is equal.</returns>
+    public bool SameValues(EvaluationSettings other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return Seeds.SequenceEqual(other.Seeds)
+            && Resamples == other.Resamples
+            && ConfidencePercent == other.ConfidencePercent
+            && BootstrapSeed == other.BootstrapSeed
+            && GateThresholds.SequenceEqual(other.GateThresholds);
     }
 }
 
@@ -190,8 +304,8 @@ internal sealed record TrainingRecord(
     TrainingInputs Inputs,
     TrainingResult Result)
 {
-    /// <summary>The version of the record layout.</summary>
-    public const int SchemaVersion = 1;
+    /// <summary>The version of the record layout; 2 holds the per-set thresholds of the statistical gate.</summary>
+    public const int SchemaVersion = 2;
 
     /// <summary>
     ///     Renders the record as text.
@@ -214,6 +328,7 @@ internal sealed record TrainingRecord(
             writer.WriteNumber("maxEpochs", Training.MaxEpochs);
             writer.WriteNumber("temperatureSteps", Training.TemperatureSteps);
             writer.WriteNumber("temperatureDivisor", Training.TemperatureDivisor);
+            writer.WriteString("rowOrder", TrainingSettings.FormatRowOrder(Training.RowOrder));
             writer.WriteEndObject();
 
             writer.WriteStartObject("evaluation");
@@ -227,7 +342,16 @@ internal sealed record TrainingRecord(
             writer.WriteNumber("resamples", Evaluation.Resamples);
             writer.WriteNumber("confidencePercent", Evaluation.ConfidencePercent);
             writer.WriteNumber("bootstrapSeed", Evaluation.BootstrapSeed);
-            writer.WriteNumber("gateMinPooledAccuracyPerThousand", Evaluation.GateMinPooledAccuracyPerThousand);
+            writer.WriteStartArray("gate");
+            foreach (var threshold in Evaluation.GateThresholds)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("set", threshold.Set);
+                writer.WriteNumber("minAccuracyBasisPoints", threshold.MinAccuracyBasisPoints);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
             writer.WriteEndObject();
 
             writer.WriteStartObject("inputs");
@@ -298,16 +422,20 @@ internal sealed record TrainingRecord(
                 Section(training, "naturalWeight").GetInt32(),
                 Section(training, "maxEpochs").GetInt32(),
                 Section(training, "temperatureSteps").GetInt32(),
-                Section(training, "temperatureDivisor").GetInt32());
+                Section(training, "temperatureDivisor").GetInt32(),
+                ParseRowOrder(Section(training, "rowOrder").GetString()));
             settings.Validate();
 
             var seeds = Section(evaluation, "seeds").EnumerateArray().Select(static e => e.GetUInt64()).ToList();
+            var thresholds = Section(evaluation, "gate").EnumerateArray()
+                .Select(static e => new GateThreshold(Section(e, "set").GetString() ?? string.Empty, Section(e, "minAccuracyBasisPoints").GetInt32()))
+                .ToList();
             var evaluationSettings = new EvaluationSettings(
                 seeds,
                 Section(evaluation, "resamples").GetInt32(),
                 Section(evaluation, "confidencePercent").GetInt32(),
                 Section(evaluation, "bootstrapSeed").GetUInt64(),
-                Section(evaluation, "gateMinPooledAccuracyPerThousand").GetInt32());
+                thresholds);
             evaluationSettings.Validate();
 
             var recordedInputs = new TrainingInputs(
@@ -346,6 +474,17 @@ internal sealed record TrainingRecord(
             throw new InvalidDataException("the training record is not valid: " + exception.Message, exception);
         }
     }
+
+    /// <summary>
+    ///     Reads the visiting order of a record.
+    /// </summary>
+    /// <param name="text">The text of the <c>rowOrder</c> property.</param>
+    /// <returns>The order.</returns>
+    /// <exception cref="InvalidDataException">The text names no order.</exception>
+    private static RowVisitingOrder ParseRowOrder(string? text) =>
+        TrainingSettings.TryParseRowOrder(text, out var order)
+            ? order
+            : throw new InvalidDataException("rowOrder must be positional or keyed");
 
     /// <summary>
     ///     Gets a required property of an object.

@@ -26,9 +26,13 @@ that the weights decide rows the way the runtime will. Nothing is mocked.
   single-candidate row leaves the weights unchanged.
 - **Repeatable**: the same seed and settings give identical weights after every epoch; a prune threshold of 1,000
   leaves every weight zero while a threshold of 0 leaves some non-zero.
-- **Settings validation**: a hash size of 40 bits, a natural-row weight of 0 and a null corpus are rejected before any
-  training, as are settings whose worst case could overflow 64 bits (naming the settings), while the largest validated
-  settings train without a wrapped weight.
+- **Stable row order**: with the keyed order, the order of every epoch without the rows inserted at the top and the end
+  of the training file equals the order before the insertion, while the positional order changes; the same seed gives
+  the same order and weights twice, every epoch visits each row once and the natural row three times, the epochs
+  differ, and another seed gives another order.
+- **Settings validation**: a hash size of 40 bits, a natural-row weight of 0, an undefined row order and a null corpus
+  are rejected before any training, as are settings whose worst case could overflow 64 bits (naming the settings),
+  while the largest validated settings train without a wrapped weight.
 
 #### Test Scenarios
 
@@ -52,13 +56,25 @@ single-candidate row added.
 Two trainings with seed 11 give equal weights after each of three epochs. With no pruning some weight is non-zero; with
 a threshold above every weight all are zero.
 
+##### Stable row order
+
+**Tests**: `AveragedPerceptronTrainer_Train_KeyedOrder_InsertedRowsKeepRelativeOrderOfExistingRows`,
+`AveragedPerceptronTrainer_Train_KeyedOrderSameSeed_IsDeterministic`
+
+The visiting order of three epochs (seed 5, natural weight 2, one natural row) is taken before and after two rows are
+inserted after the header of the training file and two natural rows are appended. With the keyed order each epoch
+holds the six new visits, and without them it equals the order before the insertion; with the positional order the
+first epoch's order of the existing rows changes. With seed 11 and natural weight 3 the keyed order and the trained
+weights are the same twice, each epoch is a permutation of the visits (the natural row with repeats 0, 1 and 2), the
+first two epochs differ, and seed 12 gives another first epoch.
+
 ##### Settings validation
 
 **Tests**: `AveragedPerceptronTrainer_Constructor_InvalidSettings_ThrowsInvalidDataException`,
 `AveragedPerceptronTrainer_Constructor_SettingsBeyondTheOverflowBound_ThrowsNamingTheSettings`,
 `AveragedPerceptronTrainer_Train_ValidatedMaximumSettings_TrainsWithoutOverflow`
 
-Out-of-range settings and a null corpus are rejected by the constructor. With 200 natural rows, scale 1,000,000,
-natural weight 100 and 100 epochs the constructor throws a message naming the overflow and the three settings, and safe
-settings on the same corpus are accepted. The largest validated settings train 100 epochs, and wherever a scale-1 run
-has a non-zero weight the scaled weight has the same sign.
+Out-of-range settings (including an undefined row order) and a null corpus are rejected by the constructor. With 200
+natural rows, scale 1,000,000, natural weight 100 and 100 epochs the constructor throws a message naming the overflow
+and the three settings, and safe settings on the same corpus are accepted. The largest validated settings train 100
+epochs, and wherever a scale-1 run has a non-zero weight the scaled weight has the same sign.

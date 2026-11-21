@@ -1,6 +1,5 @@
 using DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
-using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests;
 
@@ -20,7 +19,7 @@ public sealed class TrainingDataSubsystemTests
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var exitCode = CheckDataCommand.Run(args, output, error, workingDirectory, workingDirectory, _ => null, TrainingCorpus.TaggerVersion);
+        var exitCode = CheckDataCommand.Run(args, output, error, workingDirectory, workingDirectory, _ => null);
         return (exitCode, output.ToString(), error.ToString());
     }
 
@@ -48,12 +47,12 @@ public sealed class TrainingDataSubsystemTests
             case "overlay-seen-mark":
                 fixture.EditRow(TextEnDataSet.RegressionFile, "reg-0001", ("seen_in_training", "no"));
                 break;
-            case "clusters-stale-table":
-                fixture.WriteClusterFiles(TrainingCorpus.TaggerVersion);
-                fixture.Replace(ClusterDataChecker.TableFile, "the\t01\t30", "the\t01\t31");
+            case "corpus-unpinned-book":
+                fixture.WriteCorpusFiles();
+                fixture.EditRow(CorpusDataChecker.SourcesFile, "gutenberg-1", ("body_sha256", "-"));
                 break;
-            case "clusters-used-dev-book":
-                fixture.WriteClusterFiles(TrainingCorpus.TaggerVersion);
+            case "corpus-used-dev-book":
+                fixture.WriteCorpusFiles();
                 fixture.EditRow("harvest-provenance.tsv", "harvest-00003", ("source_id", "gutenberg-1"));
                 break;
             case "leakage-duplicate-sentence":
@@ -90,8 +89,8 @@ public sealed class TrainingDataSubsystemTests
     [InlineData("license-evaluation-path", "license")]
     [InlineData("leakage-duplicate-sentence", "leakage")]
     [InlineData("overlay-seen-mark", "overlay")]
-    [InlineData("clusters-stale-table", "clusters")]
-    [InlineData("clusters-used-dev-book", "leakage")]
+    [InlineData("corpus-unpinned-book", "corpus")]
+    [InlineData("corpus-used-dev-book", "leakage")]
     public void TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck(string mutation, string check)
     {
         // Arrange
@@ -142,7 +141,7 @@ public sealed class TrainingDataSubsystemTests
         Assert.Contains("check-data: leakage: train.tsv:4: syn-00002: exact match with evaluation set gold", output);
     }
 
-    /// <summary>Proves the committed <c>data/text-en</c> folder passes every check, including the word-cluster record against this build's tokenizer.</summary>
+    /// <summary>Proves the committed <c>data/text-en</c> folder passes every check, including the corpus pins and removals.</summary>
     [Fact]
     public void TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks()
     {

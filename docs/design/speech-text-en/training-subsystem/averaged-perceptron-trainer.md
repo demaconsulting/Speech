@@ -27,11 +27,23 @@ earlier candidate in the order of the rows of `forms.tsv`, the runtime's tie rul
 ambiguous are trained on. Only the candidates of the form take part, so a reading that is not a candidate is never
 updated.
 
-**Schedule.** The visiting order is built once: each used row appears once, and a natural row appears
-`NaturalWeight` times (the repeats stand for the natural rows being worth more than generated ones). Every epoch
-shuffles that order with `DeterministicRandom` (Fisher-Yates over SplitMix64, one generator seeded with the seed of the
-settings and carried across epochs) and visits it. The step counter `T` advances once per visited row, including the
-rows that need no update.
+**Schedule.** The visits are listed once (a private `VisitSchedule` holds them): each used row appears once, and a
+natural row appears `NaturalWeight` times with repeat numbers 0, 1, ... (the repeats stand for the natural rows being
+worth more than generated ones), in training-file order. The settings' `RowOrder` decides how each epoch orders them:
+
+- **Positional** (the default, and the order of the committed model): every epoch shuffles the list of visit positions
+  in place with `DeterministicRandom` (Fisher-Yates over SplitMix64, one generator seeded with the seed of the settings
+  and carried across epochs). Inserting a row shifts the positions of all later rows, so it changes the place of
+  every other row in every epoch.
+- **Keyed**: every epoch, each visit gets the key `VisitKey(seed, epoch, RowIdHash(id), repeat)`, a chain of
+  SplitMix64 output mixes (the first output of a `DeterministicRandom` whose state is the value): the seed, then the
+  epoch, the row-id hash and the repeat number, each combined by exclusive or and mixed again. `RowIdHash` is the
+  64-bit FNV-1a hash of the id's UTF-8 bytes. The visits are sorted by key, ties going to the ordinal id, then the
+  repeat number, then the file position (only reachable with duplicate ids, which the data checks forbid), so the
+  order is total. A key depends only on the row's own id, so adding or removing rows never changes the relative order
+  of the remaining rows in any epoch, and the effect of new data is not confounded with a reshuffle of the old.
+
+The step counter `T` advances once per visited row, including the rows that need no update.
 
 **Exact averaging.** The average of the weights after each of the `T` steps is computed exactly from the current weight
 `W` and the time-weighted sum `U` of the updates (each update adds its delta times the step to `U`) as
@@ -58,6 +70,11 @@ and settings are far inside the bound.
   the best so a tie keeps the earlier candidate. Used by the trainer itself and by model selection, so both decide as
   the runtime does
 - **Train(onEpoch)**: trains `MaxEpochs` epochs and calls `onEpoch` with the deployable weights after each one
+- **VisitOrder(corpus, settings)** (static, internal): replays the schedule `Train` uses, without training, and returns
+  per epoch the visits as row id and repeat number, so the order's properties can be verified directly; null arguments
+  throw `ArgumentNullException` and settings out of range `InvalidDataException`
+- **VisitKey(seed, epoch, idHash, repeat)** and **RowIdHash(id)** (static, internal): the key of a visit in the keyed
+  order and the 64-bit FNV-1a hash of a row id, as described under Schedule
 
 **Error Handling**: settings out of range and null arguments throw as above; a labeled reading that is not a candidate
 of its row cannot happen for a loaded corpus and would throw `InvalidOperationException`, a defect. The unit does no

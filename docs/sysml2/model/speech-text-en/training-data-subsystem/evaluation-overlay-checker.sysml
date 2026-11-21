@@ -11,7 +11,8 @@ package SpeechTextEn_EvaluationOverlayChecker {
              * seen-in-training marks) and the blind generalization set (rows that stay novel against the training and
              * development data per lemma group, with balanced quotas) what they claim to be, and checks a staged
              * generalization set before it is committed with reasons that reveal no training data to the blind
-             * writer. */
+             * writer. A listening, analyzer-test, golden-pipeline or golden-sentences row that is seen in training is
+             * a leakage finding: test sentences are for testing only. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/EvaluationOverlayChecker.cs");

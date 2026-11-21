@@ -117,6 +117,33 @@ public sealed class EvaluationOverlayCheckerTests
         Assert.True(DatasetFixture.Has(report, EvaluationOverlayChecker.CheckName, "reg-0003: seen_in_training is 'no'"));
     }
 
+    /// <summary>
+    ///     Proves a sentence of a test-only origin that the training data has is a leakage finding even when its mark says
+    ///     it is seen, while a golden-readings row marked seen is accepted.
+    /// </summary>
+    /// <param name="origin">The origin of the appended row.</param>
+    /// <param name="reference">The reference of the appended row.</param>
+    /// <param name="isLeakage">Whether the row must be a leakage finding.</param>
+    [Theory]
+    [InlineData("golden-sentences", "sentences-golden.tsv:s001", true)]
+    [InlineData("golden-pipeline", "piper-pipeline-golden.tsv:e11", true)]
+    [InlineData("analyzer-test", "SpeechTextEnTests.cs:12", true)]
+    [InlineData("listening", "RUN-LOG.md:12", true)]
+    [InlineData("golden-readings", "readings-golden.tsv:12", false)]
+    public void EvaluationOverlayChecker_CheckRegression_TestOnlySentenceInTraining_IsLeakage(string origin, string reference, bool isLeakage)
+    {
+        // Arrange: a row that repeats a training sentence and is correctly marked seen
+        using var fixture = new DatasetFixture();
+        fixture.AppendRow(TextEnDataSet.RegressionFile, DatasetFixture.RegressionRowText("reg-0003", "wind.noun", "A cold wind blew hard.", "wind", origin, reference, "yes"));
+
+        // Act
+        var report = fixture.CheckOverlays();
+
+        // Assert
+        Assert.False(DatasetFixture.Has(report, EvaluationOverlayChecker.CheckName, "reg-0003: seen_in_training"));
+        Assert.Equal(isLeakage, DatasetFixture.Has(report, EvaluationOverlayChecker.LeakageCheckName, $"reg-0003: a {origin} sentence must never be used in training"));
+    }
+
     /// <summary>Proves the origin, the reference grammar, the id, the license and the span of a regression row are checked.</summary>
     [Theory]
     [InlineData("origin", "rumor", "unknown origin 'rumor'")]

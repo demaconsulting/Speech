@@ -4,10 +4,13 @@ package SpeechTextEn_EvaluationRecord {
     private import SpeechTextEn_TrainingRecord::*;
 
     part def EvaluationRecord {
-        doc /* Renderer and verifier of the evaluation record: six deterministic tab-separated files (summary, gate,
-             * by-source, per-reading, confidence, seeds) of integers and basis points with LF line ends and no time
-             * stamps, written to a folder and compared with it byte for byte. Tab-separated rather than Markdown so
-             * the repository formatters cannot reflow them. Also holds the EvaluationReport record. */
+        doc /* Renderer and verifier of the evaluation record: ten deterministic tab-separated files (summary, gate,
+             * by-source, per-reading, confidence, seeds, overlay-rows, curated-ablation, gate-rows, flips) of
+             * integers, basis points and reading ids with LF line ends and no time stamps, written to a folder and
+             * compared with it byte for byte. The previous column of the gate rows rotates from the committed record:
+             * equal to the current one on a first write, kept for the same model image, and taken from the committed
+             * current column for a new image. Tab-separated rather than Markdown so the repository formatters cannot
+             * reflow them. Also holds the EvaluationReport, GateRowState and CommittedGate records. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluationRecord.cs");

@@ -1,0 +1,45 @@
+---
+# Software Unit Requirements for GutenbergBody
+#
+# These requirements describe the design-level behavior of the GutenbergBody unit, the part of the Text.En trainer that
+# extracts and normalizes the pinned body of a downloaded public-domain e-book, decomposing the parent SpeechTextEn
+# CorpusSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/GutenbergBodyTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: CorpusSubsystem Requirements
+        sections:
+          - title: GutenbergBody Requirements
+            requirements:
+              - id: SpeechTextEn-Corpus-GutenbergBody-Body
+                title: >-
+                  The GutenbergBody unit shall return the text strictly between the first start marker of the
+                  e-book body and the first end marker after it, without a byte order mark, with LF line endings,
+                  without the producer-credit and transcriber-note paragraphs of the first 40 body lines and without
+                  any paragraph naming the archive, with italic underscores removed, trailing spaces and tabs trimmed,
+                  runs of blank lines collapsed to one and exactly one final LF, together with the number of each kind
+                  of dropped paragraph and the SHA-256 of the resulting UTF-8 bytes, giving the same bytes for the same
+                  download on every platform.
+                justification: |
+                  The body is what is pinned, archived and counted, so it must leave out the archive's own header,
+                  footer, license and credit text, carry no trademark text, and be the same bytes everywhere so the
+                  pin means the same thing on every machine.
+                tests:
+                  - GutenbergBody_Extract_HeaderAndFooter_KeepsOnlyTheBody
+                  - GutenbergBody_Extract_CreditsAndArchiveNames_AreDroppedAndCounted
+                  - GutenbergBody_Extract_CreditBeyondWindow_IsKept
+                  - GutenbergBody_Extract_UnderscoresAndTrailingBlanks_AreRemoved
+                  - GutenbergBody_Extract_SameDownload_SamePin
+
+              - id: SpeechTextEn-Corpus-GutenbergBody-Reject
+                title: >-
+                  The GutenbergBody unit shall throw InvalidDataException for a download that is not valid UTF-8,
+                  lacks the start or the end marker, or has no text left between them.
+                justification: |
+                  A download that cannot be split reliably into body and boilerplate must reject the book rather
+                  than let license text or a truncated file into the corpus.
+                tests:
+                  - GutenbergBody_Extract_InvalidDownloads_Throw

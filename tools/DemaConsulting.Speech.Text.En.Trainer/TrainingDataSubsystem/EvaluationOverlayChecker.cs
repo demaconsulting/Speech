@@ -41,7 +41,10 @@ internal sealed record GeneralizationShape(
 ///     <c>seen_in_training</c> mark must equal the recomputed one: <c>yes</c> exactly when the row refers to a training
 ///     row, its sentence key equals a training key, or it is a near duplicate of training (at least eight words and 80
 ///     percent of its word 5-grams in the training 5-grams). A <c>data-row</c> reference must resolve to a row of
-///     <c>train.tsv</c> or <c>dev.tsv</c> with the same lemma, reading, sentence, offsets and license. Golden and test
+///     <c>train.tsv</c> or <c>dev.tsv</c> with the same lemma, reading, sentence, offsets and license. A row of a
+///     test-only origin (<c>listening</c>, <c>analyzer-test</c>, <c>golden-pipeline</c> or <c>golden-sentences</c>) must
+///     not be seen in training at all: when the recomputed mark is <c>yes</c>, that is a finding on the <c>leakage</c>
+///     check, which flipping the mark cannot clear. Golden and test
 ///     references are resolved by a trainer test that reads the repository's test files, since the data check is a
 ///     tool input check that does not know the repository layout.
 ///     </para>
@@ -69,6 +72,9 @@ internal sealed class EvaluationOverlayChecker
 {
     /// <summary>The check name used for findings.</summary>
     public const string CheckName = "overlay";
+
+    /// <summary>The check name of a finding where a test-only sentence is used in training.</summary>
+    public const string LeakageCheckName = "leakage";
 
     /// <summary>The only value of the <c>source</c> column of the generalization set.</summary>
     public const string GeneralizationSource = "generalization";
@@ -131,6 +137,13 @@ internal sealed class EvaluationOverlayChecker
         ["analyzer-test"] = new(@"^[A-Za-z]+Tests\.cs:[0-9]+$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(5)),
         ["data-row"] = new(@"^(train|dev)\.tsv:[^\s:]+$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(5)),
     };
+
+    /// <summary>
+    ///     The regression origins whose sentences are for testing only and must never be seen in training. The origin
+    ///     <c>golden-readings</c> is not included: some of its legacy rows repeat training sentences, so for it the
+    ///     recomputed seen-in-training mark is the protection.
+    /// </summary>
+    private static readonly IReadOnlySet<string> TestOnlyOrigins = new HashSet<string>(["listening", "analyzer-test", "golden-pipeline", "golden-sentences"], StringComparer.Ordinal);
 
     /// <summary>The holdout files no overlay row may refer to or repeat.</summary>
     private static readonly IReadOnlySet<string> HoldoutFiles = new HashSet<string>(["holdout-natural.tsv", "holdout-independent.tsv"], StringComparer.Ordinal);
@@ -229,6 +242,12 @@ internal sealed class EvaluationOverlayChecker
             else if ((row.SeenInTraining == Yes) != computed)
             {
                 Add(row.Location, $"{row.Id}: seen_in_training is '{row.SeenInTraining}' but the training data says '{(computed ? Yes : No)}'");
+            }
+
+            // A test sentence is for testing only: no training row may refer to, repeat or nearly repeat it
+            if (computed && TestOnlyOrigins.Contains(row.Origin))
+            {
+                _report.Add(LeakageCheckName, row.Location, $"{row.Id}: a {row.Origin} sentence must never be used in training, but the training data has it");
             }
 
             seen += computed ? 1 : 0;

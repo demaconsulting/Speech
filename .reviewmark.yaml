@@ -32,9 +32,9 @@ needs-review:
   - "data/text-en/regression.tsv"                                   # Text.En regression overlay (references to flagged, golden and existing sentences)
   - "data/text-en/generalization.tsv"                               # Text.En blind generalization test set
   - "data/text-en/audit/generalization-review.tsv"                  # Text.En blind label review of the generalization set
-  - "data/text-en/cluster-sources.tsv"                              # Text.En word-cluster corpus pins and license record
-  - "data/text-en/cluster-removals.tsv"                             # Text.En word-cluster leakage-audit removals (ids and hashes only)
-  - "data/text-en/clustering.json"                                  # Text.En word-cluster record (pins the table, its inputs and the tokenizer)
+  - "data/text-en/audit/regression-review.tsv"                      # Text.En blind ambiguity screen of the regression overlay
+  - "data/text-en/cluster-sources.tsv"                              # Text.En public-domain corpus pins and license record
+  - "data/text-en/cluster-removals.tsv"                             # Text.En public-domain corpus leakage-audit removals (ids and hashes only)
   - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
   - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"        # Text.En heteronym model protocol, dev exploration and gate runs
   - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"     # Text.En heteronym model training record (pins the model image hash)
@@ -77,10 +77,9 @@ needs-review:
   # of its uncompressed image, the hash of its inputs and its settings) and verified by the trainer's train --check
   # command, which retrains it, as the design documents explain.
   # The large data tables of data/text-en (train, dev, holdout-*, both provenance tables, exclusions, gaps,
-  # extension candidates, audit/*.tsv except audit/generalization-review.tsv, check-output.txt and the word-cluster
-  # table word-clusters.tsv) are deliberately not review files: they are pinned by the reviewed MANIFEST.tsv (the
-  # word-cluster table also by the reviewed clustering.json) and verified by the trainer's check-data command, as the
-  # design documents explain.
+  # extension candidates, audit/*.tsv except the generalization and regression reviews, check-output.txt) are deliberately
+  # not review files: they are pinned by the reviewed MANIFEST.tsv and verified by the trainer's check-data command, as
+  # the design documents explain.
 
 # Evidence source: review data and index.json are located in the 'reviews' branch
 # of this repository, accessed through the GitHub public HTTPS raw content access.
@@ -3815,7 +3814,6 @@ reviews:
   # SpeechTextEn-TrainingDataProvenance Review (one per system data set)
   # The large tables of data/text-en are not review files (see the needs-review note above); the reviewed
   # MANIFEST.tsv pins every one of them, so a change to any data file changes this review set's fingerprint.
-  # The word-cluster table word-clusters.tsv is such a large table; it is pinned by MANIFEST.tsv and clustering.json.
   - id: SpeechTextEn-TrainingDataProvenance
     title: Review that SpeechTextEn Training Data Provenance and Licensing are Complete and Accurate
     context:
@@ -3828,9 +3826,8 @@ reviews:
       - "data/text-en/leakage-report.tsv"                           # recorded external leakage result
       - "data/text-en/audit/audit-summary.md"                       # blind audit summary
       - "data/text-en/prompts/*.md"                                 # prompts that produced the generated and labeled data
-      - "data/text-en/cluster-sources.tsv"                          # word-cluster corpus: books, license basis and body pins
-      - "data/text-en/cluster-removals.tsv"                         # word-cluster leakage-audit removals
-      - "data/text-en/clustering.json"                              # word-cluster record (settings and hashes)
+      - "data/text-en/cluster-sources.tsv"                          # public-domain corpus: books, license basis and body pins
+      - "data/text-en/cluster-removals.tsv"                         # public-domain corpus leakage-audit removals
 
   # SpeechTextEn-EvaluationOverlays Review (one per system data set)
   - id: SpeechTextEn-EvaluationOverlays
@@ -3844,6 +3841,8 @@ reviews:
       - "data/text-en/generalization.tsv"                           # blind generalization set
       - "data/text-en/audit/generalization-review.tsv"              # blind label review of the generalization set
       - "data/text-en/prompts/generalization.md"                    # prompt of the blind generalization writer
+      - "data/text-en/audit/regression-review.tsv"                  # blind ambiguity screen of the regression overlay
+      - "data/text-en/prompts/review-regression.md"                 # prompt of the blind ambiguity screen
 
   # SpeechTextEn-TrainingDataInventory Review (one per system data set)
   - id: SpeechTextEn-TrainingDataInventory
@@ -4015,21 +4014,21 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/EvaluationOverlayChecker.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/EvaluationOverlayCheckerTests.cs"
 
-  # SpeechTextEn-TrainingDataSubsystem-ClusterDataChecker Review (one per unit)
-  - id: SpeechTextEn-TrainingDataSubsystem-ClusterDataChecker
+  # SpeechTextEn-TrainingDataSubsystem-CorpusDataChecker Review (one per unit)
+  - id: SpeechTextEn-TrainingDataSubsystem-CorpusDataChecker
     title: >-
-      Review that SpeechTextEn TrainingDataSubsystem ClusterDataChecker Implementation is Correct
+      Review that SpeechTextEn TrainingDataSubsystem CorpusDataChecker Implementation is Correct
     context:
       - "docs/design/speech-text-en.md"
       - "docs/design/speech-text-en/training-data-subsystem.md"
       - "docs/reqstream/speech-text-en.yaml"
       - "docs/reqstream/speech-text-en/training-data-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/training-data-subsystem/cluster-data-checker.yaml"
-      - "docs/design/speech-text-en/training-data-subsystem/cluster-data-checker.md"
-      - "docs/verification/speech-text-en/training-data-subsystem/cluster-data-checker.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/ClusterDataChecker.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/ClusterDataCheckerTests.cs"
+      - "docs/reqstream/speech-text-en/training-data-subsystem/corpus-data-checker.yaml"
+      - "docs/design/speech-text-en/training-data-subsystem/corpus-data-checker.md"
+      - "docs/verification/speech-text-en/training-data-subsystem/corpus-data-checker.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingDataSubsystem/CorpusDataChecker.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/CorpusDataCheckerTests.cs"
 
   # SpeechTextEn-TrainingDataSubsystem-CheckDataCommand Review (one per unit)
   - id: SpeechTextEn-TrainingDataSubsystem-CheckDataCommand
@@ -4360,163 +4359,99 @@ reviews:
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ExternalEvaluationSubsystem/EvaluateExternalCommandTests.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/DirectoryLink.cs"  # directory link helper of the link tests
 
-  # SpeechTextEn-ClusteringSubsystem Review (one per subsystem)
-  - id: SpeechTextEn-ClusteringSubsystem
-    title: Review that SpeechTextEn ClusteringSubsystem Satisfies Subsystem Requirements
+  # SpeechTextEn-CorpusSubsystem Review (one per subsystem)
+  - id: SpeechTextEn-CorpusSubsystem
+    title: Review that SpeechTextEn CorpusSubsystem Satisfies Subsystem Requirements
     context:
       - "docs/design/speech-text-en.md"
       - "docs/reqstream/speech-text-en.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"   # subsystem requirements
-      - "docs/design/speech-text-en/clustering-subsystem.md"        # subsystem design
-      - "docs/verification/speech-text-en/clustering-subsystem.md"  # subsystem verification
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystemTests.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/ClusteringFixture.cs"   # generated books, fake mirror and recording pause
+      - "docs/reqstream/speech-text-en/corpus-subsystem.yaml"   # subsystem requirements
+      - "docs/design/speech-text-en/corpus-subsystem.md"        # subsystem design
+      - "docs/verification/speech-text-en/corpus-subsystem.md"  # subsystem verification
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystemTests.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/Fakes/CorpusFixture.cs"   # generated books, fake mirror and recording pause
 
-  # SpeechTextEn-ClusteringSubsystem-GutenbergBody Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-GutenbergBody
+  # SpeechTextEn-CorpusSubsystem-GutenbergBody Review (one per unit)
+  - id: SpeechTextEn-CorpusSubsystem-GutenbergBody
     title: >-
-      Review that SpeechTextEn ClusteringSubsystem GutenbergBody Implementation is Correct
+      Review that SpeechTextEn CorpusSubsystem GutenbergBody Implementation is Correct
     context:
       - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/design/speech-text-en/corpus-subsystem.md"
       - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+      - "docs/reqstream/speech-text-en/corpus-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/gutenberg-body.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/gutenberg-body.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/gutenberg-body.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/GutenbergBody.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/GutenbergBodyTests.cs"
+      - "docs/reqstream/speech-text-en/corpus-subsystem/gutenberg-body.yaml"
+      - "docs/design/speech-text-en/corpus-subsystem/gutenberg-body.md"
+      - "docs/verification/speech-text-en/corpus-subsystem/gutenberg-body.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/CorpusSubsystem/GutenbergBody.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/GutenbergBodyTests.cs"
 
-  # SpeechTextEn-ClusteringSubsystem-ClusterCorpusCache Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-ClusterCorpusCache
+  # SpeechTextEn-CorpusSubsystem-CorpusCache Review (one per unit)
+  - id: SpeechTextEn-CorpusSubsystem-CorpusCache
     title: >-
-      Review that SpeechTextEn ClusteringSubsystem ClusterCorpusCache Implementation is Correct
+      Review that SpeechTextEn CorpusSubsystem CorpusCache Implementation is Correct
     context:
       - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/design/speech-text-en/corpus-subsystem.md"
       - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+      - "docs/reqstream/speech-text-en/corpus-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-cache.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/cluster-corpus-cache.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-cache.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCorpusCache.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCorpusCacheTests.cs"
+      - "docs/reqstream/speech-text-en/corpus-subsystem/corpus-cache.yaml"
+      - "docs/design/speech-text-en/corpus-subsystem/corpus-cache.md"
+      - "docs/verification/speech-text-en/corpus-subsystem/corpus-cache.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/CorpusSubsystem/CorpusCache.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/CorpusCacheTests.cs"
 
-  # SpeechTextEn-ClusteringSubsystem-CorpusSnapshot Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-CorpusSnapshot
+  # SpeechTextEn-CorpusSubsystem-CorpusLeakageAudit Review (one per unit)
+  - id: SpeechTextEn-CorpusSubsystem-CorpusLeakageAudit
     title: >-
-      Review that SpeechTextEn ClusteringSubsystem CorpusSnapshot Implementation is Correct
+      Review that SpeechTextEn CorpusSubsystem CorpusLeakageAudit Implementation is Correct
     context:
       - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/design/speech-text-en/corpus-subsystem.md"
       - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+      - "docs/reqstream/speech-text-en/corpus-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/corpus-snapshot.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/corpus-snapshot.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/corpus-snapshot.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/CorpusSnapshot.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusSnapshotTests.cs"
+      - "docs/reqstream/speech-text-en/corpus-subsystem/corpus-leakage-audit.yaml"
+      - "docs/design/speech-text-en/corpus-subsystem/corpus-leakage-audit.md"
+      - "docs/verification/speech-text-en/corpus-subsystem/corpus-leakage-audit.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/CorpusSubsystem/CorpusLeakageAudit.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/CorpusLeakageAuditTests.cs"
 
-  # SpeechTextEn-ClusteringSubsystem-CorpusLeakageAudit Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-CorpusLeakageAudit
+  # SpeechTextEn-CorpusSubsystem-CorpusReader Review (one per unit)
+  - id: SpeechTextEn-CorpusSubsystem-CorpusReader
     title: >-
-      Review that SpeechTextEn ClusteringSubsystem CorpusLeakageAudit Implementation is Correct
+      Review that SpeechTextEn CorpusSubsystem CorpusReader Implementation is Correct
     context:
       - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/design/speech-text-en/corpus-subsystem.md"
       - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+      - "docs/reqstream/speech-text-en/corpus-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/corpus-leakage-audit.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/corpus-leakage-audit.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/corpus-leakage-audit.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/CorpusLeakageAudit.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusLeakageAuditTests.cs"
+      - "docs/reqstream/speech-text-en/corpus-subsystem/corpus-reader.yaml"
+      - "docs/design/speech-text-en/corpus-subsystem/corpus-reader.md"
+      - "docs/verification/speech-text-en/corpus-subsystem/corpus-reader.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/CorpusSubsystem/CorpusReader.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/CorpusReaderTests.cs"
 
-  # SpeechTextEn-ClusteringSubsystem-ClusterCorpusReader Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-ClusterCorpusReader
+  # SpeechTextEn-CorpusSubsystem-CorpusCommand Review (one per unit)
+  - id: SpeechTextEn-CorpusSubsystem-CorpusCommand
     title: >-
-      Review that SpeechTextEn ClusteringSubsystem ClusterCorpusReader Implementation is Correct
+      Review that SpeechTextEn CorpusSubsystem CorpusCommand Implementation is Correct
     context:
       - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
+      - "docs/design/speech-text-en/corpus-subsystem.md"
       - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
+      - "docs/reqstream/speech-text-en/corpus-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-reader.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/cluster-corpus-reader.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-reader.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCorpusReader.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCorpusReaderTests.cs"
-
-  # SpeechTextEn-ClusteringSubsystem-ClusterInducer Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-ClusterInducer
-    title: >-
-      Review that SpeechTextEn ClusteringSubsystem ClusterInducer Implementation is Correct
-    context:
-      - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
-      - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-inducer.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/cluster-inducer.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/cluster-inducer.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterInducer.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterInducerTests.cs"
-
-  # SpeechTextEn-ClusteringSubsystem-WordClusterTable Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-WordClusterTable
-    title: >-
-      Review that SpeechTextEn ClusteringSubsystem WordClusterTable Implementation is Correct
-    context:
-      - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
-      - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/word-cluster-table.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/word-cluster-table.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/word-cluster-table.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/WordClusterTable.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/WordClusterTableTests.cs"
-
-  # SpeechTextEn-ClusteringSubsystem-ClusteringRecord Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-ClusteringRecord
-    title: >-
-      Review that SpeechTextEn ClusteringSubsystem ClusteringRecord Implementation is Correct
-    context:
-      - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
-      - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/clustering-record.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/clustering-record.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/clustering-record.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusteringRecord.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusteringRecordTests.cs"
-
-  # SpeechTextEn-ClusteringSubsystem-ClusterCommand Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-ClusterCommand
-    title: >-
-      Review that SpeechTextEn ClusteringSubsystem ClusterCommand Implementation is Correct
-    context:
-      - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
-      - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/cluster-command.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/cluster-command.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/cluster-command.md"
+      - "docs/reqstream/speech-text-en/corpus-subsystem/corpus-command.yaml"
+      - "docs/design/speech-text-en/corpus-subsystem/corpus-command.md"
+      - "docs/verification/speech-text-en/corpus-subsystem/corpus-command.md"
       - "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs"                        # entry-point glue
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCommand.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCommandTests.cs"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/CorpusSubsystem/CorpusCommand.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/CorpusCommandTests.cs"
 
   # SpeechPhonemesEn-Architecture Review (one per system)
   - id: SpeechPhonemesEn-Architecture

@@ -8,8 +8,8 @@ The SpeechTextEn TrainingSubsystem is the `train` and `evaluate` commands of the
 (`tools/DemaConsulting.Speech.Text.En.Trainer`), the same console tool that hosts the `check-data` command of the
 TrainingDataSubsystem. The tool is built and tested with the repository but is neither packaged nor shipped. The
 subsystem trains the English heteronym model from the training and development data, verifies that a committed model is
-what retraining produces, and measures a model on the development and holdout sets end to end, deciding the quality
-gate.
+what retraining produces, and measures a model on the development and holdout sets and the evaluation overlays end to
+end, deciding the statistical quality gate.
 Unlike the TrainingDataSubsystem it references the Text.En library: the library grants its internals to the trainer
 assembly (and to the trainer's tests) with `InternalsVisibleTo`, so the trainer reuses the analyzer's own tokenization
 adapter, token description, feature extractor, scoring and model format instead of a copy of them. It contains the
@@ -133,12 +133,19 @@ platform, and a committed model can therefore be verified by retraining. The con
 
 The records hold no time stamp, host name or duration; durations are printed to the console only.
 
-**The quality gate.** The gate is decided on the natural holdout with two conditions, both required: the pooled
-end-to-end accuracy is at least a threshold (930 per mille by default, a row with no emitted reading counted as wrong),
-and the lower bound of a two-sided percentile interval (95% by default) of the paired, document-clustered bootstrap of
-the accuracy of the model minus the accuracy of the own-part-of-speech baseline is above zero, with the bounds compared
-exactly. The independent holdout is reported but is not part of the gate. The settings are committed in the training
-record before the first holdout evaluation, and are not changed by a result.
+**The statistical quality gate (owner decision).** The learned classifier is judged on four scored sets: the regression
+overlay (goldens, analyzer tests and listening flags), the natural holdout, the independent holdout and the
+generalization set. On each, the end-to-end accuracy through the analyzer with the cue priors (a row with no emitted
+reading counted as wrong) must reach a recorded threshold, compared exactly in integers; the 95% clustered bootstrap
+interval of each accuracy is reported but does not decide. Each threshold is the floor of the mean minus two sample
+standard deviations of the current recipe's correct counts at the evaluation seeds 1 to 5, so a model clearly worse than
+the recipe fails while every seed of the recipe passes (Samuelson's inequality); the derivation and the seed study are
+in the trainer's `RUN-LOG.md`. The thresholds live in `EvaluationSettings.Default`, the training record mirrors them and
+`train --check` reports a difference. A flip report lists every scored row whose reading changed from the previous model
+(`gate-rows.tsv`, `flips.tsv`), so a broken golden or listening row is reviewed even when the aggregate passes. There is
+no per-golden rule for the classifier; the rule-based parts (normalization, lexicon, rendering) stay strict pass or
+fail, and the pipeline goldens pin the committed model's readings and are regenerated when a gated model change moves
+them.
 
 **Concurrency and cancellation.** None: both commands are single threaded, run to completion, and keep no state between
 runs; the evaluator caches the sets it has prepared for the duration of one run only.
