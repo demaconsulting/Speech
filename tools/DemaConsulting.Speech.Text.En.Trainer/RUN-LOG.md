@@ -833,3 +833,68 @@ Commit ids may change again if the branch is squash-merged, so the frozen conten
   `b2b33140fefbe408198477ff92cc6c5666e4af360890019c97ecb9dd9902937e`;
 - `audit/generalization-review.tsv` (unchanged since the freeze):
   `ccd81a2be89e326477ff8cb4fa0837c10bb444e3b85ce8159d26515879c434c3`.
+
+## PR B: order-only baseline (keyed visiting order, feature set 1, no new data) (2026-11-21)
+
+Written before any model with word classes exists and before any PR B data was written. Sets read for this entry: the
+development set (trainer level and end to end) and the regression overlay only. **No generalization set and no holdout
+(natural or independent) was read for any model in this entry**: `evaluate` was run only as `--set dev --set
+regression`, never with `--gate`, `--seeds`, `--write`, `--check` or another set.
+
+**Change.** The trainer gained the keyed visiting order as an experiment option (`train --row-order keyed`), recorded
+as `rowOrder` in `training.json`. Each epoch, every visit (a used row and its repeat number) gets a key mixed from the
+seed, the epoch, the 64-bit FNV-1a hash of the row id and the repeat number, and visits are taken in key order (ties:
+ordinal id, then repeat). Adding rows therefore never changes the relative order of the existing rows. The default stays
+positional, so the committed model is unchanged: `train` reproduced the image `73de5a3f...3df0` (120,090 weights,
+253,643 bytes compressed, the same file), and `training.json` differs only by the added `"rowOrder": "positional"`.
+
+**Runs.** For seeds 1 to 5 and both orders: `train --model-dir <scratch> --row-order <order> --seed <n>` with otherwise
+the committed settings (feature set 1, the committed data, the cue priors in the classifier), then `evaluate
+--model-dir <scratch> --set dev --set regression`. Trainer level is the development figure of the kept epoch (natural
+rows, all used rows); end to end is the development set through the analyzer (with the cue priors); the regression
+overlay is reported with the cue priors and for the model alone. Positional seed 1 is the shipped model.
+
+| Order | Seed | Epochs | Dev natural | Dev all | Dev end to end | Regression, cues | Model only | Weights | Image |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| positional | 1 | 1 | 1,267/1,301 | 2,885/3,034 | 3,083/3,235 | 519/519 | 515 | 120,090 | `73de5a3f` |
+| positional | 2 | 4 | 1,266/1,301 | 2,911/3,034 | 3,108/3,235 | 514/519 | 513 | 150,435 | `52eec716` |
+| positional | 3 | 11 | 1,268/1,301 | 2,915/3,034 | 3,113/3,235 | 513/519 | 513 | 148,475 | `22d11bac` |
+| positional | 4 | 8 | 1,266/1,301 | 2,918/3,034 | 3,116/3,235 | 513/519 | 511 | 148,991 | `3d619d1f` |
+| positional | 5 | 1 | 1,265/1,301 | 2,889/3,034 | 3,087/3,235 | 505/519 | 499 | 117,597 | `e53e5d70` |
+| keyed | 1 | 2 | 1,266/1,301 | 2,900/3,034 | 3,097/3,235 | 511/519 | 511 | 136,768 | `80031288` |
+| keyed | 2 | 3 | 1,261/1,301 | 2,898/3,034 | 3,095/3,235 | 515/519 | 511 | 144,715 | `0347ce24` |
+| keyed | 3 | 2 | 1,273/1,301 | 2,912/3,034 | 3,110/3,235 | 514/519 | 510 | 137,345 | `e4c70117` |
+| keyed | 4 | 1 | 1,268/1,301 | 2,894/3,034 | 3,092/3,235 | 506/519 | 501 | 118,212 | `5b95d7bf` |
+| keyed | 5 | 2 | 1,265/1,301 | 2,905/3,034 | 3,103/3,235 | 513/519 | 509 | 137,508 | `9c78b8f1` |
+
+Regression overlay by origin, with the cue priors / the model alone (rows: `listening` 7, `analyzer-test` 11,
+`golden-pipeline` 37, `golden-sentences` 61, `golden-readings` 382, `data-row` 21):
+
+| Order | Seed | listening | analyzer-test | golden-pipeline | golden-sentences | golden-readings | data-row |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| positional | 1 | 7 / 4 | 11 / 11 | 37 / 37 | 61 / 61 | 382 / 382 | 21 / 20 |
+| positional | 2 | 5 / 4 | 10 / 10 | 36 / 36 | 60 / 60 | 382 / 382 | 21 / 21 |
+| positional | 3 | 5 / 5 | 11 / 11 | 35 / 35 | 60 / 60 | 381 / 381 | 21 / 21 |
+| positional | 4 | 5 / 3 | 11 / 11 | 35 / 35 | 59 / 59 | 382 / 382 | 21 / 21 |
+| positional | 5 | 5 / 2 | 10 / 10 | 33 / 32 | 58 / 58 | 378 / 378 | 21 / 19 |
+| keyed | 1 | 5 / 6 | 10 / 10 | 35 / 35 | 60 / 60 | 380 / 380 | 21 / 20 |
+| keyed | 2 | 6 / 4 | 11 / 11 | 35 / 34 | 61 / 61 | 381 / 381 | 21 / 20 |
+| keyed | 3 | 6 / 4 | 10 / 10 | 35 / 34 | 60 / 60 | 382 / 382 | 21 / 20 |
+| keyed | 4 | 6 / 3 | 11 / 11 | 32 / 32 | 58 / 58 | 378 / 378 | 21 / 19 |
+| keyed | 5 | 6 / 4 | 11 / 11 | 35 / 34 | 59 / 59 | 381 / 381 | 21 / 20 |
+
+**Seed spread** (mean, minimum to maximum over seeds 1 to 5):
+
+- positional: dev natural 1,266.4 (1,265 to 1,268); dev all 2,903.6 (2,885 to 2,918); dev end to end 3,101.4 (3,083
+  to 3,116); regression with the cues 512.8 (505 to 519), model alone 510.2 (499 to 515).
+- keyed: dev natural 1,266.6 (1,261 to 1,273); dev all 2,901.8 (2,894 to 2,912); dev end to end 3,099.4 (3,092 to
+  3,110); regression with the cues 511.8 (506 to 515), model alone 508.4 (501 to 511).
+
+**Reading.** The visiting order alone does not change the level: the two orders' means differ by less than the spread of
+either over seeds, on every measure. The seed spread is the noise floor of the PR B iteration on the development set
+and the regression overlay: up to 12 natural development rows, 33 development rows end to end and 16 regression rows for
+the model alone, with feature set 1 and no new data. With the cue priors only the shipped model (positional, seed 1)
+gets every regression row right; no feature-set-1 model gets every `listening` row right without them. Keyed seed 1 is
+the order-only reference for the PR B candidates (the same data and features as the shipped model, the keyed order):
+dev natural 1,266, dev end to end 3,097, regression 511 with the cues and 511 alone. The models are in scratch folders
+outside the repository and were not committed.

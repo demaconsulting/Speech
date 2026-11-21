@@ -19,8 +19,10 @@ internal readonly record struct EpochWeights(int Epoch, short[] Weights);
 ///     runtime's own scoring (the same buckets, salts and integer sums) and, when the best candidate is not the
 ///     labeled one, adds one to the weights of the labeled candidate's buckets and subtracts one from those of the
 ///     predicted candidate's buckets, once per feature occurrence. An exact tie keeps the earlier candidate, the
-///     runtime's tie rule. Rows are visited in a seeded shuffle, once per epoch, and a natural row is visited as
-///     many times per epoch as the settings say.
+///     runtime's tie rule. Rows are visited once per epoch in the configured order, and a natural row is visited as
+///     many times per epoch as the settings say. The positional order is a seeded shuffle of the row positions; the
+///     keyed order sorts the visits by a seeded key of the row id, so adding training rows never changes the order in
+///     which the existing rows are visited relative to each other.
 ///     </para>
 ///     <para>
 ///     <b>Exact averaging.</b> The average of the weights after each of the <c>T</c> steps is computed exactly from
@@ -159,42 +161,23 @@ internal sealed class AveragedPerceptronTrainer
         ArgumentNullException.ThrowIfNull(onEpoch);
 
         // The rows that carry signal, and the visiting order with natural rows repeated.
-        var used = new List<PreparedRow>();
-        foreach (var row in _corpus.Train)
-        {
-            if (row.IsAligned && row.IsAmbiguous)
-            {
-                used.Add(row);
-            }
-        }
-
-        var order = new List<int>();
-        for (var i = 0; i < used.Count; i++)
-        {
-            var repeats = used[i].Row.IsNatural ? _settings.NaturalWeight : 1;
-            for (var r = 0; r < repeats; r++)
-            {
-                order.Add(i);
-            }
-        }
-
+        var used = UsedRows(_corpus);
+        var schedule = new VisitSchedule(used, _settings);
         var table = 1 << _settings.HashBits;
         var weights = new int[table];
         var sums = new long[table];
         var deployable = new short[table];
-        var schedule = order.ToArray();
-        var random = new DeterministicRandom(_settings.Seed);
         Span<int> scores = stackalloc int[ReadingInventory.MaxCandidates];
         var inventory = _corpus.Inventory;
         long step = 0;
 
         for (var epoch = 1; epoch <= _settings.MaxEpochs; epoch++)
         {
-            random.Shuffle(schedule.AsSpan());
-            foreach (var index in schedule)
+            schedule.NextEpoch();
+            for (var position = 0; position < schedule.Count; position++)
             {
                 step++;
-                var row = used[index];
+                var row = used[schedule.RowAt(position)];
                 var predicted = Decide(inventory, row, new IntWeights(weights), _mask, scores);
                 var gold = IndexOf(row.Candidates, row.LabelIndex);
                 if (predicted == gold)
@@ -209,6 +192,118 @@ internal sealed class AveragedPerceptronTrainer
             Quantize(weights, sums, step, deployable);
             onEpoch(new EpochWeights(epoch, deployable));
         }
+    }
+
+    /// <summary>
+    ///     Gets the order in which training visits the rows in each epoch, as row ids and repeat numbers.
+    /// </summary>
+    /// <remarks>
+    ///     Training needs no such list; it exists so that the visiting order, which determines the learned weights,
+    ///     can be inspected and its properties (repeatability, and for the keyed order the stability of the existing
+    ///     rows' relative order when rows are added) verified directly. It replays exactly the schedule
+    ///     <see cref="Train"/> uses, without training. The settings are validated; the overflow bound is not checked
+    ///     because nothing is computed with weights.
+    /// </remarks>
+    /// <param name="corpus">The corpus. Must not be null.</param>
+    /// <param name="settings">The settings; the seed, the natural-row weight, the epoch count and the order are used. Must not be null and valid.</param>
+    /// <returns>One list per epoch, in visiting order, of the row id and the repeat number (0 for the first visit of the row in the epoch).</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="InvalidDataException">The settings are out of range.</exception>
+    internal static IReadOnlyList<IReadOnlyList<(string Id, int Repeat)>> VisitOrder(TrainingCorpus corpus, TrainingSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(corpus);
+        ArgumentNullException.ThrowIfNull(settings);
+        settings.Validate();
+
+        var used = UsedRows(corpus);
+        var schedule = new VisitSchedule(used, settings);
+        var epochs = new List<IReadOnlyList<(string Id, int Repeat)>>(settings.MaxEpochs);
+        for (var epoch = 1; epoch <= settings.MaxEpochs; epoch++)
+        {
+            schedule.NextEpoch();
+            var visits = new List<(string Id, int Repeat)>(schedule.Count);
+            for (var position = 0; position < schedule.Count; position++)
+            {
+                visits.Add((used[schedule.RowAt(position)].Row.Id, schedule.RepeatAt(position)));
+            }
+
+            epochs.Add(visits);
+        }
+
+        return epochs;
+    }
+
+    /// <summary>
+    ///     Computes the sort key of one visit in the keyed visiting order.
+    /// </summary>
+    /// <remarks>
+    ///     The key is a chain of SplitMix64 output mixes (the first output of <see cref="DeterministicRandom"/> for a
+    ///     given state): the seed, then the epoch, the row-id hash and the repeat number, each combined by exclusive or
+    ///     and mixed again. It depends on nothing but these four values, so a row keeps its key, and therefore its
+    ///     place relative to every other existing row, when rows are added to or removed from the corpus; and a
+    ///     different seed or epoch gives an unrelated order.
+    /// </remarks>
+    /// <param name="seed">The training seed.</param>
+    /// <param name="epoch">The epoch, from 1.</param>
+    /// <param name="idHash">The 64-bit FNV-1a hash of the row id (see <see cref="RowIdHash"/>).</param>
+    /// <param name="repeat">The repeat number of the visit within the epoch, from 0.</param>
+    /// <returns>The key; visits are taken in increasing key order.</returns>
+    internal static ulong VisitKey(ulong seed, int epoch, ulong idHash, int repeat)
+    {
+        var key = Mix(seed);
+        key = Mix(key ^ (ulong)epoch);
+        key = Mix(key ^ idHash);
+        return Mix(key ^ (ulong)repeat);
+    }
+
+    /// <summary>
+    ///     Computes the 64-bit FNV-1a hash of a row id over its UTF-8 bytes.
+    /// </summary>
+    /// <remarks>
+    ///     The row id, not the row's position, identifies a row in the keyed order, so the hash must be a fixed,
+    ///     platform-independent function of the id text; FNV-1a (offset basis 14695981039346656037, prime
+    ///     1099511628211) is such a function.
+    /// </remarks>
+    /// <param name="id">The row id. Must not be null.</param>
+    /// <returns>The hash.</returns>
+    internal static ulong RowIdHash(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        const ulong OffsetBasis = 14695981039346656037UL;
+        const ulong Prime = 1099511628211UL;
+        var hash = OffsetBasis;
+        foreach (var b in System.Text.Encoding.UTF8.GetBytes(id))
+        {
+            hash = unchecked((hash ^ b) * Prime);
+        }
+
+        return hash;
+    }
+
+    /// <summary>
+    ///     Mixes a 64-bit value: the first SplitMix64 output of a generator whose state is the value.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The mixed value.</returns>
+    private static ulong Mix(ulong value) => new DeterministicRandom(value).NextUInt64();
+
+    /// <summary>
+    ///     Selects the rows that carry signal: aligned rows whose form has more than one candidate reading.
+    /// </summary>
+    /// <param name="corpus">The corpus.</param>
+    /// <returns>The rows, in training-file order.</returns>
+    private static List<PreparedRow> UsedRows(TrainingCorpus corpus)
+    {
+        var used = new List<PreparedRow>();
+        foreach (var row in corpus.Train)
+        {
+            if (row.IsAligned && row.IsAmbiguous)
+            {
+                used.Add(row);
+            }
+        }
+
+        return used;
     }
 
     /// <summary>
@@ -298,6 +393,148 @@ internal sealed class AveragedPerceptronTrainer
     {
         /// <inheritdoc/>
         public int GetWeight(uint bucket) => Weights[bucket];
+    }
+
+    /// <summary>
+    ///     The visits of one training run (each used row as many times per epoch as its weight says) and their order
+    ///     in the current epoch.
+    /// </summary>
+    /// <remarks>
+    ///     The visits are listed once, in training-file order with the repeats of a row together. The positional order
+    ///     shuffles the list of visit positions in place at the start of every epoch with one generator seeded once,
+    ///     exactly the schedule of the first trained models. The keyed order sorts the visits by
+    ///     <see cref="VisitKey"/> afresh each epoch, ties going to the ordinal row id, then the repeat number, then
+    ///     the file position (the last only for duplicate ids, which the data checks forbid), so the order is total
+    ///     and the sort deterministic. Not thread-safe; one instance belongs to one run.
+    /// </remarks>
+    private sealed class VisitSchedule
+    {
+        /// <summary>The row index (into the used rows) of each visit.</summary>
+        private readonly int[] _rowOf;
+
+        /// <summary>The repeat number of each visit.</summary>
+        private readonly int[] _repeatOf;
+
+        /// <summary>The visit indexes in the current epoch's order.</summary>
+        private readonly int[] _schedule;
+
+        /// <summary>The row ids, by row index, for the keyed tie-break.</summary>
+        private readonly string[] _ids;
+
+        /// <summary>The row-id hashes, by row index, for the keyed order.</summary>
+        private readonly ulong[] _idHashes;
+
+        /// <summary>The keys of the visits in the current epoch (keyed order only).</summary>
+        private readonly ulong[] _keys;
+
+        /// <summary>The settings.</summary>
+        private readonly TrainingSettings _settings;
+
+        /// <summary>The generator of the positional shuffle.</summary>
+        private readonly DeterministicRandom _random;
+
+        /// <summary>The current epoch, from 1 after the first <see cref="NextEpoch"/>.</summary>
+        private int _epoch;
+
+        /// <summary>
+        ///     Initializes the visits of the used rows.
+        /// </summary>
+        /// <param name="used">The used rows, in training-file order.</param>
+        /// <param name="settings">The validated settings.</param>
+        public VisitSchedule(IReadOnlyList<PreparedRow> used, TrainingSettings settings)
+        {
+            _settings = settings;
+            _random = new DeterministicRandom(settings.Seed);
+            _ids = new string[used.Count];
+            _idHashes = new ulong[used.Count];
+            var rows = new List<int>();
+            var repeats = new List<int>();
+            for (var i = 0; i < used.Count; i++)
+            {
+                _ids[i] = used[i].Row.Id;
+                _idHashes[i] = RowIdHash(_ids[i]);
+                var count = used[i].Row.IsNatural ? settings.NaturalWeight : 1;
+                for (var r = 0; r < count; r++)
+                {
+                    rows.Add(i);
+                    repeats.Add(r);
+                }
+            }
+
+            _rowOf = [.. rows];
+            _repeatOf = [.. repeats];
+            _schedule = new int[_rowOf.Length];
+            for (var v = 0; v < _schedule.Length; v++)
+            {
+                _schedule[v] = v;
+            }
+
+            _keys = new ulong[_rowOf.Length];
+        }
+
+        /// <summary>Gets the number of visits per epoch.</summary>
+        public int Count => _schedule.Length;
+
+        /// <summary>
+        ///     Gets the row index of the visit at a position of the current epoch.
+        /// </summary>
+        /// <param name="position">The position, from 0.</param>
+        /// <returns>The index into the used rows.</returns>
+        public int RowAt(int position) => _rowOf[_schedule[position]];
+
+        /// <summary>
+        ///     Gets the repeat number of the visit at a position of the current epoch.
+        /// </summary>
+        /// <param name="position">The position, from 0.</param>
+        /// <returns>The repeat number, from 0.</returns>
+        public int RepeatAt(int position) => _repeatOf[_schedule[position]];
+
+        /// <summary>
+        ///     Advances to the next epoch and orders its visits.
+        /// </summary>
+        public void NextEpoch()
+        {
+            _epoch++;
+            if (_settings.RowOrder == RowVisitingOrder.Positional)
+            {
+                // The shuffle continues from the previous epoch's order with the same generator.
+                _random.Shuffle(_schedule.AsSpan());
+                return;
+            }
+
+            // Keyed: every visit's key depends only on the seed, the epoch, its row id and its repeat number.
+            for (var v = 0; v < _keys.Length; v++)
+            {
+                _keys[v] = VisitKey(_settings.Seed, _epoch, _idHashes[_rowOf[v]], _repeatOf[v]);
+                _schedule[v] = v;
+            }
+
+            Array.Sort(_schedule, Compare);
+        }
+
+        /// <summary>
+        ///     Compares two visits in the keyed order: key, then ordinal row id, then repeat number, then file position.
+        /// </summary>
+        /// <param name="a">The first visit index.</param>
+        /// <param name="b">The second visit index.</param>
+        /// <returns>Negative, zero or positive as <paramref name="a"/> comes first, is the same visit, or comes later.</returns>
+        private int Compare(int a, int b)
+        {
+            var byKey = _keys[a].CompareTo(_keys[b]);
+            if (byKey != 0)
+            {
+                return byKey;
+            }
+
+            var byId = string.CompareOrdinal(_ids[_rowOf[a]], _ids[_rowOf[b]]);
+            if (byId != 0)
+            {
+                return byId;
+            }
+
+            var byRepeat = _repeatOf[a].CompareTo(_repeatOf[b]);
+            return byRepeat != 0 ? byRepeat : a.CompareTo(b);
+        }
     }
 }
 

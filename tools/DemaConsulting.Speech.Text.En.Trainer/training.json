@@ -8,7 +8,8 @@
     "naturalWeight": 3,
     "maxEpochs": 12,
     "temperatureSteps": 1000,
-    "temperatureDivisor": 20
+    "temperatureDivisor": 20,
+    "rowOrder": "positional"
   },
   "evaluation": {
     "seeds": [

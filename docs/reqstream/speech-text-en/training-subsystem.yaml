@@ -33,7 +33,9 @@ sections:
               is refused, with the reason, when it is damaged or out of range, and shall verify on request
               that the committed model and its record are what retraining from the current inputs and the
               recorded settings produces, reporting each way in which they are not, naming it, and not
-              reporting a model whose content is equal but whose compressed form differs.
+              reporting a model whose content is equal but whose compressed form differs, and shall offer
+              an order of visiting the training rows in which added rows leave the relative order of the
+              existing rows unchanged.
             justification: |
               A model nobody can reproduce cannot be reviewed or trusted. The repeatability rests on the
               reproducible random source and mathematics, the fixed order of the examples and a learning
@@ -45,10 +47,13 @@ sections:
               change to the data, to the tagger or to a setting, or an edit of the model or its record,
               makes the committed model something the repository can no longer reproduce, and the check
               lets the build find that before a model ships; naming the cause tells the owner what to do.
+              An order that is stable under added rows lets the effect of new data be measured without
+              the confounding reshuffle of the existing rows.
             children:
               - SpeechTextEn-Training-DeterministicRandom-Reproducible
               - SpeechTextEn-Training-DeterministicMath-Accuracy
               - SpeechTextEn-Training-AveragedPerceptronTrainer-Repeatable
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-StableRowOrder
               - SpeechTextEn-Training-ModelSelection-Images
               - SpeechTextEn-Training-TrainingCorpus-InputFiles
               - SpeechTextEn-Training-TrainingRecord-RoundTrip

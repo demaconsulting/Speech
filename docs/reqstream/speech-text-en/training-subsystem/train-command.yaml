@@ -21,10 +21,11 @@ sections:
                   The TrainCommand class shall print its usage and give the exit code 0 for the help
                   option, and shall give the exit code 2 with a message on the error stream that names the
                   problem, writing no file, for an unknown option, an option without a value, a value that
-                  is not a number or is out of range, a data folder that cannot be found, an experiment
-                  option (seed, hash bits, prune threshold, natural-row weight, epoch count) given without
-                  a model folder or together with the check option, and a row whose label is not a
-                  candidate reading of its word, whether training or checking.
+                  is not a number or is out of range, a row visiting order other than positional or keyed,
+                  a data folder that cannot be found, an experiment option (seed, hash bits, prune
+                  threshold, natural-row weight, epoch count, row visiting order) given without a model
+                  folder or together with the check option, and a row whose label is not a candidate
+                  reading of its word, whether training or checking.
                 justification: |
                   The build and the owner act on the exit code. A mistake in the command or a fault of the
                   data must not look like a stale model, must not leave a half-written model behind, and
@@ -42,17 +43,21 @@ sections:
                 title: >-
                   The TrainCommand class shall train from the data folder, write a model file that the
                   runtime can load and a record that can be read back, in the given model folder or, when
-                  none is given, at the committed locations of the repository, report the kept epoch count
-                  and the hash of the model image, and keep the evaluation and gate settings of an existing
-                  record when it trains again.
+                  none is given, at the committed locations of the repository, report the kept epoch count,
+                  the row visiting order and the hash of the model image, train with the keyed row visiting
+                  order when the experiment option asks for it and with the positional order otherwise,
+                  recording the order so that the check retrains with it, and keep the evaluation and gate
+                  settings of an existing record when it trains again.
                 justification: |
                   Training is only useful if its outputs are the files the runtime and the check consume,
                   written where the repository keeps them. The thresholds of the quality gate are fixed in
                   advance, so a retraining that rewrote them would let a model that misses the gate move the
-                  gate instead.
+                  gate instead. The visiting order changes the weights, so a model trained with either order
+                  must be reproducible from its record.
                 tests:
                   - TrainCommand_Run_Fixture_WritesLoadableModelAndRecord
                   - TrainCommand_Run_ExistingRecord_KeepsItsEvaluationSettings
+                  - TrainCommand_Run_RowOrderKeyed_RecordsTheOrderAndChecksWithIt
 
               - id: SpeechTextEn-Training-TrainCommand-Check
                 title: >-

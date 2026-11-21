@@ -8,15 +8,17 @@ run it in memory.
 **Data Model**: `TrainCommand` is an internal static class. `Name` is `train`, `ModelFileName` is `heteronyms.bin` and
 `RecordFileName` is `training.json`. `TrainOptions` is the parsed command line: the data folder (or null to discover
 it), the model directory (or null for the committed locations), whether to verify, the experiment overrides (a
-dictionary from option name to a non-negative integer) and whether usage was requested. The command keeps no state
+dictionary from option name to a non-negative integer), the row visiting order override (or null for the default) and
+whether usage was requested. The command keeps no state
 between runs.
 
 **Command line.** `train [options]` and `train --check [options]`, with the options `--data <dir>`, `--model-dir <dir>`,
 `--check`, the experiment options `--seed`, `--hash-bits`, `--prune`, `--natural-weight` and `--max-epochs` (each takes
-a non-negative integer, as `--option value` or `--option=value`) and `--help`. The exit codes are 0 (trained, or the
-committed model is current), 1 (the committed model or record is stale or missing) and 2 (a usage, input or I/O error,
-including a data or setting error). Usage errors go to the error writer as `train: error: <message>`; progress and
-results go to the output writer as lines that start with `train:`.
+a non-negative integer, as `--option value` or `--option=value`), the experiment option `--row-order positional|keyed`
+(the visiting order of the training rows; see *AveragedPerceptronTrainer*) and `--help`. The exit codes are 0 (trained,
+or the committed model is current), 1 (the committed model or record is stale or missing) and 2 (a usage, input or I/O
+error, including a data or setting error). Usage errors go to the error writer as `train: error: <message>`; progress
+and results go to the output writer as lines that start with `train:`.
 
 **Committed locations.** The data folder is the one given or the first `data/text-en` found by searching upward from the
 current directory and then from the tool's own folder (the discovery of `CheckDataCommand`). The committed locations
@@ -34,14 +36,15 @@ therefore never overwrite the committed files, and the committed configuration i
 - **Run(args, output, error, currentDirectory, baseDirectory)**: parses the options, answers `--help`, finds the data
   folder, resolves the two locations and runs the training or the check; the exceptions listed below become exit code 2
 - **TryParse(args, out parseError)** (internal): the option parser; an unknown option, a missing value, a value that is
-  not a non-negative integer, or an experiment option without `--model-dir` or with `--check` gives no options and a
-  message
+  not a non-negative integer, a row order other than `positional` or `keyed`, or an experiment option without
+  `--model-dir` or with `--check` gives no options and a message
 - **Train and write** (private): validates the settings (the default ones with the overrides applied), reads the
   evaluation settings of an existing record so that retraining never moves the gate, loads the corpus
   (`TrainingCorpus.Load`), trains (`ModelSelection.Train`), writes the compressed model and the record
   (`TrainingRecord.ToJson`, UTF-8 without a byte order mark), creating the folders, and prints the number of rows, the
-  development accuracy of each epoch, the epoch and temperature kept, the number of weights, the sizes and the image
-  hash. The time taken is printed for information only and is never written to a file. It returns 0
+  seed and row visiting order, the development accuracy of each epoch, the epoch and temperature kept, the number of
+  weights, the sizes and the image hash. The time taken is printed for information only and is never written to a file.
+  It returns 0
 - **Check** (private): the verification. A missing or unparsable record is stale (the record is parsed with
   `TrainingRecord.Parse`). Otherwise it retrains with the settings in the record and compares, naming every difference:
   the data hash, the tagger version, the feature-set, inventory and trainer versions, the feature stream hash and the

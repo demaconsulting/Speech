@@ -203,6 +203,90 @@ public sealed class AveragedPerceptronTrainerTests
         // Act / Assert
         Assert.Throws<InvalidDataException>(() => new AveragedPerceptronTrainer(corpus, Small with { HashBits = 40 }));
         Assert.Throws<InvalidDataException>(() => new AveragedPerceptronTrainer(corpus, Small with { NaturalWeight = 0 }));
+        Assert.Throws<InvalidDataException>(() => new AveragedPerceptronTrainer(corpus, Small with { RowOrder = (RowVisitingOrder)7 }));
         Assert.Throws<ArgumentNullException>(() => new AveragedPerceptronTrainer(null!, Small));
+    }
+
+    /// <summary>
+    ///     Proves the keyed visiting order keeps the relative order of the existing rows in every epoch when rows are
+    ///     inserted before and after them, while the positional shuffle does not.
+    /// </summary>
+    [Fact]
+    public void AveragedPerceptronTrainer_Train_KeyedOrder_InsertedRowsKeepRelativeOrderOfExistingRows()
+    {
+        // Arrange: a natural row so repeats are part of the order, and the order of every epoch before the insertion
+        using var fixture = new TrainingFixture();
+        fixture.AppendRow("train.tsv", "harvest-t1", "lead.noun", "They will lead the team today.", "lead", "harvest-masc");
+        var keyed = Small with { MaxEpochs = 3, NaturalWeight = 2, Seed = 5, RowOrder = RowVisitingOrder.Keyed };
+        var positional = keyed with { RowOrder = RowVisitingOrder.Positional };
+        var keyedBefore = AveragedPerceptronTrainer.VisitOrder(TrainingCorpus.Load(fixture.Root), keyed);
+        var positionalBefore = AveragedPerceptronTrainer.VisitOrder(TrainingCorpus.Load(fixture.Root), positional);
+
+        // Insert two rows at the top of the training file (after the header) and two natural rows at its end
+        var original = fixture.Read("train.tsv");
+        fixture.AppendRow("train.tsv", "syn-new1", "lead.verb", "Who will lead the parade?", "lead", "synthetic");
+        fixture.AppendRow("train.tsv", "syn-new2", "lead.noun", "The lead weight sank fast.", "lead", "synthetic");
+        var added = fixture.Read("train.tsv")[original.Length..];
+        var header = original[..(original.IndexOf('\n') + 1)];
+        fixture.Write("train.tsv", header + added + original[header.Length..]);
+        fixture.AppendRow("train.tsv", "harvest-new3", "lead.verb", "We lead the band now.", "lead", "harvest-masc");
+        fixture.AppendRow("train.tsv", "harvest-new4", "lead.noun", "The lead sheet was bent.", "lead", "harvest-masc");
+        var inserted = new HashSet<string>(StringComparer.Ordinal) { "syn-new1", "syn-new2", "harvest-new3", "harvest-new4" };
+        var corpus = TrainingCorpus.Load(fixture.Root);
+
+        // Act
+        var keyedAfter = AveragedPerceptronTrainer.VisitOrder(corpus, keyed);
+        var positionalAfter = AveragedPerceptronTrainer.VisitOrder(corpus, positional);
+
+        // Assert: every inserted row is visited, and without them each epoch's keyed order is unchanged
+        Assert.Equal(3, keyedAfter.Count);
+        for (var epoch = 0; epoch < keyedAfter.Count; epoch++)
+        {
+            Assert.Equal(6, keyedAfter[epoch].Count(visit => inserted.Contains(visit.Id)));
+            Assert.Equal(keyedBefore[epoch], keyedAfter[epoch].Where(visit => !inserted.Contains(visit.Id)).ToList());
+        }
+
+        // Assert: the positional shuffle moves the existing rows relative to each other (the property the keyed order adds)
+        Assert.NotEqual(positionalBefore[0], positionalAfter[0].Where(visit => !inserted.Contains(visit.Id)).ToList());
+    }
+
+    /// <summary>
+    ///     Proves the keyed visiting order is a function of the seed: the same seed gives the same order and the same
+    ///     weights, every epoch visits each row once and each natural row as often as its weight, the epochs differ,
+    ///     and another seed gives another order.
+    /// </summary>
+    [Fact]
+    public void AveragedPerceptronTrainer_Train_KeyedOrderSameSeed_IsDeterministic()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture();
+        fixture.AppendRow("train.tsv", "harvest-t1", "lead.noun", "They will lead the team today.", "lead", "harvest-masc");
+        var corpus = TrainingCorpus.Load(fixture.Root);
+        var settings = Small with { MaxEpochs = 3, NaturalWeight = 3, Seed = 11, RowOrder = RowVisitingOrder.Keyed };
+        var used = corpus.Train.Where(row => row.IsAligned && row.IsAmbiguous).Select(row => row.Row.Id).ToList();
+
+        // Act
+        var first = AveragedPerceptronTrainer.VisitOrder(corpus, settings);
+        var second = AveragedPerceptronTrainer.VisitOrder(corpus, settings);
+        var otherSeed = AveragedPerceptronTrainer.VisitOrder(corpus, settings with { Seed = 12 });
+        var weightsFirst = TrainEpochs(corpus, settings);
+        var weightsSecond = TrainEpochs(corpus, settings);
+
+        // Assert: repeatable orders and weights
+        Assert.Equal(first, second);
+        Assert.Equal(weightsFirst.Count, weightsSecond.Count);
+        for (var i = 0; i < weightsFirst.Count; i++)
+        {
+            Assert.Equal(weightsFirst[i], weightsSecond[i]);
+        }
+
+        // Assert: each epoch is a permutation of the visits, with the natural row repeated three times
+        var expected = used.SelectMany(id => Enumerable.Range(0, id.StartsWith("harvest-", StringComparison.Ordinal) ? 3 : 1).Select(r => (id, r)))
+            .OrderBy(visit => visit.id, StringComparer.Ordinal).ThenBy(visit => visit.r).ToList();
+        Assert.All(first, epoch => Assert.Equal(expected, epoch.OrderBy(visit => visit.Id, StringComparer.Ordinal).ThenBy(visit => visit.Repeat).ToList()));
+
+        // Assert: the epochs differ from each other, and another seed gives another order
+        Assert.NotEqual(first[0], first[1]);
+        Assert.NotEqual(first[0], otherSeed[0]);
     }
 }

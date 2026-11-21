@@ -7,11 +7,14 @@ is where both are written down.
 
 **Data Model** (all internal sealed records, immutable):
 
-- `TrainingSettings`: `Seed` (the seed of the row-order shuffle), `HashBits` (16 to 24), `Scale` (the fixed-point scale
-  of the integer weights), `PruneThreshold` (weights of at most this magnitude are dropped), `NaturalWeight` (the visits
-  of each natural row per epoch), `MaxEpochs`, `TemperatureSteps` and `TemperatureDivisor` (the grid of candidate
-  temperatures `k / divisor`). `TrainingSettings.Default` is the committed configuration: seed 1, 22 hash bits, scale
-  64, prune threshold 2, natural weight 3, at most 12 epochs, a grid of 1,000 steps of 1/20. The prune threshold and the
+- `TrainingSettings`: `Seed` (the seed of the row visiting order), `HashBits` (16 to 24), `Scale` (the fixed-point
+  scale of the integer weights), `PruneThreshold` (weights of at most this magnitude are dropped), `NaturalWeight` (the
+  visits of each natural row per epoch), `MaxEpochs`, `TemperatureSteps` and `TemperatureDivisor` (the grid of
+  candidate temperatures `k / divisor`) and `RowOrder` (a `RowVisitingOrder`: `Positional` or `Keyed`; see
+  *AveragedPerceptronTrainer*). `TrainingSettings.Default` is the committed configuration: seed 1, 22 hash bits, scale
+  64, prune threshold 2, natural weight 3, at most 12 epochs, a grid of 1,000 steps of 1/20, the positional order.
+  `FormatRowOrder` and `TryParseRowOrder` convert an order to and from its name, `positional` or `keyed`, the text used
+  in the record and on the command line. The prune threshold and the
   natural-row weight were chosen on the development set only, by a grid that was written down before it was run; the
   seed, the hash bits and the scale are fixed values of that grid
 - `EvaluationSettings`: `Seeds` (the seeds of the multi-seed study, 1 to 5 by default, including the committed seed),
@@ -30,7 +33,8 @@ is where both are written down.
 **The record layout.** `training.json` is one JSON object with a fixed key order and the members `schema`, `training`,
 `evaluation` (with the array `seeds`), `inputs` and `result`, in the order of the records above. It is written with
 two-space indentation, LF line ends and no byte order mark, and ends with a line feed. Numbers are integers; the one
-non-integer, the temperature, is written as a string with the round-trip format and the invariant culture. It holds no
+non-integer, the temperature, is written as a string with the round-trip format and the invariant culture; the row
+visiting order is written as its name, `rowOrder` (`positional` or `keyed`), the last member of `training`. It holds no
 time stamp, host name or duration, so the same record always renders to the same bytes and a committed record is
 comparable. The hashes are lower-case hexadecimal. The record is data of the repository, but is not a hand-edited file:
 `train` writes it and `train --check` verifies it.
@@ -39,7 +43,8 @@ comparable. The hashes are lower-case hexadecimal. The record is data of the rep
 
 - **TrainingSettings.Validate()** and **EvaluationSettings.Validate()**: check every value against its range (for the
   training settings, 16 to 24 hash bits, a scale of 1 to 1,000,000, a prune threshold up to 1,000, a natural weight and
-  an epoch count from 1 up to 100, 1 to 100,000 temperature steps and a divisor of 1 to 1,000,000; for the evaluation
+  an epoch count from 1 up to 100, 1 to 100,000 temperature steps, a divisor of 1 to 1,000,000 and a defined row
+  order; for the evaluation
   settings, 1 to 100 seeds, 100 to 1,000,000 resamples, a confidence of 50 to 99 percent and a threshold of 1 to 1,000
   per mille); a value out of range is an `InvalidDataException` that names the setting
 - **TrainingRecord.ToJson()**: renders the record as above

@@ -69,6 +69,10 @@ Options:
 - `--check`: verify instead of write
 - `--seed`, `--hash-bits`, `--prune`, `--natural-weight`, `--max-epochs`: experiment settings; they require
   `--model-dir` and cannot be combined with `--check`, so an experiment never overwrites the committed files
+- `--row-order positional|keyed`: experiment setting, the order in which the training rows are visited in each epoch.
+  `positional` (the default) is a seeded shuffle of the row positions; `keyed` sorts the visits by a seeded key of the
+  row id, so adding rows never changes the relative order of the existing rows. Recorded as `rowOrder` in
+  `training.json`
 
 Exit codes: `0` trained or current, `1` stale, `2` usage, I/O or data error.
 
@@ -82,7 +86,8 @@ Exit codes: `0` trained or current, `1` stale, `2` usage, I/O or data error.
   hash of the ordered feature stream of the training and development rows, so a drift of the tagger or the
   extractor is visible even when the data files are unchanged. The tagger package version is recorded too.
 - **Determinism contract.** One thread; features precomputed once in file order; integer weights, integer exact
-  averaging and integer rounding; a fixed SplitMix64 generator and Fisher-Yates shuffle; the calibration
+  averaging and integer rounding; a fixed SplitMix64 generator with a Fisher-Yates shuffle (positional order) or
+  SplitMix64 keys of the FNV-1a hash of the row ids (keyed order); the calibration
   temperature chosen from a fixed grid with a software exponential and logarithm; ordinal sorting everywhere;
   invariant-culture formatting. The image is compared uncompressed, because the bytes of a Deflate stream depend on
   the runtime. The same inputs give the same model on every operating system.
