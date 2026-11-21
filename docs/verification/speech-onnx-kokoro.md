@@ -24,7 +24,7 @@ phonemes themselves are never mocked.
 
 Below the system level, `OnnxKokoroEnglishSynthesisModel`'s identity, 30-file download descriptor, speaker-id
 resolution and text analysis are verified deterministically with no network access (see *SpeechOnnxKokoro
-ModelManagementSubsystem Verification*), `KokoroPhonemePipeline` against a golden corpus of 40 sentences, and
+ModelManagementSubsystem Verification*), `KokoroPhonemePipeline` against a golden corpus of 41 sentences, and
 `OnnxKokoroSynthesisEngine` against the same fixture graph (see *SpeechOnnxKokoro SynthesisSubsystem
 Verification*).
 

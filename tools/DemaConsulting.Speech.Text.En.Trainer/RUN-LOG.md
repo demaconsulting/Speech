@@ -2094,3 +2094,51 @@ model (`heteronyms.bin` and the `inputs` and `result` of `training.json`) or the
   under review.
 - `cluster-removals.tsv` must be re-audited with `corpus --audit` before the corpus is next used. The audit needs the
   local cache, and no cache is present on this machine, so it is not re-run in this cleanup.
+
+## Cleanup after PR B: the blind screen and the forks (2026-11-21)
+
+The screen of item 4 of the entry above, run before any seed study. No model was trained. The shipped model was run only
+on the two fork sentences, through the pipeline golden tests, after the forks were chosen; that is not a read.
+
+**Screen.** Prompt `data/text-en/prompts/review-regression.md`, staged outside the repository with `review-blind.tsv`
+(id, lemma, sentence, offsets; no reading and no origin), `review-labels.tsv`, `readings.tsv` and `forms.tsv`. Scope: the
+498 overlay rows that are not `data-row`, the 10 `forced` readings-golden rows (provisional ids `reg-0526` to
+`reg-0535`) and the 5 fork candidates under neutral, shuffled ids (`fork-1` past 2, `fork-2` present 1, `fork-3` past
+1, `fork-4` present 3, `fork-5` present 2). Reviewer: a `general-purpose` sub-agent with the harness's default model,
+which named itself "Claude (Anthropic)" without a version. Dispatched 19:50 UTC, finished 19:54 UTC. Judgments frozen
+before the labels were opened: SHA-256 `0e9822fdfb2f1e5865c651ebab7e6e14eb1acb24240eb5eae060e7eb7e08f432`, recomputed
+equal after the comparison.
+
+**Result.** 513 rows: 510 agree, 1 disagreement, 2 `unsure`.
+
+| Id | Label | Review | Decision |
+| --- | --- | --- | --- |
+| `reg-0050` *I read every night before bed.* | `read.present` | `unsure` (low) | fork: a habitual natural in both tenses |
+| `reg-0529` *The doctor will confine her to bed.* (readings golden line 80) | `confine.verb` | `unsure` (low) | not added: the label is plainly right, but `forms.tsv` lists `confines` and not `confine`, so the reviewer had no candidate and `check-data` rejects the span; scoring it needs an inventory change, which item 5 rules out |
+| `fork-2` *I read every night before bed, and I still do.* | `read.present` | `read.past` (medium) | present candidate 1 rejected: "and I still do" makes the first clause a past habit |
+
+**Forks**, by the order fixed in item 4 (the first confirmed candidate wins):
+
+- Present: candidate 1 rejected, candidate 2 confirmed. `reg-0050` and e05 of both pipeline goldens become *Nowadays I
+  read every night before bed.* (offsets 11 to 15).
+- Past: candidate 1 confirmed. New e11 in both pipeline goldens and new overlay row `reg-0525` (`read.past`,
+  `golden-pipeline`, `piper-pipeline-golden.tsv:e11`): *When I was a child, I read every night before bed.*
+- Both chosen forks were judged blind in this round, so no second round was needed.
+
+**Forced rows.** 9 of the 10 join the overlay as `golden-readings` rows `reg-0526` to `reg-0528` and `reg-0530` to
+`reg-0535` (`readings-golden.tsv:35, 43, 46, 241, 257, 265, 320, 330, 362`). `reg-0529` stays unused.
+
+**Unsure rows of earlier reviews.** None remains in a test set: `holdout-review.tsv` `harvest-u00640` and
+`harvest-u00641` were dropped; the `unclear` rows of the first generalization review were rewritten and confirmed by the
+second review (`gen-0125` dropped); none of the 6 `unsure` rows of the blind audit is in a test set; and the 6 `unsure`
+rows of the PR B reviewer were training rows of the failed attempt, which are not on this branch.
+
+**Test-only rule.** `check-data` now reports a `leakage` finding when a `listening`, `analyzer-test`, `golden-pipeline` or
+`golden-sentences` row is seen in training, so the forks can never become training rows. `golden-readings` is not
+included (6 legacy rows repeat training sentences; for it the recomputed seen-in-training mark stays the protection).
+
+**The shipped model on the forks** (pipeline goldens, which pin the committed pipeline's output): e05 *Nowadays I read
+...* is read `read.past` (wrong); e11 *When I was a child, I read ...* is read `read.past` (right). The goldens pin both
+as produced; the gate scores them through `reg-0050` and `reg-0525`.
+
+The overlay now has 529 rows (`golden-pipeline` 38, `golden-readings` 391). `check-data` passes.

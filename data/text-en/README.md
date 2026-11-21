@@ -29,14 +29,14 @@ recorded per file and per row. Nothing here is legal advice.
 | [extension-candidates.tsv](extension-candidates.tsv) | 60 | the ranked proposal of heteronyms that inventory v1 did not cover (natural frequency, class Y/R/S) | CC0-1.0 |
 | [extension-decisions.tsv](extension-decisions.tsv) | 60 | the decision per candidate (add or defer) with the CMUdict evidence | CC0-1.0 |
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
-| [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
+| [regression.tsv](regression.tsv) | 529 | evaluation overlay and gate set: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
 | [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 80 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
 | [cluster-sources.tsv](cluster-sources.tsv) | 336 | the public-domain corpus: every candidate Project Gutenberg book with its US public-domain basis, mirror URL and, for the 280 used books, the SHA-256 and size of its normalized body; 45 development and holdout books excluded and 11 domain candidates rejected, each with the reason; for every domain book, the publication year and its evidence (see "Public-Domain Corpus") | CC0-1.0 |
 | [cluster-removals.tsv](cluster-removals.tsv) | 6 | the corpus sentences the leakage audit removed, by book, paragraph, sentence and SHA-256 (no text) | CC0-1.0 |
-| [audit/](audit/audit-summary.md) | 7 files | blind relabel audit, adjudication, holdout review, final review and the generalization review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review, the blind label review of the generalization set | CC0-1.0 |
+| [audit/](audit/audit-summary.md) | 8 files | blind relabel audit, adjudication, holdout review, final review, the generalization review and the regression screen: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review, the blind label review of the generalization set, the blind ambiguity screen of the regression overlay | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
-| [prompts/](prompts/README.md) | 12 | the prompts that produced the generated, LLM-labeled and audited data, and the prompt of the blind generalization set | CC0-1.0 |
+| [prompts/](prompts/README.md) | 15 | the prompts that produced the generated, LLM-labeled and audited data, and the prompt of the blind generalization set | CC0-1.0 |
 | [ATTRIBUTION.md](ATTRIBUTION.md) | | attribution for the MASC-derived sentences | |
 
 Row format of `train.tsv`, `dev.tsv`, `holdout-natural.tsv` and `holdout-independent.tsv` (UTF-8, LF, no quoting, header row):
@@ -199,7 +199,7 @@ counts or `gaps-v4.tsv`, nothing is trained on them, and `check-data` checks the
 findings). The protocol and the pre-registered use of both are in the trainer's `RUN-LOG.md`, entry "Word-cluster
 subsystem (PR A)".
 
-### Regression overlay: 519 rows
+### Regression overlay: 529 rows
 
 `regression.tsv` (`id lemma reading_id sentence start end origin ref seen_in_training license`) collects the sentences the
 model has to keep getting right. Every row refers to where it comes from (`origin` and `ref`):
@@ -208,9 +208,9 @@ model has to keep getting right. Every row refers to where it comes from (`origi
 | --- | ---: | ---: | --- |
 | `listening` | 7 | 0 | the owner's listening flags and their controls: *grey and very minute and clear*, *The difference was extremely minute*, *a knife wound or a deep muscle tear* (two targets), *Yesterday I read the whole book*, *The tape wound onto the spool*, *A tear ran down her cheek* (`RUN-LOG.md:<line>` or `<Name>Tests.cs:<line>`) |
 | `analyzer-test` | 11 | 0 | the analyzer tests that assert a reading with the embedded model (`<Name>Tests.cs:<line>`) |
-| `golden-pipeline` | 37 | 0 | the heteronym targets of the Piper pipeline golden sentences (the Kokoro golden has the same sentences), labeled from the reviewed expected phonemes (`piper-pipeline-golden.tsv:<id>`) |
+| `golden-pipeline` | 38 | 0 | the heteronym targets of the Piper pipeline golden sentences (the Kokoro golden has the same sentences), labeled from the reviewed expected phonemes (`piper-pipeline-golden.tsv:<id>`) |
 | `golden-sentences` | 61 | 0 | the heteronym targets of the sentence golden whose expected phonemes match the reviewed readings golden of exactly one candidate, plus six inflected forms labeled from their phonemes and sentence (`sentences-golden.tsv:<id>`) |
-| `golden-readings` | 382 | 6 | the end-to-end rows of the readings golden, one per reading (`readings-golden.tsv:<line>`); 3 rows are already in the overlay as listening or analyzer rows |
+| `golden-readings` | 391 | 6 | the end-to-end rows of the readings golden, one per reading, and 9 of its 10 `forced` rows (the shipped model's misses, so the suite is not selected only for its correct answers; `readings-golden.tsv:<line>`); 3 rows are already in the overlay as listening or analyzer rows |
 | `data-row` | 21 | 19 | training and development rows of the flagged constructions: `wound.injury` with *knife*, *stab* or *bullet*; `tear.rip` with a word of the body or a material; `minute.tiny` after a degree adverb; `read.past` with a past-time phrase (`train.tsv:<id>` or `dev.tsv:<id>`) |
 
 `seen_in_training` is `yes` exactly when the row refers to a training row, its sentence key equals a training sentence or
@@ -220,6 +220,23 @@ the golden and test references are resolved by a trainer test that reads the rep
 golden rows are `CC0-1.0`; the listening sentence *To the eastward, of course, these little boats ...* is quoted from a
 public-domain book and is `Public-Domain`; `data-row` rows carry the license of the referenced row. The file was built
 once by a throwaway script from the golden files, the analyzer tests, the run log and the data rows.
+
+**Test sentences stay out of training.** A row of the origins `listening`, `analyzer-test`, `golden-pipeline` and
+`golden-sentences` must never be seen in training: when `check-data` finds such a sentence in the training data (referred
+to, repeated or nearly repeated), that is a `leakage` finding, which changing the mark cannot clear. `golden-readings` is
+not included, because 6 of its legacy rows repeat training sentences; for it the recomputed mark is the protection.
+
+**Blind ambiguity screen and forks (2026-11-21).** A blind reviewer judged every row except the `data-row` rows, the 10
+`forced` rows of the readings golden and the fork candidates (513 rows), with the prompt
+[review-regression.md](prompts/review-regression.md); the record is
+[audit/regression-review.tsv](audit/regression-review.tsv) (`id round original review agree confidence decision note`).
+It agreed on 510. The pipeline golden *I read every night before bed.* (`reg-0050`, e05) was `unsure` (a habitual that is
+natural in the present and in the past), so it was forked into *Nowadays I read every night before bed.* (`reg-0050`,
+`read.present`, e05) and *When I was a child, I read every night before bed.* (`reg-0525`, `read.past`, the new e11); the
+owner's present example *I read every night before bed, and I still do.* was judged past and not used. The forced row
+*The doctor will confine her to bed.* was `unsure` only because `forms.tsv` lists `confines` and not `confine`; it cannot
+be scored without an inventory change and was not added (`reg-0529` is unused). `reg-0520` to `reg-0524` are unused as
+well (a failed attempt used them; see the trainer's `RUN-LOG.md`).
 
 ### Generalization set (written blind)
 
@@ -484,7 +501,7 @@ is all a regeneration needs.
 ### Review of the data files
 
 The large TSV files (`train.tsv`, `dev.tsv`, `holdout-natural.tsv`, `holdout-independent.tsv`, both provenance tables, `exclusions.tsv`, `gaps-v4.tsv`, `extension-candidates.tsv`,
-`audit/*.tsv` except `audit/generalization-review.tsv`, and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
+`audit/*.tsv` except `audit/generalization-review.tsv` and `audit/regression-review.tsv`, and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
 any change of any file changes it), by the `check-data` gates, by the documented second-model audits (see Audit), and by a sampled review recorded in the pull request.
 
 ### How the files were built

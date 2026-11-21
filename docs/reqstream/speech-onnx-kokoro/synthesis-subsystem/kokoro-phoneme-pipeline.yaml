@@ -11,7 +11,7 @@
 # Covered by the KokoroPhonemePipeline_* tests in test/DemaConsulting.Speech.Onnx.Kokoro.Tests/
 # SynthesisSubsystem/KokoroPhonemePipelineTests.cs, which run the model's real text analysis, the
 # session's own sentence chunking, the real phonemizer and renderer and Kokoro's real vocabulary
-# (no ONNX model involved), with the golden corpus TestData/kokoro-pipeline-golden.tsv (40 sentences
+# (no ONNX model involved), with the golden corpus TestData/kokoro-pipeline-golden.tsv (41 sentences
 # written for this repository).
 
 sections:
@@ -23,7 +23,7 @@ sections:
             requirements:
               - id: SpeechOnnxKokoro-Synthesis-KokoroPhonemePipeline-PhonemeTokenIds
                 title: >-
-                  The KokoroPhonemePipeline class shall convert each of the 40 sentences of the golden
+                  The KokoroPhonemePipeline class shall convert each of the 41 sentences of the golden
                   corpus, analyzed and chunked the way a session does, to exactly its reviewed phoneme
                   string and token ids, covering numbers, dates, currency, abbreviations, unknown names
                   and heteronyms.

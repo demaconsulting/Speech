@@ -10,9 +10,9 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.SynthesisSubsystem;
 ///     Pipeline tests for the text-to-token-ids path of the Kokoro engine: the model's real English text
 ///     analysis, the session's own sentence chunking, the real phonemizer and renderer and Kokoro's real
 ///     vocabulary, with no ONNX model involved. The golden corpus
-///     (<c>TestData/kokoro-pipeline-golden.tsv</c>, 40 sentences written for this repository: 12 sentences that
+///     (<c>TestData/kokoro-pipeline-golden.tsv</c>, 41 sentences written for this repository: 12 sentences that
 ///     each carry both readings of a heteronym such as <c>record</c> or <c>wind</c>, 18 general sentences with
-///     numbers, dates, currency, abbreviations and unknown names, and 10 single-reading sentences) pins the
+///     numbers, dates, currency, abbreviations and unknown names, and 11 single-reading sentences) pins the
 ///     phoneme string and the token ids the engine feeds the model.
 /// </summary>
 /// <remarks>
@@ -20,6 +20,10 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.SynthesisSubsystem;
 ///     golden records the text analysis's actual decisions. Three heteronym sentences of the first draft
 ///     (<c>read</c>, <c>lead</c> and <c>content</c> in the same sentence) were replaced because the classifier
 ///     labeled both occurrences alike; that is a known weakness of the text analysis, not of this pipeline.
+///     For a heteronym the golden pins the committed model's reading, right or wrong: whether the reading is
+///     right is judged by the Text.En trainer's statistical gate through the regression overlay, not here. The
+///     habitual <c>I read every night before bed.</c> (e05), which allows both readings, was forked into a present
+///     (e05) and a past (e11) sentence.
 /// </remarks>
 public sealed class KokoroPhonemePipelineTests
 {

@@ -32,6 +32,7 @@ needs-review:
   - "data/text-en/regression.tsv"                                   # Text.En regression overlay (references to flagged, golden and existing sentences)
   - "data/text-en/generalization.tsv"                               # Text.En blind generalization test set
   - "data/text-en/audit/generalization-review.tsv"                  # Text.En blind label review of the generalization set
+  - "data/text-en/audit/regression-review.tsv"                      # Text.En blind ambiguity screen of the regression overlay
   - "data/text-en/cluster-sources.tsv"                              # Text.En public-domain corpus pins and license record
   - "data/text-en/cluster-removals.tsv"                             # Text.En public-domain corpus leakage-audit removals (ids and hashes only)
   - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
@@ -76,7 +77,7 @@ needs-review:
   # of its uncompressed image, the hash of its inputs and its settings) and verified by the trainer's train --check
   # command, which retrains it, as the design documents explain.
   # The large data tables of data/text-en (train, dev, holdout-*, both provenance tables, exclusions, gaps,
-  # extension candidates, audit/*.tsv except audit/generalization-review.tsv and check-output.txt) are deliberately
+  # extension candidates, audit/*.tsv except the generalization and regression reviews, check-output.txt) are deliberately
   # not review files: they are pinned by the reviewed MANIFEST.tsv and verified by the trainer's check-data command, as
   # the design documents explain.
 
@@ -3840,6 +3841,8 @@ reviews:
       - "data/text-en/generalization.tsv"                           # blind generalization set
       - "data/text-en/audit/generalization-review.tsv"              # blind label review of the generalization set
       - "data/text-en/prompts/generalization.md"                    # prompt of the blind generalization writer
+      - "data/text-en/audit/regression-review.tsv"                  # blind ambiguity screen of the regression overlay
+      - "data/text-en/prompts/review-regression.md"                 # prompt of the blind ambiguity screen
 
   # SpeechTextEn-TrainingDataInventory Review (one per system data set)
   - id: SpeechTextEn-TrainingDataInventory

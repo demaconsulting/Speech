@@ -9,7 +9,7 @@ of the voice (a trimmed copy of its configuration); no ONNX graph is involved. F
 
 - the renderer's own Piper golden (`piper-ipa-golden.tsv`, linked from the Phonemes.En tests): 150 sentences, every
   symbol of which must be in the voice's table and encode to the ids pinned there;
-- the pipeline golden (`TestData/piper-pipeline-golden.tsv`): the 40 sentences of the Kokoro pipeline corpus (linked
+- the pipeline golden (`TestData/piper-pipeline-golden.tsv`): the 41 sentences of the Kokoro pipeline corpus (linked
   from the Kokoro tests), 12 of which carry both readings of a heteronym such as `record` or `wind`, run the way a
   session runs them (analyze, chunk with the annotations, speak each chunk) and pinned with their phoneme string and
   framed ids. A change in this golden means the audio changes, so it is reviewed by listening and not only by reading;
