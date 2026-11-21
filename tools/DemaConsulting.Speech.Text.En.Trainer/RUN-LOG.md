@@ -1972,3 +1972,125 @@ basis, and that the set has been read once; its read is read 2, and both reads a
 3. **A retry.** Whether to try again with the epoch chosen on all development rows (as `fp-01`) and targeted data: the
    habitual present of *read*, and the rare lemmas outside the round's ten (*bow*, *celtic*, *jesus*). It would go
    under a new pre-registration, as stated above.
+
+## Cleanup after PR B: statistical gate, golden forks and corpus tooling, fixed before any evaluation (2026-11-21)
+
+Written after the PR B result entry and before anything of this cleanup is evaluated. No seed study has run, no fork
+candidate has been written into a golden or evaluated by any model, and no blind screen of the regression overlay has
+run. Sets read for this entry: none. No model was trained or evaluated for it.
+
+The owner answered the open questions of the PR B result entry with these decisions:
+
+- **D1:** the quality gate becomes a statistical gate over four scored sets, with recorded thresholds, intervals and a
+  flip report, in place of the D13 gate and the PR B guards. Classifier correctness is judged by this gate, not by
+  per-sentence test assertions.
+- **D2:** a golden whose sentence admits two readings is forked into one unambiguous sentence per reading.
+- **D3:** the word clusters are removed. The corpus downloader, the per-book pins, the leakage audit and the
+  evaluation-set tooling are kept under neutral names for later features.
+- **No corpus snapshot:** the deterministic tar snapshot of the corpus and its `--from-snapshot` option are removed,
+  and no snapshot is published (item 6).
+
+The rules below are fixed now, before any evaluation they govern.
+
+**1. PR B is closed.** The generalization set's role as the pre-registered comparison set ended with read 1. By D1 it
+becomes a gate (non-regression) set. Later comparisons (learned cue features, word vectors) use a fresh set and a new
+pre-registration.
+
+**2. The gate.** The scored sets:
+
+| Gate set | File | Rows (expected) | Cluster for the interval |
+| --- | --- | ---: | --- |
+| `regression` | `regression.tsv`, all origins, after the forks (item 4) | about 530 | each row its own cluster |
+| `holdout-natural` | `holdout-natural.tsv` | 1,167 | source document (266) |
+| `holdout-independent` | `holdout-independent.tsv` | 1,972 | each row |
+| `generalization` | `generalization.tsv` (frozen, unchanged) | 242 | `family` (64) |
+
+- **Metric:** end-to-end accuracy through `EnglishTextAnalyzer` with the shipped classifier, cue priors included. A
+  missing reading counts as wrong, the same path as the evaluation record. The value is in basis points.
+- **Interval:** the existing integer percentile clustered bootstrap of the accuracy itself, 95 percent, 10,000
+  resamples, seed 7. It is reported and recorded for every set, but it does not gate.
+- **Decision rule:** the gate passes if and only if, for every gate set S, `correct_S × 10,000 ≥ T_S × rows_S`, an
+  integer comparison where `T_S` is the threshold of S in basis points. Any failing set fails the gate, and the output
+  names the set. The point estimate decides, not an interval bound: a lower bound at the threshold would fail the
+  shipped model itself on the small sets, and an upper bound would accept almost anything on 242 rows.
+- **Threshold rule ("typical score minus a margin"):** for each S, let `c₁…c₅` be the correct counts of the current
+  recipe at seeds 1 to 5 (the committed `training.json` settings, positional order, feature set 1, the cue priors; only
+  the seed changes). With `m` their mean and `s` their sample standard deviation (divisor 4):
+
+  ```text
+  T_S = floor( 10,000 × (m − 2·s) / rows_S )      [basis points]
+  ```
+
+  In exact integer arithmetic, with `S₁ = Σc`, `S₂ = Σc²` and `N = rows_S`, `T_S` is the largest integer `t ≥ 0` with
+  `D = 10,000·S₁ − 5·t·N ≥ 0` and `D² ≥ 5·10⁸·(5·S₂ − S₁²)`.
+- **Why this margin:** a model of the same quality falls below the mean minus two seed standard deviations in about 2.5
+  percent of training runs (normal approximation). For five values every sample lies within `s·(n−1)/√n = 1.789·s` of
+  the mean (Samuelson's inequality), so each of the five seeds, the shipped seed 1 included, is strictly above
+  `m − 2·s`, and the floor only lowers `T_S`. The shipped model therefore passes by construction. The regression set is
+  selected for seed 1's correctness (its rows are goldens the shipped model gets right); the seed spread measures how a
+  model of equal quality scores on such a set.
+- **Expected values** for the sets with known seed figures (gate run 1; the same models, re-evaluated): natural
+  holdout (1,123, 1,114, 1,129, 1,132, 1,129) 9,520 basis points; independent holdout (1,882, 1,912, 1,914, 1,905,
+  1,886) 9,483 basis points. The seed study must reproduce both; any difference is a defect. The regression threshold
+  is computed after the forks; the generalization threshold is computed in the seed study.
+- **Retired** when the new gate is in force: the D13 gate (93.0 percent pooled on the natural holdout, plus an
+  improvement interval above zero) and the PR B guards (natural at least 1,123 of 1,167, every golden right on the
+  shipped seed, generalization at least 177). The improvement over the own-tag baseline and its interval stay
+  reported.
+
+**3. Reads.** One seed study, `evaluate --seeds`, over seeds 1 to 5 of the current recipe on the four gate sets, run
+once after the forks.
+
+- It prints aggregate figures only. No per-row or per-reading output of seeds 2 to 5 is printed or opened.
+- Seed 1 is the shipped model, whose per-row overlay results are already public in `overlay-rows.tsv`.
+- This is a threshold derivation, not a comparison read. The holdout figures repeat gate run 1's models.
+- Its figures are logged in an entry written immediately after the run, before anything else.
+
+**4. The forks and the screen.** The known ambiguous golden is `reg-0050`, *I read every night before bed.*
+(`read.present`; `piper-pipeline-golden.tsv:e05` and `kokoro-pipeline-golden.tsv:e05`). Its candidate forks, in this
+order; the first candidate a blind reviewer confirms wins:
+
+- **Present** (replaces the sentence of e05; `reg-0050` keeps its id and ref, with new offsets):
+  1. *I read every night before bed, and I still do.* (the owner's example; "and I still do" may lean toward
+     `read.past`, and the blind reviewer decides);
+  2. *Nowadays I read every night before bed.*;
+  3. *These days I read every night before bed, and my sister reads in the morning.*
+- **Past** (new id e11 in both pipeline goldens; new overlay row `reg-0525`, `read.past`, `golden-pipeline`,
+  `piper-pipeline-golden.tsv:e11`, `seen_in_training=no`, CC0-1.0):
+  1. *When I was a child, I read every night before bed.* (the owner's example);
+  2. *Back then I read every night before bed.*
+- If no candidate of a side is confirmed, that fork is dropped. If both sides fail, e05 and `reg-0050` are dropped.
+- New overlay ids start at `reg-0525`; `reg-0520` to `reg-0524` were used by the failed attempt and are referred to
+  above.
+
+The 10 `forced` rows of `readings-golden.tsv` (the shipped model's misses, lines 35, 43, 46, 80, 241, 257, 265, 320,
+330 and 362) join the overlay as `golden-readings` rows, so every golden is scored and the suite is not selected only
+for seed 1.
+
+**The blind ambiguity screen.** No blind reviewer has judged the regression overlay or the goldens before.
+
+- Scope: every `regression.tsv` row except `data-row`, the 10 `forced` rows and all fork candidates.
+- The reviewer sees the id, sentence, span, target and the candidate readings with their `readings.tsv` descriptions,
+  shuffled with a recorded seed, and never the label. The answer is one reading or `unsure`, with a confidence and a
+  reason.
+- The judgments are staged outside the repository and frozen by SHA-256 before they are compared with the labels. They
+  are recorded in `data/text-en/audit/regression-review.tsv`.
+- Decisions: agree keeps the row. An `unsure`, or a disagreement that makes the sentence two-way, forks a golden: the
+  sentence is replaced by the fork of its labeled reading, the other fork is added under a new id, and both forks are
+  reviewed again. A `listening` row is never edited; it goes to the owner. A disagreement where the label is plainly
+  right is kept with the reasoning noted. A golden without a clean fork is dropped with its overlay row.
+- The shipped model's readings on the fork rows are recorded and are never used to choose a fork.
+
+**5. No change** to `train.tsv`, `dev.tsv`, the inventory (`readings.tsv`, `forms.tsv`), the training settings, the
+model (`heteronyms.bin` and the `inputs` and `result` of `training.json`) or the cue priors.
+
+**6. The corpus without the word clusters.**
+
+- `clustering.json` and `word-clusters.tsv` are deleted. They stay in git history at `0034231` (the PR A merge).
+- By owner decision there is no corpus snapshot. The publication proposal of the entry "Snapshot publication
+  (documented only; not published)" above is withdrawn.
+- The identity of the corpus is the per-book `body_sha256` and `body_bytes` pins of `cluster-sources.tsv`. Drift is
+  reported by `corpus --fetch` (a book whose mirror text differs from its pin fails, exit 1) and handled by re-pinning
+  under review.
+- `cluster-removals.tsv` must be re-audited with `corpus --audit` before the corpus is next used. The audit needs the
+  local cache, and no cache is present on this machine, so it is not re-run in this cleanup.
