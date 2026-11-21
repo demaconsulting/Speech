@@ -37,8 +37,10 @@ analyzer scores every row, so the parity tests compare two real code paths. Noth
   is positive; one cluster gives an interval equal to its own difference; the same improvement as ten documents gives a
   wider interval than as two hundred independent rows with the same estimate; two natural rows moved to the same source
   document give 39 clusters instead of 40; the same seed gives the same interval and no clusters give the empty one.
-- **Gate decision**: the gate passes at 930 of 1,000 and fails at 929 of 1,000, fails when the lower bound is not above
-  zero however accurate the model is, and fails for a set without rows; for every set, the training rows included, the
+- **Gate decision**: with thresholds of 6,902 basis points (generalization) and 9,520 (natural holdout), 168 of 242 and
+  1,111 of 1,167 pass (the threshold itself being enough), 1,110 of 1,167 fails and the verdict names
+  `holdout-natural` as the failing set, a set without rows fails, and a gate set that was not evaluated throws
+  `InvalidDataException` naming it; for every set, the training rows included, the
   number of rows compared equals the number aligned with none mismatched and none suppressed, and the direct evaluation
   equals the end-to-end one.
 - **Input validation**: a natural holdout evaluated with the provenance file deleted, or with the line of one row
@@ -100,15 +102,29 @@ possible answer. One line of the provenance table of the fixture is edited to mo
 
 ##### Gate decision and parity
 
-**Tests**: `HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive` (a theory over two cases),
-`HeteronymEvaluator_DecideGate_LowerBoundNotPositive_Fails`, `HeteronymEvaluator_DecideGate_NoRows_Fails`,
+**Tests**: `HeteronymEvaluator_DecideGate_EverySetAtThreshold_Passes`,
+`HeteronymEvaluator_DecideGate_OneSetBelow_FailsNamingTheSet`,
+`HeteronymEvaluator_DecideGate_NoRowsFailsAndMissingSetThrows`,
 `HeteronymEvaluator_Evaluate_AllSets_TrainerAndAnalyzerAgreeOnEveryRow`,
 `HeteronymEvaluator_EvaluateDirect_AgreesWithEndToEndOnTheFixture`
 
-Evaluations with a given number correct and an interval are decided with the default thresholds. The training rows (the
-set named `train`, used only for the parity check, with one unaligned row appended), the development set and both
-holdout sets are evaluated and the parity counts are compared; the direct evaluation is compared with the end-to-end
-one.
+Hand-built evaluations of named gate sets, each with an accuracy interval, are decided with thresholds given per set.
+The training rows (the set named `train`, used only for the parity check, with one unaligned row appended), the
+development set and both holdout sets are evaluated and the parity counts are compared; the direct evaluation is
+compared with the end-to-end one.
+
+##### Threshold derivation and flips
+
+**Tests**: `HeteronymEvaluator_DeriveGateThreshold_FiveSeeds_FloorOfMeanMinusTwoSd`,
+`HeteronymEvaluator_DeriveGateThreshold_EverySeedPasses` (a theory over four cases),
+`HeteronymEvaluator_ClassifyFlip_ClassifiesTheChange` (a theory over five cases)
+
+The seed counts of the natural holdout (1,123, 1,114, 1,129, 1,132 and 1,129 of 1,167) give 9,520 basis points and those
+of the independent holdout (1,882, 1,912, 1,914, 1,905 and 1,886 of 1,972) give 9,483, the values recorded by the seed
+study; five equal counts give their own accuracy; counts so spread that the mean minus two standard deviations is below
+zero give 0; and a single count is refused. For the regression and generalization seed counts and two widely spread
+sets, every one of the five counts passes the threshold derived from them. A row that becomes right is `fixed`, one that
+becomes wrong is `broken`, a change between two wrong readings is `changed`, and an unchanged or new row is no flip.
 
 ##### Input validation
 

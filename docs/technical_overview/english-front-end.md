@@ -52,16 +52,21 @@ model differs by a single byte.
 
 ### The Quality Gate
 
-A model is accepted only if it passes a quality gate that was fixed before any holdout data was read. The gate is
-evaluated end to end through the real analyzer on the natural holdout, 1,167 labeled words from 266 source documents
-that are never used for training or selection. It requires both:
+A model is accepted only if it passes a statistical quality gate. The classifier is right most of the time, not
+always, so it is judged on scored sets rather than by a rule that every golden sentence must be right; the rule-based
+parts (normalization, lexicon, rendering) stay strict pass or fail. The gate is evaluated end to end through the real
+analyzer on four sets that are never used for training or selection:
 
-- at least 93.0 percent pooled accuracy, and
-- an improvement over the reading that the part-of-speech tag alone would give, whose 95 percent interval (a paired
-  bootstrap that resamples whole source documents) lies above zero.
+- the regression overlay: the golden and analyzer-test sentences and the owner's listening flags;
+- the natural holdout: 1,167 labeled words from 266 source documents;
+- the independent holdout: 1,972 sentences written blind by another model family;
+- the generalization set: 242 sentences with cue words and constructions the training data does not contain.
 
-The command is `evaluate --gate` of the trainer. Reading a holdout set is treated as an irreversible act, so every run
-of the gate is counted in the trainer's run log. The current figures are in the section on accuracy and evaluation.
+Each set must reach a threshold that is the current recipe's typical score minus a margin: the mean minus two standard
+deviations of the scores of five training runs that differ only in their seed. Every run of the recipe passes, and a
+clearly worse model fails. The 95 percent interval of each accuracy is reported, and a flip report lists every scored
+sentence whose reading a change fixes or breaks, so a reviewer sees what the aggregate hides. The command is
+`evaluate --gate` of the trainer. The current figures are in the section on accuracy and evaluation.
 
 ## The Pronunciation Lexicon
 

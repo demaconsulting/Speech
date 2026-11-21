@@ -4,8 +4,8 @@ Developer tool for the Text.En training data in `data/text-en/` and for the hete
 It is never packed or shipped. The `check-data` units use only the base class library; the `train` and `evaluate`
 units reference the Text.En library (its internals are visible to this tool) so a model is trained with the
 analyzer's own tokenization, part-of-speech tagging, feature extractor, scoring and model format, not a copy of them.
-The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache. The `cluster`
-units induce the word-cluster table from a pinned public-domain corpus with the analyzer's own tokenizer.
+The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache. The `corpus`
+units fetch a pinned public-domain corpus and audit it against the evaluation sets with the analyzer's own tokenizer.
 
 Commands:
 
@@ -13,7 +13,7 @@ Commands:
 - `train`: train the heteronym model, or verify a committed one with `--check`
 - `evaluate`: measure a model on the development and holdout sets and decide the quality gate
 - `evaluate-external`: measure the embedded model on external, evaluation-only datasets fetched at evaluation time
-- `cluster`: fetch, audit and cluster the word-cluster corpus, or re-verify the table by re-induction
+- `corpus`: fetch the pinned public-domain corpus and audit it against every evaluation set
 
 ## check-data
 
@@ -30,10 +30,9 @@ Verifies the data folder and reports every violation as `check-data: <check>: <f
 - `leakage`: the splits stay disjoint (sentences, source documents, synthetic templates)
 - `overlay`: the regression overlay (references, seen-in-training marks, no holdout contact) and the generalization
   set (novelty rules N1 to N3 against the training and development data, and its quotas once it has rows)
-- `clusters`: the word-cluster files, offline: the schema of `cluster-sources.tsv`, `cluster-removals.tsv` and
-  `word-clusters.tsv`, and `clustering.json` against the SHA-256 of all three and the tokenizer version of this build
-  (a `leakage` finding when a used corpus book is a development or natural-holdout document); skipped when the folder
-  has none of the four files
+- `corpus`: the corpus files, offline: the schema of `cluster-sources.tsv` and `cluster-removals.tsv` and a pin and
+  a public-domain basis for every used book (a `leakage` finding when a used corpus book is a development or
+  natural-holdout document); skipped when the folder has neither file
 
 Options:
 
@@ -69,6 +68,10 @@ Options:
 - `--check`: verify instead of write
 - `--seed`, `--hash-bits`, `--prune`, `--natural-weight`, `--max-epochs`: experiment settings; they require
   `--model-dir` and cannot be combined with `--check`, so an experiment never overwrites the committed files
+- `--row-order positional|keyed`: experiment setting, the order in which the training rows are visited in each epoch.
+  `positional` (the default) is a seeded shuffle of the row positions; `keyed` sorts the visits by a seeded key of the
+  row id, so adding rows never changes the relative order of the existing rows. Recorded as `rowOrder` in
+  `training.json`
 
 Exit codes: `0` trained or current, `1` stale, `2` usage, I/O or data error.
 
@@ -82,7 +85,8 @@ Exit codes: `0` trained or current, `1` stale, `2` usage, I/O or data error.
   hash of the ordered feature stream of the training and development rows, so a drift of the tagger or the
   extractor is visible even when the data files are unchanged. The tagger package version is recorded too.
 - **Determinism contract.** One thread; features precomputed once in file order; integer weights, integer exact
-  averaging and integer rounding; a fixed SplitMix64 generator and Fisher-Yates shuffle; the calibration
+  averaging and integer rounding; a fixed SplitMix64 generator with a Fisher-Yates shuffle (positional order) or
+  SplitMix64 keys of the FNV-1a hash of the row ids (keyed order); the calibration
   temperature chosen from a fixed grid with a software exponential and logarithm; ordinal sorting everywhere;
   invariant-culture formatting. The image is compared uncompressed, because the bytes of a Deflate stream depend on
   the runtime. The same inputs give the same model on every operating system.
@@ -104,21 +108,46 @@ Options:
 - `--model <file>`: evaluate this model file instead of the one in the model folder
 - `--set <name>`: `dev`, `holdout-natural`, `holdout-independent` or `all` (repeatable; default `dev`); `regression`
   and `generalization` evaluate the evaluation overlays (not part of `all`) with and without the curated cue priors
-- `--gate`: evaluate `holdout-natural` and decide the quality gate (at least 93.0% pooled accuracy and a 95% interval
-  lower bound of the improvement above zero); exit `0` for a pass and `1` for a failure. Together with `--check` (or
-  `--write`) the exit code is `0` only when the gate passes and the record is current
-- `--seeds`: retrain with each evaluation seed and report the holdout accuracy of each
+- `--gate`: decide the statistical quality gate on its four scored sets (`regression`, `generalization`,
+  `holdout-natural`, `holdout-independent`): each must reach its recorded threshold; prints each set's accuracy with its
+  95% clustered interval and threshold, and the flips of the model under test against the committed record
+  (`evaluate: FLIP <set> <id> <gold> <previous>-><current> <change>`); exit `0` for a pass, `1` for a failure and `2`
+  when a gate set has no file. Together with `--check` (or `--write`) the exit code is `0` only when the gate passes and
+  the record is current. `evaluate --gate --model <candidate>` shows a later change's flips before anything is written
+- `--seeds`: retrain with each evaluation seed, score each model end to end on every gate set and print the counts and
+  the threshold the gate's rule gives (aggregates only, never a per-row result)
 - `--write`, `--check`, `--record-dir <dir>`: write or verify the deterministic evaluation record (default folder
   `docs/evaluation/text-en`); the record includes the overlays whose files exist, after the data sets
 
 Exit codes: `0` done or gate passed, `1` gate failed or record stale, `2` usage, I/O or data error.
+
+**The statistical gate.** The learned classifier is judged on four scored sets, not per golden sentence. A set passes
+when `correct × 10,000 ≥ threshold × rows`; the gate passes when every set passes. The thresholds are in
+`EvaluationSettings.Default` (`TrainingRecord.cs`) and mirrored in `training.json`; `train --check` reports a
+difference. Each threshold is the floor of the mean minus two sample standard deviations of the current recipe's correct
+counts at the seeds 1 to 5 (`evaluate --seeds` prints the value by this rule), so every seed of the recipe passes and a
+clearly worse model fails:
+
+| Gate set | Rows | Threshold | Shipped model |
+| --- | ---: | ---: | ---: |
+| `generalization` | 242 | 69.02% | 73.14% |
+| `holdout-independent` | 1,972 | 94.83% | 95.44% |
+| `holdout-natural` | 1,167 | 95.20% | 96.23% |
+| `regression` | 529 | 96.03% | 98.11% |
+
+To change the recipe or the data: run `evaluate --gate --model <candidate>` and review every `broken` flip of a
+`listening` or golden row; to re-derive the thresholds after a deliberate recipe change, run `evaluate --seeds` once,
+record the counts in `RUN-LOG.md` before anything else, and update `EvaluationSettings.Default`, `train` and
+`evaluate --write`. The record's `gate-rows.tsv` and `flips.tsv` hold every gate row's labeled, previous and current
+reading and the rows that changed (ids only).
 
 Every harvested row needs an entry in `harvest-provenance.tsv`, because the bootstrap resamples the rows of one source
 document together. Run `check-data` first: `evaluate` does not validate the data folder, but it stops with exit code `2`
 instead of guessing when a harvested row has no source document.
 
 Reading a holdout set is the one irreversible act of model development: a set that has guided a choice no longer
-measures anything. The tool says so when it reads one, and `RUN-LOG.md` counts the runs of the gate.
+measures anything. The tool says so when it reads one. The holdouts are now repeated-use gate sets (non-regression), so
+only fresh sets give unbiased estimates for a later comparison.
 
 **Overlays.** An overlay (`regression.tsv` or `generalization.tsv`) is reported like a set and then by slice (all
 rows; seen and unseen rows and each origin of the regression overlay; each kind, cue-solvable class and family of the
@@ -184,15 +213,14 @@ WHD is Apache-2.0 code with Wikipedia text (CC BY-SA 3.0); the heteronym-bench d
 committed, embedded or used to train. The record and the two mapping files contain no text of either dataset, only
 numbers, the pins and our own ids.
 
-## cluster
+## corpus
 
 ```text
-dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- cluster <mode> [options]
+dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- corpus <mode> [options]
 ```
 
-Induces the word-cluster table `data/text-en/word-clusters.tsv` (one row per word: `word`, bit-string `path`, `count`)
-and its record `data/text-en/clustering.json` from the US public-domain books listed in
-`data/text-en/cluster-sources.tsv`. It changes no model. Give exactly one mode:
+Fetches the US public-domain books listed in `data/text-en/cluster-sources.tsv` and audits them against every
+evaluation set. It changes no model, and no model uses the corpus. Give exactly one mode:
 
 - `--fetch [--write-pins]`: fetch the plain text and metadata of every `used` book that is missing from the cache or
   fails its pin, only over HTTPS from an official mirror (`gutenberg.pglaf.org`; `aleph.gutenberg.org` with
@@ -205,60 +233,34 @@ and its record `data/text-en/clustering.json` from the US public-domain books li
   `holdout-independent.tsv`, `regression.tsv` and `generalization.tsv` (rules `exact`, `near`, `contains`) and print the
   removals per file and rule; `--write` writes `cluster-removals.tsv` (ids and hashes only), otherwise exit `1` when it
   is missing or differs
-- `--preflight [--words a,b,...]`: print the token coverage of vocabulary sizes 30,000 to 75,000 and the count, rank and
-  cut of each nominated word (default: the pre-registered list in `RUN-LOG.md`). It never reads the generalization set
-- `--write`: verify the pins, require the committed removals to be current, count, induce, then write the table and the
-  record to `--out` (default the data folder) and the snapshot `cluster-corpus.tar` to the cache
-- `--check`: repeat `--write` with the settings of the record in `--out`, compare the table and the record byte for
-  byte, and compare the existing snapshot (the `--from-snapshot` file, otherwise the cache's `cluster-corpus.tar`) by
-  SHA-256 with the archive the inputs give, without writing anything; exit `1` when one is stale or the snapshot is
-  missing
 
-Options: `--clusters <n>` (default 512, `--write` only), `--max-words <n>` (default 0, no limit) and `--min-count <n>`
-(default 5) for `--write` and `--preflight`; `--threads <n>` (default the processor count; the output does not depend on
-it); `--out <dir>`; `--delay-ms <n>`; `--mirror <host>`; `--cache <dir>` (default
-`data/text-en/external/cluster-corpus`, git-ignored; it must be inside `data/text-en/external` or outside the
-repository); `--from-snapshot <file>` (read the bodies from a snapshot instead of the cache, verified against the pins);
-`--data <dir>`.
+Options: `--threads <n>` (default the processor count; the output does not depend on it); `--delay-ms <n>`;
+`--mirror <host>`; `--cache <dir>` (default `data/text-en/external/cluster-corpus`, git-ignored; it must be inside
+`data/text-en/external` or outside the repository); `--data <dir>`.
 
-Exit codes: `0` done or current, `1` stale or a book failed, `2` usage, I/O or data error.
+Exit codes: `0` done or current, `1` stale removals or a book failed, `2` usage, I/O or data error.
 
-**Determinism.** Counts are integers, every logarithm is the trainer's own `DeterministicMath.Log` (also for the table
-of logarithms of small counts), only `+`, `-`, `*` and `/` are used in a fixed order, and the parallel phases write
-disjoint cells and are separated by barriers; ties go to the lowest slots. The table is therefore byte-identical for any
-`--threads` and on every operating system; golden tests check it in every CI job. `--write` prints the progress every
-1,000 words with the time left, and the time of each stage, so a run can be benchmarked. A micro-benchmark with 512
-clusters measured about 5 ms per word on one thread and about 1.1 ms per word with 8 or more threads (28-thread laptop).
-The committed table (280 books, 31.3 million tokens, 60,000 words, 512 clusters) took 1 minute 24 seconds with 28
-threads and 6 minutes 9 seconds with one thread, most of it the induction; both re-induction checks gave the same bytes
-(see `RUN-LOG.md`).
+**Determinism.** Books are tokenized and audited in parallel into separate slots and merged in ordinal source-id order,
+and every attribution and sort uses integer and ordinal comparisons only, so the removals are byte-identical for any
+`--threads` and on every operating system. Each stage prints its time.
 
-**Lookup keys.** Words are tokenized and normalized exactly as the analyzer does (the command stops if a word does not
-hash to the analyzer's key). When two vocabulary words share a lookup hash, both are left out of the table, so no word
-can take another word's class.
-
-**Corpus snapshot.** `--write` also builds `cluster-corpus.tar` in the cache (`--check` only computes its hash and
-compares it with the existing archive, which it never replaces): a ustar archive of
-`cluster-sources.tsv`, a `NOTICE.txt` and every normalized body in a fixed order, with zero timestamps, owners and
-modes fixed, so the archive is byte-reproducible and its SHA-256, size and file count go into `clustering.json`. It is
-not published. The proposal, an open question for the owner, is to attach it to a release of the repository as
-`text-en-cluster-corpus-<first 8 hex digits of its SHA-256>.tar` and put its URL in `snapshotUrl` (a later `--check`
-keeps the URL while the hash matches). Anyone could then verify it by its SHA-256 and run
-`cluster --check --from-snapshot <file>` without the mirror.
+**Drift and re-pinning.** The pins of `cluster-sources.tsv` are the identity of the corpus; there is no snapshot
+archive (owner decision). `--fetch` into an empty
+cache reproduces it bit for bit; a book whose mirror text no longer matches its pin fails (`failed: the mirror's text
+differs from the pin`, exit `1`) and its pin is never overwritten. To keep such a book after review, write `-` in its
+`body_sha256` and `body_bytes` and run `corpus --fetch --write-pins` (both edits are committed together, because
+`check-data` rejects a used book without a pin); to drop it, set its status to `rejected-content` with no pin. Then run
+`corpus --audit`, review the removals, run `corpus --audit --write`, regenerate `MANIFEST.tsv`, run `check-data` and
+record the re-pin in `RUN-LOG.md`.
 
 **Adding or removing a book.** Edit its row in `cluster-sources.tsv` (a domain book is used only with its publication
-year and the evidence for it read from the book itself), run `cluster --fetch --write-pins`, then
-`cluster --audit --write`, `cluster --preflight` (the vocabulary rule of `RUN-LOG.md`), `cluster --write` with the
-recorded settings and both `cluster --check --threads 1` and with all threads, and record the run in `RUN-LOG.md`.
+year and the evidence for it read from the book itself), run `corpus --fetch --write-pins`, then
+`corpus --audit --write`, and record the run in `RUN-LOG.md`.
 
 The command is never run by `build.ps1`, `lint.ps1` or a workflow; only its tests run in CI, offline, on generated
-books. CI instead runs the cheap offline gate of `check-data` (check `clusters`): the record must still match the
-committed source list, removals and table byte for byte and the tokenizer of the build. Any later edit of those files,
-or a tokenizer upgrade (which moves the sentence boundaries the removals refer to), therefore fails `check-data` until
-`cluster --audit --write` and `cluster --write` are run again. The record's hash of the evaluation files is not gated,
-so editing development data does not force a new induction: `check-data` prints an informational line, not a failure,
-when the evaluation files changed since the audit, and `cluster --audit` (manual, needs the corpus cache) tells whether
-the removals are still current; the manual `cluster --check` verifies the hash.
+books. CI instead runs the cheap offline gate of `check-data` (check `corpus`): the source list and the removals must
+be well formed, and every used book needs a pin. Whether the removals are still current needs the corpus cache, so
+`check-data` cannot tell; `corpus --audit` compares them byte for byte and is re-run before the corpus is next used.
 
 ## Files
 
@@ -266,8 +268,8 @@ the removals are still current; the manual `cluster --check` verifies the hash.
   the feature stream, the tagger and format versions and the SHA-256 of the uncompressed model image. `train --check`
   verifies it, with `src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin` (the model the package embeds), by
   retraining. A model or a record is only ever written by `train`; do not edit either by hand.
-- `RUN-LOG.md`: the protocol, the development-set exploration, and every run of the gate with its numbers, and the
-  word-cluster corpus, audit, preflight, induction and re-induction check
+- `RUN-LOG.md`: the protocol, the development-set exploration, and every run of the gate with its numbers, the
+  public-domain corpus and its audit, and the word-class attempt (PR B) and its negative result
 - `docs/evaluation/text-en/` (in the repository root): the committed evaluation record that `evaluate --write` writes
   and `evaluate --check` verifies, with the headline results and the limits of the evidence in its `README.md`
 - `external-sources.json`, `external-files.tsv`: the pins of the external evaluation datasets (see `evaluate-external`)

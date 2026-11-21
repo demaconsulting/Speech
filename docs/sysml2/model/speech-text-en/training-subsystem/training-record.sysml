@@ -11,6 +11,12 @@ package SpeechTextEn_TrainingRecord {
         attribute maxEpochs : Integer;
         attribute temperatureSteps : Integer;
         attribute temperatureDivisor : Integer;
+        attribute rowOrder : String;
+    }
+
+    attribute def GateThreshold {
+        attribute set : String;
+        attribute minAccuracyBasisPoints : Integer;
     }
 
     attribute def EvaluationSettings {
@@ -18,7 +24,7 @@ package SpeechTextEn_TrainingRecord {
         attribute resamples : Integer;
         attribute confidencePercent : Integer;
         attribute bootstrapSeed : Integer;
-        attribute gateMinPooledAccuracyPerThousand : Integer;
+        attribute gateThresholds : GateThreshold [1..*];
     }
 
     attribute def TrainingInputs {
@@ -55,8 +61,9 @@ package SpeechTextEn_TrainingRecord {
     part def TrainingRecord {
         doc /* The training and evaluation settings with their defaults and ranges, what the training read (hashes,
              * versions, row counts) and what it produced (choices, counts, image hash), and the deterministic
-             * training.json text form that renders and parses them. Also holds the TrainingSettings,
-             * EvaluationSettings, TrainingInputs and TrainingResult records. */
+             * training.json text form (schema 2) that renders and parses them, including the per-set thresholds of the
+             * statistical gate. Also holds the TrainingSettings, GateThreshold, EvaluationSettings, TrainingInputs and
+             * TrainingResult records. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/TrainingRecord.cs");

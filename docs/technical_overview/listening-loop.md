@@ -58,8 +58,8 @@ the row confirm it: if the phonemes are right but the audio is wrong, the front 
 - **`wrong-heteronym`**: a heteronym read with the wrong reading (`read` as the present instead of the past). It is
   fixed in the Text.En heteronym classifier, with new reviewed rows in its training data in `data/text-en/` and
   retraining, or with a hand-written cue prior. The heteronym flags fixed so far were fixed by cue priors: for one of
-  them a round of new training rows was tried and reverted, because the retrained model changed the readings of golden
-  sentences.
+  them a round of new training rows was tried and reverted. A retrained model is now accepted by the statistical gate:
+  the goldens follow it, and the flip report shows every golden or flagged sentence whose reading it changes.
 - **`normalization`**: a number, unit, date, symbol or abbreviation expanded wrongly. It is fixed in the normalization
   rules of Text.En and their abbreviation and initialism tables.
 - **`mispronounced-word`**: one word pronounced wrongly. It is fixed in the Phonemes.En lexicon tables in
@@ -85,14 +85,19 @@ the error cannot return unnoticed:
   was seen in training. The data manifest is updated after the edit.
 - **Any other sentence** becomes a row of a golden test, such as the sentence golden of Phonemes.En or the pipeline
   goldens of the Piper and Kokoro packages, with its reviewed expected phonemes, or a unit test of the rule that was
-  changed. A changed golden line is a behavior change and is reviewed line by line; wrong output is fixed in the code,
-  never in the golden.
+  changed. A changed golden line is a behavior change and is reviewed line by line; wrong output of a rule is fixed in
+  the code, never in the golden. For a heteronym the goldens pin the committed model's reading, right or wrong: a model
+  change that passes the gate regenerates them, and each changed reading is reviewed against the flip report. A golden
+  sentence that allows two readings is split into one unambiguous sentence per reading, and a golden or listening
+  sentence may never become a training row.
 
 ## Run the Gates
 
 Before a change is accepted, the gates must pass:
 
-- **The quality gate**: `evaluate --gate` of the Text.En trainer, on the natural holdout (see the English front end).
+- **The quality gate**: `evaluate --gate` of the Text.En trainer: the regression overlay, both holdouts and the
+  generalization set must each reach their threshold, and the flip report lists every scored sentence that changed (see
+  the English front end).
 - **The golden tests**: the readings golden (one sentence per reading id, end to end), the sentence, renderer and
   letter-to-sound goldens of Phonemes.En and the pipeline goldens of the Piper and Kokoro packages, run by `build.ps1`
   with the rest of the test suite.

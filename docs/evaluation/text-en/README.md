@@ -25,7 +25,7 @@ Baselines:
 
 - **Own part of speech.** The reading decided by the part of speech that the analyzer's tagger gives the word: the
   unique candidate whose part-of-speech hint contains the tag, otherwise the first candidate of the form. This is what
-  a reader gets for free from the tagger, and it is the baseline the quality gate must beat.
+  a reader gets for free from the tagger, and the improvement over it is reported for every set.
 - **Majority reading.** The reading that the form has most often in the training data (ties: the first candidate).
 - **First candidate.** The first candidate of the form in the inventory order.
 
@@ -38,12 +38,17 @@ without one stops the evaluation instead of counting as its own cluster.
 
 - `summary.tsv`: per set, the rows, accuracy, the three baselines, the improvement, its interval and the parity check
   of the trainer's own decisions against the analyzer's (0 mismatches on every set)
-- `gate.tsv`: the quality gate (at least 93.0 percent pooled accuracy on the natural holdout, and an interval whose
-  lower bound is above zero) and its verdict
+- `gate.tsv`: the statistical quality gate: the model image and the previous image, and per gate set the rows,
+  clusters, correct rows, accuracy, 95 percent interval, threshold, fixed and broken flips and the decision, then the
+  verdict (see "Quality Gate")
+- `gate-rows.tsv`: every row of the four gate sets (ids only, no sentence) with its labeled reading, the reading of the
+  previous model and the reading of the current one
+- `flips.tsv`: the gate rows whose reading changed from the previous model, each `fixed`, `broken` or `changed`
 - `by-source.tsv`: accuracy by the `source` of the rows (strata of the natural data)
 - `per-reading.tsv`: accuracy by reading, lowest first
 - `confidence.tsv`: accuracy by the confidence the analyzer reports
-- `seeds.tsv`: holdout accuracy of models trained with five seeds and the same settings, with mean, minimum and maximum
+- `seeds.tsv`: the correct counts on every gate set of models trained with five seeds and the same settings, end to end
+  as the gate scores them, with mean, minimum, maximum and the threshold the gate's rule gives
 - `overlay-rows.tsv`: every row of the two evaluation overlays (see below) with its labeled reading, the reading of the
   shipped model with its cue priors, the reading of the model alone and whether a cue prior acted on the row
 - `curated-ablation.tsv`: per overlay slice, the accuracy with the cue priors and of the model alone, each with its
@@ -55,20 +60,72 @@ without one stops the evaluation instead of counting as its own cluster.
 `source` of an overlay row is its stratum (for example `regression/listening/unseen` or
 `generalization/novel-vocabulary/cue-unsolvable`).
 
+## Quality Gate
+
+The learned heteronym classifier is judged statistically, on four scored sets, not by a rule that every golden sentence
+must come out right on the shipped seed (owner decision D1, 2026-11-21; see `RUN-LOG.md`). The rule-based parts
+(normalization, lexicon, rendering) stay strict pass or fail in their own tests. On each set the end-to-end accuracy
+with the cue priors must reach the set's threshold, compared exactly as `correct × 10,000 ≥ threshold × rows`; any set
+below its threshold fails the gate. The 95 percent clustered bootstrap interval of each accuracy (10,000 resamples,
+seed 7) is reported and does not decide.
+
+| Gate set | Rows | Clusters | Correct | Accuracy | 95 % interval | Threshold | Pass |
+| --- | ---: | ---: | ---: | ---: | --- | ---: | --- |
+| `regression` | 529 | 529 | 519 | 98.11% | 96.98% to 99.24% | 96.03% | yes |
+| `holdout-natural` | 1,167 | 266 | 1,123 | 96.23% | 94.32% to 97.98% | 95.20% | yes |
+| `holdout-independent` | 1,972 | 1,972 | 1,882 | 95.44% | 94.47% to 96.30% | 94.83% | yes |
+| `generalization` | 242 | 64 | 177 | 73.14% | 67.05% to 79.10% | 69.02% | yes |
+
+The `regression` set is the regression overlay: goldens, analyzer tests, listening flags and selected data rows.
+**Verdict: pass.** The flip report is empty: this record is the first one of the statistical gate, so the previous
+readings are the current ones.
+
+### How the Thresholds Were Derived
+
+Each threshold is the current recipe's typical score minus a margin: the floor of the mean minus two sample standard
+deviations of the correct counts of the committed recipe at the training seeds 1 to 5 (only the seed changes), as a
+share of the rows, in basis points. A model of the recipe's quality falls below it in about 2.5 percent of training runs
+(normal approximation). For five values every value lies within 1.789 standard deviations of their mean (Samuelson's
+inequality), so every one of the five seeds passes, the shipped seed 1 included; the thresholds need no tuning. The
+rule was fixed in `RUN-LOG.md` before the seed study ran, and the study was run once
+(`evaluate --seeds`, entry "Cleanup after PR B: the seed study and the gate thresholds"):
+
+| Gate set | Seeds 1 to 5 (correct) | Mean | Sample SD | Threshold |
+| --- | --- | ---: | ---: | ---: |
+| `regression` (529) | 519, 518, 517, 518, 509 | 516.2 | 4.09 | 9,603 bp |
+| `holdout-natural` (1,167) | 1,123, 1,114, 1,129, 1,132, 1,129 | 1,125.4 | 7.16 | 9,520 bp |
+| `holdout-independent` (1,972) | 1,882, 1,912, 1,914, 1,905, 1,886 | 1,899.8 | 14.87 | 9,483 bp |
+| `generalization` (242) | 177, 182, 182, 182, 169 | 178.4 | 5.68 | 6,902 bp |
+
+The thresholds live in `EvaluationSettings.Default` of the trainer and in `training.json`; `train --check` fails when
+the two differ. The regression overlay is not selected only for the shipped model's correct answers: it holds the 9
+`forced` rows of the readings golden (the shipped model's misses) and the present fork of the ambiguous golden, which
+the shipped model reads wrong. Re-deriving the thresholds is a deliberate recipe change: run `evaluate --seeds` once,
+log it before anything else, and update the code and the record.
+
+### Flip Report
+
+`gate-rows.tsv` lists every row of the four gate sets with its labeled reading and the readings of the previous and the
+current model; `flips.tsv` lists the rows that changed. The previous column rotates: on a first write it equals the
+current one; a rewrite with the same model image keeps it; a new model image takes the committed current readings as
+the previous ones. `evaluate --gate --model <candidate>` prints a candidate's flips against this record before anything
+is committed. A pull request that changes the model justifies every `broken` row of the `listening` and golden origins.
+
 ## Headline Results
 
 | Set | Words | Model | Own tag | Majority |
 | --- | ---: | ---: | ---: | ---: |
-| `holdout-natural` (266 documents; the gate) | 1,167 | 96.23% (1,123) | 90.66% (1,058) | 82.01% (957) |
-| `holdout-independent` (not gating) | 1,972 | 95.44% (1,882) | 91.23% (1,799) | 51.37% (1,013) |
+| `holdout-natural` (266 documents; a gate set) | 1,167 | 96.23% (1,123) | 90.66% (1,058) | 82.01% (957) |
+| `holdout-independent` (a gate set) | 1,972 | 95.44% (1,882) | 91.23% (1,799) | 51.37% (1,013) |
 | `dev` (used to choose settings; optimistic) | 3,235 | 95.30% (3,083) | 88.56% (2,865) | 65.87% (2,131) |
 
 The columns "Own tag" and "Majority" are the own-part-of-speech and majority-reading baselines, and the percent signs
 are percentages of the words of the set.
 
-- **Gate: passed.** The improvement over the own-part-of-speech baseline on the natural holdout is +5.57 points, with a
-  95 percent interval of +3.16 to +8.15 points (266 clusters). The accuracy threshold was 93.0 percent. The gate was
-  fixed before any holdout was read (see `RUN-LOG.md`).
+- **Improvement over the tag.** The improvement over the own-part-of-speech baseline on the natural holdout is +5.57
+  points, with a 95 percent interval of +3.16 to +8.15 points (266 clusters). It is reported, not gated: the natural
+  threshold (95.20 percent) is far above the tag alone (90.66 percent). The earlier gate (93.0 percent pooled on the
+  natural holdout and this interval above zero) was retired with the statistical gate.
 - **Adjective cue.** The classifier adds a fixed prior to an adjective reading after a degree adverb or next to a
   coordinated adjective (see *HeteronymClassifier Design*; added 2026-11-20 for the flagged *very minute and clear*).
   For the shipped model it changed no decision on the development set (it raised the confidence of 22 words, all already
@@ -114,6 +171,10 @@ State these with every figure from this record:
    neighboring setting is a little better on all development rows. The rule was applied as written.
 6. **Coverage.** The model decides 395 readings of 207 words of US English, one sentence at a time. A heteronym that is
    not in the inventory gets no reading, and the model does not read beyond the sentence.
+7. **The gate sets are used repeatedly.** The holdouts and the generalization set are now non-regression gate sets,
+   read on every check, and their per-row readings are committed (`gate-rows.tsv`, ids only). They no longer give an
+   unbiased estimate for a comparison of methods; a later comparison (learned cue features, word vectors) uses a fresh
+   set under a new pre-registration.
 
 ## Evaluation Overlays
 
@@ -121,7 +182,10 @@ Two sets beside the data files measure what the flagged sentences and unseen wor
 README, "Evaluation Overlays"): the **regression overlay** (`regression.tsv`: owner-flagged sentences, analyzer and
 golden test targets and selected training and development rows, each marked as seen or unseen in training) and the
 **generalization set** (`generalization.tsv`: 242 rows written blind by another model family, frozen before any model
-output on it existed, and checked new against the training and development data). They are not part of the gate.
+output on it existed, and checked new against the training and development data). Both are gate sets of the
+statistical gate (see "Quality Gate"). The regression overlay has 529 rows since the cleanup after PR B: the ambiguous
+golden *I read every night before bed.* was forked into a present and a past sentence, and 9 forced readings-golden rows
+were added.
 
 Each overlay is measured twice with the same shipped model on the same path:
 
@@ -141,7 +205,8 @@ data error.
 
 Measured on 2026-11-21 with the shipped model (image SHA-256 `73de5a3f...3df0`, no word clusters) by
 `evaluate --set regression --set generalization`, once, after the generalization set was frozen and its one defect fix
-(the flag of `gen-0060`) was made; the figures are the ones of `curated-ablation.tsv`. This is the PR A baseline of the
+(the flag of `gen-0060`) was made; the figures were the ones of `curated-ablation.tsv` at that time (the regression
+overlay then had 519 rows; the current figures are in `curated-ablation.tsv`). This was the PR A baseline of the
 pre-registered criterion below. Percentages with their 95 percent intervals in brackets; the cue effect is the shipped
 accuracy minus the model-only accuracy, in points.
 
@@ -186,15 +251,36 @@ the model alone gets each of them wrong.
 generalization set they act on 13 rows and change one, for the worse. The rows the curated cues cannot solve score
 higher (81.25 percent) than the others (69.14 percent), so that subset is not harder for the model alone. The
 generalization accuracy of the shipped model (73.14 percent) is far below its holdout accuracy (96.23 percent): new cue
-words and constructions are where the model is weak, which is what the word-cluster features of PR B are meant to
+words and constructions are where the model is weak, which is what the word-cluster features of PR B were meant to
 address.
 
-## Pre-Registered Criterion for Word Clusters
+## Word Clusters (PR B): Negative Result
 
-Recorded on 2026-11-20, before the generalization set was written and before any model with word clusters was
-trained; the same text, with the protocol of the generalization set, is in `RUN-LOG.md`. PR A adds the regression
-overlay, the blind generalization set and the word-cluster table without changing the model; PR B trains with the
-clusters and is judged by this criterion.
+Word classes from Brown clustering of a pinned public-domain corpus were tried as context features (PR B) and **not
+adopted**: they failed the criterion below, which was recorded before any model with word clusters was trained. The
+clustering code, the cluster table and its record were removed (owner decision D3, 2026-11-21). The corpus downloader,
+the per-book pins (`cluster-sources.tsv`), the leakage audit and the evaluation-set tooling are kept for later features
+(the trainer's `corpus` command). The procedure, the read and the diagnosis are in `RUN-LOG.md` (entries "PR B: ...").
+
+**Read 1** (the only read; generalization set, 242 rows, end to end; A is clusters on, B clusters off, both with the
+curated cue priors, seed 1):
+
+| Measure | Value | Required | Met |
+| --- | --- | --- | --- |
+| A | 179 of 242 (73.97%) | | |
+| B | 186 of 242 (76.86%) | | |
+| Difference A minus B | **−289 basis points** (−7 rows) | at least +300 | **no** |
+| 95% family-clustered interval (64 families) | **−661 to +79 basis points** | lower bound above 0 | **no** |
+| Mean difference over seeds 1 to 5 | +91 basis points (−289, +331, +248, +289, −124) | above 0 | yes |
+| Generalization of A | 179 of 242 | at least 177 | yes |
+
+The guards also failed: model A got four guarded regression rows wrong (`reg-0013`, `reg-0014`, `reg-0050`,
+`reg-0166`). No second read was taken, because no candidate met the bar on the development set and the regression
+overlay. The generalization set has been read once for this comparison; by owner decision D1 it is now a gate
+(non-regression) set, and a later comparison uses a fresh set.
+
+**The criterion as recorded** (2026-11-20; the same text, with the protocol of the generalization set, is in
+`RUN-LOG.md`):
 
 - **Models.** A is PR B's final pipeline with the committed 512-class word table. B is the identical pipeline (same
   data, settings, curated-feature configuration and training seed 1) with an empty table. Both are evaluated end to end
@@ -227,5 +313,5 @@ clusters and is judged by this criterion.
 The natural holdout above was seen by the upstream part-of-speech tagger, and earlier gate runs informed decisions. A
 fresh audit set is planned (not built yet): about 1,200 natural rows stratified by lemma, drawn with a recorded seed
 from public-domain documents published in 1929 or earlier that are in neither the tagger's corpora nor the
-word-cluster corpus, labeled blind by two language-model families with adjudication, frozen before PR B training and
-read once. The existing natural holdout stays as the legacy non-regression gate (at least 1,123 of 1,167).
+word-cluster corpus, labeled blind by two language-model families with adjudication, frozen before its first use and
+read once. The existing natural holdout stays a gate set of the statistical gate (threshold 95.20 percent).

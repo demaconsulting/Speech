@@ -46,7 +46,7 @@ Verification*.
 This subsystem is accepted when: text with no sound (empty, an emoji) gives empty audio at 24000 Hz without running
 the graph; a word absent from the dictionary adds sounds (it is spoken, not dropped); a replacement annotation is
 spoken instead of the written text and the adjective reading of `separate` is chosen when the annotations say so; a
-text of 40 sentences is spoken in at least three runs of the graph; the pipeline's 40 golden sentences give exactly
+text of 40 sentences is spoken in at least three runs of the graph; the pipeline's 41 golden sentences give exactly
 their reviewed phonemes and token ids; the engine's constructor throws `ArgumentNullException` for each null
 required dependency and `ArgumentException` for an empty voice-styles dictionary; `SampleRate` always reports
 24000 Hz; `Generate` throws `ArgumentNullException` for null text and `ObjectDisposedException` after disposal; a

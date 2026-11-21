@@ -21,10 +21,11 @@ sections:
                   The TrainCommand class shall print its usage and give the exit code 0 for the help
                   option, and shall give the exit code 2 with a message on the error stream that names the
                   problem, writing no file, for an unknown option, an option without a value, a value that
-                  is not a number or is out of range, a data folder that cannot be found, an experiment
-                  option (seed, hash bits, prune threshold, natural-row weight, epoch count) given without
-                  a model folder or together with the check option, and a row whose label is not a
-                  candidate reading of its word, whether training or checking.
+                  is not a number or is out of range, a row visiting order other than positional or keyed,
+                  a data folder that cannot be found, an experiment option (seed, hash bits, prune
+                  threshold, natural-row weight, epoch count, row visiting order) given without a model
+                  folder or together with the check option, and a row whose label is not a candidate
+                  reading of its word, whether training or checking.
                 justification: |
                   The build and the owner act on the exit code. A mistake in the command or a fault of the
                   data must not look like a stale model, must not leave a half-written model behind, and
@@ -42,17 +43,21 @@ sections:
                 title: >-
                   The TrainCommand class shall train from the data folder, write a model file that the
                   runtime can load and a record that can be read back, in the given model folder or, when
-                  none is given, at the committed locations of the repository, report the kept epoch count
-                  and the hash of the model image, and keep the evaluation and gate settings of an existing
-                  record when it trains again.
+                  none is given, at the committed locations of the repository, report the kept epoch count,
+                  the row visiting order and the hash of the model image, train with the keyed row visiting
+                  order when the experiment option asks for it and with the positional order otherwise,
+                  recording the order so that the check retrains with it, and write the evaluation and gate
+                  settings of the code into the record, whatever an existing record holds.
                 justification: |
                   Training is only useful if its outputs are the files the runtime and the check consume,
-                  written where the repository keeps them. The thresholds of the quality gate are fixed in
-                  advance, so a retraining that rewrote them would let a model that misses the gate move the
-                  gate instead.
+                  written where the repository keeps them. The thresholds of the quality gate live in the
+                  code, where a change is reviewed, and the record mirrors them; a retraining cannot move the
+                  gate, and an edited record is reported by the check. The visiting order changes the
+                  weights, so a model trained with either order must be reproducible from its record.
                 tests:
                   - TrainCommand_Run_Fixture_WritesLoadableModelAndRecord
-                  - TrainCommand_Run_ExistingRecord_KeepsItsEvaluationSettings
+                  - TrainCommand_Run_ExistingRecord_WritesTheCodeEvaluationSettingsAndCheckReportsDrift
+                  - TrainCommand_Run_RowOrderKeyed_RecordsTheOrderAndChecksWithIt
 
               - id: SpeechTextEn-Training-TrainCommand-Check
                 title: >-
@@ -62,7 +67,8 @@ sections:
                   compressed form, and shall give the exit code 1 and name what is stale when the training
                   or development data changed, when a recorded setting or the tagger version changed so
                   that the weights differ, when the model file holds other weights, is not a valid model or
-                  is missing, and when the record is missing or not valid.
+                  is missing, when the record is missing or not valid, and when the evaluation and gate
+                  settings of the record differ from the code's.
                 justification: |
                   The check lets the build prove that the committed model is what the committed data and
                   settings produce, and a model that no longer matches its inputs would ship weights nobody
@@ -74,3 +80,4 @@ sections:
                   - TrainCommand_Run_CheckAfterInputOrRecordChanged_ExitsOneNamingTheCause
                   - TrainCommand_Run_CheckAfterModelFileReplaced_ExitsOneNamingTheModelFile
                   - TrainCommand_Run_CheckMissingOrInvalidRecord_ExitsOne
+                  - TrainCommand_Run_ExistingRecord_WritesTheCodeEvaluationSettingsAndCheckReportsDrift

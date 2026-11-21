@@ -66,4 +66,18 @@ internal static class CommandHarness
 
         return fixture.ModelDirectory;
     }
+
+    /// <summary>
+    ///     Replaces the gate thresholds of the training record in a model folder, as a fixture whose data has only some
+    ///     gate sets needs.
+    /// </summary>
+    /// <param name="modelDirectory">The model folder.</param>
+    /// <param name="thresholds">The gate sets and their thresholds in basis points, in ordinal order of the sets.</param>
+    public static void SetGateThresholds(string modelDirectory, params (string Set, int BasisPoints)[] thresholds)
+    {
+        var path = Path.Combine(modelDirectory, TrainCommand.RecordFileName);
+        var record = TrainingRecord.Parse(File.ReadAllText(path));
+        var gate = thresholds.Select(static threshold => new GateThreshold(threshold.Set, threshold.BasisPoints)).ToList();
+        File.WriteAllText(path, (record with { Evaluation = record.Evaluation with { GateThresholds = gate } }).ToJson());
+    }
 }

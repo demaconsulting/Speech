@@ -237,13 +237,11 @@ public sealed class TrainingSubsystemTests
         // Arrange
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        var recordPath = Path.Combine(modelDirectory, TrainCommand.RecordFileName);
-        var text = File.ReadAllText(recordPath);
 
         // Act
-        File.WriteAllText(recordPath, text.Replace("\"gateMinPooledAccuracyPerThousand\": 930", "\"gateMinPooledAccuracyPerThousand\": 950", StringComparison.Ordinal));
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 9500));
         var passing = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate");
-        File.WriteAllText(recordPath, text.Replace("\"gateMinPooledAccuracyPerThousand\": 930", "\"gateMinPooledAccuracyPerThousand\": 980", StringComparison.Ordinal));
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 9800));
         var failing = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate");
 
         // Assert: the model decides 97.5% of the natural holdout

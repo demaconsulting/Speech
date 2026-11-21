@@ -33,7 +33,9 @@ sections:
               is refused, with the reason, when it is damaged or out of range, and shall verify on request
               that the committed model and its record are what retraining from the current inputs and the
               recorded settings produces, reporting each way in which they are not, naming it, and not
-              reporting a model whose content is equal but whose compressed form differs.
+              reporting a model whose content is equal but whose compressed form differs, and shall offer
+              an order of visiting the training rows in which added rows leave the relative order of the
+              existing rows unchanged.
             justification: |
               A model nobody can reproduce cannot be reviewed or trusted. The repeatability rests on the
               reproducible random source and mathematics, the fixed order of the examples and a learning
@@ -45,10 +47,13 @@ sections:
               change to the data, to the tagger or to a setting, or an edit of the model or its record,
               makes the committed model something the repository can no longer reproduce, and the check
               lets the build find that before a model ships; naming the cause tells the owner what to do.
+              An order that is stable under added rows lets the effect of new data be measured without
+              the confounding reshuffle of the existing rows.
             children:
               - SpeechTextEn-Training-DeterministicRandom-Reproducible
               - SpeechTextEn-Training-DeterministicMath-Accuracy
               - SpeechTextEn-Training-AveragedPerceptronTrainer-Repeatable
+              - SpeechTextEn-Training-AveragedPerceptronTrainer-StableRowOrder
               - SpeechTextEn-Training-ModelSelection-Images
               - SpeechTextEn-Training-TrainingCorpus-InputFiles
               - SpeechTextEn-Training-TrainingRecord-RoundTrip
@@ -142,33 +147,38 @@ sections:
               holdout sets, end to end through the analyzer, with the own-part-of-speech, majority and
               first-candidate baselines, the accuracy by source, reading and confidence, the readings with
               the lowest accuracy, a paired confidence interval of the improvement over the
-              own-part-of-speech baseline that treats the rows of a document as one unit, and the variation
-              of the holdout accuracy between seeds, shall decide the quality gate from the natural
-              holdout, passing a model only when its pooled accuracy reaches the threshold of the record,
-              the threshold itself being enough, and the lower bound of the confidence interval of its
-              improvement is above zero, and shall write the evaluation as deterministic record files and
-              verify them on request, naming each file that is edited, missing or different from what the
-              evaluation produces.
+              own-part-of-speech baseline that treats the rows of a document as one unit, and every gate
+              set's counts for each evaluation seed with the threshold the gate's rule derives from them,
+              shall decide the statistical quality gate, passing a model only when each of the regression
+              overlay, the generalization set and both holdouts reaches its recorded threshold, the
+              threshold itself being enough, with the clustered interval of each accuracy reported, shall
+              report every gate row whose reading changed from the previous model, and shall write the
+              evaluation as deterministic record files and verify them on request, naming each file that
+              is edited, missing or different from what the evaluation produces.
             justification: |
               Whether a model is worth shipping depends on what it adds beyond what is free, how sure that
               is, and where it fails. A figure for the model alone shows none of that. Counting a row the
-              analyzer cannot read as wrong keeps the figure honest. The owner fixed the thresholds before
-              any model was measured so that they could not be tuned to a result, and deciding from the
-              record's thresholds, which retraining never rewrites, keeps that promise. The evaluation
-              record is the evidence of the gate decision, so it has to be reproducible, and a change to it
-              that is not the product of an evaluation has to be found.
+              analyzer cannot read as wrong keeps the figure honest. The thresholds are derived by a fixed
+              rule from the seed spread of the current recipe and live in the code, where a change is
+              reviewed; the record mirrors them and the training check reports a difference. The
+              evaluation record is the evidence of the gate decision, so it has to be reproducible, and a
+              change to it that is not the product of an evaluation has to be found.
             children:
               - SpeechTextEn-Training-HeteronymEvaluator-Metrics
               - SpeechTextEn-Training-HeteronymEvaluator-Baselines
               - SpeechTextEn-Training-HeteronymEvaluator-ImprovementInterval
               - SpeechTextEn-Training-HeteronymEvaluator-GateDecision
+              - SpeechTextEn-Training-HeteronymEvaluator-GateThresholdDerivation
+              - SpeechTextEn-Training-HeteronymEvaluator-FlipClassification
               - SpeechTextEn-Training-HeteronymEvaluator-InputValidation
               - SpeechTextEn-Training-EvaluateCommand-UsageErrors
               - SpeechTextEn-Training-EvaluateCommand-HoldoutDiscipline
               - SpeechTextEn-Training-EvaluateCommand-GateExitCodes
+              - SpeechTextEn-Training-EvaluateCommand-FlipReport
               - SpeechTextEn-Training-EvaluateCommand-RecordWriteAndCheck
               - SpeechTextEn-Training-EvaluationRecord-Files
               - SpeechTextEn-Training-EvaluationRecord-Deterministic
+              - SpeechTextEn-Training-EvaluationRecord-GateRowsAndFlips
               - SpeechTextEn-Training-TrainingRecord-RoundTrip
             tests:
               - TrainingSubsystem_Evaluate_FixtureSets_ComputesAccuracyBaselinesAndCoverage
@@ -195,8 +205,8 @@ sections:
               sentences; the model-only decision uses the classifier's own scoring and changes neither the
               classifier nor the model, so the comparison measures only the priors. Clustering by family keeps
               rows written from one idea from counting as independent evidence. A row wrongly marked as out of
-              reach of the cues would distort the very subset the pre-registered criterion reports, so it is a
-              data error. Appending keeps the gate evidence of the record unchanged.
+              reach of the cues would distort the subset that measures the model alone, so it is a data error.
+              Appending keeps every earlier line of the record byte-identical.
             children:
               - SpeechTextEn-Training-EvaluationOverlay-Rows
               - SpeechTextEn-Training-EvaluationOverlay-Refusal

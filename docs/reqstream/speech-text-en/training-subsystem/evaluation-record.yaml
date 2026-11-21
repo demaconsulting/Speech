@@ -18,11 +18,14 @@ sections:
                 title: >-
                   The EvaluationRecord class shall write a summary file with one row per evaluated set that
                   holds the exact integer counts and the basis-point ratios, a gate file that holds the
-                  hash of the model image, the thresholds, whether each condition holds and the verdict
-                  (pass, fail, or not evaluated when there is no natural holdout), files that list the
-                  accuracy by source, by reading and by confidence bucket with the own-part-of-speech
-                  baseline of each group, and a seeds file that lists the holdout accuracy of each
-                  evaluation seed with its mean, minimum and maximum, and shall format a basis-point value
+                  hashes of the model image and of the previous image, the bootstrap settings and, for every
+                  gate set with a threshold, its rows, clusters, correct rows, accuracy with the clustered
+                  interval, threshold, fixed and broken flips and decision, then the verdict (pass, fail, or
+                  not evaluated when a gate set is missing), files that list the accuracy by source, by
+                  reading and by confidence bucket with the own-part-of-speech baseline of each group, and a
+                  seeds file that lists the rows, correct rows and accuracy of every gate set for each
+                  evaluation seed with the mean, minimum, maximum and the threshold by the gate's rule, and
+                  shall format a basis-point value
                   as a percentage with two decimals and an optional sign, without dependence on the
                   current culture.
                 justification: |
@@ -33,7 +36,7 @@ sections:
                   every machine.
                 tests:
                   - EvaluationRecord_Render_Summary_HasExactFigures
-                  - EvaluationRecord_Render_Gate_HasThresholdsAndVerdict
+                  - EvaluationRecord_Render_Gate_HasPerSetFiguresAndVerdict
                   - EvaluationRecord_Render_Gate_FailAndNotEvaluated
                   - EvaluationRecord_Render_Groups_ListEveryGroup
                   - EvaluationRecord_Render_Seeds_HasRowsAndSpread
@@ -56,17 +59,33 @@ sections:
               - id: SpeechTextEn-Training-EvaluationRecord-OverlayFiles
                 title: >-
                   The EvaluationRecord class shall append the shipped evaluations of the overlays to the
-                  summary, source, reading and confidence files after the data sets, leaving the gate and seeds
-                  files unchanged, and shall write an overlay rows file with the set, id, group, kind, seen mark,
+                  summary, source, reading and confidence files after the data sets, and shall write an overlay rows file with the set, id, group, kind, seen mark,
                   cue-unsolvable mark, labeled, shipped and model-only readings and whether a cue acted for
                   every overlay row, and a curated ablation file with the rows, clusters, correct counts and
                   basis-point accuracies with intervals with and without the cue priors, the paired difference
                   with its interval, the rows on which a cue acted and the changed rows for every overlay slice,
                   both files with their header only when no overlay was evaluated.
                 justification: |
-                  Appending keeps every earlier line of the committed record byte-identical, so adding the
-                  overlays changes no gate evidence. The per-row file lets a reviewer see each flagged sentence,
-                  and the per-slice file holds the baseline cells that the pre-registered criterion of the
-                  word-cluster work refers to.
+                  Appending keeps every earlier line of the committed record byte-identical. The per-row file
+                  lets a reviewer see each flagged sentence, and the per-slice file shows what the curated cue
+                  priors contribute on each slice.
                 tests:
                   - EvaluationRecord_Render_Overlays_AppendedWithRowsAndCuratedAblation
+
+              - id: SpeechTextEn-Training-EvaluationRecord-GateRowsAndFlips
+                title: >-
+                  The EvaluationRecord class shall write a gate rows file with the set, id, labeled reading,
+                  previous reading and current reading of every row of the evaluated gate sets, ordered by
+                  set and id and holding no sentence, and a flips file with every gate row whose previous and
+                  current readings differ and its change, rotating the previous column from the committed
+                  record: equal to the current one on a first write, kept with the previous image when the
+                  committed record is of the same model image (a new row getting -), and taken from the
+                  committed current column and image when the model image changed.
+                justification: |
+                  The flip report makes every row a model change fixes or breaks visible, and the rotation
+                  keeps it reproducible: a check of the same model gives the same files, and a new model is
+                  compared with the one before it.
+                tests:
+                  - EvaluationRecord_Write_FirstWrite_PreviousEqualsCurrentAndNoFlips
+                  - EvaluationRecord_Write_SameModel_KeepsThePreviousColumn
+                  - EvaluationRecord_Write_NewModel_RotatesAndReportsFlips

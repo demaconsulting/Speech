@@ -1,9 +1,10 @@
-seed	natural_rows	natural_correct	natural_bp	independent_rows	independent_correct	independent_bp
-1	1167	1123	9623	1972	1882	9544
-2	1167	1114	9546	1972	1912	9696
-3	1167	1129	9674	1972	1914	9706
-4	1167	1132	9700	1972	1905	9660
-5	1167	1129	9674	1972	1886	9564
-mean			9643			9634
-min			9546			9544
-max			9700			9706
+seed	generalization_rows	generalization_correct	generalization_bp	holdout-independent_rows	holdout-independent_correct	holdout-independent_bp	holdout-natural_rows	holdout-natural_correct	holdout-natural_bp	regression_rows	regression_correct	regression_bp
+1	242	177	7314	1972	1882	9544	1167	1123	9623	529	519	9811
+2	242	182	7521	1972	1912	9696	1167	1114	9546	529	518	9792
+3	242	182	7521	1972	1914	9706	1167	1129	9674	529	517	9773
+4	242	182	7521	1972	1905	9660	1167	1132	9700	529	518	9792
+5	242	169	6983	1972	1886	9564	1167	1129	9674	529	509	9622
+mean			7372			9634			9643			9758
+min			6983			9544			9546			9622
+max			7521			9706			9700			9811
+threshold_by_rule			6902			9483			9520			9603

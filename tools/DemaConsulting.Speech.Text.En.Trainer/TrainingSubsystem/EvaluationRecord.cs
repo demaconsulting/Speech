@@ -21,6 +21,20 @@ internal sealed record EvaluationReport(
     IReadOnlyList<SeedResult> Seeds,
     IReadOnlyList<OverlayEvaluation>? Overlays = null);
 
+/// <summary>One row of a gate set with its labeled reading and the readings of the previous and the current model.</summary>
+/// <param name="Set">The gate set.</param>
+/// <param name="Id">The row id.</param>
+/// <param name="Gold">The labeled reading id.</param>
+/// <param name="Previous">The reading of the previous model, or <c>-</c> for a row the previous record does not have.</param>
+/// <param name="Current">The reading of the current model, or <c>none</c>.</param>
+internal sealed record GateRowState(string Set, string Id, string Gold, string Previous, string Current);
+
+/// <summary>The gate state of a committed evaluation record, which the next record rotates from.</summary>
+/// <param name="ImageSha256">The image of the committed record's model.</param>
+/// <param name="PreviousImageSha256">The image of the model its previous column belongs to.</param>
+/// <param name="Rows">The committed gate rows by set and id.</param>
+internal sealed record CommittedGate(string ImageSha256, string PreviousImageSha256, IReadOnlyDictionary<(string Set, string Id), GateRowState> Rows);
+
 /// <summary>
 ///     Renders an evaluation as a small set of deterministic tab-separated files, and compares such files with a
 ///     folder, so a committed evaluation record can be regenerated and verified.
@@ -64,26 +78,103 @@ internal static class EvaluationRecord
     /// <summary>The file of the overlay slices with and without the curated cue priors.</summary>
     public const string CuratedAblationFile = "curated-ablation.tsv";
 
+    /// <summary>The per-row file of the gate sets: the labeled, previous and current reading of every row.</summary>
+    public const string GateRowsFile = "gate-rows.tsv";
+
+    /// <summary>The flip report: the gate rows whose reading changed from the previous model to the current one.</summary>
+    public const string FlipsFile = "flips.tsv";
+
+    /// <summary>The cell of a row the previous record does not have.</summary>
+    private const string NewRow = "-";
+
+    /// <summary>The header of the gate-rows file.</summary>
+    private const string GateRowsHeader = "set\tid\tgold\tprevious\tcurrent";
+
     /// <summary>
-    ///     Renders the record files.
+    ///     Renders the record files as a first write: the previous model is the current one, so there is no flip.
     /// </summary>
     /// <param name="report">The evaluation. Must not be null.</param>
     /// <returns>The file contents by file name, in ordinal name order.</returns>
-    public static IReadOnlyDictionary<string, string> Render(EvaluationReport report)
+    public static IReadOnlyDictionary<string, string> Render(EvaluationReport report) => Render(report, null);
+
+    /// <summary>
+    ///     Renders the record files against the committed gate state of the record folder.
+    /// </summary>
+    /// <param name="report">The evaluation. Must not be null.</param>
+    /// <param name="committed">The committed gate state, or null for a first write.</param>
+    /// <returns>The file contents by file name, in ordinal name order.</returns>
+    /// <remarks>
+    ///     The previous column rotates: on a first write it equals the current reading; when the committed record is of
+    ///     the same model image its previous column and previous image are kept (a new row gets <c>-</c>); when the
+    ///     committed record is of another image, its current column becomes the previous one and its image the previous
+    ///     image.
+    /// </remarks>
+    public static IReadOnlyDictionary<string, string> Render(EvaluationReport report, CommittedGate? committed)
     {
         ArgumentNullException.ThrowIfNull(report);
+        var gateRows = GateRows(report, committed, out var previousImage);
         var files = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
             [SummaryFile] = RenderSummary(report),
-            [GateFile] = RenderGate(report),
+            [GateFile] = RenderGate(report, gateRows, previousImage),
             [BySourceFile] = RenderGroups(report, "source", static set => set.BySource),
             [ByReadingFile] = RenderGroups(report, "reading", static set => set.ByReading),
             [ConfidenceFile] = RenderGroups(report, "confidence", static set => set.ByConfidence),
             [SeedsFile] = RenderSeeds(report),
             [OverlayRowsFile] = RenderOverlayRows(report),
             [CuratedAblationFile] = RenderCuratedAblation(report),
+            [GateRowsFile] = RenderGateRows(gateRows),
+            [FlipsFile] = RenderFlips(gateRows),
         };
         return files;
+    }
+
+    /// <summary>
+    ///     Reads the committed gate state of a record folder: the model image of <c>gate.tsv</c> and its previous image,
+    ///     and the rows of <c>gate-rows.tsv</c>.
+    /// </summary>
+    /// <param name="directory">The record folder.</param>
+    /// <returns>The committed state, or null when either file is missing or does not have the expected form.</returns>
+    public static CommittedGate? ReadCommitted(string directory)
+    {
+        ArgumentNullException.ThrowIfNull(directory);
+        var gatePath = Path.Combine(directory, GateFile);
+        var rowsPath = Path.Combine(directory, GateRowsFile);
+        if (!File.Exists(gatePath) || !File.Exists(rowsPath))
+        {
+            return null;
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var line in File.ReadAllLines(gatePath).Skip(1))
+        {
+            var cells = line.Split('\t');
+            if (cells.Length == 2)
+            {
+                values[cells[0]] = cells[1];
+            }
+        }
+
+        var lines = File.ReadAllLines(rowsPath);
+        if (!values.TryGetValue("image_sha256", out var image) || !values.TryGetValue("previous_image_sha256", out var previousImage)
+            || lines.Length == 0 || lines[0] != GateRowsHeader)
+        {
+            return null;
+        }
+
+        var rows = new Dictionary<(string Set, string Id), GateRowState>();
+        foreach (var line in lines.Skip(1).Where(static line => line.Length > 0))
+        {
+            var cells = line.Split('\t');
+            if (cells.Length != 5)
+            {
+                return null;
+            }
+
+            rows[(cells[0], cells[1])] = new GateRowState(cells[0], cells[1], cells[2], cells[3], cells[4]);
+        }
+
+        return new CommittedGate(image, previousImage, rows);
     }
 
     /// <summary>
@@ -94,15 +185,16 @@ internal static class EvaluationRecord
     public static void Write(EvaluationReport report, string directory)
     {
         ArgumentNullException.ThrowIfNull(directory);
+        var files = Render(report, ReadCommitted(directory));
         Directory.CreateDirectory(directory);
-        foreach (var (name, content) in Render(report))
+        foreach (var (name, content) in files)
         {
             File.WriteAllBytes(Path.Combine(directory, name), new UTF8Encoding(false).GetBytes(content));
         }
     }
 
     /// <summary>
-    ///     Compares the record files of a folder with a fresh evaluation.
+    ///     Compares the record files of a folder with a fresh evaluation, rendered against the folder's committed gate state.
     /// </summary>
     /// <param name="report">The evaluation.</param>
     /// <param name="directory">The folder.</param>
@@ -111,7 +203,7 @@ internal static class EvaluationRecord
     {
         ArgumentNullException.ThrowIfNull(directory);
         var stale = new List<string>();
-        foreach (var (name, content) in Render(report))
+        foreach (var (name, content) in Render(report, ReadCommitted(directory)))
         {
             var path = Path.Combine(directory, name);
             if (!File.Exists(path) || !File.ReadAllBytes(path).AsSpan().SequenceEqual(new UTF8Encoding(false).GetBytes(content)))
@@ -184,30 +276,124 @@ internal static class EvaluationRecord
     }
 
     /// <summary>
-    ///     Renders the gate file: the image, the thresholds and the verdict on the natural holdout.
+    ///     Renders the gate file: the images, the bootstrap settings, and per gate set the counts, the accuracy with its
+    ///     interval, the threshold, the flips and the decision, then the verdict.
     /// </summary>
     /// <param name="report">The evaluation.</param>
+    /// <param name="gateRows">The rotated gate rows.</param>
+    /// <param name="previousImage">The image of the previous column.</param>
     /// <returns>The file text.</returns>
-    private static string RenderGate(EvaluationReport report)
+    private static string RenderGate(EvaluationReport report, IReadOnlyList<GateRowState> gateRows, string previousImage)
     {
         var text = new StringBuilder();
         text.Append("key\tvalue\n");
         Row(text, "image_sha256", report.ImageSha256);
-        Row(text, "gate_min_pooled_accuracy_per_thousand", report.Evaluation.GateMinPooledAccuracyPerThousand);
+        Row(text, "previous_image_sha256", previousImage);
         Row(text, "confidence_percent", report.Evaluation.ConfidencePercent);
         Row(text, "resamples", report.Evaluation.Resamples);
         Row(text, "bootstrap_seed", report.Evaluation.BootstrapSeed);
-        var natural = report.Sets.FirstOrDefault(static set => set.Set == "holdout-natural");
-        if (natural is null)
+        var evaluated = report.Evaluation.GateThresholds.All(threshold => report.Sets.Any(set => set.Set == threshold.Set && set.AccuracyInterval is not null));
+        if (!evaluated)
         {
             Row(text, "verdict", "not evaluated");
+            return text.ToString();
         }
-        else
+
+        var verdict = HeteronymEvaluator.DecideGate(report.Sets, report.Evaluation);
+        foreach (var set in verdict.Sets)
         {
-            var verdict = HeteronymEvaluator.DecideGate(natural, report.Evaluation);
-            Row(text, "accuracy_ok", verdict.AccuracyOk ? "yes" : "no");
-            Row(text, "interval_ok", verdict.IntervalOk ? "yes" : "no");
-            Row(text, "verdict", verdict.Passed ? "pass" : "fail");
+            var changes = gateRows.Where(row => row.Set == set.Set).Select(static row => HeteronymEvaluator.ClassifyFlip(row.Gold, row.Previous, row.Current)).ToList();
+            Row(text, $"{set.Set}_rows", set.Rows);
+            Row(text, $"{set.Set}_clusters", set.Accuracy.Clusters);
+            Row(text, $"{set.Set}_correct", set.Correct);
+            Row(text, $"{set.Set}_accuracy_bp", HeteronymEvaluator.RoundBasisPoints(set.Correct, set.Rows));
+            Row(text, $"{set.Set}_ci_lower_bp", set.Accuracy.LowerBasisPoints);
+            Row(text, $"{set.Set}_ci_upper_bp", set.Accuracy.UpperBasisPoints);
+            Row(text, $"{set.Set}_threshold_bp", set.ThresholdBasisPoints);
+            Row(text, $"{set.Set}_fixed", changes.Count(static change => change == "fixed"));
+            Row(text, $"{set.Set}_broken", changes.Count(static change => change == "broken"));
+            Row(text, $"{set.Set}_pass", YesNo(set.Passed));
+        }
+
+        Row(text, "verdict", verdict.Passed ? "pass" : "fail");
+        return text.ToString();
+    }
+
+    /// <summary>
+    ///     Builds the gate rows of a report, with the previous column rotated from the committed state.
+    /// </summary>
+    /// <param name="report">The evaluation.</param>
+    /// <param name="committed">The committed gate state, or null for a first write.</param>
+    /// <param name="previousImage">Receives the image of the previous column.</param>
+    /// <returns>The rows of every evaluated gate set, ordered by set and then id (ordinal).</returns>
+    internal static IReadOnlyList<GateRowState> GateRows(EvaluationReport report, CommittedGate? committed, out string previousImage)
+    {
+        var sameModel = committed is not null && string.Equals(committed.ImageSha256, report.ImageSha256, StringComparison.Ordinal);
+        previousImage = report.ImageSha256;
+        if (committed is not null)
+        {
+            previousImage = sameModel ? committed.PreviousImageSha256 : committed.ImageSha256;
+        }
+
+        var rows = new List<GateRowState>();
+        foreach (var set in report.Sets.Where(static set => HeteronymEvaluator.GateSets.Contains(set.Set, StringComparer.Ordinal)))
+        {
+            foreach (var row in set.RowReadings ?? [])
+            {
+                string previous;
+                if (committed is null)
+                {
+                    previous = row.Emitted;
+                }
+                else if (committed.Rows.TryGetValue((set.Set, row.Id), out var old))
+                {
+                    previous = sameModel ? old.Previous : old.Current;
+                }
+                else
+                {
+                    previous = NewRow;
+                }
+
+                rows.Add(new GateRowState(set.Set, row.Id, row.Gold, previous, row.Emitted));
+            }
+        }
+
+        return rows.OrderBy(static row => row.Set, StringComparer.Ordinal).ThenBy(static row => row.Id, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    ///     Renders the gate-rows file: every row of the gate sets with its labeled, previous and current reading.
+    /// </summary>
+    /// <param name="rows">The rotated gate rows.</param>
+    /// <returns>The file text.</returns>
+    private static string RenderGateRows(IReadOnlyList<GateRowState> rows)
+    {
+        var text = new StringBuilder();
+        text.Append(GateRowsHeader).Append('\n');
+        foreach (var row in rows)
+        {
+            Row(text, row.Set, row.Id, row.Gold, row.Previous, row.Current);
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
+    ///     Renders the flip report: the gate rows whose current reading differs from the previous one, with the change.
+    /// </summary>
+    /// <param name="rows">The rotated gate rows.</param>
+    /// <returns>The file text; the header only when nothing flipped.</returns>
+    private static string RenderFlips(IReadOnlyList<GateRowState> rows)
+    {
+        var text = new StringBuilder();
+        text.Append("set\tid\tgold\tprevious\tcurrent\tchange\n");
+        foreach (var row in rows)
+        {
+            var change = HeteronymEvaluator.ClassifyFlip(row.Gold, row.Previous, row.Current);
+            if (change is not null)
+            {
+                Row(text, row.Set, row.Id, row.Gold, row.Previous, row.Current, change);
+            }
         }
 
         return text.ToString();
@@ -236,34 +422,59 @@ internal static class EvaluationRecord
     }
 
     /// <summary>
-    ///     Renders the multi-seed file: one row per seed and the mean, minimum and maximum.
+    ///     Renders the multi-seed file: one row per seed with the rows, correct count and accuracy of every gate set, then
+    ///     the mean, minimum and maximum accuracy and the threshold the counts give by the gate's rule.
     /// </summary>
     /// <param name="report">The evaluation.</param>
     /// <returns>The file text.</returns>
     private static string RenderSeeds(EvaluationReport report)
     {
+        var sets = report.Seeds.SelectMany(static seed => seed.Sets.Select(static set => set.Set)).Distinct().Order(StringComparer.Ordinal).ToList();
         var text = new StringBuilder();
-        text.Append("seed\tnatural_rows\tnatural_correct\tnatural_bp\tindependent_rows\tindependent_correct\tindependent_bp\n");
+        text.Append("seed");
+        foreach (var set in sets)
+        {
+            text.Append($"\t{set}_rows\t{set}_correct\t{set}_bp");
+        }
+
+        text.Append('\n');
+        SeedSetCount? CountOf(SeedResult seed, string set) => seed.Sets.FirstOrDefault(count => count.Set == set);
         foreach (var seed in report.Seeds)
         {
-            Row(
-                text,
-                seed.Seed,
-                seed.NaturalRows,
-                seed.NaturalCorrect,
-                HeteronymEvaluator.RoundBasisPoints(seed.NaturalCorrect, seed.NaturalRows),
-                seed.IndependentRows,
-                seed.IndependentCorrect,
-                HeteronymEvaluator.RoundBasisPoints(seed.IndependentCorrect, seed.IndependentRows));
+            var cells = new List<object> { seed.Seed };
+            foreach (var set in sets)
+            {
+                var count = CountOf(seed, set);
+                cells.AddRange(count is null
+                    ? new object[] { string.Empty, string.Empty, string.Empty }
+                    : new object[] { count.Rows, count.Correct, HeteronymEvaluator.RoundBasisPoints(count.Correct, count.Rows) });
+            }
+
+            Row(text, [.. cells]);
         }
 
         if (report.Seeds.Count > 0)
         {
-            var natural = report.Seeds.Select(static s => HeteronymEvaluator.RoundBasisPoints(s.NaturalCorrect, s.NaturalRows)).ToList();
-            var independent = report.Seeds.Select(static s => HeteronymEvaluator.RoundBasisPoints(s.IndependentCorrect, s.IndependentRows)).ToList();
-            Row(text, "mean", string.Empty, string.Empty, Mean(natural), string.Empty, string.Empty, Mean(independent));
-            Row(text, "min", string.Empty, string.Empty, natural.Min(), string.Empty, string.Empty, independent.Min());
-            Row(text, "max", string.Empty, string.Empty, natural.Max(), string.Empty, string.Empty, independent.Max());
+            var mean = new List<object> { "mean" };
+            var min = new List<object> { "min" };
+            var max = new List<object> { "max" };
+            var rule = new List<object> { "threshold_by_rule" };
+            foreach (var set in sets)
+            {
+                var counts = report.Seeds.Select(seed => CountOf(seed, set)).OfType<SeedSetCount>().ToList();
+                var bp = counts.Select(static count => HeteronymEvaluator.RoundBasisPoints(count.Correct, count.Rows)).ToList();
+                var sameRows = counts.Count >= 2 && counts.All(count => count.Rows == counts[0].Rows) && counts[0].Rows > 0;
+                var threshold = sameRows ? (object)HeteronymEvaluator.DeriveGateThreshold(counts.Select(static count => count.Correct).ToList(), counts[0].Rows) : string.Empty;
+                mean.AddRange(new object[] { string.Empty, string.Empty, Mean(bp) });
+                min.AddRange(new object[] { string.Empty, string.Empty, bp.Min() });
+                max.AddRange(new object[] { string.Empty, string.Empty, bp.Max() });
+                rule.AddRange(new object[] { string.Empty, string.Empty, threshold });
+            }
+
+            Row(text, [.. mean]);
+            Row(text, [.. min]);
+            Row(text, [.. max]);
+            Row(text, [.. rule]);
         }
 
         return text.ToString();

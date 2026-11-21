@@ -48,7 +48,7 @@ reg-0046	record	record.verb	They want to record the meeting.	13	19	golden-pipeli
 reg-0047	live	live.verb	We live in a quiet town.	3	7	golden-pipeline	piper-pipeline-golden.tsv:e03	no	CC0-1.0
 reg-0048	concert	concert.noun	The concert was broadcast live.	4	11	golden-pipeline	piper-pipeline-golden.tsv:e04	no	CC0-1.0
 reg-0049	live	live.adj	The concert was broadcast live.	26	30	golden-pipeline	piper-pipeline-golden.tsv:e04	no	CC0-1.0
-reg-0050	read	read.present	I read every night before bed.	2	6	golden-pipeline	piper-pipeline-golden.tsv:e05	no	CC0-1.0
+reg-0050	read	read.present	Nowadays I read every night before bed.	11	15	golden-pipeline	piper-pipeline-golden.tsv:e05	no	CC0-1.0
 reg-0051	read	read.past	Yesterday I read the whole report.	12	16	golden-pipeline	piper-pipeline-golden.tsv:e06	no	CC0-1.0
 reg-0052	wind	wind.air	The wind blew the leaves across the yard.	4	8	golden-pipeline	piper-pipeline-golden.tsv:e07	no	CC0-1.0
 reg-0053	wind	wind.coil	Please wind the clock before you leave.	7	11	golden-pipeline	piper-pipeline-golden.tsv:e08	no	CC0-1.0
@@ -518,3 +518,13 @@ reg-0516	minute	minute.tiny	Even the most minute flaw in the glass can cause the
 reg-0517	minute	minute.tiny	Quantities of the toxin were so minute that the lab nearly missed them.	32	38	data-row	train.tsv:syn3-0-206	yes	CC0-1.0
 reg-0518	read	read.past	The percentage change read from the chart is applied to last year's estimate to arrive at the current number.	22	26	data-row	dev.tsv:harvest-u00976	no	Public-Domain
 reg-0519	minute	minute.tiny	Even the most minute change in pressure sets off the alarm.	14	20	data-row	dev.tsv:syn2-0-436	no	CC0-1.0
+reg-0525	read	read.past	When I was a child, I read every night before bed.	22	26	golden-pipeline	piper-pipeline-golden.tsv:e11	no	CC0-1.0
+reg-0526	associate	associate.verb	People often associate red with danger.	13	22	golden-readings	readings-golden.tsv:35	no	CC0-1.0
+reg-0527	axe	axe.tool	He split the wood with two sharp axes.	33	37	golden-readings	readings-golden.tsv:43	no	CC0-1.0
+reg-0528	bass	bass.music	The bass in this song is too loud.	4	8	golden-readings	readings-golden.tsv:46	no	CC0-1.0
+reg-0530	life	life.plural	Doctors save lives every day.	13	18	golden-readings	readings-golden.tsv:241	no	CC0-1.0
+reg-0531	moderate	moderate.adj-noun	The weather was moderate all week.	16	24	golden-readings	readings-golden.tsv:257	no	CC0-1.0
+reg-0532	nominate	nominate.adj	The senator nominate awaited the vote.	12	20	golden-readings	readings-golden.tsv:265	no	CC0-1.0
+reg-0533	reading	reading.town	We took the train to Reading, England.	21	28	golden-readings	readings-golden.tsv:320	no	CC0-1.0
+reg-0534	recount	recount.narrate	He will recount the story of his trip.	8	15	golden-readings	readings-golden.tsv:330	no	CC0-1.0
+reg-0535	sewer	sewer.seamstress	The sewer stitched the dress by hand.	4	9	golden-readings	readings-golden.tsv:362	no	CC0-1.0

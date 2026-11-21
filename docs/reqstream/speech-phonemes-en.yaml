@@ -62,7 +62,6 @@ sections:
           - SpeechPhonemesEn-Phonemizer-ReadingSelection
         tests:
           - SpeechPhonemesEn_ReadingGolden_EveryReadingIsPronouncedAsReviewed
-          - SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate
           - SpeechPhonemesEn_Render_EveryHeteronymReading_BothVoicesRenderTheChosenPronunciation
 
       - id: SpeechPhonemesEn-Pronunciation-SourcePriority

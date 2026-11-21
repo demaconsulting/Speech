@@ -20,13 +20,12 @@ namespace DemaConsulting.Speech.Phonemes.En.Tests;
 ///     command and then reviewed line by line; a changed line is a behavior change that must be reviewed, and a wrong
 ///     line is fixed in the code, never accepted into the golden. A word marked <c>!oov</c> is pronounced by the
 ///     trained letter-to-sound model (see <c>oov-golden.tsv</c> for its pinned behavior), so those lines change when the
-///     model is retrained.
+///     model is retrained. For a heteronym the goldens pin the committed classifier's reading (the readings golden marks
+///     a sentence it labels differently as <c>forced</c>), so they change when the model is retrained; whether the
+///     classifier is right is judged by the Text.En trainer's statistical gate, not by a test here.
 /// </remarks>
 public sealed class SpeechPhonemesEnTests
 {
-    /// <summary>The share of reading sentences the real classifier must label correctly (measured 97.5%).</summary>
-    private const double MinimumClassifierHitRate = 0.95;
-
     /// <summary>The symbols of the Piper voice.</summary>
     private static readonly SymbolInventory Piper = SymbolInventory.LoadPiper(TestFile("en_US-libritts_r-medium.onnx.trimmed.json"));
 
@@ -78,22 +77,6 @@ public sealed class SpeechPhonemesEnTests
         Assert.Equal(ReadingInventory.Default.ReadingIds.Order(StringComparer.Ordinal), cases.Select(c => c.ReadingId).Order(StringComparer.Ordinal));
         Assert.All(cases, c => Assert.Contains(c.Mode, new[] { "e2e", "forced" }));
         Assert.Empty(failures);
-    }
-
-    /// <summary>Proves the real classifier labels at least the gated share of the readings golden sentences correctly (its hit rate on own-written sentences).</summary>
-    [Fact]
-    public void SpeechPhonemesEn_ReadingGolden_ClassifierHitRate_MeetsTheGate()
-    {
-        // Arrange
-        var cases = GoldenCorpus.ReadReadings(TestFile("readings-golden.tsv"));
-
-        // Act: count the rows the committed mode says the classifier gets right, and re-check each against the classifier now
-        var endToEnd = cases.Where(c => c.Mode == "e2e").ToList();
-        var stale = endToEnd.Where(c => GoldenCorpus.ClassifiedReading(c.Sentence, c.Target) != c.ReadingId).Select(c => c.ReadingId).ToList();
-
-        // Assert
-        Assert.Empty(stale);
-        Assert.True((double)endToEnd.Count / cases.Count >= MinimumClassifierHitRate, $"hit rate {endToEnd.Count}/{cases.Count}");
     }
 
     /// <summary>

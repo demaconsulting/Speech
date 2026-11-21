@@ -12,10 +12,13 @@ package SpeechTextEn_EvaluateCommand {
 
     part def EvaluateCommand {
         doc /* Command line entry of the trainer's evaluate command: evaluates the model on the development and
-             * holdout sets, decides the quality gate on the natural holdout, runs the multi-seed study, and writes or
-             * verifies the evaluation record. A holdout file is read only when the gate, an explicit holdout set or
-             * the record asks for it. Exit codes: 0 done or gate passed, 1 gate failed or record stale, 2 usage or
-             * input error. The Program.cs entry point only dispatches to this unit. */
+             * holdout sets and the evaluation overlays, decides the statistical quality gate over the regression
+             * overlay, both holdouts and the generalization set against the recorded thresholds, prints the flips of
+             * the model under test against the committed record, runs the multi-seed study over the gate sets, and
+             * writes or verifies the evaluation record. A holdout file is read only when the gate, an explicit
+             * holdout set or the record asks for it. Exit codes: 0 done or gate passed, 1 gate failed or record
+             * stale, 2 usage or input error or a missing gate set. The Program.cs entry point only dispatches to this
+             * unit. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluateCommand.cs", "tools/DemaConsulting.Speech.Text.En.Trainer/Program.cs");

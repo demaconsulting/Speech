@@ -2,7 +2,7 @@ package SpeechTextEn {
     private import SoftwareItemMetadata::*;
     private import OtsDependencies::*;
     private import SpeechTextEn_AnalysisSubsystem::*;
-    private import SpeechTextEn_ClusteringSubsystem::*;
+    private import SpeechTextEn_CorpusSubsystem::*;
     private import SpeechTextEn_ExternalEvaluationSubsystem::*;
     private import SpeechTextEn_HeteronymSubsystem::*;
     private import SpeechTextEn_NormalizationSubsystem::*;
@@ -24,7 +24,9 @@ package SpeechTextEn {
      * non-shipped train and evaluate commands of the same tool that train and measure the heteronym model with the
      * library's own internal feature extractor, scoring and model format (through InternalsVisibleTo), and the
      * ExternalEvaluationSubsystem is the non-shipped evaluate-external command of the same tool that measures the
-     * embedded model on pinned, evaluation-only external datasets fetched into a cache that is never committed; none
+     * embedded model on pinned, evaluation-only external datasets fetched into a cache that is never committed, and
+     * the CorpusSubsystem is the non-shipped corpus command of the same tool that fetches a pinned public-domain book
+     * corpus from an official mirror and audits it against every evaluation set (no model uses the corpus yet); none
      * is part of the package and the runtime subsystems do not know them.
      */
 
@@ -45,6 +47,6 @@ package SpeechTextEn {
         part trainingSubsystem : TrainingSubsystem;
         part externalEvaluationSubsystem : ExternalEvaluationSubsystem;
         part partOfSpeech : PartOfSpeech;
-        part clusteringSubsystem : ClusteringSubsystem;
+        part corpusSubsystem : CorpusSubsystem;
     }
 }

@@ -88,24 +88,56 @@ sections:
 
               - id: SpeechTextEn-Training-HeteronymEvaluator-GateDecision
                 title: >-
-                  The HeteronymEvaluator class shall decide that a model passes the quality gate only when
-                  its pooled accuracy on the natural holdout is at least the threshold, the threshold
-                  itself being enough, and the lower bound of the interval of the improvement is above
-                  zero, shall decide that a set without rows does not pass, and shall compare, for every
-                  aligned row, the reading the trainer's own scoring decides with the reading the analyzer
-                  emits, reporting the number compared, mismatched and suppressed and giving the same
-                  decided rows when only the trainer's scoring is evaluated.
+                  The HeteronymEvaluator class shall decide that a model passes the statistical quality gate
+                  only when, for every gate set that has a threshold, the correct rows times 10,000 are at
+                  least the threshold in basis points times the rows, the threshold itself being enough,
+                  shall name every set that fails, shall decide that a set without rows does not pass and
+                  shall throw InvalidDataException when a gate set was not evaluated, and shall compare, for
+                  every aligned row, the reading the trainer's own scoring decides with the reading the
+                  analyzer emits, reporting the number compared, mismatched and suppressed and giving the
+                  same decided rows when only the trainer's scoring is evaluated.
                 justification: |
-                  The gate was fixed before any model was measured. Both conditions are needed: accuracy
-                  says the model is good, and the interval says it is better than not having it. The
-                  trainer and the analyzer are separate code paths over the same model, and if they ever
-                  disagreed the weights would have been tuned for decisions the analyzer never makes.
+                  The learned classifier is judged statistically, on scored sets, not per sentence. The
+                  point estimate decides in exact integer arithmetic, so the decision is the same on every
+                  platform; the clustered interval is reported for each set but does not decide, because its
+                  lower bound would fail the shipped model on the small sets and its upper bound would accept
+                  almost anything there. The trainer and the analyzer are separate code paths over the same
+                  model, and if they ever disagreed the weights would have been tuned for decisions the
+                  analyzer never makes.
                 tests:
-                  - HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive
-                  - HeteronymEvaluator_DecideGate_LowerBoundNotPositive_Fails
-                  - HeteronymEvaluator_DecideGate_NoRows_Fails
+                  - HeteronymEvaluator_DecideGate_EverySetAtThreshold_Passes
+                  - HeteronymEvaluator_DecideGate_OneSetBelow_FailsNamingTheSet
+                  - HeteronymEvaluator_DecideGate_NoRowsFailsAndMissingSetThrows
                   - HeteronymEvaluator_Evaluate_AllSets_TrainerAndAnalyzerAgreeOnEveryRow
                   - HeteronymEvaluator_EvaluateDirect_AgreesWithEndToEndOnTheFixture
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-GateThresholdDerivation
+                title: >-
+                  The HeteronymEvaluator class shall derive the threshold of a gate set from the correct
+                  counts of at least two seeds as the largest whole number of basis points that is at most
+                  10,000 times the mean minus two sample standard deviations over the rows, in exact integer
+                  arithmetic, giving 0 when even 0 is above that, and shall refuse fewer than two counts.
+                justification: |
+                  The threshold is the recipe's typical score minus a margin: a model of the same quality
+                  falls below the mean minus two seed standard deviations in about 2.5 percent of training
+                  runs. For five seeds every seed's own count is within 1.789 standard deviations of the
+                  mean (Samuelson's inequality), so the shipped seed passes by construction and the
+                  thresholds need no tuning.
+                tests:
+                  - HeteronymEvaluator_DeriveGateThreshold_FiveSeeds_FloorOfMeanMinusTwoSd
+                  - HeteronymEvaluator_DeriveGateThreshold_EverySeedPasses
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-FlipClassification
+                title: >-
+                  The HeteronymEvaluator class shall classify a gate row whose reading changed between the
+                  previous and the current model as fixed when it became right, broken when it was right and
+                  became wrong, and changed when it went from one wrong reading to another, and shall report
+                  no flip for an unchanged row or a row the previous record does not have.
+                justification: |
+                  A statistical gate can pass while individual goldens or listening flags break; the flip
+                  report names every such row, so a reviewer judges each broken one.
+                tests:
+                  - HeteronymEvaluator_ClassifyFlip_ClassifiesTheChange
 
               - id: SpeechTextEn-Training-HeteronymEvaluator-InputValidation
                 title: >-

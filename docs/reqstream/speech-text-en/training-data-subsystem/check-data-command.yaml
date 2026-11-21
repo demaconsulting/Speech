@@ -84,14 +84,12 @@ sections:
                   - CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo
                   - CheckDataCommand_TryParse_GeneralizationOption_IsParsed
 
-              - id: SpeechTextEn-TrainingData-CheckDataCommand-ClusterCheck
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-CorpusCheck
                 title: >-
-                  The CheckDataCommand class shall run the word-cluster check after the evaluation overlay
-                  checks, passing it the tokenizer version it was given, so that a word-cluster record of another
-                  tokenizer fails the run with the exit code 1.
+                  The CheckDataCommand class shall run the corpus check after the evaluation overlay checks, so
+                  that a finding in the corpus files fails the run with the exit code 1.
                 justification: |
-                  The command is the data gate of CI; the tokenizer version is a property of the trainer build,
-                  which the command receives from the program, while the check itself reads only the data
-                  folder.
+                  The command is the data gate of CI; the corpus pins and removals are committed data and must
+                  pass the same gate as every other data file.
                 tests:
-                  - CheckDataCommand_Run_TokenizerVersion_IsComparedWithClusterRecord
+                  - CheckDataCommand_Run_CorpusFinding_ExitsOne

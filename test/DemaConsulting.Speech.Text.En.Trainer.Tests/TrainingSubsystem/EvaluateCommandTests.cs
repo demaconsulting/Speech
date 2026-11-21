@@ -115,14 +115,14 @@ public sealed class EvaluateCommandTests
         Assert.Contains("worst reading lead.verb: 20/21", output);
     }
 
-    /// <summary>Proves the gate exits one when the pooled accuracy is below the threshold.</summary>
+    /// <summary>Proves the gate exits one when a gate set is below its threshold.</summary>
     [Fact]
     public void EvaluateCommand_Run_GateAccuracyBelowThreshold_ExitsOne()
     {
         // Arrange: the threshold is above the 97.5% the model reaches
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 990);
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 9900));
 
         // Act
         var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate");
@@ -133,26 +133,47 @@ public sealed class EvaluateCommandTests
         Assert.Contains("GATE: FAIL", output);
     }
 
-    /// <summary>Proves the gate exits one when the lower bound of the improvement is not above zero, even if the accuracy threshold is met.</summary>
+    /// <summary>Proves a gate set without its file is a data error: the gate exits two and names the set.</summary>
     [Fact]
-    public void EvaluateCommand_Run_GateLowerBoundNotPositive_ExitsOne()
+    public void EvaluateCommand_Gate_MissingGateSet_ExitsTwo()
     {
-        // Arrange: a model with no weights always takes the first candidate, exactly like the baseline, and a threshold it meets
+        // Arrange: the committed thresholds name all four gate sets, and the fixture has no regression overlay
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 1);
+
+        // Act
+        var (exitCode, output, error) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--gate");
+
+        // Assert
+        Assert.Equal(2, exitCode);
+        Assert.Contains("the gate set", error);
+        Assert.DoesNotContain("GATE:", output);
+    }
+
+    /// <summary>Proves the gate run on a candidate model prints its flips against the committed record's current readings.</summary>
+    [Fact]
+    public void EvaluateCommand_Gate_CandidateModel_PrintsFlipsAgainstCommittedRecord()
+    {
+        // Arrange: a record of the trained model, then a model with no weights that always takes the first candidate
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 1));
+        var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
+        CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
         var empty = Path.Combine(fixture.BaseDirectory, "empty.bin");
         File.WriteAllBytes(empty, SparsePerceptronModelWriter.Compile(18, ReadingInventory.CurrentVersion, 1f, 64f, []));
 
         // Act
-        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--model", empty, "--gate");
+        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--model", empty, "--gate", "--record-dir", recordDirectory);
 
-        // Assert
-        Assert.Equal(1, exitCode);
-        Assert.Contains("NOT above zero", output);
-        Assert.Contains("GATE: FAIL", output);
+        // Assert: the record is unchanged, and the flips name the set, the row and the change
+        Assert.Equal(0, exitCode);
+        Assert.Contains("evaluate: FLIP holdout-natural ", output);
+        Assert.Contains(" broken", output);
+        Assert.Matches(@"FLIPS holdout-natural: fixed \d+, broken [1-9]\d*", output);
+        Assert.Contains("holdout-natural\t", File.ReadAllText(Path.Combine(recordDirectory, EvaluationRecord.GateRowsFile)));
+        Assert.Equal("set\tid\tgold\tprevious\tcurrent\tchange\n", File.ReadAllText(Path.Combine(recordDirectory, EvaluationRecord.FlipsFile)));
     }
-
     /// <summary>Proves the gate decision is made on the natural holdout even when the whole record is written in the same run.</summary>
     [Fact]
     public void EvaluateCommand_Run_GateWithWrite_DecidesOnTheNaturalHoldout()
@@ -160,7 +181,7 @@ public sealed class EvaluateCommandTests
         // Arrange: a threshold the natural holdout (97.5%) meets but a lower-scoring set would not
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, 960);
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 9600));
         var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
 
         // Act
@@ -168,23 +189,23 @@ public sealed class EvaluateCommandTests
 
         // Assert
         Assert.Equal(0, exitCode);
-        Assert.Contains("pooled accuracy 97.50%", output);
-        Assert.Contains("GATE RUN on holdout-natural", output);
+        Assert.Contains("GATE holdout-natural: 39/40 97.50%", output);
+        Assert.Contains("threshold 96.00%: ok", output);
         Assert.Contains("GATE: PASS", output);
-        Assert.Equal(8, Directory.GetFiles(recordDirectory).Length);
+        Assert.Equal(10, Directory.GetFiles(recordDirectory).Length);
     }
 
     /// <summary>Proves the gate and the check together exit zero only when the gate passes and the record is current, and print both results.</summary>
     [Theory]
-    [InlineData(900, false, 0, "GATE: PASS", "--check: OK (the evaluation record is current)")]
-    [InlineData(990, false, 1, "GATE: FAIL", "--check: OK (the evaluation record is current)")]
-    [InlineData(900, true, 1, "GATE: PASS", "STALE: summary.tsv")]
+    [InlineData(9000, false, 0, "GATE: PASS", "--check: OK (the evaluation record is current)")]
+    [InlineData(9900, false, 1, "GATE: FAIL", "--check: OK (the evaluation record is current)")]
+    [InlineData(9000, true, 1, "GATE: PASS", "STALE: summary.tsv")]
     public void EvaluateCommand_Run_GatePassesRecordCurrent_ExitsZero(int threshold, bool tamper, int expectedExit, string gate, string record)
     {
         // Arrange: the record is written with the threshold under test, so it is current unless it is edited afterwards
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
-        SetGateThreshold(modelDirectory, threshold);
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", threshold));
         var recordDirectory = Path.Combine(fixture.BaseDirectory, "record");
         CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", recordDirectory);
         if (tamper)
@@ -208,6 +229,7 @@ public sealed class EvaluateCommandTests
         // Arrange
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 9000));
         var kept = fixture.Read("harvest-provenance.tsv").Split('\n').Where(line => !line.StartsWith("harvest-h00\t", StringComparison.Ordinal));
         fixture.Write("harvest-provenance.tsv", string.Join('\n', kept));
 
@@ -236,7 +258,7 @@ public sealed class EvaluateCommandTests
         Assert.Equal(0, exitCode);
         foreach (var seed in EvaluationSettings.Default.Seeds)
         {
-            Assert.Contains($"seed {seed}: natural", output);
+            Assert.Contains($"seed {seed}: image sha256 ", output);
         }
     }
 
@@ -259,7 +281,7 @@ public sealed class EvaluateCommandTests
 
         // Assert
         Assert.Equal(0, write.ExitCode);
-        Assert.Equal(8, written);
+        Assert.Equal(10, written);
         Assert.Equal(0, fresh.ExitCode);
         Assert.Contains("OK", fresh.Output);
         Assert.Equal(1, stale.ExitCode);
@@ -320,9 +342,10 @@ public sealed class EvaluateCommandTests
     [Fact]
     public void EvaluateCommand_Run_WriteWithOverlays_AppendsAfterTheDataSets()
     {
-        // Arrange: a record without overlays, then one with them
+        // Arrange: a record without overlays, then one with them, gated on the natural holdout only
         using var fixture = new TrainingFixture("ADV", "ADV");
         var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        CommandHarness.SetGateThresholds(modelDirectory, ("holdout-natural", 9000));
         var before = Path.Combine(fixture.BaseDirectory, "before");
         var after = Path.Combine(fixture.BaseDirectory, "after");
         var plain = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", before);
@@ -365,15 +388,5 @@ public sealed class EvaluateCommandTests
             ("gen-0001", "lead.verb", "Please lead the hike now.", "novel-construction", "lead:request", "yes"),
             ("gen-0002", "lead.verb", "Please lead the tour now.", "novel-construction", "lead:request", "no"),
             ("gen-0003", "lead.noun", "A lead ball fell down.", "novel-vocabulary", "lead:metal", "no"));
-    }
-    /// <summary>
-    ///     Sets the gate threshold in the record of a model folder.
-    /// </summary>
-    /// <param name="modelDirectory">The model folder.</param>
-    /// <param name="thousandths">The threshold in thousandths.</param>
-    private static void SetGateThreshold(string modelDirectory, int thousandths)
-    {
-        var path = Path.Combine(modelDirectory, TrainCommand.RecordFileName);
-        File.WriteAllText(path, File.ReadAllText(path).Replace("\"gateMinPooledAccuracyPerThousand\": 930", $"\"gateMinPooledAccuracyPerThousand\": {thousandths}", StringComparison.Ordinal));
     }
 }
