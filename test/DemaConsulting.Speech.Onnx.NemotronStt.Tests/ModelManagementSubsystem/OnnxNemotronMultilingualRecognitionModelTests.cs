@@ -1,13 +1,14 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
 namespace DemaConsulting.Speech.Onnx.NemotronStt.Tests.ModelManagementSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="OnnxNemotronMultilingualRecognitionModel"/>: catalog metadata,
-///     the 11-file download descriptor, the language parameter, and error handling. A real-model
-///     transcription test runs only when the model files are present locally.
+///     the 11-file download descriptor, the language parameter, the engine-options overload, and
+///     error handling. Real-model transcription is covered by the system tests.
 /// </summary>
 public sealed class OnnxNemotronMultilingualRecognitionModelTests
 {
@@ -28,8 +29,8 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
         Assert.Equal("nemotron-3.5-asr-streaming-0.6b-onnx-int4", model.Id);
         Assert.Equal(OnnxNemotronMultilingualRecognitionModel.ModelId, model.Id);
         Assert.Equal(SpeechModelRole.Recognition, model.Role);
-        Assert.Equal("MIT and NVIDIA Open Model License", model.LicenseName);
-        Assert.NotNull(model.LicenseUrl);
+        Assert.Equal("OpenMDW-1.1", model.LicenseName);
+        Assert.Equal(new Uri("https://openmdw.ai/license/1-1/"), model.LicenseUrl);
         Assert.False(string.IsNullOrWhiteSpace(model.DisplayName));
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
         Assert.Equal(16000, model.AudioFormat.SampleRate);
@@ -108,70 +109,27 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
         }
     }
 
-    /// <summary>
-    ///     Transcribes the repository's spike audio with the real model when the files are present;
-    ///     otherwise the test is skipped (the model is ~790 MB and never a unit-test requirement).
-    /// </summary>
+    /// <summary>Proves the engine-options overload rejects an invalid blank penalty before reading any file.</summary>
     [Fact]
-    public void CreateBackend_RealModel_TranscribesWhenPresent()
+    public void OnnxNemotronMultilingualRecognitionModel_CreateBackend_NegativeBlankPenalty_ThrowsArgumentOutOfRangeException()
     {
-        var modelDirectory = FindModelDirectory();
-        if (modelDirectory is null)
-        {
-            Assert.Skip("The real Nemotron ONNX model is not installed in this environment.");
-        }
+        // Arrange: a model and a directory that does not exist (it must never be read)
+        var model = new OnnxNemotronMultilingualRecognitionModel();
+        var directory = Path.Join(Path.GetTempPath(), $"nemotron-missing-{Guid.NewGuid():N}");
 
-        var wav = Path.Join(Path.GetDirectoryName(modelDirectory)!, "yes.wav");
-        if (!File.Exists(wav))
-        {
-            Assert.Skip("The optional yes.wav fixture is not present next to the model.");
-        }
-
-        using var backend = new OnnxNemotronMultilingualRecognitionModel().CreateBackend(modelDirectory);
-        var bytes = File.ReadAllBytes(wav);
-        var samples = new List<float>();
-        for (var i = 44; i + 1 < bytes.Length; i += 2)
-        {
-            samples.Add(BitConverter.ToInt16(bytes, i) / 32768f);
-        }
-
-        // The spike WAV is 24 kHz; decimate 3:2 by linear interpolation to the model's 16 kHz.
-        var resampled = new float[samples.Count * 2 / 3];
-        for (var i = 0; i < resampled.Length; i++)
-        {
-            var position = i * 1.5;
-            var index = (int)position;
-            var fraction = (float)(position - index);
-            var next = Math.Min(index + 1, samples.Count - 1);
-            resampled[i] = (samples[index] * (1 - fraction)) + (samples[next] * fraction);
-        }
-
-        backend.AcceptSamples(resampled);
-        backend.AcceptSamples(new float[16000]);
-        var found = backend.TryFlush(out var result);
-
-        Assert.True(found);
-        Assert.Contains("yes", result!.Text, StringComparison.OrdinalIgnoreCase);
+        // Act / Assert: the penalty is rejected first
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            model.CreateBackend(directory, null, new NemotronEngineOptions(BlankPenalty: -1f)));
     }
 
-    /// <summary>Locates the local model directory via NEMOTRON_MODEL_DIR or the repository spike folder.</summary>
-    private static string? FindModelDirectory()
+    /// <summary>Proves the engine-options overload rejects null options.</summary>
+    [Fact]
+    public void OnnxNemotronMultilingualRecognitionModel_CreateBackend_NullEngineOptions_ThrowsArgumentNullException()
     {
-        var configured = Environment.GetEnvironmentVariable("NEMOTRON_MODEL_DIR");
-        if (!string.IsNullOrEmpty(configured) && File.Exists(Path.Join(configured, "encoder.onnx")))
-        {
-            return configured;
-        }
+        // Arrange: a model
+        var model = new OnnxNemotronMultilingualRecognitionModel();
 
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            var candidate = Path.Join(directory.FullName, "tools", "NemotronSpike", "models");
-            if (File.Exists(Path.Join(candidate, "encoder.onnx")))
-            {
-                return candidate;
-            }
-        }
-
-        return null;
+        // Act / Assert: null options are rejected
+        Assert.Throws<ArgumentNullException>(() => model.CreateBackend("models", null, null!));
     }
 }

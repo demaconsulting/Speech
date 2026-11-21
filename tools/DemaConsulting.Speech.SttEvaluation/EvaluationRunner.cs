@@ -256,7 +256,7 @@ internal static class EvaluationRunner
     /// </summary>
     /// <param name="model">The model to evaluate. Must not be <see langword="null"/>.</param>
     /// <param name="installedModelDirectory">The model's installed <c>current</c> folder.</param>
-    /// <param name="parameterValues">The model parameter values, or <see langword="null"/> for the defaults.</param>
+    /// <param name="engineOptions">The engine option overrides (model parameters and engine constants) applied to the backend.</param>
     /// <param name="data">The verified data set.</param>
     /// <param name="scenarios">The scenario names to run, in order.</param>
     /// <param name="trailingSilenceSeconds">Digital silence fed after each recording, before the flush, in seconds.</param>
@@ -267,7 +267,7 @@ internal static class EvaluationRunner
     public static ModelEvaluation Evaluate(
         IRecognitionModel model,
         string installedModelDirectory,
-        IReadOnlyDictionary<string, object>? parameterValues,
+        EngineOptionOverrides engineOptions,
         SttDataSet data,
         IReadOnlyList<string> scenarios,
         double trailingSilenceSeconds,
@@ -275,13 +275,14 @@ internal static class EvaluationRunner
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(installedModelDirectory);
+        ArgumentNullException.ThrowIfNull(engineOptions);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(scenarios);
         ArgumentNullException.ThrowIfNull(progress);
 
         // Load the backend once; the load time is reported separately from the processing time
         var stopwatch = Stopwatch.StartNew();
-        using var backend = model.CreateBackend(installedModelDirectory, parameterValues);
+        using var backend = engineOptions.CreateBackend(model, installedModelDirectory);
         var loadSeconds = stopwatch.Elapsed.TotalSeconds;
         progress.WriteLine($"{model.Id}: loaded in {loadSeconds:F1} s");
 

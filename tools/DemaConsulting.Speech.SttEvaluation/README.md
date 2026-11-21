@@ -27,8 +27,10 @@ Options:
   word error rate; with one id the default model is the baseline
 - `--check`: apply the accuracy gates to the ONNX Nemotron model; adds the gated scenarios when `--scenario` omits them
 - `--scenario <name>`: scenario to run (repeatable; default all, see below)
-- `--engine-option <Name=Value>`: a declared parameter of the first model (for example `language=en-US`); an unknown
-  name is an error
+- `--engine-option <Name=Value>`: a declared parameter of the first model (for example `language=en-US`) or, for the
+  ONNX Nemotron model, an internal engine option: `BlankPenalty` (non-negative number), `FlushTailChunks`
+  (non-negative integer), `TrailingSilenceMs`, `TrailingSilenceAfterSpeechMs`, `MaxUtteranceMs` (endpoint rules in
+  milliseconds, 0 disables a rule); an unknown name is an error
 - `--trailing-silence <s>`: seconds of digital silence fed after each recording before the flush (default 0)
 - `--data <dir>`: data folder (default `data/stt-en`)
 - `--models-dir <dir>`: model store root (default: the per-user store, where `tools/ModelDownloader` installs models)

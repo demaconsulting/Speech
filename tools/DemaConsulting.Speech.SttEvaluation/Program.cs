@@ -59,7 +59,9 @@ internal static class Program
                                       default model is the baseline and the id is compared against it
           --check                     Apply the accuracy gates to the ONNX Nemotron model (exit 1 when one fails)
           --scenario <name>           Scenario to run (repeatable; default: all): librispeech, poem, paused, continuous, quiet
-          --engine-option <Name=Value> Model parameter of the first model (repeatable)
+          --engine-option <Name=Value> Model parameter or ONNX Nemotron engine option of the first model (repeatable):
+                                      BlankPenalty, FlushTailChunks, TrailingSilenceMs, TrailingSilenceAfterSpeechMs,
+                                      MaxUtteranceMs
           --trailing-silence <s>      Digital silence fed after each recording before the flush (default 0)
           --data <dir>                Data folder (default: data/stt-en)
           --models-dir <dir>          Model store root (default: the per-user store)
@@ -270,11 +272,11 @@ internal static class Program
         for (var i = 0; i < models.Count; i++)
         {
             var model = models[i];
-            var parameters = i == 0 ? options.EngineOptions.ToParameterValues(model) : null;
+            var overrides = i == 0 ? options.EngineOptions : EngineOptionOverrides.None;
             var evaluation = EvaluationRunner.Evaluate(
                 model,
                 store.GetCurrentDirectory(model.Id),
-                parameters,
+                overrides,
                 data,
                 options.Scenarios,
                 options.TrailingSilenceSeconds,
