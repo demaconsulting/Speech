@@ -21,8 +21,7 @@ internal sealed record GutenbergBodyText(string Text, byte[] Bytes, string Sha25
 /// </summary>
 /// <remarks>
 ///     <para>
-///     The body is what the word-cluster corpus pins (by SHA-256), what the snapshot archive stores and what the reader
-///     tokenizes, so the extraction must give the same bytes for the same download on every platform and in every
+///     The body is what the corpus pins (by SHA-256) and what the reader tokenizes, so the extraction must give the same bytes for the same download on every platform and in every
 ///     culture. It is therefore a pure function of the downloaded bytes built only from ordinal, culture-free string
 ///     operations: the two marker patterns are matched case-insensitively with the invariant culture, line endings are
 ///     unified to LF, and no Unicode normalization is applied (normalization tables differ between ICU and NLS).

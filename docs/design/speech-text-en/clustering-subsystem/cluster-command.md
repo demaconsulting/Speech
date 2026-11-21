@@ -6,15 +6,15 @@ result with an exit code. `Program` dispatches the `cluster` command name to it.
 **Data Model**:
 
 - `ClusterOptions`: the mode (`Fetch`, `Audit`), whether to write pins or removals, the threads, the delay, the mirror,
-  the cache, snapshot and data folders, and whether help was requested
+  the cache and data folders, and whether help was requested
 - `ClusterEnvironment`: the fetcher and sleeper seams (tests replace them; null means the real network and pause)
 - `DefaultDelayMs` 2,000 and `MinimumDelayMs` 1,000
 
 **Options.** Exactly one of `--fetch` and `--audit`. `--write-pins` only with `--fetch`; `--write` only with `--audit`
 (writing the removals); `--threads <n>` (at least 1, default the processor count); `--delay-ms <n>` (at least 1,000);
 `--mirror <host>` (an allowed mirror); `--cache <dir>` (default `<data>/external/cluster-corpus`; it must be inside
-`<data>/external` or outside the repository, compared on real paths); `--from-snapshot <file>`; `--data <dir>`;
-`--help`. Values may also be given as `--name=value`.
+`<data>/external` or outside the repository, compared on real paths); `--data <dir>`; `--help`. Values may also be given
+as `--name=value`.
 
 **Key Methods**:
 

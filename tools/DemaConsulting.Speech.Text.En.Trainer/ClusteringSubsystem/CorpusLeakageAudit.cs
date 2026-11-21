@@ -99,17 +99,6 @@ internal static class CorpusLeakageAudit
     }
 
     /// <summary>
-    ///     Hashes the evaluation files the audit read, so the record shows which evaluation data the removals were made for.
-    /// </summary>
-    /// <param name="dataRoot">The data folder.</param>
-    /// <returns>The SHA-256 of the listing <c>file TAB sha256 LF</c> in attribution order (<c>-</c> for a missing file).</returns>
-    /// <remarks>
-    ///     The data check owns the computation (<see cref="ClusterDataChecker.EvaluationListingSha256"/>) so that
-    ///     <c>check-data</c> can report offline when the evaluation files changed after the audit.
-    /// </remarks>
-    public static string EvaluationListingSha256(string dataRoot) => ClusterDataChecker.EvaluationListingSha256(dataRoot);
-
-    /// <summary>
     ///     Audits the corpus against the evaluation sentences.
     /// </summary>
     /// <param name="corpus">The tokenized corpus.</param>

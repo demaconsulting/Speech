@@ -28,6 +28,7 @@ sections:
                 tests:
                   - ClusterCommand_TryParse_AuditWrite_WritesRemovals
                   - ClusterCommand_TryParse_InvalidArguments_ReportReason
+                  - ClusterCommand_TryParse_FromSnapshot_IsUnknownOption
                   - ClusterCommand_Run_HelpAndUsageError
                   - ClusterCommand_Run_CacheInsideRepository_IsRefused
                   - Program_Run_Cluster_IsDispatched

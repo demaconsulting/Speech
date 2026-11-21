@@ -71,4 +71,4 @@ three used books; after the pin of a used book is blanked and the manifest regen
 `clusters` finding on that row of `cluster-sources.tsv`.
 
 See also *SpeechTextEn System Verification* and the unit documents `gutenberg-body.md`, `cluster-corpus-cache.md`,
-`corpus-snapshot.md`, `cluster-corpus-reader.md`, `corpus-leakage-audit.md` and `cluster-command.md`.
+`cluster-corpus-reader.md`, `corpus-leakage-audit.md` and `cluster-command.md`.

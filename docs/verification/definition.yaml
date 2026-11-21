@@ -250,7 +250,6 @@ input-files:
   - docs/verification/speech-text-en/clustering-subsystem.md
   - docs/verification/speech-text-en/clustering-subsystem/gutenberg-body.md
   - docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-cache.md
-  - docs/verification/speech-text-en/clustering-subsystem/corpus-snapshot.md
   - docs/verification/speech-text-en/clustering-subsystem/corpus-leakage-audit.md
   - docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-reader.md
   - docs/verification/speech-text-en/clustering-subsystem/cluster-command.md

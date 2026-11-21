@@ -12,8 +12,7 @@ feature or setting uses the corpus yet. It contains the following units:
 
 - **GutenbergBody**: extracts and normalizes the pinned body of a downloaded e-book
 - **ClusterCorpusCache**: the source list `cluster-sources.tsv`, the mirror-only, rate-limited fetch, the body pins and
-  the verified reading of bodies from the cache or from a snapshot
-- **CorpusSnapshot**: the byte-reproducible archive of the normalized corpus
+  the verified reading of bodies from the cache
 - **ClusterCorpusReader**: tokenization with the analyzer's tokenizer and the runtime normalization of a token
 - **CorpusLeakageAudit**: the content-level comparison of the corpus with every evaluation sentence and the removal list
   `cluster-removals.tsv`
@@ -47,7 +46,7 @@ The classes live in the `DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsyst
 
 **Pipeline.** `ClusterCommand` resolves the data and cache folders and runs one mode. `--fetch` has
 `ClusterCorpusCache` make every used book's body and metadata available (through `GutenbergBody`) and optionally write
-new pins. `--audit` loads the verified bodies (from the cache or `--from-snapshot`), has `ClusterCorpusReader` tokenize
+new pins. `--audit` loads the pin-verified bodies from the cache, has `ClusterCorpusReader` tokenize
 them once, runs `CorpusLeakageAudit` and writes or compares `cluster-removals.tsv`.
 
 **Mirror only, politely (decision).** Books are fetched only over HTTPS from an allowed official mirror
@@ -60,7 +59,9 @@ files are requested.
 **Pins (decision).** Each used book's normalized body is pinned by size and SHA-256 in `cluster-sources.tsv`; the pins
 are the identity of the corpus. A pin is filled only when the row has none and `--write-pins` is given, and is never
 overwritten, so a book whose mirror text changed fails the fetch instead of being re-pinned. Every read verifies the
-pin.
+pin. There is no separate archive of the corpus (owner decision): `--fetch` into an empty cache reproduces it bit for
+bit while every book still matches its pin, and a book that does not is re-pinned only after review (see the data
+README).
 
 **Content-level audit (decision).** Book-level exclusion (the books of the development and natural holdout documents
 are not `used`) is complemented by a content audit against every evaluation file, so alternate editions, anthologies
@@ -75,7 +76,7 @@ every attribution picks the first evaluation sentence in file order and then ord
 integer and ordinal string comparisons only.
 
 **Unit collaboration.** `GutenbergBody` knows the e-book format and nothing else. `ClusterCorpusCache` is the only unit
-that opens the network or a cache file. `CorpusSnapshot` knows the archive format. `ClusterCorpusReader` is the only
+that opens the network or a cache file. `ClusterCorpusReader` is the only
 unit that tokenizes; `CorpusLeakageAudit` consumes its tokenized corpus. `ClusterCommand` depends on every other unit;
 there are no cycles.
 

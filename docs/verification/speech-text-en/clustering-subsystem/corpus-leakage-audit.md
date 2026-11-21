@@ -26,8 +26,7 @@ one and four threads give equal removals.
 
 **Counts, file and evaluation sentences.** The counts are per file and rule with distinct evaluation sentences and
 books; the removals file round-trips and malformed or unsorted files are refused; the evaluation sentences of the
-fixture are the eight rows of the five evaluation files and no training row, and the listing hash changes when a file
-changes.
+fixture are the eight rows of the five evaluation files and no training row.
 
 #### Test Scenarios
 
@@ -55,5 +54,4 @@ With the same sentence in the generalization, development (ids d9 and d10) and r
 
 Four removals give 15 counts with (3 sentences, 2 evaluation sentences, 2 books) for `dev.tsv` exact. Written removals
 parse back equal; unsorted rows, an unknown rule, a training file and a wrong header throw. The fixture yields eight
-sentences starting with the two development rows, none from `train.tsv`, and adding a development row changes the
-listing hash.
+sentences starting with the two development rows, and none from `train.tsv`.

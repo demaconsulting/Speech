@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 
@@ -134,36 +132,6 @@ internal sealed class ClusterDataChecker
         var sources = CheckSources();
         CheckRemovals(sources);
     }
-
-    /// <summary>
-    ///     Hashes the evaluation files of a data folder: the hash the leakage audit records as
-    ///     <c>evaluationListingSha256</c>, so the record shows which evaluation data the removals were made for.
-    /// </summary>
-    /// <param name="dataRoot">The data folder.</param>
-    /// <returns>
-    ///     The lowercase hexadecimal SHA-256 of the UTF-8 listing <c>file TAB sha256 LF</c> over
-    ///     <see cref="EvaluationFiles"/> in attribution order (<c>-</c> for a missing file).
-    /// </returns>
-    public static string EvaluationListingSha256(string dataRoot)
-    {
-        ArgumentNullException.ThrowIfNull(dataRoot);
-        var listing = new StringBuilder();
-        foreach (var file in EvaluationFiles)
-        {
-            listing.Append(file).Append('\t').Append(File.Exists(Path.Combine(dataRoot, file)) ? FileSha256(dataRoot, file) : None).Append('\n');
-        }
-
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(listing.ToString()))).ToLowerInvariant();
-    }
-
-    /// <summary>
-    ///     Computes the lowercase hexadecimal SHA-256 of a file of the data folder.
-    /// </summary>
-    /// <param name="root">The data folder.</param>
-    /// <param name="file">The file name.</param>
-    /// <returns>The hash.</returns>
-    private static string FileSha256(string root, string file) =>
-        Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, file)))).ToLowerInvariant();
 
     /// <summary>
     ///     Determines whether a text is a lowercase 64-digit hexadecimal SHA-256.

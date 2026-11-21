@@ -48,7 +48,8 @@ internal sealed record ClusterSource(
 /// <remarks>
 ///     The file is read with the strict data-file rules of <see cref="TsvTable"/> (UTF-8 without byte order mark, LF,
 ///     NFC, constant columns) and every cell is validated; the first problems are thrown together so a broken list is
-///     never fetched from. The raw bytes are kept because the record pins the list by their SHA-256. Immutable.
+///     never fetched from. The raw bytes are kept so new pins are written into them with every other byte unchanged.
+///     Immutable.
 /// </remarks>
 internal sealed class ClusterSourceList
 {
@@ -458,42 +459,6 @@ internal sealed class ClusterCorpusCache
             }
 
             result.Add((source, Encoding.UTF8.GetString(File.ReadAllBytes(BodyPath(source)))));
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    ///     Reads the verified bodies of every used book from a snapshot archive instead of the cache.
-    /// </summary>
-    /// <param name="sources">The source list.</param>
-    /// <param name="snapshotPath">The snapshot archive.</param>
-    /// <returns>The bodies in ordinal source-id order.</returns>
-    /// <exception cref="InvalidDataException">The archive is malformed, or a used book is unpinned, absent or differs from its pin.</exception>
-    public static IReadOnlyList<(ClusterSource Source, string Text)> ReadBodiesFromSnapshot(ClusterSourceList sources, string snapshotPath)
-    {
-        ArgumentNullException.ThrowIfNull(sources);
-        var members = CorpusSnapshot.Read(snapshotPath);
-        var result = new List<(ClusterSource, string)>();
-        foreach (var source in sources.UsedInCorpusOrder)
-        {
-            if (!source.IsPinned)
-            {
-                throw new InvalidDataException($"{source.Id} has no body pin");
-            }
-
-            if (!members.TryGetValue(CorpusSnapshot.BodyMemberName(source.Id), out var bytes))
-            {
-                throw new InvalidDataException($"the snapshot has no body of {source.Id}");
-            }
-
-            var problem = CheckPin(source, bytes);
-            if (problem is not null)
-            {
-                throw new InvalidDataException(problem);
-            }
-
-            result.Add((source, Encoding.UTF8.GetString(bytes)));
         }
 
         return result;

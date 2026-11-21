@@ -49,6 +49,24 @@ public sealed class ClusterCommandTests
         Assert.Contains(reason, error, StringComparison.Ordinal);
     }
 
+    /// <summary>Proves the retired snapshot option is refused as unknown, and the command exits 2 without reading anything.</summary>
+    [Fact]
+    public void ClusterCommand_TryParse_FromSnapshot_IsUnknownOption()
+    {
+        // Arrange
+        using var fixture = new ClusteringFixture();
+
+        // Act
+        var options = ClusterCommand.TryParse(["--audit", "--from-snapshot", "corpus.tar"], out var error);
+        var (exitCode, _, runError) = fixture.Run("--audit", "--from-snapshot", "corpus.tar");
+
+        // Assert
+        Assert.Null(options);
+        Assert.Contains("unknown option '--from-snapshot'", error, StringComparison.Ordinal);
+        Assert.Equal(2, exitCode);
+        Assert.Contains("unknown option '--from-snapshot'", runError, StringComparison.Ordinal);
+        Assert.Empty(fixture.Requests);
+    }
     /// <summary>Proves help prints the usage with exit 0 and a usage error exits 2 on the error writer.</summary>
     [Fact]
     public void ClusterCommand_Run_HelpAndUsageError()

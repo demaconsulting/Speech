@@ -54,8 +54,6 @@ internal static class ClusterCommand
                               aleph.gutenberg.org).
           --cache <dir>       The corpus cache (default: <data>/external/cluster-corpus); it must be inside
                               <data>/external (git-ignored) or outside the repository.
-          --from-snapshot <file>
-                              Read the bodies from a snapshot archive instead of the cache (verified against the pins).
           --data <dir>        The data folder (default: data/text-en, searched upward from the current directory).
           --help              Shows this text.
 
@@ -82,7 +80,6 @@ internal static class ClusterCommand
     /// <param name="DelayMs">The delay between requests.</param>
     /// <param name="Mirror">The mirror host, or null.</param>
     /// <param name="Cache">The cache folder, or null for the default.</param>
-    /// <param name="FromSnapshot">The snapshot to read bodies from, or null.</param>
     /// <param name="Data">The data folder, or null to discover it.</param>
     /// <param name="ShowHelp">Whether usage was requested.</param>
     internal sealed record ClusterOptions(
@@ -93,7 +90,6 @@ internal static class ClusterCommand
         int DelayMs,
         string? Mirror,
         string? Cache,
-        string? FromSnapshot,
         string? Data,
         bool ShowHelp);
 
@@ -150,7 +146,7 @@ internal static class ClusterCommand
             environment ??= new ClusterEnvironment();
             return options.Mode == ClusterMode.Fetch
                 ? Fetch(options, paths, output, environment)
-                : Audit(options, paths, output, currentDirectory);
+                : Audit(options, paths, output);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException or NotSupportedException or InvalidOperationException)
         {
@@ -196,7 +192,7 @@ internal static class ClusterCommand
                 case "--write-pins":
                     writePins = true;
                     break;
-                case "--threads" or "--delay-ms" or "--mirror" or "--cache" or "--from-snapshot" or "--data":
+                case "--threads" or "--delay-ms" or "--mirror" or "--cache" or "--data":
                     var value = inline ?? (position < args.Count ? args[position++] : null);
                     if (string.IsNullOrEmpty(value))
                     {
@@ -214,7 +210,7 @@ internal static class ClusterCommand
 
         if (help)
         {
-            return new ClusterOptions(ClusterMode.Fetch, false, false, 1, DefaultDelayMs, null, null, null, null, true);
+            return new ClusterOptions(ClusterMode.Fetch, false, false, 1, DefaultDelayMs, null, null, null, true);
         }
 
         // The numeric options, each with its smallest valid value
@@ -235,7 +231,6 @@ internal static class ClusterCommand
             delay ?? DefaultDelayMs,
             mirror,
             values.GetValueOrDefault("--cache"),
-            values.GetValueOrDefault("--from-snapshot"),
             values.GetValueOrDefault("--data"),
             false);
     }
@@ -361,11 +356,10 @@ internal static class ClusterCommand
     /// <param name="options">The options.</param>
     /// <param name="paths">The paths.</param>
     /// <param name="output">The output writer.</param>
-    /// <param name="currentDirectory">The current directory.</param>
     /// <returns>The exit code.</returns>
-    private static int Audit(ClusterOptions options, ClusterPaths paths, TextWriter output, string currentDirectory)
+    private static int Audit(ClusterOptions options, ClusterPaths paths, TextWriter output)
     {
-        var corpus = ReadCorpus(options, paths, output, currentDirectory);
+        var corpus = ReadCorpus(options, paths, output);
         var removals = RunAudit(paths, corpus, options.Threads, output);
         var bytes = CorpusLeakageAudit.Write(removals);
         var target = Path.Combine(paths.Data, CorpusLeakageAudit.FileName);
@@ -389,15 +383,12 @@ internal static class ClusterCommand
     /// <param name="options">The options.</param>
     /// <param name="paths">The paths.</param>
     /// <param name="output">The output writer.</param>
-    /// <param name="currentDirectory">The current directory.</param>
     /// <returns>The tokenized corpus.</returns>
     /// <exception cref="InvalidDataException">The source list lists no used book, or a body is missing, unpinned or changed.</exception>
-    private static TokenizedCorpus ReadCorpus(ClusterOptions options, ClusterPaths paths, TextWriter output, string currentDirectory)
+    private static TokenizedCorpus ReadCorpus(ClusterOptions options, ClusterPaths paths, TextWriter output)
     {
         var sources = ClusterSourceList.Load(Path.Combine(paths.Data, ClusterSourceList.FileName));
-        var bodies = options.FromSnapshot is not null
-            ? ClusterCorpusCache.ReadBodiesFromSnapshot(sources, Path.GetFullPath(options.FromSnapshot, currentDirectory))
-            : new ClusterCorpusCache(paths.Cache).ReadBodies(sources);
+        var bodies = new ClusterCorpusCache(paths.Cache).ReadBodies(sources);
         if (bodies.Count == 0)
         {
             throw new InvalidDataException($"{ClusterSourceList.FileName} lists no used book");

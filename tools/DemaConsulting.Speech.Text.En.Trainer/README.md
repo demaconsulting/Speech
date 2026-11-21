@@ -211,8 +211,7 @@ evaluation set. It changes no model, and no model uses the corpus. Give exactly 
 
 Options: `--threads <n>` (default the processor count; the output does not depend on it); `--delay-ms <n>`;
 `--mirror <host>`; `--cache <dir>` (default `data/text-en/external/cluster-corpus`, git-ignored; it must be inside
-`data/text-en/external` or outside the repository); `--from-snapshot <file>` (read the bodies from a snapshot instead
-of the cache, verified against the pins); `--data <dir>`.
+`data/text-en/external` or outside the repository); `--data <dir>`.
 
 Exit codes: `0` done or current, `1` stale removals or a book failed, `2` usage, I/O or data error.
 
@@ -220,7 +219,8 @@ Exit codes: `0` done or current, `1` stale removals or a book failed, `2` usage,
 and every attribution and sort uses integer and ordinal comparisons only, so the removals are byte-identical for any
 `--threads` and on every operating system. Each stage prints its time.
 
-**Drift and re-pinning.** The pins of `cluster-sources.tsv` are the identity of the corpus. `--fetch` into an empty
+**Drift and re-pinning.** The pins of `cluster-sources.tsv` are the identity of the corpus; there is no snapshot
+archive (owner decision). `--fetch` into an empty
 cache reproduces it bit for bit; a book whose mirror text no longer matches its pin fails (`failed: the mirror's text
 differs from the pin`, exit `1`) and its pin is never overwritten. To keep such a book after review, write `-` in its
 `body_sha256` and `body_bytes` and run `cluster --fetch --write-pins` (both edits are committed together, because

@@ -367,32 +367,6 @@ public sealed class ClusterCorpusCacheTests
         Assert.Contains("--write-pins", exception.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves bodies are read from a snapshot only when each matches its pin, and an absent or changed body is refused.</summary>
-    [Fact]
-    public void ClusterCorpusCache_ReadBodiesFromSnapshot_VerifiesPins()
-    {
-        // Arrange: a pinned corpus, a good snapshot, one without a book and one with a changed body
-        using var fixture = new ClusteringFixture();
-        fixture.Prepare();
-        var sources = Sources(fixture);
-        var bodies = CacheOf(fixture).ReadBodies(sources).Select(static body => (body.Source.Id, Encoding.UTF8.GetBytes(body.Text))).ToList();
-        var good = Path.Combine(fixture.BaseDirectory, "good.tar");
-        var missing = Path.Combine(fixture.BaseDirectory, "missing.tar");
-        var changed = Path.Combine(fixture.BaseDirectory, "changed.tar");
-        CorpusSnapshot.Build(good, sources.Bytes, bodies);
-        CorpusSnapshot.Build(missing, sources.Bytes, bodies.Skip(1).ToList());
-        CorpusSnapshot.Build(changed, sources.Bytes, [(bodies[0].Id, Encoding.UTF8.GetBytes("changed\n")), .. bodies.Skip(1)]);
-
-        // Act
-        var read = ClusterCorpusCache.ReadBodiesFromSnapshot(sources, good);
-
-        // Assert
-        Assert.Equal(bodies.Select(static body => body.Id), read.Select(static body => body.Source.Id));
-        Assert.Equal(Encoding.UTF8.GetString(bodies[1].Item2), read[1].Text);
-        Assert.Throws<InvalidDataException>(() => ClusterCorpusCache.ReadBodiesFromSnapshot(sources, missing));
-        Assert.Throws<InvalidDataException>(() => ClusterCorpusCache.ReadBodiesFromSnapshot(sources, changed));
-    }
-
     /// <summary>Proves the shared client of the mirror fetcher is built on a handler that never follows a redirect.</summary>
     [Fact]
     public void GutenbergMirrorFetcher_CreateHandler_Default_DoesNotFollowRedirects()

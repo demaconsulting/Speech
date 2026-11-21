@@ -6,7 +6,7 @@
 # The subsystem is the non-shipped cluster command of the Text.En trainer (tools/DemaConsulting.Speech.Text.En.Trainer):
 # it fetches and pins a public-domain book corpus from an official mirror and audits it against every evaluation set
 # with the analyzer's own tokenizer. It consists of the body extraction (GutenbergBody), the corpus cache
-# (ClusterCorpusCache), the snapshot (CorpusSnapshot), the reader (ClusterCorpusReader), the leakage audit
+# (ClusterCorpusCache), the reader (ClusterCorpusReader), the leakage audit
 # (CorpusLeakageAudit) and the command (ClusterCommand). Each requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under docs/reqstream/speech-text-en/clustering-subsystem/. Covered by
@@ -23,8 +23,8 @@ sections:
               mirror, never from the main web site, one request at a time with a configurable pause of at least one
               second between requests, stop at once when the mirror refuses a request, pin the normalized body of
               each book by its size and SHA-256, record a new pin only on request and only for a book that has none,
-              and use a book only when its cached or archived body matches its pin, exiting with 2 and writing
-              nothing when one does not.
+              and use a book only when its cached body matches its pin, exiting with 2 and writing nothing when one
+              does not.
             justification: |
               The corpus may only come from books whose public-domain status is recorded, fetched in the way the
               archive asks automated clients to use it. Pinning each body makes the corpus fixed, so a later
@@ -38,8 +38,6 @@ sections:
               - SpeechTextEn-Clustering-ClusterCorpusCache-PoliteFetch
               - SpeechTextEn-Clustering-ClusterCorpusCache-VerifiedBodies
               - SpeechTextEn-Clustering-ClusterCorpusCache-Cancellation
-              - SpeechTextEn-Clustering-ClusterCorpusCache-Snapshot
-              - SpeechTextEn-Clustering-CorpusSnapshot-Read
               - SpeechTextEn-Clustering-ClusterCommand-Fetch
             tests:
               - ClusteringSubsystem_Cluster_FetchAudit_EndToEnd
@@ -70,16 +68,14 @@ sections:
 
           - id: SpeechTextEn-Clustering-Deterministic
             title: >-
-              The ClusteringSubsystem shall produce byte-identical removal lists and snapshots for any number of
-              worker threads and on every supported operating system.
+              The ClusteringSubsystem shall produce byte-identical removal lists for any number of worker threads
+              and on every supported operating system.
             justification: |
               The removal list is reviewed and committed. Whether it is still current can only be checked when the
               same inputs always give the same bytes, on the developer's machine, on every continuous-integration
               system and with any number of threads.
             children:
               - SpeechTextEn-Clustering-CorpusLeakageAudit-Attribution
-              - SpeechTextEn-Clustering-CorpusSnapshot-Reproducible
-              - SpeechTextEn-Clustering-CorpusSnapshot-Measure
             tests:
               - ClusteringSubsystem_Cluster_DifferentThreadCounts_IdenticalRemovals
 

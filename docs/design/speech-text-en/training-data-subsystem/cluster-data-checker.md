@@ -16,8 +16,6 @@ source list, the audit rules and evaluation files of the removals, and the lates
 
 - **ClusterDataChecker(data, report)**: stores the arguments; a null data set or report throws
   `ArgumentNullException`.
-- **EvaluationListingSha256(dataRoot)** (static): the lowercase SHA-256 of the UTF-8 lines `file TAB sha256 LF` over the
-  five evaluation files in attribution order (`-` for a missing file). `CorpusLeakageAudit` delegates to this method.
 - **Tables**: the names of the two tables, which `TextEnDataSet` leaves out of its generic format pass because this
   unit loads them with their exact headers.
 - **Run()**: when the data folder holds neither file, adds the information line that the check is skipped and returns;
@@ -44,7 +42,6 @@ corpus is next used.
 with an invalid identifier or status is left out of the book counts and the removal check, so it may also cause a
 removal finding.
 
-**Dependencies**: `TextEnDataSet` (with `DataRow` and `ProvenanceRecord`), `TsvTable` and `CheckReport`; SHA-256 of the
-base class library.
+**Dependencies**: `TextEnDataSet` (with `DataRow` and `ProvenanceRecord`), `TsvTable` and `CheckReport`.
 
 **Callers**: `CheckDataCommand`; `ClusterSourceList` and `CorpusLeakageAudit` reference its constants; the unit tests.

@@ -8,8 +8,8 @@ unit that reaches the network or opens a file of the corpus cache.
 
 - `ClusterSource`: one row of `cluster-sources.tsv`: line, id `gutenberg-N`, number `N`, group, title, author, year,
   URL, license basis, basis reference, body pin (SHA-256 and size, or none) and status; `IsUsed` and `IsPinned`
-- `ClusterSourceList`: the file bytes (the record pins them), their SHA-256, the rows in file order and the used rows in
-  ordinal id order (`UsedInCorpusOrder`); `Load` and `WithPins`
+- `ClusterSourceList`: the file bytes (into which `WithPins` writes new pins), their SHA-256, the rows in file order and
+  the used rows in ordinal id order (`UsedInCorpusOrder`); `Load` and `WithPins`
 - `ClusterCorpusCache`: the cache folder, the **fetcher** (a delegate that opens a URL as a stream; the default
   `GutenbergMirrorFetcher` sends an identifying user agent, accepts only HTTPS on an allowed mirror, uses a handler with
   automatic redirects off (`CreateHandler`), turns any 3xx answer into an `InvalidDataException` (that book fails,
@@ -55,18 +55,16 @@ Every file is written to a `.partial` sibling and renamed, so a reader never see
   failure and is retried
 - **CheckBody(source)** and **ReadBodies(sources)**: verify each used book's cached body against its pin, without the
   network, and return the bodies in ordinal id order
-- **ReadBodiesFromSnapshot(sources, path)**: reads the members of a snapshot with `CorpusSnapshot.Read` and returns each
-  used book's body after verifying it against its pin
 
 **Error Handling**: null arguments throw `ArgumentNullException`; a mirror off the allow-list or a negative delay throws
-`ArgumentException`. An invalid list, an unpinned or missing body, a body that differs from its pin, and a snapshot that
-lacks a body throw `InvalidDataException`. A refusal by the mirror or exhausted retries throw `IOException`. A
+`ArgumentException`. An invalid list, an unpinned or missing body and a body that differs from its pin throw
+`InvalidDataException`. A refusal by the mirror or exhausted retries throw `IOException`. A
 cancellation by the caller throws `OperationCanceledException`, never wrapped and never retried. The
 default fetcher never follows a redirect: a 3xx answer throws `InvalidDataException`, because a redirect could lead from
 the mirror to the main web site. Within `Fetch`, a book whose download or extraction fails (including a redirect)
 becomes a `failed` result and the other books continue.
 
-**Dependencies**: the .NET base class library (HTTP client, files, hashing), `GutenbergBody`, `CorpusSnapshot`
-(reading a snapshot), and the TrainingDataSubsystem's `TsvTable` and `CheckReport`.
+**Dependencies**: the .NET base class library (HTTP client, files, hashing), `GutenbergBody`, and the
+TrainingDataSubsystem's `TsvTable` and `CheckReport`.
 
 **Callers**: `ClusterCommand` and the unit tests.

@@ -82,17 +82,6 @@ sections:
                   - ClusterCorpusCache_Fetch_MirrorTextDiffersFromPin_Fails
                   - ClusterCorpusCache_ReadBodies_UnpinnedBook_Throws
 
-              - id: SpeechTextEn-Clustering-ClusterCorpusCache-Snapshot
-                title: >-
-                  The ClusterCorpusCache unit shall read the bodies of the used books from a snapshot archive instead of
-                  the cache, accepting each only when it matches its pin and throwing InvalidDataException when a body
-                  is absent or differs.
-                justification: |
-                  The snapshot is how the corpus is reproduced when the mirror has changed; it is only trustworthy when
-                  every body in it is checked against the same pins as a fetched body.
-                tests:
-                  - ClusterCorpusCache_ReadBodiesFromSnapshot_VerifiesPins
-
               - id: SpeechTextEn-Clustering-ClusterCorpusCache-Cancellation
                 title: >-
                   The ClusterCorpusCache unit shall let a cancellation by the caller propagate as

@@ -71,9 +71,9 @@ sections:
                 title: >-
                   The CorpusLeakageAudit unit shall take every row of the development, natural holdout, independent
                   holdout, regression and generalization files of the data folder and no training row, throw
-                  InvalidDataException when the data folder does not load cleanly, and hash the listing of those files.
+                  InvalidDataException when the data folder does not load cleanly.
                 justification: |
                   Every set the model is ever measured on must be protected; training rows are meant to be seen and
-                  are not compared. The listing hash lets the record show which evaluation data the audit used.
+                  are not compared.
                 tests:
                   - CorpusLeakageAudit_LoadEvaluationSentences_FixtureData_FiveFilesNoTraining

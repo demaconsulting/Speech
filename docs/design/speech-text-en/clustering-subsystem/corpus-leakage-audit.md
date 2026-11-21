@@ -24,10 +24,6 @@ rules (8 words, 80 percent, computed in integers as `hits * 5 >= total * 4`).
 - **LoadEvaluationSentences(dataRoot)**: loads the data folder with `TextEnDataSet` and returns every row of the
   development, natural holdout and independent holdout files plus the regression and generalization rows, ordered by
   file and then ordinal id; refuses a data folder that does not load cleanly
-- **EvaluationListingSha256(dataRoot)**: the SHA-256 of the lines `file TAB sha256 LF` of the five files (`-` for a
-  missing file), recorded so the record shows which evaluation data the audit used; it delegates to
-  `ClusterDataChecker.EvaluationListingSha256`, which owns the computation (same format) so `check-data` can report
-  drift offline
 - **Run(corpus, evaluation, threads, token)**: builds an index (first sentence per key, first sentence per 5-gram, every
   sentence of at least five words per 5-gram) and audits each book in parallel into its own slot. Per paragraph, each
   sentence is tested for **exact** (equal non-empty key) and then **near** (at least 8 words and at least 80 percent of

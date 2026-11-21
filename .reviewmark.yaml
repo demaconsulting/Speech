@@ -4401,22 +4401,6 @@ reviews:
       - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/ClusterCorpusCache.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/ClusterCorpusCacheTests.cs"
 
-  # SpeechTextEn-ClusteringSubsystem-CorpusSnapshot Review (one per unit)
-  - id: SpeechTextEn-ClusteringSubsystem-CorpusSnapshot
-    title: >-
-      Review that SpeechTextEn ClusteringSubsystem CorpusSnapshot Implementation is Correct
-    context:
-      - "docs/design/speech-text-en.md"
-      - "docs/design/speech-text-en/clustering-subsystem.md"
-      - "docs/reqstream/speech-text-en.yaml"
-      - "docs/reqstream/speech-text-en/clustering-subsystem.yaml"
-    paths:
-      - "docs/reqstream/speech-text-en/clustering-subsystem/corpus-snapshot.yaml"
-      - "docs/design/speech-text-en/clustering-subsystem/corpus-snapshot.md"
-      - "docs/verification/speech-text-en/clustering-subsystem/corpus-snapshot.md"
-      - "tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/CorpusSnapshot.cs"
-      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusSnapshotTests.cs"
-
   # SpeechTextEn-ClusteringSubsystem-CorpusLeakageAudit Review (one per unit)
   - id: SpeechTextEn-ClusteringSubsystem-CorpusLeakageAudit
     title: >-

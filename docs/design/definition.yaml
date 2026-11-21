@@ -253,7 +253,6 @@ input-files:
   - docs/design/speech-text-en/clustering-subsystem.md
   - docs/design/speech-text-en/clustering-subsystem/gutenberg-body.md
   - docs/design/speech-text-en/clustering-subsystem/cluster-corpus-cache.md
-  - docs/design/speech-text-en/clustering-subsystem/corpus-snapshot.md
   - docs/design/speech-text-en/clustering-subsystem/corpus-leakage-audit.md
   - docs/design/speech-text-en/clustering-subsystem/cluster-corpus-reader.md
   - docs/design/speech-text-en/clustering-subsystem/cluster-command.md

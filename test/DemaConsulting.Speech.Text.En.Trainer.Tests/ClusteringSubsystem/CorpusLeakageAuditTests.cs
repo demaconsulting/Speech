@@ -183,13 +183,10 @@ public sealed class CorpusLeakageAuditTests
 
         // Act
         var sentences = CorpusLeakageAudit.LoadEvaluationSentences(data.Root);
-        var listing = CorpusLeakageAudit.EvaluationListingSha256(data.Root);
-        data.AppendDataRow("dev.tsv", "syn-00099", "lead.verb", "Lead them home.", "Lead", "synthetic", "CC0-1.0");
 
-        // Assert: 2 dev, 1 natural, 3 independent, 2 regression; the listing hash follows the files
+        // Assert: 2 dev, 1 natural, 3 independent, 2 regression
         Assert.Equal(8, sentences.Count);
         Assert.Equal(["dev.tsv", "dev.tsv", "holdout-natural.tsv"], sentences.Take(3).Select(static sentence => sentence.File));
         Assert.DoesNotContain(sentences, static sentence => sentence.Id == "harvest-00001");
-        Assert.NotEqual(listing, CorpusLeakageAudit.EvaluationListingSha256(data.Root));
     }
 }

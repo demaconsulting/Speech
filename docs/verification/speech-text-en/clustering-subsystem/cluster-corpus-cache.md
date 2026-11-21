@@ -8,10 +8,10 @@ clustering fixture (`Fakes/ClusteringFixture.cs`): a temporary data folder with 
 generated books served by a fake mirror. The network and the pause are the injected dependencies: the fetcher delegate
 answers from memory (or with a configured HTTP status, or a test-specific failure sequence) and records every requested
 address, and the sleeper records every pause, so no test waits or reaches the network (one cancellation test uses the
-default pause, which a cancellation ends after 50 ms). `GutenbergBody` and
-`CorpusSnapshot` are used as they are. The default fetcher's own HTTP path is tested through its
-`GutenbergMirrorFetcher.Open(HttpClient, uri, token)` overload with a fake `HttpMessageHandler` that answers from a
-callback and records every request (still no network); its production handler is inspected directly.
+default pause, which a cancellation ends after 50 ms). `GutenbergBody` is used as it is. The default fetcher's own HTTP
+path is tested through its `GutenbergMirrorFetcher.Open(HttpClient, uri, token)` overload with a fake
+`HttpMessageHandler` that answers from a callback and records every request (still no network); its production handler
+is inspected directly.
 
 #### Test Environment
 
@@ -36,7 +36,7 @@ within `Fetch`, a redirected book fails once, without a retry, and the other boo
 
 **Verified bodies.** A pinned, cached corpus makes no request; a tampered body is refused at reading and restored from
 the raw download without a request; a mirror text that differs from its pin fails the book and writes no body; an
-unpinned book cannot be read; a snapshot is read only when each body matches its pin.
+unpinned book cannot be read.
 
 **Cancellation.** A cancellation raised by the fetcher for a canceled caller propagates as `OperationCanceledException`
 after one request and no pause; a cancellation during the first retry pause stops the run after that one pause, before
@@ -85,12 +85,11 @@ requests in all, every one to the mirror) and never pauses for the 5 s retry.
 
 **Tests**: `ClusterCorpusCache_Fetch_PinnedAndCached_MakesNoRequest`,
 `ClusterCorpusCache_TamperedBody_RefusedThenRestored`, `ClusterCorpusCache_Fetch_MirrorTextDiffersFromPin_Fails`,
-`ClusterCorpusCache_ReadBodies_UnpinnedBook_Throws`, `ClusterCorpusCache_ReadBodiesFromSnapshot_VerifiesPins`
+`ClusterCorpusCache_ReadBodies_UnpinnedBook_Throws`
 
 After pinning, a second fetch reports every book cached with no request. A body with appended text is refused by
 `ReadBodies`, and the next fetch restores it from the raw file without a request. A pin that no download matches makes
 the book fail with a message about the pin and no body file. Reading unpinned bodies throws and says to write the pins.
-A snapshot of the pinned bodies reads back in ordinal order; one without a book and one with a changed body are refused.
 
 ##### Cancellation
 

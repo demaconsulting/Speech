@@ -32,12 +32,13 @@ missing pins are reported and a failed book exits 1.
 ##### Usage
 
 **Tests**: `ClusterCommand_TryParse_AuditWrite_WritesRemovals`, `ClusterCommand_TryParse_InvalidArguments_ReportReason`,
-`ClusterCommand_Run_HelpAndUsageError`, `ClusterCommand_Run_CacheInsideRepository_IsRefused`,
-`Program_Run_Cluster_IsDispatched`
+`ClusterCommand_TryParse_FromSnapshot_IsUnknownOption`, `ClusterCommand_Run_HelpAndUsageError`,
+`ClusterCommand_Run_CacheInsideRepository_IsRefused`, `Program_Run_Cluster_IsDispatched`
 
 The theory covers no mode, two modes, `--write` without a mode, `--write-pins` with `--audit`, `--write` with
 `--fetch`, a 500 ms pause, zero threads, a disallowed mirror, a missing value, the retired `--clusters` option and
-`--check` mode, and an unknown option, each with its reason.
+`--check` mode, and an unknown option, each with its reason. The retired `--from-snapshot` option is refused as an
+unknown option by the parser and by a run, which exits 2 without a request.
 
 ##### Fetch and audit
 

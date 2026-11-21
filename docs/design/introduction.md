@@ -268,11 +268,10 @@ Speech, not a subsystem of it, and the library must never depend on it:
   `ExternalRowConversion` of offsets, labels and rows, the `WikipediaHomographAdapter` and `HeteronymBenchAdapter`
   readers, the `ExternalEvaluationRecord` files and the `EvaluateExternalCommand` entry (with the `Program.cs` glue)
 - **ClusteringSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `cluster` command of the same
-  `DemaConsulting.Speech.Text.En.Trainer` tool, which fetches a pinned corpus of US public-domain books from an
-  official mirror and audits it against every evaluation set: the `GutenbergBody` extraction, the `ClusterCorpusCache`
-  of the source list, the rate-limited fetch and the verified bodies, the `CorpusSnapshot` archive, the
-  `ClusterCorpusReader` with the analyzer's tokenizer, the `CorpusLeakageAudit` against every evaluation set and the
-  `ClusterCommand` entry (with the `Program.cs` glue)
+  `DemaConsulting.Speech.Text.En.Trainer` tool, which fetches a pinned corpus of US public-domain books from an official
+  mirror and audits it against every evaluation set: the `GutenbergBody` extraction, the `ClusterCorpusCache` of the
+  source list, the rate-limited fetch and the verified bodies, the `ClusterCorpusReader` with the analyzer's tokenizer,
+  the `CorpusLeakageAudit` against every evaluation set and the `ClusterCommand` entry (with the `Program.cs` glue)
 
 The following software items of the SpeechPhonemesEn system are also covered. It is a sibling system to Speech, not a
 subsystem of it, and the library must never depend on it:
@@ -472,7 +471,7 @@ that `Speech` neither references nor knows about, and two more, `SpeechTextEn` a
   dataset adapters, the external evaluation record and the command) is the `evaluate-external` command that measures the
   model on pinned, evaluation-only external datasets; it uses the evaluator and corpus loader of the `TrainingSubsystem`
   and the data folder discovery of the `TrainingDataSubsystem`, and none of them uses it. `ClusteringSubsystem` (the
-  body extraction, the corpus cache, the snapshot, the reader, the leakage audit and the command) is the `cluster`
+  body extraction, the corpus cache, the reader, the leakage audit and the command) is the `cluster`
   command that fetches and audits the public-domain corpus; it uses the strict reader, data loader, sentence keys and
   corpus file names of the `TrainingDataSubsystem` and the library's tokenizer and case folding, and none of them uses
   it.
@@ -1037,7 +1036,6 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 └── ClusteringSubsystem/
     ├── GutenbergBody.cs                                   — Body extraction and normalization of a downloaded e-book (with GutenbergBodyText)
     ├── ClusterCorpusCache.cs                              — Source list, mirror-only rate-limited fetch, body pins and verified bodies (with ClusterSource, ClusterSourceList, CorpusFetchResult and GutenbergMirrorFetcher)
-    ├── CorpusSnapshot.cs                                  — Byte-reproducible ustar snapshot of the corpus (with CorpusSnapshotInfo)
     ├── ClusterCorpusReader.cs                             — Tokenization with the analyzer's tokenizer and the runtime normalization (with CorpusParagraph, CorpusBook and TokenizedCorpus)
     ├── CorpusLeakageAudit.cs                              — Exact, near and contains audit against every evaluation set and the removal list (with EvaluationSentence, CorpusRemoval and AuditCount)
     └── ClusterCommand.cs                                  — Command line entry of cluster (with ClusterEnvironment)
