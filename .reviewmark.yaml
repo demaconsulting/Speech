@@ -13,6 +13,7 @@ needs-review:
   - "docs/design/**/*.md"         # Design documentation files
   - "docs/verification/**/*.md"  # Verification documentation files
   - "docs/user_guide/**/*.md"    # User guide documentation
+  - "docs/technical_overview/**/*.md"  # Technical overview documentation
   - "docs/sysml2/**/*.sysml"     # SysML2 architecture model
   - "src/DemaConsulting.Speech.Onnx.Kokoro/PACKAGE-LICENSE.md"      # Kokoro package license file
   - "src/DemaConsulting.Speech.Onnx.Kokoro/THIRD-PARTY-NOTICES.md"  # Kokoro third-party notices
@@ -104,6 +105,18 @@ reviews:
     paths:
       - "README.md"                                                 # project readme
       - "docs/user_guide/**/*.md"                                   # user guide
+
+  # Technical Overview Review (the informational theory-of-operation document)
+  - id: TechnicalOverview
+    title: Review that the Technical Overview is Accurate and Consistent with the Evaluation Records
+    context:
+      - "README.md"
+      - "docs/evaluation/text-en/README.md"
+      - "docs/evaluation/text-en/external/README.md"
+      - "docs/evaluation/phonemes-en/summary.md"
+      - "tools/DemaConsulting.Speech.Proofreader/README.md"
+    paths:
+      - "docs/technical_overview/**/*.md"                           # technical overview chapters
 
   # Decomposition Review (only one per repository)
   - id: Decomposition

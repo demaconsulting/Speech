@@ -1,10 +1,13 @@
 # Model Families and the English Front End
 
 The library is engine-neutral: a model package registers its models into a `SpeechModelCatalog`, and the core library
-never names a concrete model. Only some models speak through the English front end. Whether a model does is decided by
-the model itself: a synthesis model that returns an `EnglishTextAnalyzer` from `ISynthesisModel.TextAnalyzer` gets the
-analysis in every session, and its backend phonemizes with `DemaConsulting.Speech.Phonemes.En`. A model that returns no
-analyzer (the default) receives the text as written.
+never names a concrete model. Only some models speak through the English front end. The core library offers the seam,
+and each model package decides how to use it. A synthesis model opts into text analysis by returning an analyzer from
+`ISynthesisModel.TextAnalyzer` (the default is none, and the text is then not analyzed). The annotations reach a
+backend only if that backend implements the optional `IAnnotatedSynthesisBackend`, and the backend decides how to
+interpret them; the core library does not require any particular use. The Piper and Kokoro packages return an
+`EnglishTextAnalyzer`, and their backends implement `IAnnotatedSynthesisBackend` and phonemize each chunk with
+`DemaConsulting.Speech.Phonemes.En`. That combination is what this document calls the DEMA English front end.
 
 ## Direct ONNX Voices on the DEMA English Front End
 
@@ -37,5 +40,6 @@ them:
 - **Nemotron 3.5 streaming recognition** (`DemaConsulting.Speech.Onnx.NemotronStt`) is a speech-to-text model.
   Recognition has no text front end, so nothing in this document concerns it.
 
-The Sherpa-hosted models of `DemaConsulting.Speech.Sherpa` are legacy and scheduled for removal; they use neither
-Text.En nor Phonemes.En, so the direct ONNX models on the DEMA English front end are the path forward.
+The Sherpa-hosted models of `DemaConsulting.Speech.Sherpa` are legacy, to be removed after a bridge release that ships
+both them and the direct ONNX models; they use neither Text.En nor Phonemes.En, so the direct ONNX models on the DEMA
+English front end are the path forward.

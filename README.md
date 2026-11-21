@@ -1,7 +1,4 @@
-# Speech
-
-<!-- IMPORTANT: All links in this file must be absolute URLs.
-     This file is distributed in packages and relative links will not resolve. -->
+# ![Speech banner: the Speech name with the tagline 'Local speech for .NET: text to voice, voice to text.' and the text 'Reads English text and audio tags; speaks to speakers or WAV files, and streams recognized text from a mic.' Shown with the C# call 'await engine.SpeakAsync(speakers, "Hello, world.");' and the note '.NET 8–11 · Windows, Linux, macOS'. English text, Natural Language Audio Tags, microphone audio, and downloaded ONNX models flow into the Speech .NET library, and arrows lead out to what the library produces: spoken audio, the phonemes of a heteronym such as read in the past tense, live partial and final recognized text, and WAV files][hero]
 
 [![GitHub forks][badge-forks]][link-forks]
 [![GitHub stars][badge-stars]][link-stars]
@@ -12,14 +9,15 @@
 [![Security][badge-security]][link-security]
 [![NuGet][badge-nuget]][link-nuget]
 
-![Speech banner: the Speech name with the tagline 'Every word, spoken. Every voice, local.' and the C# call 'await engine.SpeakAsync(speakers, "Hello, world.");'. English text, Natural Language Audio Tags, microphone audio, and downloaded ONNX models flow on curved arrows into the Speech .NET library, and arrows lead out to what it produces: spoken audio, the phonemes of a heteronym such as read in the past tense, live partial and final recognized text, and WAV files][hero]
+<!-- IMPORTANT: All links in this file must be absolute URLs.
+     This file is distributed in packages and relative links will not resolve. -->
 
 ## Overview
 
 DemaConsulting.Speech is a cross-platform .NET library for local, offline text-to-speech and speech-to-text in desktop
 applications. Models are downloaded on demand into a per-user store and run on the machine, with no cloud service. The
 English voices speak through a DEMA English front end that reads numbers, dates and heteronyms in context and
-pronounces every word from the CMU Pronouncing Dictionary.
+pronounces words from the CMU Pronouncing Dictionary, with a trained letter-to-sound model for words it lacks.
 
 ## Features
 
@@ -49,6 +47,10 @@ To use the library from the command line instead, install the `speech-cli` .NET 
 ```bash
 dotnet tool install -g DemaConsulting.Speech.Cli --prerelease
 ```
+
+If the newest version on NuGet does not contain these packages yet, build from a clone of this repository instead:
+reference `src/DemaConsulting.Speech.Onnx.Piper/DemaConsulting.Speech.Onnx.Piper.csproj` from your project, and run
+the tool with `dotnet run --project src/DemaConsulting.Speech.Cli --` followed by its arguments.
 
 ## Usage
 
