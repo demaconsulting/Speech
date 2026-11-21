@@ -1,7 +1,7 @@
 # Checksums of the files of data/text-en/, verified by the check-data command of the Text.En trainer; MANIFEST.tsv itself and the local caches external/ and work/ are not listed
 # columns = file, sha256, bytes, rows (lines minus the header for .tsv files, lines for all other files)
 ATTRIBUTION.md	841bf1862cbf3017dd1090243835c262d3a5a438a12eb2411c47abf0b83e1e0c	2698	39
-README.md	84dcf1bfde02b20841e0fbf166dd1ea72921430992335ed3e42de335df86221a	45278	424
+README.md	292fb8a340a717861ee783718695ebdba5c50ea05a68a19834ab87c75eb22ab6	45923	431
 audit/adjudication.tsv	143c53f1e124b2d5e3d7fe16f2a761f13117cea12238412f80b7ce2aa198e6ec	9952	85
 audit/audit-summary.md	2c5067b5d599a458a0b84da5c4332c5e51a3c8abec30ca522f0b501e93e1db2e	9312	121
 audit/consistency-fixes.tsv	ce8e67110b396db315f93a56975b9b97d1c96fcb1d444530524eeb46e68b4c00	3072	27
@@ -17,7 +17,7 @@ extension-candidates.tsv	cf4fa4a42412b5fd1af84aeadbbed83254add32b98f71c098136c90
 extension-decisions.tsv	91cbfb9d8b0035501470f8c0720168fd130e2e59428ace77bae045c7b76ecf2f	7489	60
 forms.tsv	7deefce9c61c8bc236a0acbac0f9a4ec5e3235dee9b872fea7a423b86987ea48	26869	853
 gaps-v4.tsv	c4bf20a2ea62b680fd612a4677b15400577c1407d617be89e3fbaed33fe61ffc	11709	395
-generalization.tsv	ce27cae8ff559d8ce6fbbd195b5afb3403c7853e2e408dd794d41f9d307ed16a	35735	242
+generalization.tsv	b2b33140fefbe408198477ff92cc6c5666e4af360890019c97ecb9dd9902937e	35734	242
 harvest-provenance.tsv	1e3395088ae95a1b23c9cc3b01cb5f49dca4f0b412f6a44387a8ccf42d4b1f51	781518	9269
 holdout-independent.tsv	88fdb11ce9ea059b503535a064552edc5a506599cf54c6a1331df68055565fb2	247500	1972
 holdout-natural.tsv	6984dc8c936c500fbb57f1eb66be9149dedf8d044d252f80049efaa4e24f94ce	236861	1167
@@ -26,7 +26,7 @@ prompts/README.md	0c70c4141f228eccc903fb16dab572dff4d85f40a3e944634c343afc49c531
 prompts/adjudication.md	5631804f45dd7de776fd6b35df8da8ca0433dd1b769158ee4ee7650215897077	2355	27
 prompts/audit-blind-relabel.md	08ac5f98c41748465876a58b22f672548f1166824704d00aa60d3538c897fae1	2546	31
 prompts/final-review.md	c861d2a2d6c5bc6390aa984bbe50127304bc276923c7f30d3812b58f42e3f541	2149	32
-prompts/generalization.md	2123dd1497a731e25f74350b4cc52ce240e2c0aef13f95cc367810871d3e10f0	13219	172
+prompts/generalization.md	a9f1a44a6a06043c8bec525c4f8f1f38ca4b6af8acc65469d458f0235e92ba97	13730	177
 prompts/generation-synthetic-v2.md	4371180d4550b9d135faa134bfa814bdf0d51d70ef0ceb09a5a32b9d6dc7c8e3	4040	34
 prompts/generation-synthetic-v3.md	e8145b0172edbc56afb0e52c83cfe0dafd08c25f08353ec3c1cd8c56ad44b4b0	3188	33
 prompts/generation-synthetic.md	472e0f2b7379f8be7db908e478a611288abfb23057b63a7ded4b30d9b5ffd28f	3869	39

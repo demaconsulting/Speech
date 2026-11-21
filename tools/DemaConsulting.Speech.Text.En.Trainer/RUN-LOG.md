@@ -496,3 +496,14 @@ generalization`, the shipped model with image SHA-256 `73de5a3f...3df0`; the cod
   differs from the model alone. This is a data error of the frozen set (the row does not belong to the cue-unsolvable
   subset), found by a structural check, not by an accuracy. It is reported to the owner for a decision under protocol
   step 6 (a defect fix, logged here); the row was not edited. No accuracy of the generalization set has been read.
+
+## Word-cluster subsystem (PR A): defect fix of the generalization set, gen-0060 (2026-11-21)
+
+**Defect fix (protocol step 6).** The `cue_unsolvable` flag of `gen-0060` (*Beneath the pulley, the cord wound.*,
+`wind.coil`, `novel-construction`, family `wound:cordage`) was corrected from `yes` to `no`, because the noun-form cue
+detector fires on the row (the cue-unsolvable validity check of `evaluate`, exit code 2). A row on which a curated cue
+acts is by definition not cue-unsolvable. Only the flag changed: the sentence, label, kind and family are unchanged and
+the row stays in the set. No accuracy figure of the generalization set had been produced or seen. The set keeps 242
+rows; it now has 80 `cue_unsolvable=yes` rows (54 `novel-vocabulary`, 26 `novel-construction`) over all 13 targets, and
+the shape quotas still hold. The fix is also recorded in the prompt's record (`data/text-en/prompts/generalization.md`)
+and the data README; `MANIFEST.tsv` was regenerated.

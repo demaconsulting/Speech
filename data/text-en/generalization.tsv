@@ -58,7 +58,7 @@ gen-0056	wind	wind.coil	A braider wound flax about a distaff spindle, leaving a 
 gen-0057	wind	wind.coil	The ceramicist wound slip into a spiral coil.	15	20	novel-vocabulary	wound:machinery	ceramicist|slip|spiral	no	generalization	CC0-1.0
 gen-0058	wind	wind.coil	A wound towline resisted the capstan.	2	7	novel-vocabulary	wound:cordage	towline|capstan	no	generalization	CC0-1.0
 gen-0059	wind	wind.coil	The weaver wound gimp through the shuttle.	11	16	novel-vocabulary	wound:cordage	weaver|gimp|shuttle	no	generalization	CC0-1.0
-gen-0060	wind	wind.coil	Beneath the pulley, the cord wound.	29	34	novel-construction	wound:cordage	-	yes	generalization	CC0-1.0
+gen-0060	wind	wind.coil	Beneath the pulley, the cord wound.	29	34	novel-construction	wound:cordage	-	no	generalization	CC0-1.0
 gen-0061	wind	wind.coil	Round which spindle had that braider wound?	37	42	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
 gen-0062	wind	wind.coil	The thread that she wound held firm.	20	25	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
 gen-0063	wind	wind.coil	Wound tautly round the hook, the wire sagged.	0	5	novel-construction	wound:syntax	-	no	generalization	CC0-1.0

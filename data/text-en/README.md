@@ -30,7 +30,7 @@ recorded per file and per row. Nothing here is legal advice.
 | [extension-decisions.tsv](extension-decisions.tsv) | 60 | the decision per candidate (add or defer) with the CMUdict evidence | CC0-1.0 |
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
 | [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
-| [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 81 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
+| [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 80 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
 | [audit/](audit/audit-summary.md) | 7 files | blind relabel audit, adjudication, holdout review, final review and the generalization review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review, the blind label review of the generalization set | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
@@ -242,7 +242,7 @@ committed with `check-data --generalization <file>`, whose novelty findings give
 training row. Every row is `CC0-1.0` and has the source `generalization`.
 
 **The frozen set: 242 rows** (2026-11-21 UTC). 64 families of 3 to 9 rows; 135 `novel-vocabulary` and 107
-`novel-construction` rows; 81 `cue_unsolvable=yes` rows (54 and 27 by kind) over all 13 targets; 9 rows for every
+`novel-construction` rows; 80 `cue_unsolvable=yes` rows (54 and 26 by kind) over all 13 targets; 9 rows for every
 reading except `bow.bend` (8) and `wind.coil` (27: 18 with the target *wound*, 9 with *wind* or *winds*). One
 `gpt-5.6-luna` writer wrote 243 rows; four further rounds, each a new `gpt-5.6-luna` instance (the tool cannot message a
 finished writer), replaced the rows that the novelty check rejected (61, 20 and 2 rows) and rewrote the 11 rows that
@@ -253,6 +253,13 @@ per-row review is [audit/generalization-review.tsv](audit/generalization-review.
 confidence decision reason note`: one line per row and review round, `decision` `keep`, `rewritten` or `drop`), and the
 rounds, models and times are in [the prompt's record](prompts/generalization.md). The set is read only as the protocol
 of the trainer's `RUN-LOG.md` allows.
+
+**Defect fix after the freeze.** The `cue_unsolvable` flag of `gen-0060` (*Beneath the pulley, the cord wound.*) was
+corrected from `yes` to `no`: the noun-form cue detector of the evaluation fires on the row (the cue-unsolvable
+validity check, exit code 2), so by definition the curated cues can act on it. The sentence, label, kind and family are
+unchanged and the row stays in the set. No accuracy of the generalization set had been produced or seen. The fix is
+logged in the trainer's `RUN-LOG.md` and in [the prompt's record](prompts/generalization.md); the frozen set was 81
+`cue_unsolvable=yes` rows (27 `novel-construction`) before it.
 
 ## Harvest rules
 

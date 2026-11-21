@@ -46,6 +46,11 @@ had not been fetched and no clustering had been run. Times are UTC, taken from t
   with the writer's labels, with high confidence.
 - **Frozen set**: 242 rows. Every row's label is confirmed by a blind reviewer (review 1 for the 232 unchanged rows,
   review 2 for the 10 rewritten rows that were kept). The per-row review is `audit/generalization-review.tsv`.
+- **Defect fix after the freeze** (2026-11-21, logged in `RUN-LOG.md`): the `cue_unsolvable` flag of `gen-0060`
+  (*Beneath the pulley, the cord wound.*) was corrected from `yes` to `no`, because the noun-form cue detector fires on
+  the row (the cue-unsolvable validity check of the evaluation, exit code 2). The sentence, label, kind and family are
+  unchanged and the row stays in the set, which now has 80 `cue_unsolvable=yes` rows. No accuracy figure of the
+  generalization set had been produced or seen.
 
 ## Prompt text
 
