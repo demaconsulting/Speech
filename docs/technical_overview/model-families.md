@@ -24,11 +24,15 @@ end. They are the models that the listening-improvement loop improves.
 | Phoneme symbols | espeak-style IPA (Piper renderer) | Kokoro vocabulary (Kokoro renderer) |
 | Voice license | CC BY 4.0 (LibriTTS-R, Piper) | Apache-2.0 |
 
-Both packages share the text analysis and the pronunciation stage; they differ only in the renderer and in how their
-backend frames the phonemes for the voice graph. The Piper model also speaks a whole sentence as one utterance, joining
-the clause pieces that the core chunker splits at commas, semicolons and colons, because the voice swallows the first
-word of a very short utterance. The two packages, and the two front-end packages they depend on, are published only in
-pre-release versions.
+Both packages share the text analysis and the pronunciation stage. They differ in three ways:
+
+- **Renderer**: Piper takes espeak-style IPA, and Kokoro takes the symbols of its own vocabulary.
+- **Framing**: each backend frames the phonemes for its voice graph in its own way.
+- **Chunking**: the Piper model has its own capability profile, which joins the clause pieces that the core chunker
+  splits at commas, semicolons and colons, so it speaks a whole sentence as one utterance; the voice swallows the first
+  word of a very short utterance. Kokoro keeps the library's default chunking, so each clause is its own utterance.
+
+The two packages, and the two front-end packages they depend on, are published only in pre-release versions.
 
 ## Other Direct ONNX Models
 
