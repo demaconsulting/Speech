@@ -781,3 +781,32 @@ seconds (3,136,242 bigram types), induction 1 minute 11.0 seconds. The **total w
 
 Both runs reproduced the committed table byte for byte (`17e94d11...d007b`), the record byte for byte and the snapshot
 (`3d1e4e8c...f471d`). One thread and 28 threads give identical output.
+
+## Word-cluster subsystem (PR A): amendment to the PR B read discipline (2026-11-21)
+
+This entry amends only the procedure of the pre-registered criterion for word clusters (entry "protocol and
+pre-registration", 2026-11-20); that entry stays as it was written. It is recorded before any PR B training and before
+any model with word clusters exists. No model, classifier, cue prior, `heteronyms.bin` or `training.json` changed, and
+the generalization set was not read.
+
+**Why.** `evaluate --write` and `evaluate --check` evaluate every set, the generalization set included, because the
+committed evaluation record holds those figures by design, and CI runs `evaluate --check` on whatever model is
+committed. Without a rule, a candidate model committed during PR B development would therefore show its generalization
+figure before the single pre-registered read.
+
+**No change to the criterion.** Models A and B, the primary endpoint, the +300 basis-point threshold, the
+family-clustered interval, the seed-mean rule, the 2 by 2 ablation and the guards are all unchanged.
+
+- **Candidate models.** During PR B development, candidates are written to scratch paths (outside the repository or
+  git-ignored). They are evaluated only with `evaluate --model <scratch> --set dev` and `--set regression`, plus the
+  trainer's own development figures. Never `--set generalization`; never `--gate` or `--set holdout-natural` (read-once
+  as well); never `evaluate --write` or `--check` on a candidate.
+- **No commits before the read.** No candidate `heteronyms.bin` or `training.json` is committed or pushed before the
+  read is logged here. Until then the committed model stays the shipped PR A model, whose CI figures are the PR A
+  baseline already recorded above, so they are not a read.
+- **The single read.** The pre-registered read is one run: the four ablation models and seeds 1 to 5 for the seed-mean
+  rule, all from scratch paths. Its figures are logged here first.
+- **After the read.** Only then is the final model committed and `evaluate --write` run. That write re-evaluates the
+  same model A and must reproduce the logged figures; it informs no decision, and any difference is a defect.
+- **Accidental early read.** If a candidate's generalization figure is ever seen before the read, the event is logged
+  here with the model and the figure, and disclosed with PR B's result.

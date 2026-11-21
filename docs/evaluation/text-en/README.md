@@ -212,7 +212,14 @@ clusters and is judged by this criterion.
   the shipped model.
 - **Discipline.** The generalization set is read once for the comparison, with all four models in one run. A data or
   setting change after that read voids the result. More than 512 clusters need a development-set benefit measured
-  before the read.
+  before the read. A procedural amendment logged in `RUN-LOG.md` on 2026-11-21, before any PR B training, makes this
+  concrete without changing the criterion: during PR B development, candidate models live at scratch paths and are
+  evaluated only on the development set and the regression overlay
+  (`evaluate --model <file> --set dev --set regression`), never on the generalization set or the natural holdout and
+  never with `evaluate --write` or `--check`.
+  No candidate model is committed before the read is logged, because CI's `evaluate --check` evaluates the committed
+  model on every set. The read is one run of the four ablation models and seeds 1 to 5; the final commit's
+  `evaluate --write` must reproduce its figures, and an accidental early read is logged and disclosed.
 
 ## Planned Fresh Natural Audit Set
 
