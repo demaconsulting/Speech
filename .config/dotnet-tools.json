@@ -59,14 +59,14 @@
       "rollForward": false
     },
     "demaconsulting.textlint.tool": {
-      "version": "0.1.0-beta.4",
+      "version": "0.1.0-beta.5",
       "commands": [
         "textlint"
       ],
       "rollForward": false
     },
     "demaconsulting.lintmark": {
-      "version": "0.1.0-beta.2",
+      "version": "0.1.0-beta.3",
       "commands": [
         "lintmark"
       ],
@@ -101,7 +101,7 @@
       "rollForward": false
     },
     "dotnet-sonarscanner": {
-      "version": "11.3.0",
+      "version": "12.1.0",
       "commands": [
         "dotnet-sonarscanner"
       ]
