@@ -58,7 +58,7 @@ package SpeechDesignViews {
         expose SpeechTextEn_TrainingDataSubsystem::TrainingDataSubsystem;
         expose SpeechTextEn_TrainingSubsystem::TrainingSubsystem;
         expose SpeechTextEn_ExternalEvaluationSubsystem::ExternalEvaluationSubsystem;
-        expose SpeechTextEn_ClusteringSubsystem::ClusteringSubsystem;
+        expose SpeechTextEn_CorpusSubsystem::CorpusSubsystem;
         expose SpeechPhonemesEn::SpeechPhonemesEnSystem;
         expose SpeechPhonemesEn_LexiconSubsystem::LexiconSubsystem;
         expose SpeechPhonemesEn_LetterToSoundSubsystem::LetterToSoundSubsystem;
@@ -270,6 +270,10 @@ package SpeechDesignViews {
 
     view TextEnExternalEvaluationSubsystemView {
         expose SpeechTextEn_ExternalEvaluationSubsystem::ExternalEvaluationSubsystem;
+    }
+
+    view TextEnCorpusSubsystemView {
+        expose SpeechTextEn_CorpusSubsystem::CorpusSubsystem;
     }
 
     view SpeechPhonemesEnView {

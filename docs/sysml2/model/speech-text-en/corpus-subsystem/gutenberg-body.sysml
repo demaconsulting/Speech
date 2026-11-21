@@ -8,11 +8,11 @@ package SpeechTextEn_GutenbergBody {
              * pin on every platform. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/ClusteringSubsystem/GutenbergBody.cs");
-            testFiles = ("test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/GutenbergBodyTests.cs");
-            designFiles = ("docs/design/speech-text-en/clustering-subsystem/gutenberg-body.md");
-            verificationFiles = ("docs/verification/speech-text-en/clustering-subsystem/gutenberg-body.md");
-            requirementFiles = ("docs/reqstream/speech-text-en/clustering-subsystem/gutenberg-body.yaml");
+            sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/CorpusSubsystem/GutenbergBody.cs");
+            testFiles = ("test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/GutenbergBodyTests.cs");
+            designFiles = ("docs/design/speech-text-en/corpus-subsystem/gutenberg-body.md");
+            verificationFiles = ("docs/verification/speech-text-en/corpus-subsystem/gutenberg-body.md");
+            requirementFiles = ("docs/reqstream/speech-text-en/corpus-subsystem/gutenberg-body.yaml");
         }
     }
 }

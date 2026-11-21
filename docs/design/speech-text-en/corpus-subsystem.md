@@ -1,5 +1,7 @@
 ## CorpusSubsystem Design
 
+![CorpusSubsystem Structure](TextEnCorpusSubsystemView.svg)
+
 ### Overview
 
 The SpeechTextEn CorpusSubsystem is the `corpus` command of the Text.En trainer
