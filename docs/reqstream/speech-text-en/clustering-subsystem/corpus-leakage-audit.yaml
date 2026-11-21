@@ -2,7 +2,7 @@
 # Software Unit Requirements for CorpusLeakageAudit
 #
 # These requirements describe the design-level behavior of the CorpusLeakageAudit unit, the part of the Text.En trainer
-# that compares the word-cluster corpus with every evaluation sentence and records the removals, decomposing the parent
+# that compares the public-domain corpus with every evaluation sentence and records the removals, decomposing the parent
 # SpeechTextEn ClusteringSubsystem requirements. Each requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystem/CorpusLeakageAuditTests.cs.
@@ -63,7 +63,7 @@ sections:
                   evaluation file, or rows that are not unique and sorted.
                 justification: |
                   The removals are reviewed and committed; they hold only ids and hashes, never corpus text, and the
-                  hash of each removed sentence lets the reader prove the list still fits the corpus.
+                  hash of each removed sentence lets a later user of the corpus prove the list still fits it.
                 tests:
                   - CorpusLeakageAudit_WriteAndParse_RoundTripAndValidation
 

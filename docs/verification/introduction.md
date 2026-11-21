@@ -95,11 +95,11 @@ The following software items of the SpeechTextEn system are also covered; it is 
   datasets and books that the tests build in code (and once over the real committed data): the
   **TrainingDataSubsystem** (the `check-data` command that verifies the training data in `data/text-en/`: the strict
   file reader, the typed loader, the manifest verifier, the span validator, the finding collector, the schema,
-  license, leakage, evaluation-overlay and word-cluster checks and the command entry), the **TrainingSubsystem** (the
+  license, leakage, evaluation-overlay and corpus checks and the command entry), the **TrainingSubsystem** (the
   `train` and `evaluate` commands, including the overlay evaluation with and without the cue priors), the
   **ExternalEvaluationSubsystem** (the `evaluate-external` command, offline on fake datasets) and the
-  **ClusteringSubsystem** (the `cluster` command, offline on generated books served by a fake mirror, with golden
-  results of a fixed-input clustering that every CI platform must reproduce)
+  **ClusteringSubsystem** (the `cluster` command that fetches and audits the public-domain corpus, offline on
+  generated books served by a fake mirror)
 - **SpeechPhonemesEn (System)** — The `DemaConsulting.Speech.Phonemes.En` English phonemizer package (a preview),
   verified through its public API with golden corpora (sentences, readings, out-of-vocabulary words and both
   renderers) and symbol-coverage gates against the Piper symbol table and the Kokoro vocabulary, with its

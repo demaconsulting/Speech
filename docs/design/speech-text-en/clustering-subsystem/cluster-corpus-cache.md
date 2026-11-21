@@ -1,8 +1,8 @@
 ### ClusterCorpusCache
 
-**Purpose**: Hold the source list of the word-cluster corpus, fetch each used book from an official mirror with a polite
-rate limit, pin and verify its normalized body and hand out only bodies that match their pins. It is the only unit that
-reaches the network or opens a file of the corpus cache.
+**Purpose**: Hold the source list of the public-domain corpus, fetch each used book from an official mirror with a
+polite rate limit, pin and verify its normalized body and hand out only bodies that match their pins. It is the only
+unit that reaches the network or opens a file of the corpus cache.
 
 **Data Model** (internal types):
 

@@ -271,9 +271,6 @@ includes:
   - docs/reqstream/speech-text-en/clustering-subsystem/corpus-snapshot.yaml
   - docs/reqstream/speech-text-en/clustering-subsystem/corpus-leakage-audit.yaml
   - docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-reader.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/cluster-inducer.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/word-cluster-table.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/clustering-record.yaml
   - docs/reqstream/speech-text-en/clustering-subsystem/cluster-command.yaml
   - docs/reqstream/speech-phonemes-en.yaml
   - docs/reqstream/speech-phonemes-en/lexicon-subsystem.yaml

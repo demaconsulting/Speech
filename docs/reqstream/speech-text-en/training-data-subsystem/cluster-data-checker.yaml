@@ -2,9 +2,8 @@
 # Software Unit Requirements for ClusterDataChecker
 #
 # These requirements describe the design-level behavior of the ClusterDataChecker unit, the offline check
-# of the committed word-cluster files of the Text.En data folder (the pinned source list cluster-sources.tsv,
-# the audit removals cluster-removals.tsv, the table word-clusters.tsv and the record clustering.json),
-# decomposing the parent SpeechTextEn TrainingDataSubsystem requirements. Each requirement states one
+# of the committed corpus files of the Text.En data folder (the pinned source list cluster-sources.tsv and
+# the audit removals cluster-removals.tsv), decomposing the parent SpeechTextEn TrainingDataSubsystem requirements. Each requirement states one
 # observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingDataSubsystem/ClusterDataCheckerTests.cs.
@@ -19,12 +18,11 @@ sections:
               - id: SpeechTextEn-TrainingData-ClusterDataChecker-Presence
                 title: >-
                   The ClusterDataChecker class shall skip its checks with an informational line when the data
-                  folder holds none of the four word-cluster files, and shall report a finding for each of them
-                  that is missing when the folder holds at least one.
+                  folder holds neither of the two corpus files, and shall report a finding for the one that is
+                  missing when the folder holds the other.
                 justification: |
-                  The table, its inputs and its record only make sense together; a folder with some of them
-                  would ship a table that cannot be traced, while a data folder before the first induction (or a
-                  test fixture) has none of them.
+                  The removals only make sense for the pinned books they name, and the pins only for a corpus
+                  whose removals were reviewed; a data folder without a corpus (or a test fixture) has neither.
                 tests:
                   - ClusterDataChecker_Run_NoFiles_IsSkipped
                   - ClusterDataChecker_Run_OneFileMissing_IsFinding
@@ -54,8 +52,8 @@ sections:
                   used whose source identifier is the source document of a development or natural-holdout row in
                   the harvest provenance.
                 justification: |
-                  A book that holds evaluation sentences must never shape the word classes the model is later
-                  measured with; the provenance is re-read on every run, so a later data change that moves a
+                  A book that holds evaluation sentences must never be part of a corpus that later features of the
+                  model may be learned from; the provenance is re-read on every run, so a later data change that moves a
                   book into an evaluation split is caught.
                 tests:
                   - ClusterDataChecker_Run_UsedDevelopmentOrHoldoutBook_IsLeakage
@@ -73,49 +71,3 @@ sections:
                 tests:
                   - ClusterDataChecker_Run_InvalidRemoval_IsFinding
                   - ClusterDataChecker_Run_UnsortedRemovals_IsFinding
-
-              - id: SpeechTextEn-TrainingData-ClusterDataChecker-Table
-                title: >-
-                  The ClusterDataChecker class shall report a finding for a table row whose word is empty, longer
-                  than 40 characters or has a character outside the eligible set, whose words are not unique and
-                  in ordinal order, whose path is not a bit string or whose count is not a canonical positive
-                  integer, for a path that is a prefix of another, for a count below the record's minimum count,
-                  and for more distinct paths than the record's number of clusters.
-                justification: |
-                  The runtime reads the table as a sorted list of leaf paths of one binary hierarchy; an unsorted
-                  table, a prefix path or a foreign character would change what a lookup returns on some
-                  platforms.
-                tests:
-                  - ClusterDataChecker_Run_InvalidTable_IsFinding
-
-              - id: SpeechTextEn-TrainingData-ClusterDataChecker-Record
-                title: >-
-                  The ClusterDataChecker class shall report a finding when clustering.json is unreadable or of
-                  another schema, when its SHA-256 of the source list, the removals or the table differs from the
-                  committed file, when its number of used and other books differs from the source list, when its
-                  number of words and paths differs from the table, and when its tokenizer version differs from
-                  the tokenizer version of the build, and shall say so instead when no tokenizer version is given.
-                justification: |
-                  The full induction is a manual, long-running command, so this cheap offline comparison is the
-                  gate that runs on every change: an edited pin, removal or table, or a tokenizer upgrade that
-                  moves the sentence boundaries the removals refer to, fails the data check until the table is
-                  induced again. The hash of the evaluation files is not gated, because every development-data
-                  edit would otherwise force a new induction; it is reported instead (see EvaluationDrift).
-                tests:
-                  - ClusterDataChecker_Run_FileChangedAfterInduction_RecordIsStale
-                  - ClusterDataChecker_Run_TokenizerVersion_IsCompared
-                  - ClusterDataChecker_Run_RecordCountsDiffer_IsFinding
-                  - ClusterDataChecker_Run_UnreadableRecord_IsFinding
-
-              - id: SpeechTextEn-TrainingData-ClusterDataChecker-EvaluationDrift
-                title: >-
-                  The ClusterDataChecker class shall add an information line, and no finding, when the SHA-256 of
-                  the listing of the five evaluation files differs from the evaluationListingSha256 of
-                  clustering.json, naming both hashes and the manual audit that tells whether the removals are
-                  still current, and shall add no such line when they are equal.
-                justification: |
-                  Development data grows without a new induction, so an evaluation-file edit must not fail the
-                  data check; but the audit removals were computed against the recorded evaluation files, and a
-                  reviewer must be able to see on every run that they may be stale.
-                tests:
-                  - ClusterDataChecker_Run_EvaluationFilesChanged_InformsWithoutFinding

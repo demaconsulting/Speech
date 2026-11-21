@@ -2,15 +2,12 @@
 # Software Subsystem Requirements for the SpeechTextEn ClusteringSubsystem
 #
 # These requirements describe the subsystem-level behavior of the SpeechTextEn ClusteringSubsystem,
-# decomposing the system-level requirement SpeechTextEn-Training-WordClasses in docs/reqstream/speech-text-en.yaml.
+# decomposing the system-level requirement SpeechTextEn-Training-PublicDomainCorpus in docs/reqstream/speech-text-en.yaml.
 # The subsystem is the non-shipped cluster command of the Text.En trainer (tools/DemaConsulting.Speech.Text.En.Trainer):
-# it fetches and pins a public-domain book corpus from an official mirror, audits it against every evaluation set,
-# counts it with the analyzer's own tokenizer, induces hierarchical word classes deterministically and writes the
-# word-cluster table, its record and a byte-reproducible snapshot of the corpus. It consists of the body extraction
-# (GutenbergBody), the corpus cache (ClusterCorpusCache), the snapshot (CorpusSnapshot), the leakage audit
-# (CorpusLeakageAudit), the reader (ClusterCorpusReader), the clusterer (ClusterInducer), the table
-# (WordClusterTable), the record (ClusteringRecord) and the command (ClusterCommand). Each requirement states one
-# observable behavior.
+# it fetches and pins a public-domain book corpus from an official mirror and audits it against every evaluation set
+# with the analyzer's own tokenizer. It consists of the body extraction (GutenbergBody), the corpus cache
+# (ClusterCorpusCache), the snapshot (CorpusSnapshot), the reader (ClusterCorpusReader), the leakage audit
+# (CorpusLeakageAudit) and the command (ClusterCommand). Each requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under docs/reqstream/speech-text-en/clustering-subsystem/. Covered by
 # test/DemaConsulting.Speech.Text.En.Trainer.Tests/ClusteringSubsystemTests.cs.
@@ -29,10 +26,10 @@ sections:
               and use a book only when its cached or archived body matches its pin, exiting with 2 and writing
               nothing when one does not.
             justification: |
-              The table may only come from books whose public-domain status is recorded, fetched in the way the
+              The corpus may only come from books whose public-domain status is recorded, fetched in the way the
               archive asks automated clients to use it. Pinning each body makes the corpus fixed, so a later
-              edition, a damaged download or a hand edit of the cache cannot change the table unnoticed, and a
-              pin is never overwritten, so a changed book shows up as a failure instead of a new pin.
+              edition, a damaged download or a hand edit of the cache cannot change it unnoticed, and a pin is
+              never overwritten, so a changed book shows up as a failure instead of a new pin.
             children:
               - SpeechTextEn-Clustering-GutenbergBody-Body
               - SpeechTextEn-Clustering-GutenbergBody-Reject
@@ -41,108 +38,60 @@ sections:
               - SpeechTextEn-Clustering-ClusterCorpusCache-PoliteFetch
               - SpeechTextEn-Clustering-ClusterCorpusCache-VerifiedBodies
               - SpeechTextEn-Clustering-ClusterCorpusCache-Cancellation
+              - SpeechTextEn-Clustering-ClusterCorpusCache-Snapshot
+              - SpeechTextEn-Clustering-CorpusSnapshot-Read
               - SpeechTextEn-Clustering-ClusterCommand-Fetch
             tests:
-              - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
+              - ClusteringSubsystem_Cluster_FetchAudit_EndToEnd
               - ClusteringSubsystem_Cluster_TamperedCache_IsRefused
 
           - id: SpeechTextEn-Clustering-LeakageAudit
             title: >-
-              The ClusteringSubsystem shall find every corpus sentence that repeats or nearly repeats a sentence of
-              the development, natural holdout, independent holdout, regression and generalization files, or that
-              belongs to a corpus passage quoting one, report the removals per evaluation file and rule, write them
-              to a reviewable list on request, leave the removed sentences out of every count, and refuse to induce a
-              table while the committed list differs from what the audit finds.
+              The ClusteringSubsystem shall split the corpus into sentences with the analyzer's own tokenizer, find
+              every corpus sentence that repeats or nearly repeats a sentence of the development, natural holdout,
+              independent holdout, regression and generalization files, or that belongs to a corpus passage quoting
+              one, report the removals per evaluation file and rule, write them to a reviewable list on request, and
+              report the committed list as current or stale.
             justification: |
               Excluding the books that hold evaluation sentences does not catch another edition, an anthology or a
-              quotation in another book. A class learned from an evaluation sentence would make every later
+              quotation in another book. A feature learned from an evaluation sentence would make every later
               measurement on that sentence too good, so the corpus is compared by content with every evaluation set
-              and the overlap is removed, counted and committed for review before any table is built from it.
+              and the overlap is listed and committed for review before the corpus is used.
             children:
               - SpeechTextEn-Clustering-CorpusLeakageAudit-Rules
               - SpeechTextEn-Clustering-CorpusLeakageAudit-Attribution
               - SpeechTextEn-Clustering-CorpusLeakageAudit-Counts
               - SpeechTextEn-Clustering-CorpusLeakageAudit-RemovalsFile
               - SpeechTextEn-Clustering-CorpusLeakageAudit-EvaluationSentences
-              - SpeechTextEn-Clustering-ClusterCorpusReader-Removals
+              - SpeechTextEn-Clustering-ClusterCorpusReader-Tokenization
               - SpeechTextEn-Clustering-ClusterCommand-Audit
             tests:
               - ClusteringSubsystem_Cluster_BookQuotingEvaluation_SentenceRemoved
 
-          - id: SpeechTextEn-Clustering-RuntimeKeys
-            title: >-
-              The ClusteringSubsystem shall split and normalize the corpus with the analyzer's own tokenizer and
-              lower-case rule, so that every table word is the analyzer's lookup key of itself, stop with an error if
-              a word does not hash to the analyzer's key, leave out of the table every word whose lookup hash is
-              shared with another vocabulary word, and report, before a vocabulary size is chosen, the token
-              coverage of each candidate size and the count, rank and cut status of each nominated word without
-              reading the generalization set.
-            justification: |
-              The analyzer looks a word up by the hash of its normalized form; a table built with any other
-              tokenization or normalization would hold words that are never found. When two words share a hash, a
-              lookup of either would return whichever entry was kept, so a word would silently inherit another
-              word's class; leaving out every such word prevents it. The preflight lets the vocabulary size be chosen
-              by a rule fixed in advance, and it never reads the generalization set so that no choice is tuned to
-              the test.
-            children:
-              - SpeechTextEn-Clustering-ClusterCorpusReader-Tokenization
-              - SpeechTextEn-Clustering-ClusterCorpusReader-RuntimeKeys
-              - SpeechTextEn-Clustering-ClusterCorpusReader-Counts
-              - SpeechTextEn-Clustering-WordClusterTable-Collisions
-              - SpeechTextEn-Clustering-ClusterCommand-Preflight
-            tests:
-              - ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys
-              - ClusteringSubsystem_CommittedTable_WordsAreUniqueRuntimeKeys
-
           - id: SpeechTextEn-Clustering-Deterministic
             title: >-
-              The ClusteringSubsystem shall induce hierarchical word classes in which each merge loses the least
-              mutual information between adjacent classes, and produce byte-identical tables, records, removal lists
-              and snapshots for any number of worker threads and on every supported operating system.
+              The ClusteringSubsystem shall produce byte-identical removal lists and snapshots for any number of
+              worker threads and on every supported operating system.
             justification: |
-              The table is reviewed and committed, and the record claims which inputs produced it. That claim can
-              only be checked when the same inputs always give the same bytes, on the developer's machine, on every
-              continuous-integration system and with any number of threads; a fixed-input golden result in the tests
-              lets every continuous-integration platform confirm it.
+              The removal list is reviewed and committed. Whether it is still current can only be checked when the
+              same inputs always give the same bytes, on the developer's machine, on every continuous-integration
+              system and with any number of threads.
             children:
-              - SpeechTextEn-Clustering-ClusterInducer-Classes
-              - SpeechTextEn-Clustering-ClusterInducer-Determinism
-              - SpeechTextEn-Clustering-ClusterInducer-TieBreak
-              - SpeechTextEn-Clustering-ClusterInducer-InputValidation
-              - SpeechTextEn-Clustering-ClusterCorpusReader-Determinism
+              - SpeechTextEn-Clustering-CorpusLeakageAudit-Attribution
               - SpeechTextEn-Clustering-CorpusSnapshot-Reproducible
-            tests:
-              - ClusteringSubsystem_Cluster_DifferentThreadCounts_IdenticalFiles
-              - ClusteringSubsystem_Cluster_FixtureCorpus_GoldenTable
-
-          - id: SpeechTextEn-Clustering-RecordAndCheck
-            title: >-
-              The ClusteringSubsystem shall write the word-cluster table together with a record of its settings, the
-              hashes of the source list, the removal list and the evaluation files, the tokenizer version, the
-              snapshot hash, the corpus counts and the table hash; keep a byte-reproducible snapshot archive of the
-              corpus; on request repeat the whole induction with the recorded settings, from the cache or from the
-              snapshot alone, and report each output, the existing snapshot included, as current or stale without
-              writing or repairing any of them; print progress, an estimate of the time
-              left and the time of each stage; and exit with 0 when done or current, 1 when an output is stale or a
-              book failed, and 2 for a usage, input or data error.
-            justification: |
-              The record is the evidence of the table's origin: it ties the table to exact inputs so that an offline
-              check can find a table, list or tokenizer that no longer belongs together, and the full re-induction
-              proves the table is what those inputs produce. The snapshot keeps the corpus reproducible when the
-              mirror changes. The induction is long, so progress and timings let the owner plan and benchmark it,
-              and the exit codes let a script use the result.
-            children:
-              - SpeechTextEn-Clustering-ClusteringRecord-Format
-              - SpeechTextEn-Clustering-ClusteringRecord-Parse
-              - SpeechTextEn-Clustering-WordClusterTable-Format
-              - SpeechTextEn-Clustering-CorpusSnapshot-Read
               - SpeechTextEn-Clustering-CorpusSnapshot-Measure
-              - SpeechTextEn-Clustering-ClusterCorpusCache-Snapshot
-              - SpeechTextEn-Clustering-ClusterInducer-Progress
-              - SpeechTextEn-Clustering-ClusterCommand-WriteAndCheck
+            tests:
+              - ClusteringSubsystem_Cluster_DifferentThreadCounts_IdenticalRemovals
+
+          - id: SpeechTextEn-Clustering-CommandLine
+            title: >-
+              The ClusteringSubsystem shall run exactly one of the fetch and audit modes per run, print counts, ids,
+              hashes and timings but never corpus text, and exit with 0 when done or current, 1 when the removals
+              are stale or a book failed, and 2 for a usage, input or data error.
+            justification: |
+              The commands are run by hand for network-bound or long work; the exit codes let a script use the
+              result, and the console never repeats corpus text, so a log can be shared.
+            children:
               - SpeechTextEn-Clustering-ClusterCommand-Usage
             tests:
-              - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
-              - ClusteringSubsystem_Cluster_EditedTable_CheckIsStale
-              - ClusteringSubsystem_Cluster_FromSnapshot_ReproducesTable
-              - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck
+              - ClusteringSubsystem_Cluster_FetchAudit_EndToEnd

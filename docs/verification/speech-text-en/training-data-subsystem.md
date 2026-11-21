@@ -30,8 +30,8 @@ stated order, share one report and agree on the exit codes.
   and the real committed data pass every check with exit code 0 and the summary `check-data: OK (0 findings)` (the
   fixture run also says that the optional external check was skipped); each of eight single violations (a missing final
   newline, an unknown reading, a restricted license, an evaluation-only file name, a duplicate sentence, a wrong
-  seen mark of the regression overlay, a word-cluster table edited after its record was written and a used corpus book
-  that is a development document) gives exit code 1 with a line that names its check.
+  seen mark of the regression overlay, a used corpus book without a pin and a used corpus book that is a development
+  document) gives exit code 1 with a line that names its check.
 - **Manifest** (`FileFormat`): a changed file is named in a manifest finding until the manifest is regenerated, and then
   the data passes.
 - **External sets** (`LeakageGate`): an evaluation folder with a sentence equal to a row gives an exact-match finding.
@@ -40,9 +40,9 @@ stated order, share one report and agree on the exit codes.
   with the generic reason and no training row named; every golden and test reference of the committed regression
   overlay resolves to a line or row of the repository's test files or run log that holds its sentence (and, where the
   file names one, its reading).
-- **Word-cluster files** (`ClusterChecks`): a table edited after its record was written gives exit code 1 with a
-  `clusters` finding, and a used corpus book that is the source document of a development row gives a `leakage`
-  finding; the committed folder, with its committed table and record, passes with the tokenizer version of this build.
+- **Corpus files** (`ClusterChecks`): a used corpus book without a pin gives exit code 1 with a `clusters` finding, and
+  a used corpus book that is the source document of a development row gives a `leakage` finding; the committed folder,
+  with its committed pins and removals, passes.
 
 ### Test Scenarios
 
@@ -62,10 +62,10 @@ that the repository's data is open, consistent, separated and documented.
 
 A theory over eight named mutations of the valid fixture, one per check family: the format, the schema, the licenses (a
 share-alike license and a file named after an evaluation-only corpus), the separation of the splits (a duplicate
-sentence), the evaluation overlays (a wrong seen mark) and the word-cluster files (a consistent set of word-cluster
-files, then an edited table, or a development document as a used book). Each mutation recomputes the manifest and runs
-the command; the exit code is 1 and the output contains a line that names the expected check and the failure summary.
-The finer cases of each check are unit-level tests.
+sentence), the evaluation overlays (a wrong seen mark) and the corpus files (a consistent pair of corpus files, then a
+used book without a pin, or a development document as a used book). Each mutation recomputes the manifest and runs the
+command; the exit code is 1 and the output contains a line that names the expected check and the failure summary. The
+finer cases of each check are unit-level tests.
 
 #### Manifest drift
 

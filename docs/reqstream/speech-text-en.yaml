@@ -573,44 +573,37 @@ sections:
           - TrainingSubsystem_Evaluate_Overlays_ReportedWithAndWithoutCuesAndAppendedToRecord
           - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
 
-      - id: SpeechTextEn-Training-WordClasses
+      - id: SpeechTextEn-Training-PublicDomainCorpus
         title: >-
-          The repository shall provide a command that induces a table of hierarchical word classes only from a
-          pinned list of US public-domain books obtained from an official Project Gutenberg mirror and verified
-          against their pins, that excludes every passage repeating or nearly repeating a sentence of the
-          development, holdout, regression or generalization data and reports the removals, that keys every
-          table word exactly as the analyzer looks a word up and leaves out every word whose lookup key is
-          shared, and that produces the same table on every run, for any number of threads and on every
-          supported operating system, together with a record of its settings, input hashes and table hash and a
-          way to re-verify the table against a fresh induction. The data check shall fail when the committed
-          table, pin list, removal list or tokenizer version no longer matches the record.
+          The repository shall provide a command that obtains a pinned list of US public-domain books only
+          from an official Project Gutenberg mirror, verifies each book against its pin and reports every book
+          whose text no longer matches its pin, and finds every corpus sentence that repeats, nearly repeats or
+          quotes a sentence of the development, holdout, regression or generalization data, writing the
+          removals to a reviewable list and reporting whether the committed list is current. The data check
+          shall fail when the pin list or the removal list is malformed or a used book is a development or
+          natural-holdout document.
         tags: [system]
         justification: |
-          Word classes induced from a large public-domain corpus let a later model generalize from the words
-          it was trained on to words of the same kind. The table can only ship when its origin is clean and
-          checkable: the books must be in the public domain in the USA and fetched politely from an official
-          mirror, each pinned so the corpus cannot drift, and no evaluation sentence may reach the corpus,
-          because a class learned from a test sentence would inflate every later measurement. A word whose
-          lookup key collides with another word's would silently take that word's class, so such keys are
-          left out. A table that differs between machines or thread counts could not be reviewed or
-          reproduced, so the induction is deterministic, its inputs are recorded by hash, and a full
-          re-induction can show that the committed table is exactly what the recorded inputs produce. The full
-          re-induction is manual, so the data check that runs on every change compares the record with the
-          committed files and the tokenizer instead, which catches any later edit or upgrade cheaply.
+          A large public-domain corpus is the input of later context features of the heteronym model (word
+          vectors or word classes). It can only be used when its origin is clean and checkable: the books must
+          be in the public domain in the USA and fetched politely from an official mirror, and each is pinned
+          so the corpus cannot drift unnoticed; a changed book fails instead of being re-pinned silently. No
+          evaluation sentence may reach a feature learned from the corpus, because it would inflate every later
+          measurement, so the corpus is compared by content with every evaluation set and the overlap is listed
+          for review. Fetching and auditing need the network or a local cache, so the data check that runs on
+          every change keeps the committed pins and removals well formed and every evaluation book out of the
+          corpus instead.
         children:
           - SpeechTextEn-Clustering-PinnedCorpus
           - SpeechTextEn-Clustering-LeakageAudit
-          - SpeechTextEn-Clustering-RuntimeKeys
           - SpeechTextEn-Clustering-Deterministic
-          - SpeechTextEn-Clustering-RecordAndCheck
+          - SpeechTextEn-Clustering-CommandLine
           - SpeechTextEn-TrainingData-ClusterChecks
         tests:
-          - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
-          - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck
+          - ClusteringSubsystem_Cluster_FetchAudit_EndToEnd
           - ClusteringSubsystem_Cluster_BookQuotingEvaluation_SentenceRemoved
-          - ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys
-          - ClusteringSubsystem_Cluster_DifferentThreadCounts_IdenticalFiles
-          - ClusteringSubsystem_Cluster_FixtureCorpus_GoldenTable
+          - ClusteringSubsystem_Cluster_TamperedCache_IsRefused
+          - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck
 
       - id: SpeechTextEn-Evaluation-ExternalFetchOnly
         title: >-

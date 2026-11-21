@@ -30,10 +30,9 @@ summary is not legal advice.
   under CC0 1.0 by DEMA Consulting, and they are marked as model-written in the provenance files.
 - **Evaluation-only datasets.** The external datasets (WikipediaHomographData and heteronym-bench) are fetched at
   evaluation time and never committed; only id-to-id mapping tables are in the repository.
-- **Word-cluster corpus.** The corpus for the word-cluster table is 280 Project Gutenberg books that are in the public
+- **Public-domain corpus.** The corpus kept for later features is 280 Project Gutenberg books that are in the public
   domain in the United States, each pinned in `data/text-en/cluster-sources.tsv` by the SHA-256 of its text with the
-  basis of its public-domain status. The book texts are never committed. The resulting table is CC0 1.0 and is not yet
-  used by any model.
+  basis of its public-domain status. The book texts are never committed, and no model uses the corpus.
 
 ## Voices
 

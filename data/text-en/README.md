@@ -31,10 +31,8 @@ recorded per file and per row. Nothing here is legal advice.
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
 | [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
 | [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 80 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
-| [cluster-sources.tsv](cluster-sources.tsv) | 336 | the word-cluster corpus: every candidate Project Gutenberg book with its US public-domain basis, mirror URL and, for the 280 used books, the SHA-256 and size of its normalized body; 45 development and holdout books excluded and 11 domain candidates rejected, each with the reason; for every domain book, the publication year and its evidence (see "Word-Cluster Corpus") | CC0-1.0 |
+| [cluster-sources.tsv](cluster-sources.tsv) | 336 | the public-domain corpus: every candidate Project Gutenberg book with its US public-domain basis, mirror URL and, for the 280 used books, the SHA-256 and size of its normalized body; 45 development and holdout books excluded and 11 domain candidates rejected, each with the reason; for every domain book, the publication year and its evidence (see "Public-Domain Corpus") | CC0-1.0 |
 | [cluster-removals.tsv](cluster-removals.tsv) | 6 | the corpus sentences the leakage audit removed, by book, paragraph, sentence and SHA-256 (no text) | CC0-1.0 |
-| [word-clusters.tsv](word-clusters.tsv) | 60,000 | the word-cluster table: one row per word (`word path count`), 512 clusters of a binary hierarchy induced from the corpus; not yet used by any model | CC0-1.0 |
-| [clustering.json](clustering.json) | | the record of the table: settings, the hashes of its inputs, the tokenizer version, the snapshot hash, the corpus counts and the table hash; verified by `check-data` | CC0-1.0 |
 | [audit/](audit/audit-summary.md) | 7 files | blind relabel audit, adjudication, holdout review, final review and the generalization review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review, the blind label review of the generalization set | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
@@ -265,12 +263,13 @@ unchanged and the row stays in the set. No accuracy of the generalization set ha
 logged in the trainer's `RUN-LOG.md` and in [the prompt's record](prompts/generalization.md); the frozen set was 81
 `cue_unsolvable=yes` rows (27 `novel-construction`) before it.
 
-## Word-Cluster Corpus
+## Public-Domain Corpus
 
-`word-clusters.tsv` assigns each of 60,000 frequent words to one of 512 classes of words that occur in similar contexts
-(Brown-style clusters with a bit-string path). The classes are induced by the trainer's `cluster` command from public-domain
-books only; no model uses them yet. The book texts are never committed: they are fetched into the git-ignored
-`external/cluster-corpus/` and pinned by hash.
+The trainer's `cluster` command fetches a corpus of US public-domain books and audits it against every evaluation set,
+so that a later context feature (word vectors or word classes) can be learned from a corpus whose origin and overlap
+with the evaluation data are on record. No model uses the corpus. Word classes induced from it were tried and removed
+after they did not improve the model (see the trainer's `RUN-LOG.md`, the PR B entries). The book texts are never
+committed: they are fetched into the git-ignored `external/cluster-corpus/` and pinned by hash.
 
 **Books.** `cluster-sources.tsv` lists 336 Project Gutenberg books; the 280 with status `used` form the corpus:
 
@@ -297,25 +296,31 @@ Every book was fetched only from the official mirror `gutenberg.pglaf.org` (neve
 time at least 2 seconds apart. The body is the text between the start and end markers, without the transcriber credits,
 the license and every paragraph that names Project Gutenberg; its SHA-256 and size are the pin.
 
-**Leakage audit.** Before clustering, every corpus sentence was compared with every sentence of `dev.tsv`,
+**Leakage audit.** Every corpus sentence was compared with every sentence of `dev.tsv`,
 `holdout-natural.tsv`, `holdout-independent.tsv`, `regression.tsv` and `generalization.tsv` (the same keys and thresholds
 as the leakage check): equal sentences, near duplicates and evaluation sentences quoted inside a corpus paragraph. **6
 corpus sentences in 5 books** were removed (two development, two natural-holdout and two regression sentences, quoted in
 other books; none of the independent holdout or the generalization set); `cluster-removals.tsv` lists them by position
 and hash.
 
-**Table and record.** 512 clusters over the 60,000 most frequent words with a count of at least 5 (99.11 percent of the
-31,278,354 corpus tokens). The size of 60,000 was chosen by a rule fixed before the count was seen: the smallest of
-30,000 to 75,000 words that holds every nominated cue word with a count of at least 5 (here *hamstring*, rank 53,751).
-Words are normalized exactly as the analyzer looks them up; a word whose lookup hash another table word shares would be
-left out (none was). `clustering.json` records the settings, the SHA-256 of `cluster-sources.tsv`, `cluster-removals.tsv`
-and the table, the hash of the evaluation files, the tokenizer version and the SHA-256 of a byte-reproducible snapshot
-archive of the corpus (153 MB, kept locally and not published). The induction is deterministic: one thread and 28
-threads give the same bytes, and the run log of the trainer records the full re-induction check.
+**Identity, drift and re-pinning.** The identity of the corpus is the per-book `body_sha256` and `body_bytes` pins
+of `cluster-sources.tsv`; there is no separate archive. `cluster --fetch` into an empty cache reproduces the corpus bit
+for bit when every book is `fetched` or `cached`. A book whose mirror text no longer matches its pin is reported as
+`failed: the mirror's text differs from the pin` and the run exits 1; a pin is never overwritten. For each such book:
 
-**Checks.** `check-data` verifies the three tables and that `clustering.json` still matches them and the tokenizer of the
-trainer build; an edit of a pin, a removal or the table, or a tokenizer upgrade, fails it until the table is induced again
-(see the trainer's README, `cluster`).
+1. Inspect the new text and decide to keep or drop the book (a reviewer judgment, as for any edit of
+   `cluster-sources.tsv`).
+2. To keep it, write `-` in its `body_sha256` and `body_bytes` and run `cluster --fetch --write-pins`, which fills only
+   rows without a pin. `check-data` rejects a used book without a pin, so both edits are committed together.
+3. To drop it, set its status to `rejected-content` with no pin.
+4. Run `cluster --audit` (exit 1 when `cluster-removals.tsv` is stale), review the removals, then run
+   `cluster --audit --write`.
+5. Regenerate `MANIFEST.tsv`, run `check-data`, and record the re-pin in the trainer's `RUN-LOG.md`.
+
+**Checks.** `check-data` verifies the schema of both tables, the pin and the public-domain basis of every used book, and
+that no used book is a development or natural-holdout document. It cannot tell whether the removals are still current
+(the audit needs the corpus cache, which CI does not have): `cluster --audit` compares them byte for byte and must be
+re-run before the corpus is next used (see the trainer's README, `cluster`).
 
 ## Harvest rules
 
@@ -458,9 +463,8 @@ What the command enforces, in this order:
 5. **Internal separation**: a sentence is in only one data file, a natural document is in only one split, and a synthetic (reading, template) pair is in only one data file.
 6. **Evaluation overlays**: the rules of "Evaluation Overlays" for `regression.tsv` and `generalization.tsv` (or the staged copy given with `--generalization`). In the
    overlays, every cell except the sentence is scanned for the forbidden terms of step 4.
-7. **Word clusters**: the schema of `cluster-sources.tsv`, `cluster-removals.tsv` and `word-clusters.tsv`; no `used` book is a development or natural-holdout document;
-   and `clustering.json` matches the SHA-256 of the three files, their book, word and path counts, and the tokenizer version of the trainer build. Only the header of
-   `word-clusters.tsv` is scanned for the forbidden terms of step 4 (its rows are corpus words).
+7. **Corpus files**: the schema of `cluster-sources.tsv` and `cluster-removals.tsv`, a pin and a public-domain basis for every `used` book, and no `used` book is a
+   development or natural-holdout document.
 
 ### External leakage check (optional)
 
@@ -480,7 +484,7 @@ is all a regeneration needs.
 ### Review of the data files
 
 The large TSV files (`train.tsv`, `dev.tsv`, `holdout-natural.tsv`, `holdout-independent.tsv`, both provenance tables, `exclusions.tsv`, `gaps-v4.tsv`, `extension-candidates.tsv`,
-`audit/*.tsv` except `audit/generalization-review.tsv`, `word-clusters.tsv` (also pinned by `clustering.json`), and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
+`audit/*.tsv` except `audit/generalization-review.tsv`, and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
 any change of any file changes it), by the `check-data` gates, by the documented second-model audits (see Audit), and by a sampled review recorded in the pull request.
 
 ### How the files were built

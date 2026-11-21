@@ -21,9 +21,8 @@ altered, mislabeled, restricted, undocumented or leaking evaluation material. It
 - **LeakageChecker**: the internal split separation checks and the optional check against external evaluation sets
 - **EvaluationOverlayChecker**: the checks of the regression overlay and of the blind generalization set (references,
   seen-in-training marks, holdout separation, novelty and the quotas of the set)
-- **ClusterDataChecker**: the offline checks of the committed word-cluster files (the schema of the source list, the
-  removals and the table, the document-level leakage rule of the corpus, and the record's hashes, counts and tokenizer
-  version against the committed files and the build)
+- **ClusterDataChecker**: the offline checks of the committed corpus files (the schema of the source list and the
+  removals, the pins of the used books, and the document-level leakage rule of the corpus)
 - **CheckDataCommand**: the command line entry that orchestrates the other units (the `Program.cs` glue of the tool
   dispatches to it)
 
@@ -58,8 +57,7 @@ and runs the checks in a fixed order, each of which adds findings to the report 
 5. `LeakageChecker` checks the separation of the splits.
 6. `EvaluationOverlayChecker` checks the regression overlay and the generalization set (or, with `--generalization`,
    a staged copy of the set in place of the committed one).
-7. `ClusterDataChecker` checks the word-cluster files against `clustering.json` and the tokenizer version the program
-   passes in (skipped when the folder has no word-cluster file).
+7. `ClusterDataChecker` checks the corpus pins and removals (skipped when the folder has neither file).
 8. `LeakageChecker`, only when an evaluation folder is supplied, compares the rows with the sentences of the external
    evaluation sets.
 9. `CheckReport` prints the summary and gives the exit code.
@@ -108,14 +106,10 @@ The files and their columns are:
   of the classifier cannot solve the row; committed with its header only until a blind writer had written it, then
   frozen with 242 rows
 - `cluster-sources.tsv` (`source_id group title author year url license_basis basis_ref body_sha256 body_bytes
-  status`): every candidate book of the word-cluster corpus with its US public-domain basis, its mirror URL and, for a
+  status`): every candidate book of the public-domain corpus with its US public-domain basis, its mirror URL and, for a
   used book, the SHA-256 and size of its normalized body; excluded and rejected books stay listed with `-` pins
 - `cluster-removals.tsv` (`source_id paragraph sentence rule eval_file eval_id text_sha256`): the corpus sentences
   the leakage audit removed, by position and hash only
-- `word-clusters.tsv` (`word path count`): the induced word-cluster table, one row per word in ordinal order; a large
-  table, pinned by the manifest and the record
-- `clustering.json`: the record of the table (settings, input hashes, tokenizer version, snapshot hash, corpus counts
-  and table hash)
 - `MANIFEST.tsv` (`file sha256 bytes rows`): the pinned hash, size and row count of every other file
 - the other tables, `README.md`, `ATTRIBUTION.md`, `audit/`, `prompts/` and `check-output.txt`: documentation and
   records, covered by the manifest
@@ -149,13 +143,12 @@ the checks are committed, and a header-only file was valid until then (and stays
 repository is checked with `--generalization <file>`; its novelty findings give a generic reason and never name a
 training row, so they can be passed back to the writer.
 
-**Word-cluster files.** The table is induced by the manual `cluster` command of the ClusteringSubsystem (see
-*SpeechTextEn ClusteringSubsystem Design*); the data check cannot repeat that induction. It checks instead that the
-record still describes the committed source list, removals and table byte for byte (by SHA-256) and the tokenizer of the
-build, so an edit of any of them, or a tokenizer upgrade, fails the check until the table is induced again; and that no
-used book is a development or natural-holdout document of the harvest provenance. The record's hash of the evaluation
-files is not gated (a development-data edit would otherwise force a new induction); the manual `cluster --check`
-verifies it. The license scan reads only the header of the table, whose rows are corpus words.
+**Corpus files.** The corpus is fetched and audited by the manual `cluster` command of the ClusteringSubsystem (see
+*SpeechTextEn ClusteringSubsystem Design*); the data check cannot repeat the fetch or the audit, which need the network
+or the corpus cache. It checks instead that the source list and the removals are well formed, that every used book has
+a pin and a public-domain basis, and that no used book is a development or natural-holdout document of the harvest
+provenance. Whether the removals are still current is shown only by the manual `cluster --audit`, which is re-run
+before the corpus is next used.
 
 **Manifest.** `MANIFEST.tsv` lists every file of the folder except itself and the local cache folders `external/` and
 `work/`, which are never committed, sorted by ordinal comparison of the forward-slash relative path, with the SHA-256

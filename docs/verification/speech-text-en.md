@@ -284,13 +284,11 @@ the real datasets or a sentence of them**. A tampered or malformed source is ref
 unusable rows are counted by reason, the seed study reports its spread and intervals, and neither the output nor the
 record holds any dataset text. The external figures themselves are not asserted by any automated test: they come from a
 local run, are committed as the external evaluation record and are claimed exactly as that record and its limits state
-them. The word-class induction runs on three generated books served by a fake mirror: fetching with pins, the audit, the
-write and a full re-induction check succeed, a book quoting a development sentence loses exactly that sentence, the
-table words are the analyzer's lookup keys, one and three threads give byte-identical files, and a fixed-input
-clustering, a fixture corpus and a snapshot have golden results that every CI platform must reproduce; the written table
-and record pass the offline word-cluster check of `check-data`, which a later edit of the source list fails. The
-induction of the real corpus is a manual step recorded in the trainer's run log, and the committed table and record pass
-`check-data` with the tokenizer of the build.
+them. The public-domain corpus command runs on three generated books served by a fake mirror: fetching with pins and
+the audit succeed, a tampered cached body is refused, a book quoting a development sentence loses exactly that
+sentence, and the audit gives byte-identical removals for any thread count; the written pins and removals pass the
+offline corpus check of `check-data`, which a used book without a pin fails. The fetch and the audit of the real corpus
+are manual steps recorded in the trainer's run log, and the committed pins and removals pass `check-data`.
 
 ## Acceptance Criteria
 

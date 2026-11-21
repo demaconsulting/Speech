@@ -47,16 +47,16 @@ depend on each other.
 Four further subsystems belong to the system but not to the package: the non-shipped trainer tool
 (`tools/DemaConsulting.Speech.Text.En.Trainer`), modeled as subsystems because their requirements are system
 requirements of this repository (the licensing and integrity of the training data, the reproducibility and gate of the
-model trained from it, the pinned, evaluation-only measurement of that model, and the reproducible word classes for a
-later model):
+model trained from it, the pinned, evaluation-only measurement of that model, and the pinned and audited public-domain
+corpus for later features):
 
 - **TrainingDataSubsystem**: the `check-data` command that verifies the data in `data/text-en/`
 - **TrainingSubsystem**: the `train` and `evaluate` commands that train the model, verify that a committed model is what
   retraining produces, and decide the quality gate
 - **ExternalEvaluationSubsystem**: the `evaluate-external` command that measures the embedded model on external,
   evaluation-only datasets fetched from pinned revisions into a cache that is never committed
-- **ClusteringSubsystem**: the `cluster` command that induces the word-cluster table, deterministically, from a pinned
-  public-domain corpus fetched from an official mirror and audited against every evaluation set
+- **ClusteringSubsystem**: the `cluster` command that fetches a pinned public-domain corpus from an official mirror and
+  audits it against every evaluation set
 
 None is packed or loaded by a host. TrainingDataSubsystem shares no code with the library. TrainingSubsystem references
 the library, and only the library: the Text.En assembly grants its internals to the trainer and its tests with
@@ -506,7 +506,7 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   every file and row is well formed and consistent with the inventory including a strict whole-word span, no license
   outside the allow-list is present, the splits share no sentence, document or template, and provenance, attribution and
   license statements exist. It also checks the regression overlay and the generalization set (their references, seen
-  marks and novelty) and that the word-cluster record still matches its committed inputs. It runs in the lint script,
+  marks and novelty) and the pins and removals of the public-domain corpus. It runs in the lint script,
   in the build on every operating system and as a test over the real data. It does not prove a label is linguistically
   correct, that a harvested sentence really has its source's license, or freedom from overlap with an evaluation set
   nobody supplied
@@ -548,14 +548,14 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   be used is skipped, counted by reason and reported. The caveats travel with the figures (a domain shift, a coarser
   mapping, far fewer words than the inventory, labels not all verified by a person, clustering by sentence). The command
   needs the network once and third-party data, so no build, lint or workflow runs it
-- **Word classes (owner decisions).** The `cluster` command induces a table of 512 hierarchical word classes (by
-  default) from US public-domain books fetched only from an official mirror with a polite rate limit, pinned by body
-  hash, with every book that holds a development or natural-holdout sentence excluded and every corpus passage that
-  repeats or quotes an evaluation sentence removed; the induction is deterministic for any thread count and has no
-  platform-dependent arithmetic (see *ClusteringSubsystem Design*). The table keys words exactly as the analyzer looks
-  them up and leaves out every word of a shared lookup hash. Fetching and inducing are manual steps that no build runs;
-  instead `check-data` (in CI) compares the record with the committed table, source list, removal list and the
-  tokenizer of the build, offline. The table changes no model until a later change consumes it
+- **Public-domain corpus (owner decisions).** The `cluster` command fetches US public-domain books only from an
+  official mirror with a polite rate limit, pins each by the hash of its normalized body, excludes every book that holds
+  a development or natural-holdout sentence, and lists every corpus sentence that repeats or quotes an evaluation
+  sentence for review; the audit is deterministic for any thread count (see *ClusteringSubsystem Design*). A book whose
+  mirror text no longer matches its pin fails the fetch and is re-pinned only after review. Fetching and auditing are
+  manual steps that no build runs; instead `check-data` (in CI) checks the committed pins and removals offline. Word
+  classes induced from this corpus were tried and removed after they did not improve the model (see the evaluation
+  README); the corpus is kept for later features and changes no model
 
 ## Design Constraints
 

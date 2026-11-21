@@ -90,33 +90,35 @@ public sealed class CheckDataCommandTests
     }
 
     /// <summary>
-    ///     Proves the command runs the word-cluster check with the tokenizer version it is given: a record from another
-    ///     tokenizer fails the run, the matching version passes it.
+    ///     Proves the command runs the corpus check: consistent corpus files pass and are reported, and a used book
+    ///     without a pin fails the run with exit code 1 on the corpus check.
     /// </summary>
     [Fact]
-    public void CheckDataCommand_Run_TokenizerVersion_IsComparedWithClusterRecord()
+    public void CheckDataCommand_Run_ClusterFinding_ExitsOne()
     {
         // Arrange
         using var fixture = new DatasetFixture();
-        fixture.WriteClusterFiles("2.0.0");
+        fixture.WriteClusterFiles();
 
         // Act
-        string Check(string version)
+        string Check()
         {
             var output = new StringWriter();
-            var exitCode = CheckDataCommand.Run(["--data", fixture.Root], output, new StringWriter(), fixture.BaseDirectory, fixture.BaseDirectory, _ => null, version);
+            var exitCode = CheckDataCommand.Run(["--data", fixture.Root], output, new StringWriter(), fixture.BaseDirectory, fixture.BaseDirectory, _ => null);
             return $"{exitCode}\n{output}";
         }
 
-        var stale = Check("2.0.1");
-        var current = Check("2.0.0");
+        var current = Check();
+        fixture.EditRow(ClusterDataChecker.SourcesFile, "gutenberg-1", ("body_sha256", "-"));
+        fixture.RewriteManifest();
+        var unpinned = Check();
 
         // Assert
-        Assert.StartsWith("1\n", stale, StringComparison.Ordinal);
-        Assert.Contains("check-data: clusters: clustering.json: tokenizerVersion '2.0.0' is not the tokenizer of this build '2.0.1'", stale, StringComparison.Ordinal);
         Assert.StartsWith("0\n", current, StringComparison.Ordinal);
+        Assert.Contains("word-cluster sources: 2 books, 1 used, 1 not used", current, StringComparison.Ordinal);
+        Assert.StartsWith("1\n", unpinned, StringComparison.Ordinal);
+        Assert.Contains("check-data: clusters: cluster-sources.tsv:2: gutenberg-1: a used book needs", unpinned, StringComparison.Ordinal);
     }
-
     /// <summary>Proves a staged generalization set that does not exist is a usage error with exit code 2.</summary>
     [Fact]
     public void CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo()

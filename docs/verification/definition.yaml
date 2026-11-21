@@ -253,9 +253,6 @@ input-files:
   - docs/verification/speech-text-en/clustering-subsystem/corpus-snapshot.md
   - docs/verification/speech-text-en/clustering-subsystem/corpus-leakage-audit.md
   - docs/verification/speech-text-en/clustering-subsystem/cluster-corpus-reader.md
-  - docs/verification/speech-text-en/clustering-subsystem/cluster-inducer.md
-  - docs/verification/speech-text-en/clustering-subsystem/word-cluster-table.md
-  - docs/verification/speech-text-en/clustering-subsystem/clustering-record.md
   - docs/verification/speech-text-en/clustering-subsystem/cluster-command.md
   - docs/verification/speech-phonemes-en.md
   - docs/verification/speech-phonemes-en/lexicon-subsystem.md

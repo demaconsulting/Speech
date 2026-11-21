@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
@@ -18,9 +17,6 @@ namespace DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
 /// </remarks>
 internal sealed class DatasetFixture : IDisposable
 {
-    /// <summary>The tokenizer version the fixture's word-cluster record names by default.</summary>
-    public const string ClusterTokenizerVersion = "9.9.9-fixture";
-
     /// <summary>The UTF-8 encoding without byte order mark used for every file the fixture writes.</summary>
     private static readonly UTF8Encoding Utf8 = new(false);
 
@@ -207,16 +203,13 @@ internal sealed class DatasetFixture : IDisposable
     }
 
     /// <summary>
-    ///     Writes a small, consistent set of word-cluster files (source list, removals, table and record) and the manifest.
+    ///     Writes a small, consistent pair of corpus files (source list and removals) and the manifest.
     /// </summary>
-    /// <param name="tokenizerVersion">The tokenizer version the record names.</param>
     /// <remarks>
-    ///     <c>gutenberg-1</c> is the used book and <c>gutenberg-2</c> a development book excluded from the corpus; the table
-    ///     has three words in three clusters with a minimum count of 5. The record is written by the real record writer, so a
-    ///     field-name drift between the writer and the check fails the tests; it carries the current hash of the evaluation
-    ///     files, so the check reports no evaluation drift until a test edits one of them.
+    ///     <c>gutenberg-1</c> is the used book and <c>gutenberg-2</c> a development book excluded from the corpus; the
+    ///     removals name one sentence of the used book.
     /// </remarks>
-    public void WriteClusterFiles(string tokenizerVersion = ClusterTokenizerVersion)
+    public void WriteClusterFiles()
     {
         Write(
             ClusterDataChecker.SourcesFile,
@@ -226,27 +219,8 @@ internal sealed class DatasetFixture : IDisposable
         Write(
             ClusterDataChecker.RemovalsFile,
             string.Join('\t', ClusterDataChecker.RemovalsHeader) + "\n" + $"gutenberg-1\t0\t1\texact\tdev.tsv\tsyn-00003\t{new string('b', 64)}\n");
-        Write(ClusterDataChecker.TableFile, "word\tpath\tcount\n.\t00\t40\nthe\t01\t30\nwind\t1\t5\n");
-        RewriteClusterRecord(tokenizerVersion);
-    }
-
-    /// <summary>
-    ///     Writes <c>clustering.json</c> for the word-cluster files as they are now, and the manifest.
-    /// </summary>
-    /// <param name="tokenizerVersion">The tokenizer version the record names.</param>
-    public void RewriteClusterRecord(string tokenizerVersion = ClusterTokenizerVersion)
-    {
-        string Sha(string file) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(PathOf(file)))).ToLowerInvariant();
-        var record = new ClusteringRecord(
-            ClusterDataChecker.RecordSchema,
-            new ClusteringSettings(3, 0, 5, 1, 1, 1),
-            new ClusteringInputs(Sha(ClusterDataChecker.SourcesFile), 1, 1, Sha(ClusterDataChecker.RemovalsFile), ClusterDataChecker.EvaluationListingSha256(Root), tokenizerVersion, new string('d', 64), 10240, 3, string.Empty),
-            new ClusteringCorpus(4, 9, 75, 3, 4, 1, 6, 1, 1),
-            new ClusteringResult(Sha(ClusterDataChecker.TableFile), 3, 3, 0, 0, 10000));
-        WriteBytes(ClusterDataChecker.RecordFile, record.Write());
         RewriteManifest();
     }
-
     /// <summary>
     ///     Replaces <c>MANIFEST.tsv</c> with one that matches the files as they are now.
     /// </summary>
@@ -346,14 +320,13 @@ internal sealed class DatasetFixture : IDisposable
     }
 
     /// <summary>
-    ///     Loads the data set and runs the word-cluster check.
+    ///     Loads the data set and runs the corpus check.
     /// </summary>
-    /// <param name="tokenizerVersion">The tokenizer version of the build, or <see langword="null"/> to skip that comparison.</param>
     /// <returns>The report (including load findings).</returns>
-    public CheckReport CheckClusters(string? tokenizerVersion = ClusterTokenizerVersion)
+    public CheckReport CheckClusters()
     {
         var report = new CheckReport(1000);
-        new ClusterDataChecker(TextEnDataSet.Load(Root, report), report, tokenizerVersion).Run();
+        new ClusterDataChecker(TextEnDataSet.Load(Root, report), report).Run();
         return report;
     }
 

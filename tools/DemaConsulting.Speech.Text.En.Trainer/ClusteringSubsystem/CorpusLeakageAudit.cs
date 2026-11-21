@@ -29,8 +29,8 @@ internal sealed record CorpusRemoval(string SourceId, int Paragraph, int Sentenc
 internal sealed record AuditCount(string EvalFile, string Rule, int RemovedSentences, int MatchedEvaluationSentences, int BooksAffected);
 
 /// <summary>
-///     The content-level leakage audit of the word-cluster corpus: finds every corpus sentence that repeats, nearly
-///     repeats or quotes an evaluation sentence, so it can be removed before counting.
+///     The content-level leakage audit of the public-domain corpus: finds every corpus sentence that repeats, nearly
+///     repeats or quotes an evaluation sentence, so it is listed for review and kept out of any use of the corpus.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -52,9 +52,6 @@ internal sealed record AuditCount(string EvalFile, string Rule, int RemovedSente
 /// </remarks>
 internal static class CorpusLeakageAudit
 {
-    /// <summary>The version of the audit rules; recorded so a rule change invalidates the table.</summary>
-    public const int AuditVersion = 1;
-
     /// <summary>The file name of the removals in the data folder.</summary>
     public const string FileName = ClusterDataChecker.RemovalsFile;
 

@@ -161,7 +161,7 @@ internal sealed class ClusteringFixture : IDisposable
     }
 
     /// <summary>
-    ///     Fetches and pins every book, then writes the audit's removals, so the corpus is ready to cluster.
+    ///     Fetches and pins every book, then writes the audit's removals, so the corpus is fetched, pinned and audited.
     /// </summary>
     public void Prepare()
     {

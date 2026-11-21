@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.Text.En.Trainer;
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it exists so the Text.En training
-///     data can be verified, the heteronym model trained and verified, the model evaluated, and the word-cluster table induced,
+///     data can be verified, the heteronym model trained and verified, the model evaluated, and the public-domain corpus fetched and audited,
 ///     locally and in CI.
 ///     <see cref="Main"/> only wires the real console, current directory and
 ///     environment to <see cref="Run"/>, which tests call with in-memory writers. Unknown or missing commands are a
@@ -28,7 +28,7 @@ internal static class Program
           evaluate     Measure the heteronym model and decide the quality gate (run 'evaluate --help').
           evaluate-external
                        Measure the embedded model on external evaluation-only datasets (run 'evaluate-external --help').
-          cluster      Fetch, audit and cluster the word-cluster corpus, or re-verify the table (run 'cluster --help').
+          cluster      Fetch and audit the pinned public-domain corpus (run 'cluster --help').
         """;
 
     /// <summary>
@@ -91,7 +91,6 @@ internal static class Program
             error,
             currentDirectory,
             AppContext.BaseDirectory,
-            Environment.GetEnvironmentVariable,
-            TrainingCorpus.TaggerVersion);
+            Environment.GetEnvironmentVariable);
     }
 }

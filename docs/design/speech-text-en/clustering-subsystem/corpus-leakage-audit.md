@@ -1,8 +1,8 @@
 ### CorpusLeakageAudit
 
-**Purpose**: Find every corpus sentence that repeats, nearly repeats or quotes a sentence of an evaluation set, so it
-is removed before counting, and record the removals reproducibly. Book-level exclusion cannot catch another edition, an
-anthology or a quotation in another book; this audit compares content.
+**Purpose**: Find every corpus sentence that repeats, nearly repeats or quotes a sentence of an evaluation set, so it is
+listed for review and kept out of any use of the corpus, and record the removals reproducibly. Book-level exclusion
+cannot catch another edition, an anthology or a quotation in another book; this audit compares content.
 
 **Data Model**:
 
@@ -13,7 +13,7 @@ anthology or a quotation in another book; this audit compares content.
 - `AuditCount`: per evaluation file and rule, the removed corpus sentences, the distinct evaluation sentences they name
   and the distinct books
 - `EvaluationFiles`: `dev.tsv`, `holdout-natural.tsv`, `holdout-independent.tsv`, `regression.tsv`,
-  `generalization.tsv`, in attribution order; `AuditVersion` 1
+  `generalization.tsv`, in attribution order
 
 **Normalization and thresholds.** `SentenceKeys` of the TrainingDataSubsystem gives the key (lower-case ASCII letters
 and digits), the words and the distinct word 5-grams of a sentence, and the thresholds equal the data check's leakage
