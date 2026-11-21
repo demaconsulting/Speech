@@ -2,6 +2,7 @@ using System.Text;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
+using DemaConsulting.Speech.SttEvaluation;
 
 namespace DemaConsulting.Speech.Sherpa.Tests.RecognitionSubsystem;
 

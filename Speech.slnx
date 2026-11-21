@@ -32,5 +32,6 @@
     <Project Path="tools/DemaConsulting.Speech.Proofreader/DemaConsulting.Speech.Proofreader.csproj" />
     <Project Path="tools/DemaConsulting.Speech.Text.En.Trainer/DemaConsulting.Speech.Text.En.Trainer.csproj" />
     <Project Path="tools/DemaConsulting.Speech.Phonemes.En.Tools/DemaConsulting.Speech.Phonemes.En.Tools.csproj" />
+    <Project Path="tools/DemaConsulting.Speech.SttEvaluation/DemaConsulting.Speech.SttEvaluation.csproj" />
   </Folder>
 </Solution>

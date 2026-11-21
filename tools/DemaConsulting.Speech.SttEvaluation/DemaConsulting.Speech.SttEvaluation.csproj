@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Developer tool for speech-to-text evaluation (never packed or shipped): measures word error
+         rate, segmentation, invented words and speed of installed recognition models on the
+         committed evaluation data (data/stt-en), gates the ONNX Nemotron model with check, and
+         compares it with the Sherpa Nemotron model on the same audio. WordErrorRateCalculator,
+         SttDataSet, SttTranscriber and SttEvaluationGates are compiled (linked) into the test
+         projects so the tests and the tool measure one way; they use public library APIs only. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.SttEvaluation</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.SttEvaluation</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- Code Quality Configuration (mirrors the Phonemes.En tools) -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Speech Engine Native Runtime Dependencies.
+       The library does not bundle sherpa-onnx native runtime packages, so this tool (like the CLI)
+       adds the runtime package for each RID it may run on, so the Sherpa models can be compared. -->
+  <ItemGroup>
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.8" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.linux-x64" Version="1.13.8" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.osx-x64" Version="1.13.8" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.osx-arm64" Version="1.13.8" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <!-- ONNX Runtime pairing: sherpa-onnx's native onnxruntime must stay the only one in the
+         process, so the managed API is pinned to 1.28.0 with native assets excluded (see the CLI
+         project for the full note). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
+  </ItemGroup>
+
+</Project>

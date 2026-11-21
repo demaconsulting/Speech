@@ -1,10 +1,12 @@
-namespace DemaConsulting.Speech.Sherpa.Tests.RecognitionSubsystem;
+using DemaConsulting.Speech.SttEvaluation;
+
+namespace DemaConsulting.Speech.Onnx.NemotronStt.Tests.Evaluation;
 
 /// <summary>
-///     Unit tests for <see cref="WordErrorRateCalculator"/>, proving the normalization and
-///     edit-distance math is correct against simple, hand-computed cases - independent of any
-///     recognition model, so a WER discrepancy in the accuracy test can always be attributed to
-///     the model rather than to this calculation.
+///     Unit tests for <see cref="WordErrorRateCalculator"/>, proving the normalization,
+///     edit-distance and alignment math is correct against simple, hand-computed cases -
+///     independent of any recognition model, so a WER discrepancy in an accuracy test or the
+///     evaluation tool can always be attributed to the model rather than to this calculation.
 /// </summary>
 public class WordErrorRateCalculatorTests
 {
@@ -162,6 +164,41 @@ public class WordErrorRateCalculatorTests
     }
 
     /// <summary>
+    ///     Proves that an apostrophe inside a word (straight or typographic) is kept, so a
+    ///     contraction or possessive stays one word as the LibriSpeech transcripts write it, while
+    ///     a quotation mark at a word edge is dropped.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_NormalizeAndSplit_ApostrophesInsideAndAroundWords_KeepsOnlyWordInternalOnes()
+    {
+        // Arrange: a straight and a typographic contraction, and single quotation marks
+        const string text = "POLLY COULDN'T speak, she said \u2018it\u2019s Luther\u2019s\u2019 'quote'";
+
+        // Act
+        var words = WordErrorRateCalculator.NormalizeAndSplit(text);
+
+        // Assert
+        Assert.Equal(["polly", "couldn't", "speak", "she", "said", "it's", "luther's", "quote"], words);
+    }
+
+    /// <summary>
+    ///     Proves that the verbatim split keeps casing and punctuation, so the punctuated word
+    ///     error rate counts a punctuation difference as an error.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_SplitVerbatim_PunctuatedText_KeepsCasingAndPunctuation()
+    {
+        // Arrange
+        const string text = "Sunset and evening star,\nAnd one";
+
+        // Act
+        var words = WordErrorRateCalculator.SplitVerbatim(text);
+
+        // Assert
+        Assert.Equal(["Sunset", "and", "evening", "star,", "And", "one"], words);
+    }
+
+    /// <summary>
     ///     Proves that a null reference or hypothesis is rejected rather than producing a
     ///     misleading result, since a null transcript is a programming error, not a legitimate
     ///     "silence" case (which is instead represented by an empty string).
@@ -172,5 +209,103 @@ public class WordErrorRateCalculatorTests
         // Arrange & Act / Assert
         Assert.Throws<ArgumentNullException>(() => WordErrorRateCalculator.Compute(null!, "text"));
         Assert.Throws<ArgumentNullException>(() => WordErrorRateCalculator.Compute("text", null!));
+    }
+
+    /// <summary>
+    ///     Proves that words added after the end of the reference are counted as invented words
+    ///     (and as insertions), the measure of a tail hallucination.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_Align_TrailingExtraWords_CountsInventedWords()
+    {
+        // Arrange: the recognizer added three words after the last spoken word
+        const string reference = "when I have crost the bar";
+        const string hypothesis = "when I have crossed the bar I am she";
+
+        // Act
+        var alignment = WordErrorRateCalculator.Align(reference, hypothesis);
+
+        // Assert: one substitution, three insertions, all three invented
+        Assert.Equal(6, alignment.ReferenceWords);
+        Assert.Equal(1, alignment.Substitutions);
+        Assert.Equal(0, alignment.Deletions);
+        Assert.Equal(3, alignment.Insertions);
+        Assert.Equal(3, alignment.InventedWords);
+        Assert.Equal(4.0 / 6.0, alignment.WordErrorRate, precision: 6);
+    }
+
+    /// <summary>
+    ///     Proves that a word inserted before the last reference word is an insertion but not an
+    ///     invented word, because speech still follows it.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_Align_InsertionBeforeLastWord_IsNotInvented()
+    {
+        // Arrange: "very" is inserted in the middle
+        const string reference = "the quick fox";
+        const string hypothesis = "the very quick fox";
+
+        // Act
+        var alignment = WordErrorRateCalculator.Align(reference, hypothesis);
+
+        // Assert
+        Assert.Equal(1, alignment.Insertions);
+        Assert.Equal(0, alignment.InventedWords);
+    }
+
+    /// <summary>
+    ///     Proves that a repeated last word is placed at the end of the alignment and therefore
+    ///     counted as invented, rather than hidden before the last reference word.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_Align_RepeatedLastWord_CountsRepetitionAsInvented()
+    {
+        // Arrange
+        const string reference = "call for me";
+        const string hypothesis = "call for me me";
+
+        // Act
+        var alignment = WordErrorRateCalculator.Align(reference, hypothesis);
+
+        // Assert
+        Assert.Equal(1, alignment.Insertions);
+        Assert.Equal(1, alignment.InventedWords);
+    }
+
+    /// <summary>
+    ///     Proves that an empty hypothesis counts every reference word as a deletion and invents
+    ///     nothing.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_Align_EmptyHypothesis_CountsDeletions()
+    {
+        // Arrange & Act
+        var alignment = WordErrorRateCalculator.Align("the quick brown fox", string.Empty);
+
+        // Assert
+        Assert.Equal(4, alignment.Deletions);
+        Assert.Equal(0, alignment.Substitutions);
+        Assert.Equal(0, alignment.Insertions);
+        Assert.Equal(0, alignment.InventedWords);
+        Assert.Equal(1.0, alignment.WordErrorRate);
+    }
+
+    /// <summary>
+    ///     Proves that summing per-file alignments yields the corpus word error rate (total errors
+    ///     over total reference words), not the mean of the per-file rates.
+    /// </summary>
+    [Fact]
+    public void WordErrorRateCalculator_Align_SummedAlignments_GiveCorpusWordErrorRate()
+    {
+        // Arrange: one error in 2 words and no error in 8 words
+        var first = WordErrorRateCalculator.Align("one two", "one too");
+        var second = WordErrorRateCalculator.Align("a b c d e f g h", "a b c d e f g h");
+
+        // Act
+        var corpus = WordAlignment.Empty.Add(first).Add(second);
+
+        // Assert: 1 / 10, not the mean (0.5 + 0) / 2
+        Assert.Equal(10, corpus.ReferenceWords);
+        Assert.Equal(0.1, corpus.WordErrorRate, precision: 6);
     }
 }
