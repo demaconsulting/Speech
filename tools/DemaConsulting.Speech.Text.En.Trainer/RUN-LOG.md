@@ -2101,21 +2101,23 @@ The screen of item 4 of the entry above, run before any seed study. No model was
 on the two fork sentences, through the pipeline golden tests, after the forks were chosen; that is not a read.
 
 **Screen.** Prompt `data/text-en/prompts/review-regression.md`, staged outside the repository with `review-blind.tsv`
-(id, lemma, sentence, offsets; no reading and no origin), `review-labels.tsv`, `readings.tsv` and `forms.tsv`. Scope: the
-498 overlay rows that are not `data-row`, the 10 `forced` readings-golden rows (provisional ids `reg-0526` to
-`reg-0535`) and the 5 fork candidates under neutral, shuffled ids (`fork-1` past 2, `fork-2` present 1, `fork-3` past
-1, `fork-4` present 3, `fork-5` present 2). Reviewer: a `general-purpose` sub-agent with the harness's default model,
-which named itself "Claude (Anthropic)" without a version. Dispatched 19:50 UTC, finished 19:54 UTC. Judgments frozen
-before the labels were opened: SHA-256 `0e9822fdfb2f1e5865c651ebab7e6e14eb1acb24240eb5eae060e7eb7e08f432`, recomputed
-equal after the comparison.
+(id, lemma, sentence, offsets; no reading and no origin), `review-labels.tsv`, `readings.tsv` and `forms.tsv`. Scope:
+the 498 overlay rows that are not `data-row`, the 10 `forced` readings-golden rows (provisional ids `reg-0526` to
+`reg-0535`) and the 5 fork candidates under neutral, shuffled ids (`fork-1` past 2, `fork-2` present 1, `fork-3` past 1,
+`fork-4` present 3, `fork-5` present 2). Reviewer: a `general-purpose` sub-agent with the harness's default model, which
+named itself "Claude (Anthropic)" without a version. Dispatched 19:50 UTC, finished 19:54 UTC. Judgments frozen before
+the labels were opened: SHA-256 `0e9822fdfb2f1e5865c651ebab7e6e14eb1acb24240eb5eae060e7eb7e08f432`, recomputed equal
+after the comparison.
 
 **Result.** 513 rows: 510 agree, 1 disagreement, 2 `unsure`.
 
-| Id | Label | Review | Decision |
-| --- | --- | --- | --- |
-| `reg-0050` *I read every night before bed.* | `read.present` | `unsure` (low) | fork: a habitual natural in both tenses |
-| `reg-0529` *The doctor will confine her to bed.* (readings golden line 80) | `confine.verb` | `unsure` (low) | not added: the label is plainly right, but `forms.tsv` lists `confines` and not `confine`, so the reviewer had no candidate and `check-data` rejects the span; scoring it needs an inventory change, which item 5 rules out |
-| `fork-2` *I read every night before bed, and I still do.* | `read.present` | `read.past` (medium) | present candidate 1 rejected: "and I still do" makes the first clause a past habit |
+- `reg-0050`, *I read every night before bed.* (`read.present`): `unsure` (low). Decision: fork, a habitual that is
+  natural in both tenses.
+- `reg-0529`, *The doctor will confine her to bed.* (readings golden line 80, `confine.verb`): `unsure` (low).
+  Decision: not added. The label is plainly right, but `forms.tsv` lists `confines` and not `confine`, so the reviewer
+  had no candidate and `check-data` rejects the span; scoring it needs an inventory change, which item 5 rules out.
+- `fork-2`, *I read every night before bed, and I still do.* (`read.present`): `read.past` (medium). Decision: present
+  candidate 1 rejected; "and I still do" makes the first clause a past habit.
 
 **Forks**, by the order fixed in item 4 (the first confirmed candidate wins):
 
@@ -2133,8 +2135,8 @@ equal after the comparison.
 second review (`gen-0125` dropped); none of the 6 `unsure` rows of the blind audit is in a test set; and the 6 `unsure`
 rows of the PR B reviewer were training rows of the failed attempt, which are not on this branch.
 
-**Test-only rule.** `check-data` now reports a `leakage` finding when a `listening`, `analyzer-test`, `golden-pipeline` or
-`golden-sentences` row is seen in training, so the forks can never become training rows. `golden-readings` is not
+**Test-only rule.** `check-data` now reports a `leakage` finding when a `listening`, `analyzer-test`, `golden-pipeline`
+or `golden-sentences` row is seen in training, so the forks can never become training rows. `golden-readings` is not
 included (6 legacy rows repeat training sentences; for it the recomputed seen-in-training mark stays the protection).
 
 **The shipped model on the forks** (pipeline goldens, which pin the committed pipeline's output): e05 *Nowadays I read
@@ -2142,3 +2144,44 @@ included (6 legacy rows repeat training sentences; for it the recomputed seen-in
 as produced; the gate scores them through `reg-0050` and `reg-0525`.
 
 The overlay now has 529 rows (`golden-pipeline` 38, `golden-readings` 391). `check-data` passes.
+
+## Cleanup after PR B: the seed study and the gate thresholds (2026-11-21)
+
+Written immediately after the one seed study of item 3 of the entry "Cleanup after PR B: statistical gate, golden forks
+and corpus tooling", before anything else was run or opened. Command:
+`dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- evaluate --seeds`, at 20:16 UTC, on HEAD
+`ad5e8c0` (after the rebase onto `7106220`) with the uncommitted gate code of the next commit and a `training.json`
+rewritten to schema 2 with placeholder thresholds (its `inputs` and `result` and `heteronyms.bin` unchanged). The study
+trains seeds 1 to 5 of the committed recipe (feature set 1, positional order, the committed settings; only the seed
+changes) and scores each model end to end through the analyzer with the cue priors, the gate's own scorer. Only the
+aggregate counts below were printed; no per-row or per-reading result of seeds 2 to 5 was printed or opened. The sets
+have 242, 1,972, 1,167 and 529 rows.
+
+| Seed | Image SHA-256 | generalization | holdout-independent | holdout-natural | regression |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 1 (shipped) | `73de5a3f...` | 177 | 1,882 | 1,123 | 519 |
+| 2 | `52eec716...` | 182 | 1,912 | 1,114 | 518 |
+| 3 | `22d11bac...` | 182 | 1,914 | 1,129 | 517 |
+| 4 | `3d619d1f...` | 182 | 1,905 | 1,132 | 518 |
+| 5 | `e53e5d70...` | 169 | 1,886 | 1,129 | 509 |
+
+The image hashes equal those of the entry "PR B: order-only baseline", so these are the same five models.
+
+**Thresholds** by the rule of the entry above, `T = floor(10,000 × (m − 2·s) / rows)` with `m` the mean and `s` the
+sample standard deviation (divisor 4) of the five counts, computed in exact integer arithmetic:
+
+| Gate set | Mean | Sample SD | m − 2s | Threshold | Least correct rows | Shipped |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| generalization | 178.4 | 5.68 | 167.0 | 6,902 bp (69.02%) | 168 of 242 | 177 (73.14%) |
+| holdout-independent | 1,899.8 | 14.87 | 1,870.0 | 9,483 bp (94.83%) | 1,871 of 1,972 | 1,882 (95.44%) |
+| holdout-natural | 1,125.4 | 7.16 | 1,111.1 | 9,520 bp (95.20%) | 1,111 of 1,167 | 1,123 (96.23%) |
+| regression | 516.2 | 4.09 | 508.0 | 9,603 bp (96.03%) | 508 of 529 | 519 (98.11%) |
+
+Both holdout thresholds equal the values expected in the entry above (9,520 and 9,483), as required. Every seed's count
+is above its threshold (Samuelson's inequality), the shipped seed 1 included, so the shipped model passes on every set.
+The regression overlay is no longer selected only for the shipped model's correct answers: it holds the 9 forced
+readings-golden rows and the present fork, which the shipped model reads wrong (519 of 529).
+
+The thresholds are recorded in `EvaluationSettings.Default` and `training.json` (`evaluation.gate`). `train --check`
+now also reports a record whose evaluation settings differ from the code's.
+

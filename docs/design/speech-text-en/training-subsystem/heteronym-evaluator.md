@@ -10,8 +10,13 @@ trainer's direct path. Everything is integer arithmetic, so the numbers are iden
 - `SetEvaluation`: the set name; the rows; the rows that are aligned (the target is exactly one runtime token); the rows
   of a one-candidate form; the rows **covered** (a reading was emitted); the rows decided correctly end to end; the rows
   each of the three baselines decides correctly; the tallies by source, by reading and by confidence; the bootstrap
-  interval; the parity counts; and, only for an end-to-end evaluation of caller-supplied rows, the bootstrap interval of
-  the accuracy itself (null otherwise)
+  interval; the parity counts; the bootstrap interval of the accuracy itself for an end-to-end evaluation of
+  caller-supplied rows or of a gate set (null otherwise); and the labeled and emitted reading of every row
+  (`RowReading`, the reading id or `none`), which the gate's per-row record and flip report use
+- `SeedSetCount` and `SeedResult`: the rows and correct rows of one gate set for one seed of the multi-seed study, and
+  the seed with its counts per gate set
+- `GateSetVerdict` and `GateVerdict`: per gate set the rows, the correct rows, the threshold and the accuracy interval,
+  with `Passed`; and the verdicts of all sets, which pass only when there is a set and every set passes
 - `GroupTally`: a group name, its rows, the rows the model decides correctly and the rows the part-of-speech baseline
   decides correctly (0 for a confidence bucket)
 - `BootstrapInterval`: the number of clusters, the point estimate of the difference (model minus baseline) and the lower
@@ -110,13 +115,27 @@ correct minus baseline correct) and the summed rows. The pairs are ordered by **
 resamples); the bounds and the point estimate are converted to basis points with integers only, rounded half away from
 zero. No floating-point arithmetic is involved. A set with no cluster has the all-zero interval.
 
-**The quality gate.** `DecideGate(natural, settings)` passes when the end-to-end accuracy on the natural holdout is at
-least the threshold, tested exactly as `correct * 1000 >= threshold * rows` (and there is at least one row), **and** the
-lower bound of the interval is exactly greater than zero. Both conditions are required; the independent holdout is
-reported but is not part of the gate. The thresholds are the evaluation settings of the training record (see
-*TrainingRecord Design*).
+**The statistical quality gate.** The gate sets are `GateSets`: `generalization`, `holdout-independent`,
+`holdout-natural` and `regression`. `DecideGate(evaluations, settings)` takes, for every threshold of the settings in
+its order, the evaluation of that set (an `InvalidDataException` when it was not evaluated or has no accuracy
+interval) and passes the set when `correct * 10,000 >= threshold * rows` in 64-bit integers and there is at least one
+row. The gate passes when every set passes. The point estimate decides; the clustered interval of the accuracy is
+reported per set and does not decide, because its lower bound would fail the shipped model on the small sets and its
+upper bound would accept almost anything on 242 rows. The thresholds are the evaluation settings of the training record
+(see *TrainingRecord Design*).
 
-**Key Methods**: `Evaluate`, `EvaluateDirect` and `DecideGate` as above; `EvaluateRows` and `EvaluateRowsDirect` for
+**Threshold derivation.** `DeriveGateThreshold(counts, rows)` returns the largest whole number of basis points `t >= 0`
+with `t <= 10,000 (m - 2s) / rows`, where `m` is the mean and `s` the sample standard deviation (divisor `n - 1`) of the
+correct counts of at least two seeds. It is exact: with `S1 = sum(c)`, `S2 = sum(c^2)` and `D = 10,000 S1 - n t rows`,
+the condition is `D >= 0` and `(n - 1) D^2 >= 4 * 10^8 * n (n S2 - S1^2)`, evaluated in `Int128`, starting at the floor
+of the mean and walking down. For five seeds every seed's count lies within `1.789 s` of the mean (Samuelson's
+inequality), so every seed of the recipe, the shipped one included, passes the threshold derived from it.
+
+**Flips.** `ClassifyFlip(gold, previous, current)` returns `fixed` (wrong to right), `broken` (right to wrong) or
+`changed` (one wrong reading to another), and null for an unchanged row or a new one (previous `-`).
+
+**Key Methods**: `Evaluate` (with an optional accuracy interval for a gate set), `EvaluateDirect`, `DecideGate`,
+`DeriveGateThreshold` and `ClassifyFlip` as above; `EvaluateRows` and `EvaluateRowsDirect` for
 caller-supplied rows; `EvaluateOverlay` for an overlay (returning `OverlayEvaluation` with `OverlayRowOutcome`s and
 `OverlaySlice`s); `Bootstrap(clusters, settings)` (public static, the interval); `RoundBasisPoints(numerator,
 denominator)` (public static, half away from zero, integers only, 0 for a non-positive denominator).

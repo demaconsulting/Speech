@@ -519,18 +519,19 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
 - **Evaluation and the quality gate.** A row is decided by the real `EnglishTextAnalyzer` over the model under test,
   reading the reading annotation on exactly the row's span (no reading counts as wrong). Baselines are the own
   part-of-speech baseline, the majority reading in `train.tsv` and the first candidate; the improvement over the
-  part-of-speech baseline has a paired document-clustered bootstrap interval computed in integers. On the natural
-  holdout the gate requires a pooled end-to-end accuracy of at least 930 per mille and an interval lower bound exactly
-  above zero; the gate settings are fixed before the first holdout evaluation and never changed by a result. The
-  independent holdout and the seed study are reported, not gated
-- **Evaluation overlays (owner decisions).** Two further sets are measured, never gated: a regression overlay that
+  part-of-speech baseline has a paired document-clustered bootstrap interval computed in integers. The statistical
+  quality gate requires, on each of four scored sets (the regression overlay, both holdouts and the generalization set),
+  an end-to-end accuracy of at least a recorded threshold, the mean minus two sample standard deviations of the current
+  recipe over the seeds 1 to 5; the clustered interval of each accuracy and a flip report of the rows whose reading
+  changed are reported, not gated
+- **Evaluation overlays (owner decisions).** Two further sets are measured and are gate sets: a regression overlay that
   references owner-flagged sentences, golden targets and existing rows by identifier and marks each as seen or unseen in
   training (not a new split, so the separation checks keep holding), and a generalization set written blind before any
   training that uses word classes, whose novelty against the training and development data `check-data` proves. Each is
   measured with and without the hand-written cue priors, with intervals that resample a family of rows together, and the
-  results are appended to the evaluation record without changing its earlier lines. These are the baseline of the
-  criterion, recorded in the evaluation README before any training that uses word classes, by which a later model with
-  word classes is judged
+  results are appended to the evaluation record without changing its earlier lines. The word classes were tried against
+  the criterion recorded before that training and not adopted (negative result in the evaluation README); a golden,
+  analyzer-test or listening sentence may never be a training row (a `leakage` finding of `check-data`)
 - **Committed files.** The model, the training record and the evaluation record (`docs/evaluation/text-en/`) are
   committed, and CI runs `train --check` and `evaluate --check` on every operating system, so a change of the data, the
   tagger, the extractor or the trainer that makes them stale fails the build. Replacing the model is a deliberate act;

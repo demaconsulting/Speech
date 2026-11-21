@@ -28,6 +28,10 @@ direction or is not yes or no, a golden row that repeats a training sentence but
 reference that does not fit its origin, a malformed identifier, a disallowed license, an invalid span and an unknown
 reading each give an `overlay` finding.
 
+**Test sentences stay out of training** (`TestOnly`). A `listening`, `analyzer-test`, `golden-pipeline` or
+`golden-sentences` row whose sentence the training data has gives a `leakage` finding even when it is marked seen; a
+`golden-readings` row marked seen does not.
+
 **Generalization rows** (`GeneralizationRows`). An invalid kind, a family of another lemma group, a novel-vocabulary row
 without cue forms, a cue form that is not in the sentence, is not lower case or is a form of the target, an invalid
 cue-unsolvable mark, source or license, a sentence of fewer than 6 words and a sentence with a second form of the target
@@ -58,6 +62,14 @@ both kinds, cue-unsolvable rows and their lemmas); a lemma group with rows for o
 
 The data-row theory changes the reference, the sentence and the license of the row that refers to a training row; the
 malformed-row theory changes one column of the golden row at a time.
+
+##### Test sentences stay out of training
+
+**Test**: `EvaluationOverlayChecker_CheckRegression_TestOnlySentenceInTraining_IsLeakage` (a theory over five origins)
+
+A row that repeats a training sentence and is correctly marked seen is appended with each origin: for
+`golden-sentences`, `golden-pipeline`, `analyzer-test` and `listening` the check reports a `leakage` finding that names
+the row and the origin, for `golden-readings` it does not, and no row gets an `overlay` finding about its mark.
 
 ##### Generalization rows
 

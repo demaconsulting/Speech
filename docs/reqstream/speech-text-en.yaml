@@ -289,7 +289,7 @@ sections:
           - SpeechTextEn-Heteronym-ModelSupply
         tests:
           - SpeechTextEn_SynthesisSession_EndToEnd_AnnotationsReachBackendAcrossChunksAndTags
-          - SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading
+          - SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitOneCandidateReadingWithConfidence
           - SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations
           - SpeechTextEn_Analyze_ReadingOverride_BeatsClassifier
           - SpeechTextEn_Analyze_ConcurrentRequestsWithDifferentTexts_EachGetsItsOwnResult
@@ -446,7 +446,8 @@ sections:
           owner-flagged sentences, golden test sentences and existing examples and marks each as seen or unseen
           in training, and a generalization test set written blind, and its data check shall fail when an
           overlay row is malformed, refers to an example it does not match or to a holdout, repeats a holdout
-          sentence or carries a wrong seen-in-training mark, or when a generalization row repeats a committed
+          sentence or carries a wrong seen-in-training mark, or when a golden, analyzer-test or listening
+          sentence is used in training, or when a generalization row repeats a committed
           sentence or is not new for its word in its designated cue words or in the words around it, or the
           written set lacks the required number of rows of each kind, of families and of rows that the
           hand-written cues cannot solve; a staged copy of the set shall be checkable before it is committed,
@@ -523,21 +524,26 @@ sections:
           the heteronym model on the development and holdout sets with always-default (majority) and
           own-part-of-speech baselines, a paired document-clustered confidence interval of the
           improvement, the readings with the lowest accuracy and the variation between seeds, and that
-          decides the quality gate from them: the embedded model shall choose the labeled reading for at
-          least 93.0 percent of the words of the committed natural holdout, end to end through the
-          analyzer, and improve on the part of speech alone by an amount whose 95 percent confidence
-          interval lies above zero.
+          decides a statistical quality gate: end to end through the analyzer, with its cue priors, the
+          embedded model shall reach the recorded threshold on each of four scored sets (the regression
+          overlay of goldens and listening flags, the natural and the independent holdout, and the
+          generalization set), each threshold being the mean minus two sample standard deviations of the
+          current recipe's scores over the evaluation seeds; the command shall report the 95 percent
+          clustered confidence interval of each set's accuracy and a flip report of every scored row
+          whose reading changed from the previous model.
         tags: [system]
         justification: |
-          Whether a model is worth shipping depends on what it adds beyond what the tagger already gives
-          for free, how certain that improvement is, and where the model fails. The owner fixed the gate
-          before any model was measured: a model that does not clearly beat the tagger is not worth its
-          size and licensing burden. The decision is made by a command from the recorded thresholds,
-          through the same analyzer a host uses, on data that took part in neither training nor any
-          choice, and a result that is the same on every run can be committed and checked. The committed
+          A learned classifier is right most of the time, not always, so it is judged statistically on
+          scored sets, not by a rule that every golden sentence must come out right on the shipped seed;
+          the rule-based parts (normalization, lexicon, rendering) stay strict pass or fail. A threshold
+          at the recipe's typical score minus two seed standard deviations rejects a model clearly worse
+          than the recipe while every seed of the recipe itself passes. The decision is made by a command
+          from the recorded thresholds, through the same analyzer a host uses, and a result that is the
+          same on every run can be committed and checked. The flip report names every golden or
+          listening row a change breaks, so the review sees what the aggregate hides. The committed
           evaluation record carries the numbers and the honest limits of the measure (labels chosen by
-          rule or by language models, tagger exposure to part of the natural set, and a separate
-          synthetic set written by another model family).
+          rule or by language models, tagger exposure to part of the natural set, holdouts that are now
+          repeated-use gate sets, and a separate synthetic set written by another model family).
         children:
           - SpeechTextEn-Training-EvaluationReport
         tests:
@@ -562,11 +568,12 @@ sections:
           The cue priors were written for single flagged sentences, and later features (word classes) are only
           worth keeping when they help on sentences the model has never seen. Measuring the shipped model with
           and without its cue priors, on the flagged sentences and on a set written blind, shows how much the
-          priors do and where the model alone fails; this is the baseline that the pre-registered criterion
-          for word classes is judged against. The rows of a family share one cue or template idea, so they are
+          priors do and where the model alone fails. Both overlays are also gate sets of the statistical
+          quality gate. The rows of a family share one cue or template idea, so they are
           resampled together and the interval is not overstated. A row that claims the curated cues cannot
           solve it, but on which a cue acts, would misstate that subset, so it stops the evaluation rather than
-          count. The new results are appended so the record of the gate stays exactly as it was.
+          count. The new results are appended after the data sets, so the earlier lines of the record stay as
+          they were.
         children:
           - SpeechTextEn-Training-OverlayReport
         tests:

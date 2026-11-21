@@ -18,8 +18,10 @@ package SpeechTextEn_TrainingSubsystem {
              * math (DeterministicRandom, DeterministicMath), the integer averaged perceptron
              * (AveragedPerceptronTrainer), the development-set epoch and temperature choices and model images
              * (ModelSelection), the training record (TrainingRecord) and its command (TrainCommand), and the
-             * end-to-end evaluator with baselines, strata, clustered bootstrap, quality gate and parity check
-             * (HeteronymEvaluator), the evaluation record (EvaluationRecord) and its command (EvaluateCommand). It
+             * end-to-end evaluator with baselines, strata, clustered bootstrap, a statistical quality gate over four
+             * scored sets with seed-derived thresholds, flip classification and parity check (HeteronymEvaluator),
+             * the evaluation record with its gate rows and flip report (EvaluationRecord) and its command
+             * (EvaluateCommand). It
              * reuses the Text.En library's internal tokenization adapter, feature extractor, scoring and model format
              * through InternalsVisibleTo, so the trained model matches what the analyzer computes. */
 

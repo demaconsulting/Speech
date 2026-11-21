@@ -164,6 +164,7 @@ sections:
               committed, with reasons that can be passed back to the writer.
             children:
               - SpeechTextEn-TrainingData-EvaluationOverlayChecker-Regression
+              - SpeechTextEn-TrainingData-EvaluationOverlayChecker-TestOnly
               - SpeechTextEn-TrainingData-EvaluationOverlayChecker-GeneralizationRows
               - SpeechTextEn-TrainingData-EvaluationOverlayChecker-Novelty
               - SpeechTextEn-TrainingData-EvaluationOverlayChecker-StagedReasons

@@ -21,8 +21,8 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 ///     <b>Check.</b> Retrains with the settings in the committed record and compares everything that could make the
 ///     committed model stale: the inputs (data, feature stream, tagger, feature set, inventory), the choices and the
 ///     image hash recorded in the record, and the committed model file itself as an uncompressed image (the
-///     compressed bytes depend on the runtime's Deflate implementation and are never compared). Every difference is
-///     named.
+///     compressed bytes depend on the runtime's Deflate implementation and are never compared), and the record's
+///     evaluation and gate settings against the code's. Every difference is named.
 ///     </para>
 ///     <para>
 ///     Exit codes: <c>0</c> success (or a current model), <c>1</c> a stale or missing committed model or record,
@@ -275,8 +275,9 @@ internal static class TrainCommand
     {
         var settings = Apply(options.Overrides, options.RowOrder);
 
-        // An existing record keeps its evaluation and gate settings, so retraining never moves the gate.
-        var evaluation = File.Exists(recordPath) ? TrainingRecord.Parse(File.ReadAllText(recordPath)).Evaluation : EvaluationSettings.Default;
+        // The evaluation and gate settings are the code's; a threshold changes only by a reviewed change of the code,
+        // and the check reports a record whose settings differ from them.
+        var evaluation = EvaluationSettings.Default;
 
         var stopwatch = Stopwatch.StartNew();
         var corpus = TrainingCorpus.Load(root);
@@ -342,6 +343,10 @@ internal static class TrainCommand
         var fresh = ModelSelection.Train(corpus, record.Training);
         CompareInputs(record.Inputs, fresh.Inputs, stale);
         CompareResult(record.Result, fresh.Result, stale);
+        if (!record.Evaluation.SameValues(EvaluationSettings.Default))
+        {
+            stale.Add("the record's evaluation and gate settings differ from the code's (retrain to rewrite the record)");
+        }
 
         // The committed model, as an uncompressed image, must equal the retrained one.
         if (!File.Exists(modelPath))

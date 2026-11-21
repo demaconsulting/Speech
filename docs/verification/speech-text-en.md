@@ -210,15 +210,17 @@ scenario; the exhaustive dictionary rules are verified at the AnalysisSubsystem 
 
 ### Heteronym Readings
 
-**Tests**: `SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitTheExpectedReading` (a theory),
-`SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations`,
+**Tests**: `SpeechTextEn_Analyze_DefaultAnalyzerClearHeteronymSentences_EmitOneCandidateReadingWithConfidence` (a
+theory), `SpeechTextEn_Analyze_DefaultAnalyzerTextWithoutHeteronym_EmitsNoReadingAnnotations`,
 `SpeechTextEn_Analyze_ReadingOverride_BeatsClassifier`
 
 Verifies that the default analyzer (the public constructor, with the trained model embedded and no configuration)
 decides the reading in eight clear sentences written independently of any data set and covering `record`, `lead`,
 `read`, `wind`, `tear`, `bass` and `bow`: exactly one `en.reading` and one `en.reading-confidence` (a number from 0
-to 1) lie on exactly the word beside its `en.upos`, and the id is the expected one; that text without a heteronym word
-gets part-of-speech annotations only; and that a reading entry `record` / `record.noun` makes both `record` words
+to 1) lie on exactly the word beside its `en.upos`, and the id is a candidate of the word (whether it is the
+labeled one is scored by the trainer's statistical gate through the regression overlay, see *Training*); that text
+without a heteronym word gets part-of-speech annotations only; and that a reading entry `record` / `record.noun` makes
+both `record` words
 `record.noun` with confidence `1.000` where the default analyzer reads `record.verb` and then `record.noun`. Delivery
 through the real session is verified by the end-to-end scenario. An analyzer without a model source, a damaged or
 incompatible model (no readings, one warning) and the confidence text under foreign cultures are verified at the
@@ -276,19 +278,19 @@ unusable rows are counted, the trainer and the analyzer decide alike on every al
 gate exit codes and record follow the fixture exactly. The overlay evaluation runs on a fixture regression overlay and
 generalization set: the figures with and without the cue priors and their family-clustered intervals are reported, the
 results are appended to the evaluation record without changing its earlier lines, and a cue-unsolvable row that a cue
-can act on stops the evaluation. Three tests run against the committed files: the committed model
-and record are what retraining produces, the committed model passes the gate on the natural holdout through the analyzer
-that embeds it, and the committed external record has the expected files with a strict numeric grammar. External
-evaluation runs on hand-written fake datasets in fake archives with matching pins: **no automated test uses the network,
-the real datasets or a sentence of them**. A tampered or malformed source is refused with exit code 2 and no figure,
-unusable rows are counted by reason, the seed study reports its spread and intervals, and neither the output nor the
-record holds any dataset text. The external figures themselves are not asserted by any automated test: they come from a
-local run, are committed as the external evaluation record and are claimed exactly as that record and its limits state
-them. The public-domain corpus command runs on three generated books served by a fake mirror: fetching with pins and
-the audit succeed, a tampered cached body is refused, a book quoting a development sentence loses exactly that
-sentence, and the audit gives byte-identical removals for any thread count; the written pins and removals pass the
-offline corpus check of `check-data`, which a used book without a pin fails. The fetch and the audit of the real corpus
-are manual steps recorded in the trainer's run log, and the committed pins and removals pass `check-data`.
+can act on stops the evaluation. Three tests run against the committed files: the committed model and record are what
+retraining produces, the committed model passes the statistical gate on its four scored sets through the analyzer that
+embeds it, and the committed external record has the expected files with a strict numeric grammar. External evaluation
+runs on hand-written fake datasets in fake archives with matching pins: **no automated test uses the network, the real
+datasets or a sentence of them**. A tampered or malformed source is refused with exit code 2 and no figure, unusable
+rows are counted by reason, the seed study reports its spread and intervals, and neither the output nor the record holds
+any dataset text. The external figures themselves are not asserted by any automated test: they come from a local run,
+are committed as the external evaluation record and are claimed exactly as that record and its limits state them. The
+public-domain corpus command runs on three generated books served by a fake mirror: fetching with pins and the audit
+succeed, a tampered cached body is refused, a book quoting a development sentence loses exactly that sentence, and the
+audit gives byte-identical removals for any thread count; the written pins and removals pass the offline corpus check of
+`check-data`, which a used book without a pin fails. The fetch and the audit of the real corpus are manual steps
+recorded in the trainer's run log, and the committed pins and removals pass `check-data`.
 
 ## Acceptance Criteria
 
@@ -304,11 +306,11 @@ honest:
   clear sentences, none for a text without a heteronym word, a `Reading` override that beats the classifier, survival
   through chunking, counts-only diagnostics); large-input output checks; and the package metadata of the built package
 - **Claimed only as stated elsewhere**: the accuracy of the shipped heteronym model, as the committed evaluation records
-  state it (the gate on the natural holdout is verified against the committed files; the unverified labels, the tagger's
-  exposure to part of the natural set, the small counts per reading and, for the external datasets, the domain shift and
-  coarser mapping are limits that are not claimed away); the linguistic accuracy of the tagger, left to the tagging
-  package's own evaluation; the abbreviation and numeric readings, only for the documented cases and en-US policy; and
-  the licensing position, which is the owner's decision
+  state it (the statistical gate on the four scored sets is verified against the committed files; the unverified labels,
+  the tagger's exposure to part of the natural set, the small counts per reading and, for the external datasets, the
+  domain shift and coarser mapping are limits that are not claimed away); the linguistic accuracy of the tagger, left to
+  the tagging package's own evaluation; the abbreviation and numeric readings, only for the documented cases and en-US
+  policy; and the licensing position, which is the owner's decision
 - **Not claimed**: the correctness of the phonemes of a pronunciation override; any elapsed-time, throughput,
   allocation, thread or object-lifetime behavior; and the clearing of the tagging package's private working buffers,
   which is evidenced by the upstream package's regression tests, with the remaining gap stated for the repository

@@ -28,9 +28,10 @@ real committed model and record is not a unit test: it is the subsystem test
   problem and write nothing (not the model folder, not the committed locations); a label that is not a candidate exits
   2 naming the row when checking.
 - **Writes model and record**: training the fixture exits 0, writes a model the runtime loads and a record that parses,
-  with the same hash size, the same weight count, the image hash and the kept epoch count printed; training again keeps
-  the evaluation and gate settings of the existing record; `--row-order keyed` prints `row order keyed`, records the
-  keyed order and the check of that folder passes, while training without the option records the positional order.
+  with the same hash size, the same weight count, the image hash and the kept epoch count printed; with a record whose
+  gate thresholds were edited by hand, the check exits 1 with `evaluation and gate settings differ from the code's`, and
+  training again writes the code's evaluation and gate settings; `--row-order keyed` prints `row order keyed`, records
+  the keyed order and the check of that folder passes, while training without the option records the positional order.
 - **Check**: a fresh model passes the check with `OK`, and so does a model file that holds the same model with an
   uncompressed payload; a changed training row exits 1 with `STALE: the training data changed`, a changed recorded
   setting with `weights differ` and another recorded tagger version with `tagger changed`; a model file with other
@@ -56,12 +57,13 @@ with such a row is verified by the subsystem test `TrainingSubsystem_Train_Label
 ##### Writing the model and the record
 
 **Tests**: `TrainCommand_Run_Fixture_WritesLoadableModelAndRecord`,
-`TrainCommand_Run_ExistingRecord_KeepsItsEvaluationSettings`,
+`TrainCommand_Run_ExistingRecord_WritesTheCodeEvaluationSettingsAndCheckReportsDrift`,
 `TrainCommand_Run_RowOrderKeyed_RecordsTheOrderAndChecksWithIt`
 
 The written model is loaded by the runtime's loader and the record parsed; their hash sizes and counts agree and the
-output reports the image hash and the kept epochs. The gate threshold of the record is edited to 500 per mille, training
-runs again and the parsed new record still holds 500. A model trained with `--row-order keyed` has the keyed order in
+output reports the image hash and the kept epochs. The gate thresholds of the record are replaced by one threshold of
+5,000 basis points; the check exits 1 naming the difference, and after training again the parsed record equals the
+code's settings. A model trained with `--row-order keyed` has the keyed order in
 its record and passes the check of its folder, which retrains with the recorded order; a model trained without the
 option in another folder has the positional order in its record.
 

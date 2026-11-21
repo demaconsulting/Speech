@@ -54,33 +54,49 @@ sections:
 
               - id: SpeechTextEn-Training-EvaluateCommand-GateExitCodes
                 title: >-
-                  The EvaluateCommand class shall, with the gate option, evaluate the natural holdout and
-                  give the exit code 0 and the verdict pass only when the pooled accuracy reaches the
-                  threshold of the record, the lower bound of the improvement is above zero and, with the
-                  check option, the record is current, and shall otherwise give the exit code 1, saying
-                  which condition failed and printing both results.
+                  The EvaluateCommand class shall, with the gate option, evaluate every gate set that has a
+                  threshold in the record, print for each its accuracy, the clustered interval of the
+                  accuracy, the threshold and whether it is met, and give the exit code 0 and the verdict
+                  pass only when every set reaches its threshold and, with the check option, the record is
+                  current, shall otherwise give the exit code 1, printing both results, and shall give the
+                  exit code 2 naming the set when a gate set has no file or no rows.
                 justification: |
                   The quality gate decision has to be a command whose exit code a pipeline can act on, and a
-                  failure has to say why. A passing record check must not hide a failing gate, and a passing
-                  gate must not hide a stale evidence record.
+                  failure has to say which set failed. A passing record check must not hide a failing gate,
+                  a passing gate must not hide a stale evidence record, and a gate set that is missing must
+                  not be skipped silently.
                 tests:
                   - EvaluateCommand_Run_GateAccuracyBelowThreshold_ExitsOne
-                  - EvaluateCommand_Run_GateLowerBoundNotPositive_ExitsOne
+                  - EvaluateCommand_Gate_MissingGateSet_ExitsTwo
                   - EvaluateCommand_Run_GateWithWrite_DecidesOnTheNaturalHoldout
                   - EvaluateCommand_Run_GatePassesRecordCurrent_ExitsZero
+
+              - id: SpeechTextEn-Training-EvaluateCommand-FlipReport
+                title: >-
+                  The EvaluateCommand class shall, with the gate option, print every gate row whose reading
+                  under the model being evaluated differs from the current reading of the committed record,
+                  with its set, id, labeled reading, both readings and the change, and the fixed and broken
+                  counts of each set, without changing the record.
+                justification: |
+                  A later model change is reviewed before anything is committed: the gate run on the
+                  candidate model shows exactly which goldens, listening flags and test rows it fixes or
+                  breaks.
+                tests:
+                  - EvaluateCommand_Gate_CandidateModel_PrintsFlipsAgainstCommittedRecord
 
               - id: SpeechTextEn-Training-EvaluateCommand-RecordWriteAndCheck
                 title: >-
                   The EvaluateCommand class shall, with the write option, write the evaluation record
                   files, shall, with the check option, give the exit code 0 when the record is current and
                   the exit code 1 naming each file that is edited or missing, and shall, with the seeds
-                  option, train once with each evaluation seed of the record and print the holdout
-                  accuracy of each.
+                  option, train once with each evaluation seed of the record, score each model end to end on
+                  every gate set with rows, and print the aggregate counts of each and the threshold the
+                  gate's rule derives from them, never a per-row result.
                 justification: |
                   The evaluation record is the evidence of the quality gate decision. It has to be
                   reproducible, and a change to it that is not the product of an evaluation has to be
                   found. The variation of the accuracy between seeds says how far one run's figure can be
-                  trusted.
+                  trusted, and it is what the gate thresholds are derived from.
                 tests:
                   - EvaluateCommand_Run_WriteThenCheck_MatchesAndDetectsEditedRecord
                   - EvaluateCommand_Run_Seeds_ReportsEachSeed

@@ -108,21 +108,46 @@ Options:
 - `--model <file>`: evaluate this model file instead of the one in the model folder
 - `--set <name>`: `dev`, `holdout-natural`, `holdout-independent` or `all` (repeatable; default `dev`); `regression`
   and `generalization` evaluate the evaluation overlays (not part of `all`) with and without the curated cue priors
-- `--gate`: evaluate `holdout-natural` and decide the quality gate (at least 93.0% pooled accuracy and a 95% interval
-  lower bound of the improvement above zero); exit `0` for a pass and `1` for a failure. Together with `--check` (or
-  `--write`) the exit code is `0` only when the gate passes and the record is current
-- `--seeds`: retrain with each evaluation seed and report the holdout accuracy of each
+- `--gate`: decide the statistical quality gate on its four scored sets (`regression`, `generalization`,
+  `holdout-natural`, `holdout-independent`): each must reach its recorded threshold; prints each set's accuracy with its
+  95% clustered interval and threshold, and the flips of the model under test against the committed record
+  (`evaluate: FLIP <set> <id> <gold> <previous>-><current> <change>`); exit `0` for a pass, `1` for a failure and `2`
+  when a gate set has no file. Together with `--check` (or `--write`) the exit code is `0` only when the gate passes and
+  the record is current. `evaluate --gate --model <candidate>` shows a later change's flips before anything is written
+- `--seeds`: retrain with each evaluation seed, score each model end to end on every gate set and print the counts and
+  the threshold the gate's rule gives (aggregates only, never a per-row result)
 - `--write`, `--check`, `--record-dir <dir>`: write or verify the deterministic evaluation record (default folder
   `docs/evaluation/text-en`); the record includes the overlays whose files exist, after the data sets
 
 Exit codes: `0` done or gate passed, `1` gate failed or record stale, `2` usage, I/O or data error.
+
+**The statistical gate.** The learned classifier is judged on four scored sets, not per golden sentence. A set passes
+when `correct × 10,000 ≥ threshold × rows`; the gate passes when every set passes. The thresholds are in
+`EvaluationSettings.Default` (`TrainingRecord.cs`) and mirrored in `training.json`; `train --check` reports a
+difference. Each threshold is the floor of the mean minus two sample standard deviations of the current recipe's correct
+counts at the seeds 1 to 5 (`evaluate --seeds` prints the value by this rule), so every seed of the recipe passes and a
+clearly worse model fails:
+
+| Gate set | Rows | Threshold | Shipped model |
+| --- | ---: | ---: | ---: |
+| `generalization` | 242 | 69.02% | 73.14% |
+| `holdout-independent` | 1,972 | 94.83% | 95.44% |
+| `holdout-natural` | 1,167 | 95.20% | 96.23% |
+| `regression` | 529 | 96.03% | 98.11% |
+
+To change the recipe or the data: run `evaluate --gate --model <candidate>` and review every `broken` flip of a
+`listening` or golden row; to re-derive the thresholds after a deliberate recipe change, run `evaluate --seeds` once,
+record the counts in `RUN-LOG.md` before anything else, and update `EvaluationSettings.Default`, `train` and
+`evaluate --write`. The record's `gate-rows.tsv` and `flips.tsv` hold every gate row's labeled, previous and current
+reading and the rows that changed (ids only).
 
 Every harvested row needs an entry in `harvest-provenance.tsv`, because the bootstrap resamples the rows of one source
 document together. Run `check-data` first: `evaluate` does not validate the data folder, but it stops with exit code `2`
 instead of guessing when a harvested row has no source document.
 
 Reading a holdout set is the one irreversible act of model development: a set that has guided a choice no longer
-measures anything. The tool says so when it reads one, and `RUN-LOG.md` counts the runs of the gate.
+measures anything. The tool says so when it reads one. The holdouts are now repeated-use gate sets (non-regression), so
+only fresh sets give unbiased estimates for a later comparison.
 
 **Overlays.** An overlay (`regression.tsv` or `generalization.tsv`) is reported like a set and then by slice (all
 rows; seen and unseen rows and each origin of the regression overlay; each kind, cue-solvable class and family of the

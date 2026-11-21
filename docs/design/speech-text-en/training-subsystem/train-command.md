@@ -38,8 +38,9 @@ therefore never overwrite the committed files, and the committed configuration i
 - **TryParse(args, out parseError)** (internal): the option parser; an unknown option, a missing value, a value that is
   not a non-negative integer, a row order other than `positional` or `keyed`, or an experiment option without
   `--model-dir` or with `--check` gives no options and a message
-- **Train and write** (private): validates the settings (the default ones with the overrides applied), reads the
-  evaluation settings of an existing record so that retraining never moves the gate, loads the corpus
+- **Train and write** (private): validates the settings (the default ones with the overrides applied), takes the
+  evaluation and gate settings of the code (`EvaluationSettings.Default`, whatever an existing record holds), loads the
+  corpus
   (`TrainingCorpus.Load`), trains (`ModelSelection.Train`), writes the compressed model and the record
   (`TrainingRecord.ToJson`, UTF-8 without a byte order mark), creating the folders, and prints the number of rows, the
   seed and row visiting order, the development accuracy of each epoch, the epoch and temperature kept, the number of
@@ -51,7 +52,9 @@ therefore never overwrite the committed files, and the committed configuration i
   recorded row counts (the inputs); the epochs and the temperature step and the image hash (the result); and the
   committed model file, which is turned into an uncompressed image (`SparsePerceptronModelWriter.ToUncompressedImage`)
   and compared byte for byte with the retrained uncompressed image. The compressed bytes are never compared, because
-  they depend on the runtime's Deflate implementation. A missing model file or one that is not a valid model is stale.
+  they depend on the runtime's Deflate implementation. A missing model file or one that is not a valid model is stale,
+  and so is a record whose evaluation and gate settings differ from `EvaluationSettings.Default`
+  (`EvaluationSettings.SameValues`), so a threshold edited in only one of the two places is found.
   It prints `train: --check: OK (...)` and returns 0, or one `STALE` line per difference and a `FAILED` line and returns
   1
 

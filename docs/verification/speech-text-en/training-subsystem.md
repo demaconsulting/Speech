@@ -129,7 +129,7 @@ With part-of-speech hints that never match, so the own-part-of-speech baseline i
 holdout reports forty rows, all aligned and covered, a model accuracy of 97.50% (39 of 40) and 52.50% (21 of 40) for the
 own-part-of-speech and the majority baselines, and the independent holdout reports twenty-one rows of which twenty are
 aligned and a model accuracy of 95.24% (20 of 21), the unaligned row counting as wrong. The record of a trained model
-is edited to a gate threshold of 95.0% and then of 98.0%, so `evaluate --gate` exits 0 and then 1.
+is edited to a natural-holdout gate threshold of 95.00% and then of 98.00%, so `evaluate --gate` exits 0 and then 1.
 
 #### Evaluation record
 
@@ -153,16 +153,16 @@ rows file has the header and the four rows, and which `evaluate --check` finds c
 **Tests**: `TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent`,
 `TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`
 
-These tests run the real commands over the repository itself and are skipped only when the root is not found. `train
---check` retrains from the committed data with the recorded settings and exits 0 only when the committed model file, the
-training record and the hashes are what retraining produces. `evaluate --gate --check` evaluates the committed model
-through the analyzer that embeds it and exits 0 only when the accuracy on the natural holdout is at least 93.0%, the
-lower bound of the 95% interval of the improvement over the own-part-of-speech baseline is above zero, and every
-committed evaluation record file is identical, byte for byte; the record includes the two committed overlays, so the
-check also proves that no committed generalization row marked `cue_unsolvable=yes` is one a curated cue acts on. The
-tests verify consistency and the gate, not the correctness of the labels, and they do not show that the result is the
-same on another operating system (the CI matrix does). The headline figures are those of the committed record, with the
-limits stated there.
+These tests run the real commands over the repository itself and are skipped only when the root is not found.
+`train --check` retrains from the committed data with the recorded settings and exits 0 only when the committed model
+file, the training record and the hashes are what retraining produces. `evaluate --gate --check` evaluates the committed
+model through the analyzer that embeds it and exits 0 only when each of the four gate sets reaches its recorded
+threshold (regression overlay 96.03%, natural holdout 95.20%, independent holdout 94.83%, generalization set 69.02%) and
+every committed evaluation record file, the gate rows and the empty flip report included, is identical, byte for byte;
+the record includes the two committed overlays, so the check also proves that no committed generalization row marked
+`cue_unsolvable=yes` is one a curated cue acts on. The tests verify consistency and the gate, not the correctness of the
+labels, and they do not show that the result is the same on another operating system (the CI matrix does). The headline
+figures are those of the committed record, with the limits stated there.
 
 See also *SpeechTextEn System Verification* and the unit documents `training-corpus.md`, `deterministic-random.md`,
 `deterministic-math.md`, `averaged-perceptron-trainer.md`, `model-selection.md`, `training-record.md`,

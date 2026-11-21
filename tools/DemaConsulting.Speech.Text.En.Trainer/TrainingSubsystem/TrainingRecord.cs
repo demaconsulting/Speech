@@ -146,27 +146,47 @@ internal sealed record TrainingSettings(
 }
 
 /// <summary>
-///     The settings of the evaluation and the quality gate, fixed before any holdout is evaluated.
+///     The least accuracy the statistical quality gate accepts on one scored set.
 /// </summary>
-/// <param name="Seeds">The seeds the multi-seed variance report trains with; includes the committed seed.</param>
+/// <param name="Set">The gate set: one of <see cref="HeteronymEvaluator.GateSets"/>.</param>
+/// <param name="MinAccuracyBasisPoints">The least end-to-end accuracy, in basis points (9520 is 95.20%); the set passes when <c>correct × 10,000 ≥ threshold × rows</c>.</param>
+internal sealed record GateThreshold(string Set, int MinAccuracyBasisPoints);
+
+/// <summary>
+///     The settings of the evaluation and the statistical quality gate.
+/// </summary>
+/// <param name="Seeds">The seeds the multi-seed study trains with; includes the committed seed.</param>
 /// <param name="Resamples">The number of bootstrap resamples.</param>
 /// <param name="ConfidencePercent">The confidence level of the bootstrap interval, in percent.</param>
 /// <param name="BootstrapSeed">The seed of the bootstrap resampling.</param>
-/// <param name="GateMinPooledAccuracyPerThousand">The least pooled accuracy on the natural holdout the gate accepts, in thousandths (930 is 93.0%).</param>
+/// <param name="GateThresholds">The threshold of every scored gate set, in the ordinal order of the set names.</param>
 internal sealed record EvaluationSettings(
     IReadOnlyList<ulong> Seeds,
     int Resamples,
     int ConfidencePercent,
     ulong BootstrapSeed,
-    int GateMinPooledAccuracyPerThousand)
+    IReadOnlyList<GateThreshold> GateThresholds)
 {
-    /// <summary>Gets the evaluation settings of the quality gate, committed before the first holdout evaluation.</summary>
+    /// <summary>
+    ///     Gets the evaluation settings of the statistical gate.
+    /// </summary>
+    /// <remarks>
+    ///     Each threshold is the floor of the mean minus two sample standard deviations of the correct counts of the
+    ///     current recipe at the seeds 1 to 5 (<see cref="HeteronymEvaluator.DeriveGateThreshold"/>), recorded by the
+    ///     trainer's <c>RUN-LOG.md</c> entry "Cleanup after PR B: the seed study and the gate thresholds".
+    /// </remarks>
     public static EvaluationSettings Default { get; } = new(
         Seeds: [1UL, 2UL, 3UL, 4UL, 5UL],
         Resamples: 10_000,
         ConfidencePercent: 95,
         BootstrapSeed: 7,
-        GateMinPooledAccuracyPerThousand: 930);
+        GateThresholds:
+        [
+            new GateThreshold("generalization", 6902),
+            new GateThreshold("holdout-independent", 9483),
+            new GateThreshold("holdout-natural", 9520),
+            new GateThreshold("regression", 9603),
+        ]);
 
     /// <summary>
     ///     Checks that every setting is in its valid range.
@@ -174,11 +194,35 @@ internal sealed record EvaluationSettings(
     /// <exception cref="InvalidDataException">A setting is out of range; the message names it.</exception>
     public void Validate()
     {
-        if (Seeds.Count is < 1 or > 100 || Resamples is < 100 or > 1_000_000 || ConfidencePercent is < 50 or > 99
-            || GateMinPooledAccuracyPerThousand is < 1 or > 1000)
+        if (Seeds.Count is < 1 or > 100 || Resamples is < 100 or > 1_000_000 || ConfidencePercent is < 50 or > 99)
         {
             throw new InvalidDataException("the evaluation settings are out of range");
         }
+
+        // At least one gate set, each known, in ordinal order without repeats, with a threshold in range
+        var sets = GateThresholds.Select(static threshold => threshold.Set).ToList();
+        if (sets.Count == 0
+            || !sets.All(set => HeteronymEvaluator.GateSets.Contains(set, StringComparer.Ordinal))
+            || !sets.SequenceEqual(sets.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal), StringComparer.Ordinal)
+            || GateThresholds.Any(static threshold => threshold.MinAccuracyBasisPoints is < 1 or > 10_000))
+        {
+            throw new InvalidDataException("the gate thresholds must name known gate sets once each, in ordinal order, with a threshold of 1 to 10000 basis points");
+        }
+    }
+
+    /// <summary>
+    ///     Tells whether two settings are equal value by value, including the seeds and the thresholds.
+    /// </summary>
+    /// <param name="other">The other settings.</param>
+    /// <returns><see langword="true"/> when every value is equal.</returns>
+    public bool SameValues(EvaluationSettings other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return Seeds.SequenceEqual(other.Seeds)
+            && Resamples == other.Resamples
+            && ConfidencePercent == other.ConfidencePercent
+            && BootstrapSeed == other.BootstrapSeed
+            && GateThresholds.SequenceEqual(other.GateThresholds);
     }
 }
 
@@ -260,8 +304,8 @@ internal sealed record TrainingRecord(
     TrainingInputs Inputs,
     TrainingResult Result)
 {
-    /// <summary>The version of the record layout.</summary>
-    public const int SchemaVersion = 1;
+    /// <summary>The version of the record layout; 2 holds the per-set thresholds of the statistical gate.</summary>
+    public const int SchemaVersion = 2;
 
     /// <summary>
     ///     Renders the record as text.
@@ -298,7 +342,16 @@ internal sealed record TrainingRecord(
             writer.WriteNumber("resamples", Evaluation.Resamples);
             writer.WriteNumber("confidencePercent", Evaluation.ConfidencePercent);
             writer.WriteNumber("bootstrapSeed", Evaluation.BootstrapSeed);
-            writer.WriteNumber("gateMinPooledAccuracyPerThousand", Evaluation.GateMinPooledAccuracyPerThousand);
+            writer.WriteStartArray("gate");
+            foreach (var threshold in Evaluation.GateThresholds)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("set", threshold.Set);
+                writer.WriteNumber("minAccuracyBasisPoints", threshold.MinAccuracyBasisPoints);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
             writer.WriteEndObject();
 
             writer.WriteStartObject("inputs");
@@ -374,12 +427,15 @@ internal sealed record TrainingRecord(
             settings.Validate();
 
             var seeds = Section(evaluation, "seeds").EnumerateArray().Select(static e => e.GetUInt64()).ToList();
+            var thresholds = Section(evaluation, "gate").EnumerateArray()
+                .Select(static e => new GateThreshold(Section(e, "set").GetString() ?? string.Empty, Section(e, "minAccuracyBasisPoints").GetInt32()))
+                .ToList();
             var evaluationSettings = new EvaluationSettings(
                 seeds,
                 Section(evaluation, "resamples").GetInt32(),
                 Section(evaluation, "confidencePercent").GetInt32(),
                 Section(evaluation, "bootstrapSeed").GetUInt64(),
-                Section(evaluation, "gateMinPooledAccuracyPerThousand").GetInt32());
+                thresholds);
             evaluationSettings.Validate();
 
             var recordedInputs = new TrainingInputs(

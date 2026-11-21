@@ -11,7 +11,7 @@ public sealed class TrainingRecordTests
     /// <summary>A record with a value in every field.</summary>
     private static readonly TrainingRecord Sample = new(
         new TrainingSettings(7, 20, 64, 2, 3, 12, 1000, 20, RowVisitingOrder.Keyed),
-        new EvaluationSettings([1UL, 2UL, 3UL], 5000, 95, 9, 930),
+        new EvaluationSettings([1UL, 2UL, 3UL], 5000, 95, 9, [new GateThreshold("holdout-natural", 9520), new GateThreshold("regression", 9603)]),
         new TrainingInputs("a1", "b2", "0.1.0-beta.5", 1, 2, 1, 100, 90, 4, 6, 50, 45, 2, 3),
         new TrainingResult(5, 422, 21.1f, 40, 42, 90, 100, 112887578, 12345, 99999, "c3"));
 
@@ -25,7 +25,8 @@ public sealed class TrainingRecordTests
         // Assert
         Assert.Equal(Sample.Training, parsed.Training);
         Assert.Equal(Sample.Evaluation.Seeds, parsed.Evaluation.Seeds);
-        Assert.Equal(Sample.Evaluation with { Seeds = [] }, parsed.Evaluation with { Seeds = [] });
+        Assert.True(Sample.Evaluation.SameValues(parsed.Evaluation));
+        Assert.Equal(Sample.Evaluation.GateThresholds, parsed.Evaluation.GateThresholds);
         Assert.Equal(Sample.Inputs, parsed.Inputs);
         Assert.Equal(Sample.Result, parsed.Result);
     }
@@ -118,6 +119,11 @@ public sealed class TrainingRecordTests
     [InlineData("\"confidencePercent\": 95", "\"confidencePercent\": 5")]
     [InlineData("\"resamples\": 5000", "\"resamples\": 1")]
     [InlineData("\"rowOrder\": \"keyed\"", "\"rowOrder\": \"sorted\"")]
+    [InlineData("\"minAccuracyBasisPoints\": 9520", "\"minAccuracyBasisPoints\": 0")]
+    [InlineData("\"minAccuracyBasisPoints\": 9603", "\"minAccuracyBasisPoints\": 10001")]
+    [InlineData("\"set\": \"regression\"", "\"set\": \"dev\"")]
+    [InlineData("\"set\": \"regression\"", "\"set\": \"holdout-natural\"")]
+    [InlineData("\"schema\": 2", "\"schema\": 1")]
     public void TrainingRecord_Parse_SettingOutOfRange_ThrowsInvalidDataException(string valid, string invalid)
     {
         // Arrange

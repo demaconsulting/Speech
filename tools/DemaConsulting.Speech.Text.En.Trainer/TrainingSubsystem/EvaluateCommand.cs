@@ -12,9 +12,12 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 ///     <para>
 ///     The model under test is read from the model directory (the committed location by default) or from
 ///     <c>--model</c>. Sets are scored end to end through the analyzer with baselines, strata, a paired clustered
-///     bootstrap interval and a parity check; <c>--gate</c> decides the quality gate on the natural holdout and exits
-///     <c>0</c> for a pass and <c>1</c> for a failure; <c>--seeds</c> retrains with each evaluation seed (the same
-///     settings and the same development-set choices) and reports the spread of the holdout accuracy;
+///     bootstrap interval and a parity check; <c>--gate</c> decides the statistical quality gate on its scored sets
+///     (both evaluation overlays and both holdouts, each against its recorded threshold, with the clustered interval of
+///     its accuracy reported and the flips against the committed record printed) and exits <c>0</c> for a pass,
+///     <c>1</c> for a failure and <c>2</c> when a gate set has no file; <c>--seeds</c> retrains with each evaluation
+///     seed (the same settings and the same development-set choices) and reports every gate set's counts and the
+///     threshold the gate's rule derives from them;
 ///     <c>--write</c> and <c>--check</c> produce and verify the deterministic evaluation record. The evaluation overlays
 ///     (<c>--set regression</c>, <c>--set generalization</c>, and the record after the data sets) are reported with and
 ///     without the curated cue priors of the classifier, by slice.
@@ -56,9 +59,13 @@ internal static class EvaluateCommand
                               regression and generalization are the evaluation overlays (not part of all): they
                               are reported with and without the curated cue priors, by slice, with clustered
                               intervals, and their rows marked cue_unsolvable=yes are verified.
-          --gate              Evaluate holdout-natural and decide the quality gate; exit 0 pass, 1 fail. With --check or
-                              --write the exit code is 0 only when the gate passes and the record is current.
-          --seeds             Also retrain with each evaluation seed and report the holdout spread.
+          --gate              Decide the statistical quality gate on its scored sets (regression, generalization,
+                              holdout-natural, holdout-independent): each must reach its recorded threshold; prints
+                              each set's accuracy and interval and the flips against the committed record; exit 0
+                              pass, 1 fail, 2 when a gate set has no file. With --check or --write the exit code is 0
+                              only when the gate passes and the record is current.
+          --seeds             Also retrain with each evaluation seed and report every gate set's counts and the
+                              threshold the gate's rule gives (aggregates only).
           --write             Write the evaluation record (all sets, the overlays and the seeds) to --record-dir.
           --check             Verify the evaluation record in --record-dir; exit 1 when it is stale.
           --record-dir <dir>  The record folder (default: docs/evaluation/text-en of the repository).
@@ -274,9 +281,9 @@ internal static class EvaluateCommand
         var image = File.ReadAllBytes(modelPath);
         var imageSha = Convert.ToHexString(SHA256.HashData(SparsePerceptronModelWriter.ToUncompressedImage(image))).ToLowerInvariant();
 
-        // The sets to evaluate: the record needs all of them, the gate needs the natural holdout.
+        // The sets to evaluate: the record needs all of them, the gate needs its scored sets.
         var wantRecord = options.Write || options.Check;
-        var sets = SelectSets(options, wantRecord, root, output);
+        var sets = SelectSets(options, wantRecord, root, evaluationSettings, output);
 
         var corpus = TrainingCorpus.Load(root);
         var evaluator = new HeteronymEvaluator(corpus, root, evaluationSettings);
@@ -295,6 +302,11 @@ internal static class EvaluateCommand
                 var rows = EvaluationOverlay.Load(root, set);
                 if (rows.Count == 0)
                 {
+                    if (options.Gate && IsGated(evaluationSettings, set))
+                    {
+                        throw new InvalidDataException($"the gate set {set} has no rows in {EvaluationOverlay.FileOf(set)}");
+                    }
+
                     output.WriteLine($"evaluate: overlay {set}: the file has no rows; not evaluated");
                     continue;
                 }
@@ -307,29 +319,20 @@ internal static class EvaluateCommand
                 continue;
             }
 
-            var evaluation = evaluator.Evaluate(set, image);
+            var evaluation = evaluator.Evaluate(set, image, withAccuracyInterval: HeteronymEvaluator.GateSets.Contains(set, StringComparer.Ordinal));
             evaluations.Add(evaluation);
             Print(evaluation, output);
         }
 
-        var seedResults = new List<SeedResult>();
-        if (options.Seeds || wantRecord)
-        {
-            foreach (var seed in evaluationSettings.Seeds)
-            {
-                var trained = ModelSelection.Train(corpus, trainingSettings with { Seed = seed });
-                var natural = evaluator.EvaluateDirect("holdout-natural", trained.CompressedImage);
-                var independent = evaluator.EvaluateDirect("holdout-independent", trained.CompressedImage);
-                seedResults.Add(new SeedResult(seed, natural.Rows, natural.Correct, independent.Rows, independent.Correct));
-                output.WriteLine($"evaluate: seed {seed}: natural {EvaluationRecord.FormatPercent(HeteronymEvaluator.RoundBasisPoints(natural.Correct, natural.Rows))}, independent {EvaluationRecord.FormatPercent(HeteronymEvaluator.RoundBasisPoints(independent.Correct, independent.Rows))}");
-            }
-        }
+        var seedResults = options.Seeds || wantRecord
+            ? RunSeedStudy(corpus, evaluator, trainingSettings, evaluationSettings, root, output)
+            : [];
 
         var report = new EvaluationReport(imageSha, evaluationSettings, evaluations, seedResults, overlays);
         var exit = 0;
         if (options.Gate)
         {
-            exit = PrintGate(evaluations.First(static evaluation => evaluation.Set == "holdout-natural"), evaluationSettings, output);
+            exit = PrintGate(report, EvaluationRecord.ReadCommitted(recordDirectory), output);
         }
 
         if (options.Write)
@@ -352,6 +355,98 @@ internal static class EvaluateCommand
         return exit;
     }
 
+    /// <summary>
+    ///     Tells whether a set has a threshold in the gate settings.
+    /// </summary>
+    /// <param name="settings">The evaluation settings.</param>
+    /// <param name="set">The set name.</param>
+    /// <returns><see langword="true"/> when the gate decides on the set.</returns>
+    private static bool IsGated(EvaluationSettings settings, string set) =>
+        settings.GateThresholds.Any(threshold => string.Equals(threshold.Set, set, StringComparison.Ordinal));
+
+    /// <summary>
+    ///     Runs the multi-seed study: retrains with every evaluation seed and evaluates each model end to end, with the
+    ///     cue priors, on every gate set that has rows, exactly as the gate scores the shipped model. Only aggregate
+    ///     counts are printed, never a per-row result.
+    /// </summary>
+    /// <param name="corpus">The training corpus.</param>
+    /// <param name="evaluator">The evaluator.</param>
+    /// <param name="trainingSettings">The training settings of the record; only the seed changes.</param>
+    /// <param name="evaluationSettings">The evaluation settings with the seeds and the recorded thresholds.</param>
+    /// <param name="root">The data folder.</param>
+    /// <param name="output">The output writer.</param>
+    /// <returns>The counts of every seed.</returns>
+    private static List<SeedResult> RunSeedStudy(
+        TrainingCorpus corpus,
+        HeteronymEvaluator evaluator,
+        TrainingSettings trainingSettings,
+        EvaluationSettings evaluationSettings,
+        string root,
+        TextWriter output)
+    {
+        // The gate sets with rows: the holdouts always, an overlay when its file has rows
+        var overlayRows = new Dictionary<string, IReadOnlyList<OverlayRow>>(StringComparer.Ordinal);
+        var sets = new List<string>();
+        foreach (var set in HeteronymEvaluator.GateSets)
+        {
+            if (!EvaluationOverlay.IsOverlay(set))
+            {
+                sets.Add(set);
+                continue;
+            }
+
+            if (File.Exists(Path.Combine(root, EvaluationOverlay.FileOf(set))))
+            {
+                var rows = EvaluationOverlay.Load(root, set);
+                if (rows.Count > 0)
+                {
+                    overlayRows[set] = rows;
+                    sets.Add(set);
+                }
+            }
+        }
+
+        var results = new List<SeedResult>();
+        foreach (var seed in evaluationSettings.Seeds)
+        {
+            var trained = ModelSelection.Train(corpus, trainingSettings with { Seed = seed });
+            var image = trained.CompressedImage;
+            var counts = new List<SeedSetCount>();
+            foreach (var set in sets)
+            {
+                SetEvaluation evaluation;
+                if (overlayRows.TryGetValue(set, out var rows))
+                {
+                    var clusters = rows.ToDictionary(static row => row.Row.Id, static row => row.Cluster, StringComparer.Ordinal);
+                    evaluation = evaluator.EvaluateRows(set, rows.Select(static row => row.Row).ToList(), image, row => clusters[row.Id]);
+                }
+                else
+                {
+                    evaluation = evaluator.Evaluate(set, image);
+                }
+
+                counts.Add(new SeedSetCount(set, evaluation.Rows, evaluation.Correct));
+            }
+
+            results.Add(new SeedResult(seed, counts));
+            output.WriteLine($"evaluate: seed {seed}: image sha256 {trained.Result.ImageSha256}; {string.Join("; ", counts.Select(static count => $"{count.Set} {count.Correct}/{count.Rows}"))}");
+        }
+
+        if (results.Count >= 2)
+        {
+            foreach (var set in sets)
+            {
+                var counts = results.Select(result => result.Sets.First(count => count.Set == set)).ToList();
+                var rule = HeteronymEvaluator.DeriveGateThreshold(counts.Select(static count => count.Correct).ToList(), counts[0].Rows);
+                var recorded = evaluationSettings.GateThresholds.FirstOrDefault(threshold => threshold.Set == set);
+                output.WriteLine(
+                    $"evaluate: seeds {set}: correct {string.Join(", ", counts.Select(static count => count.Correct))} of {counts[0].Rows}; "
+                    + $"threshold by rule {rule} bp; recorded {(recorded is null ? "none" : $"{recorded.MinAccuracyBasisPoints} bp")}");
+            }
+        }
+
+        return results;
+    }
     /// <summary>
     ///     Resolves the path of the model file under test.
     /// </summary>
@@ -378,13 +473,14 @@ internal static class EvaluateCommand
     /// <param name="options">The options.</param>
     /// <param name="wantRecord">Whether the evaluation record is written or checked.</param>
     /// <param name="root">The data folder, where the record looks for the overlay files.</param>
+    /// <param name="settings">The evaluation settings, whose thresholds name the gate sets.</param>
     /// <param name="output">The output writer, told about an overlay file the record leaves out.</param>
     /// <returns>The set names in evaluation order.</returns>
     /// <remarks>
     ///     The record takes the data sets first and the overlays after them, so the lines of the data sets in the record
     ///     files keep their place whether or not the overlays exist; an overlay whose file is absent is left out.
     /// </remarks>
-    private static List<string> SelectSets(EvaluateOptions options, bool wantRecord, string root, TextWriter output)
+    private static List<string> SelectSets(EvaluateOptions options, bool wantRecord, string root, EvaluationSettings settings, TextWriter output)
     {
         if (wantRecord)
         {
@@ -394,6 +490,10 @@ internal static class EvaluateCommand
                 if (File.Exists(Path.Combine(root, EvaluationOverlay.FileOf(overlay))))
                 {
                     record.Add(overlay);
+                }
+                else if (options.Gate && IsGated(settings, overlay))
+                {
+                    throw new InvalidDataException($"the gate set {overlay} has no file {EvaluationOverlay.FileOf(overlay)} in the data folder");
                 }
                 else
                 {
@@ -406,7 +506,17 @@ internal static class EvaluateCommand
 
         if (options.Gate)
         {
-            return ["holdout-natural"];
+            // The gate's scored sets, holdouts and overlays alike, each of which must have its file
+            foreach (var set in settings.GateThresholds.Select(static threshold => threshold.Set))
+            {
+                var file = EvaluationOverlay.IsOverlay(set) ? EvaluationOverlay.FileOf(set) : HeteronymEvaluator.SetFiles[set];
+                if (!File.Exists(Path.Combine(root, file)))
+                {
+                    throw new InvalidDataException($"the gate set {set} has no file {file} in the data folder");
+                }
+            }
+
+            return settings.GateThresholds.Select(static threshold => threshold.Set).ToList();
         }
 
         return options.Sets.Count > 0 ? options.Sets.Distinct().ToList() : ["dev"];
@@ -472,17 +582,56 @@ internal static class EvaluateCommand
     }
 
     /// <summary>
-    ///     Prints the quality gate decision.
+    ///     Prints the statistical gate decision per scored set and the flip report of the model under test against the
+    ///     committed record's current readings.
     /// </summary>
-    /// <param name="natural">The evaluation of the natural holdout.</param>
-    /// <param name="settings">The settings with the threshold.</param>
+    /// <param name="report">The evaluation with the gate sets.</param>
+    /// <param name="committed">The committed gate state of the record folder, or null when there is none.</param>
     /// <param name="output">The output writer.</param>
     /// <returns>0 when the gate passes, otherwise 1.</returns>
-    private static int PrintGate(SetEvaluation natural, EvaluationSettings settings, TextWriter output)
+    /// <exception cref="InvalidDataException">A gate set was not evaluated.</exception>
+    private static int PrintGate(EvaluationReport report, CommittedGate? committed, TextWriter output)
     {
-        var verdict = HeteronymEvaluator.DecideGate(natural, settings);
-        output.WriteLine($"evaluate: GATE RUN on holdout-natural: pooled accuracy {EvaluationRecord.FormatPercent(HeteronymEvaluator.RoundBasisPoints(natural.Correct, natural.Rows))} (threshold {settings.GateMinPooledAccuracyPerThousand / 10}.{settings.GateMinPooledAccuracyPerThousand % 10}%): {(verdict.AccuracyOk ? "ok" : "BELOW")}");
-        output.WriteLine($"evaluate: GATE RUN: {settings.ConfidencePercent}% interval lower bound of the improvement over own-UPOS {EvaluationRecord.FormatPercent(natural.Interval.LowerBasisPoints, signed: true)}: {(verdict.IntervalOk ? "above zero" : "NOT above zero")}");
+        var settings = report.Evaluation;
+        var verdict = HeteronymEvaluator.DecideGate(report.Sets, settings);
+        foreach (var set in verdict.Sets)
+        {
+            output.WriteLine(
+                $"evaluate: GATE {set.Set}: {set.Correct}/{set.Rows} {EvaluationRecord.FormatPercent(HeteronymEvaluator.RoundBasisPoints(set.Correct, set.Rows))}, "
+                + $"{settings.ConfidencePercent}% interval [{EvaluationRecord.FormatPercent(set.Accuracy.LowerBasisPoints)}, {EvaluationRecord.FormatPercent(set.Accuracy.UpperBasisPoints)}] over {set.Accuracy.Clusters} clusters; "
+                + $"threshold {EvaluationRecord.FormatPercent(set.ThresholdBasisPoints)}: {(set.Passed ? "ok" : "BELOW")}");
+        }
+
+        // The flips of the model under test against the committed current readings
+        if (committed is null)
+        {
+            output.WriteLine("evaluate: FLIPS: no committed gate rows to compare with");
+        }
+        else
+        {
+            foreach (var set in verdict.Sets.Select(static set => set.Set))
+            {
+                var evaluation = report.Sets.First(evaluation => evaluation.Set == set);
+                var fixedCount = 0;
+                var brokenCount = 0;
+                foreach (var row in (evaluation.RowReadings ?? []).OrderBy(static row => row.Id, StringComparer.Ordinal))
+                {
+                    var previous = committed.Rows.TryGetValue((set, row.Id), out var old) ? old.Current : "-";
+                    var change = HeteronymEvaluator.ClassifyFlip(row.Gold, previous, row.Emitted);
+                    if (change is null)
+                    {
+                        continue;
+                    }
+
+                    fixedCount += change == "fixed" ? 1 : 0;
+                    brokenCount += change == "broken" ? 1 : 0;
+                    output.WriteLine($"evaluate: FLIP {set} {row.Id} {row.Gold} {previous}->{row.Emitted} {change}");
+                }
+
+                output.WriteLine($"evaluate: FLIPS {set}: fixed {fixedCount}, broken {brokenCount}");
+            }
+        }
+
         output.WriteLine($"evaluate: GATE: {(verdict.Passed ? "PASS" : "FAIL")}");
         return verdict.Passed ? 0 : 1;
     }

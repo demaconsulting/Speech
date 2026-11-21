@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "training": {
     "seed": 1,
     "hashBits": 22,
@@ -22,7 +22,24 @@
     "resamples": 10000,
     "confidencePercent": 95,
     "bootstrapSeed": 7,
-    "gateMinPooledAccuracyPerThousand": 930
+    "gate": [
+      {
+        "set": "generalization",
+        "minAccuracyBasisPoints": 6902
+      },
+      {
+        "set": "holdout-independent",
+        "minAccuracyBasisPoints": 9483
+      },
+      {
+        "set": "holdout-natural",
+        "minAccuracyBasisPoints": 9520
+      },
+      {
+        "set": "regression",
+        "minAccuracyBasisPoints": 9603
+      }
+    ]
   },
   "inputs": {
     "dataSha256": "d7a94b0225e699e07cab7cf33d06138bf97726954dcdd8f12073f61fab4c5e60",

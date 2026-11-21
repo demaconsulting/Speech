@@ -41,6 +41,7 @@ internal sealed record ParityCounts(int Compared, int Mismatched, int Suppressed
 /// <param name="Interval">The paired clustered bootstrap interval of model minus own-part-of-speech baseline.</param>
 /// <param name="Parity">The parity of the analyzer and the direct path; empty when only the direct path was evaluated.</param>
 /// <param name="AccuracyInterval">The clustered bootstrap interval of the model accuracy itself (its point estimate is the accuracy in basis points); null when not requested.</param>
+/// <param name="RowReadings">The labeled and emitted reading of every row in file order; null when not recorded.</param>
 internal sealed record SetEvaluation(
     string Set,
     int Rows,
@@ -56,7 +57,8 @@ internal sealed record SetEvaluation(
     IReadOnlyList<GroupTally> ByConfidence,
     BootstrapInterval Interval,
     ParityCounts Parity,
-    BootstrapInterval? AccuracyInterval = null);
+    BootstrapInterval? AccuracyInterval = null,
+    IReadOnlyList<RowReading>? RowReadings = null);
 
 /// <summary>One cluster of rows that a bootstrap resamples as a unit.</summary>
 /// <param name="Id">The cluster id (a source document, or a row id for an independent row).</param>
@@ -65,21 +67,41 @@ internal sealed record SetEvaluation(
 /// <param name="BaselineCorrect">The rows the baseline decides correctly.</param>
 internal sealed record ClusterStats(string Id, int Rows, int ModelCorrect, int BaselineCorrect);
 
-/// <summary>The accuracy of one model of the multi-seed study.</summary>
-/// <param name="Seed">The training seed.</param>
-/// <param name="NaturalRows">The natural holdout rows.</param>
-/// <param name="NaturalCorrect">The natural holdout rows decided correctly.</param>
-/// <param name="IndependentRows">The independent holdout rows.</param>
-/// <param name="IndependentCorrect">The independent holdout rows decided correctly.</param>
-internal sealed record SeedResult(ulong Seed, int NaturalRows, int NaturalCorrect, int IndependentRows, int IndependentCorrect);
+/// <summary>The count of one gate set for one model of the multi-seed study.</summary>
+/// <param name="Set">The gate set.</param>
+/// <param name="Rows">The rows of the set.</param>
+/// <param name="Correct">The rows decided correctly end to end.</param>
+internal sealed record SeedSetCount(string Set, int Rows, int Correct);
 
-/// <summary>The decision of the quality gate on the natural holdout.</summary>
-/// <param name="AccuracyOk">Whether the pooled accuracy reaches the threshold.</param>
-/// <param name="IntervalOk">Whether the lower bound of the interval is above zero.</param>
-internal sealed record GateVerdict(bool AccuracyOk, bool IntervalOk)
+/// <summary>The accuracy of one model of the multi-seed study on every gate set.</summary>
+/// <param name="Seed">The training seed.</param>
+/// <param name="Sets">The counts per gate set, in the ordinal order of the set names.</param>
+internal sealed record SeedResult(ulong Seed, IReadOnlyList<SeedSetCount> Sets);
+
+/// <summary>One row's reading end to end, as the gate's per-row record holds it.</summary>
+/// <param name="Id">The row id.</param>
+/// <param name="Gold">The labeled reading id.</param>
+/// <param name="Emitted">The reading id the analyzer emitted, or <c>none</c>.</param>
+internal sealed record RowReading(string Id, string Gold, string Emitted);
+
+/// <summary>The decision of the statistical gate on one scored set.</summary>
+/// <param name="Set">The gate set.</param>
+/// <param name="Rows">The rows of the set.</param>
+/// <param name="Correct">The rows decided correctly end to end.</param>
+/// <param name="ThresholdBasisPoints">The recorded threshold of the set, in basis points.</param>
+/// <param name="Accuracy">The clustered bootstrap interval of the accuracy (reported; it does not decide).</param>
+internal sealed record GateSetVerdict(string Set, int Rows, int Correct, int ThresholdBasisPoints, BootstrapInterval Accuracy)
 {
-    /// <summary>Gets a value indicating whether the gate passes: both conditions hold.</summary>
-    public bool Passed => AccuracyOk && IntervalOk;
+    /// <summary>Gets a value indicating whether the set passes: <c>correct × 10,000 ≥ threshold × rows</c>, with at least one row.</summary>
+    public bool Passed => Rows > 0 && Correct * 10_000L >= (long)ThresholdBasisPoints * Rows;
+}
+
+/// <summary>The decision of the statistical gate over its scored sets.</summary>
+/// <param name="Sets">The verdict of every gate set, in the order of the thresholds.</param>
+internal sealed record GateVerdict(IReadOnlyList<GateSetVerdict> Sets)
+{
+    /// <summary>Gets a value indicating whether the gate passes: there is a set and every set passes.</summary>
+    public bool Passed => Sets.Count > 0 && Sets.All(static set => set.Passed);
 }
 
 /// <summary>The result of one overlay row with and without the curated cue priors.</summary>
@@ -169,6 +191,9 @@ internal sealed class HeteronymEvaluator
     /// <summary>The sets of the evaluation record and of <c>--set all</c>, in ordinal order: the development set and the holdouts.</summary>
     public static readonly IReadOnlyList<string> ReportSets = ["dev", "holdout-independent", "holdout-natural"];
 
+    /// <summary>The scored sets of the statistical quality gate, in ordinal order: both overlays and both holdouts.</summary>
+    public static readonly IReadOnlyList<string> GateSets = ["generalization", "holdout-independent", "holdout-natural", "regression"];
+
     /// <summary>The tag code of <c>NOUN</c>, for the mirror of the noun-form cue.</summary>
     private static readonly byte NounTag = HeteronymContext.UposCode("NOUN");
 
@@ -230,18 +255,103 @@ internal sealed class HeteronymEvaluator
     }
 
     /// <summary>
-    ///     Decides the quality gate on an evaluation of the natural holdout.
+    ///     Decides the statistical quality gate: every set that has a threshold must reach it.
     /// </summary>
-    /// <param name="natural">The evaluation of the natural holdout.</param>
-    /// <param name="settings">The settings that hold the threshold.</param>
-    /// <returns>The verdict.</returns>
-    public static GateVerdict DecideGate(SetEvaluation natural, EvaluationSettings settings)
+    /// <param name="evaluations">The evaluations; each gate set of the thresholds must be among them with its accuracy interval.</param>
+    /// <param name="settings">The settings that hold the thresholds.</param>
+    /// <returns>The verdict, one entry per threshold in its order.</returns>
+    /// <exception cref="InvalidDataException">A gate set of the thresholds was not evaluated or has no accuracy interval.</exception>
+    public static GateVerdict DecideGate(IReadOnlyList<SetEvaluation> evaluations, EvaluationSettings settings)
     {
-        ArgumentNullException.ThrowIfNull(natural);
+        ArgumentNullException.ThrowIfNull(evaluations);
         ArgumentNullException.ThrowIfNull(settings);
-        return new GateVerdict(
-            natural.Rows > 0 && natural.Correct * 1000L >= (long)settings.GateMinPooledAccuracyPerThousand * natural.Rows,
-            natural.Interval.LowerIsPositive);
+        var verdicts = new List<GateSetVerdict>(settings.GateThresholds.Count);
+        foreach (var threshold in settings.GateThresholds)
+        {
+            var evaluation = evaluations.FirstOrDefault(evaluation => string.Equals(evaluation.Set, threshold.Set, StringComparison.Ordinal))
+                ?? throw new InvalidDataException($"the gate set {threshold.Set} was not evaluated");
+            var accuracy = evaluation.AccuracyInterval
+                ?? throw new InvalidDataException($"the gate set {threshold.Set} has no accuracy interval");
+            verdicts.Add(new GateSetVerdict(threshold.Set, evaluation.Rows, evaluation.Correct, threshold.MinAccuracyBasisPoints, accuracy));
+        }
+
+        return new GateVerdict(verdicts);
+    }
+
+    /// <summary>
+    ///     Derives the threshold of a gate set from the correct counts of the current recipe at several seeds: the floor
+    ///     of the mean minus two sample standard deviations, as a share of the rows, in basis points.
+    /// </summary>
+    /// <param name="counts">The correct counts, one per seed; at least two.</param>
+    /// <param name="rows">The rows of the set; positive.</param>
+    /// <returns>
+    ///     The largest integer <c>t ≥ 0</c> with <c>t ≤ 10,000 × (m − 2s) / rows</c>, where <c>m</c> is the mean and
+    ///     <c>s</c> the sample standard deviation (divisor <c>n − 1</c>) of the counts; 0 when even 0 is above that.
+    /// </returns>
+    /// <remarks>
+    ///     Exact integer arithmetic: with <c>S₁ = Σc</c>, <c>S₂ = Σc²</c> and <c>D = 10,000·S₁ − n·t·rows</c>, the
+    ///     condition is <c>D ≥ 0</c> and <c>(n − 1)·D² ≥ 4·10⁸·n·(n·S₂ − S₁²)</c>. For <c>n</c> values every one lies
+    ///     within <c>s·(n − 1)/√n</c> of the mean (Samuelson's inequality), which is less than <c>2s</c> for
+    ///     <c>n ≤ 5</c>, so every seed's own count passes the threshold derived from it.
+    /// </remarks>
+    /// <exception cref="ArgumentException">Fewer than two counts, a negative count, or rows not positive.</exception>
+    public static int DeriveGateThreshold(IReadOnlyList<int> counts, int rows)
+    {
+        ArgumentNullException.ThrowIfNull(counts);
+        if (counts.Count < 2 || rows <= 0 || counts.Any(static count => count < 0))
+        {
+            throw new ArgumentException("a threshold needs at least two non-negative counts and a positive row count");
+        }
+
+        Int128 n = counts.Count;
+        Int128 s1 = 0;
+        Int128 s2 = 0;
+        foreach (var count in counts)
+        {
+            s1 += count;
+            s2 += (Int128)count * count;
+        }
+
+        var spread = 400_000_000 * n * ((n * s2) - (s1 * s1));
+        bool Holds(Int128 t)
+        {
+            var d = (10_000 * s1) - (n * t * rows);
+            return d >= 0 && (n - 1) * d * d >= spread;
+        }
+
+        // Start at the floor of the mean and walk down to the largest t that holds
+        var t = (10_000 * s1) / (n * rows);
+        while (t > 0 && !Holds(t))
+        {
+            t--;
+        }
+
+        return Holds(t) ? (int)t : 0;
+    }
+
+    /// <summary>
+    ///     Classifies the change of one gate row between two models.
+    /// </summary>
+    /// <param name="gold">The labeled reading.</param>
+    /// <param name="previous">The reading of the previous model, or <c>-</c> for a row the previous record does not have.</param>
+    /// <param name="current">The reading of the current model.</param>
+    /// <returns><c>fixed</c> (wrong to right), <c>broken</c> (right to wrong) or <c>changed</c> (wrong to another wrong); null when the row did not change or is new.</returns>
+    public static string? ClassifyFlip(string gold, string previous, string current)
+    {
+        ArgumentNullException.ThrowIfNull(gold);
+        ArgumentNullException.ThrowIfNull(previous);
+        ArgumentNullException.ThrowIfNull(current);
+        if (previous == "-" || string.Equals(previous, current, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (string.Equals(previous, gold, StringComparison.Ordinal))
+        {
+            return "broken";
+        }
+
+        return string.Equals(current, gold, StringComparison.Ordinal) ? "fixed" : "changed";
     }
 
     /// <summary>
@@ -249,12 +359,13 @@ internal sealed class HeteronymEvaluator
     /// </summary>
     /// <param name="set">The set name: <c>dev</c>, <c>holdout-natural</c> or <c>holdout-independent</c>.</param>
     /// <param name="image">The model file bytes (compressed or not).</param>
+    /// <param name="withAccuracyInterval">Whether to compute the clustered interval of the accuracy itself, as a gate set needs.</param>
     /// <returns>The evaluation.</returns>
     /// <exception cref="InvalidDataException">The set is unknown or its file is malformed, or the model does not load.</exception>
-    public SetEvaluation Evaluate(string set, byte[] image)
+    public SetEvaluation Evaluate(string set, byte[] image, bool withAccuracyInterval = false)
     {
         var file = SetFiles.GetValueOrDefault(set, set);
-        return EvaluateEndToEnd(set, Prepare(set), image, row => ClusterOf(row, file), withAccuracyInterval: false);
+        return EvaluateEndToEnd(set, Prepare(set), image, row => ClusterOf(row, file), withAccuracyInterval);
     }
 
     /// <summary>
@@ -896,7 +1007,8 @@ internal sealed class HeteronymEvaluator
             ConfidenceBuckets.Select((name, index) => new GroupTally(name, byConfidence[index][0], byConfidence[index][1], 0)).ToList(),
             interval,
             parity,
-            accuracyInterval);
+            accuracyInterval,
+            outcomes.Select(outcome => new RowReading(outcome.Row.Row.Id, outcome.Row.Row.ReadingId, ReadingName(outcome.Reading))).ToList());
     }
 
     /// <summary>

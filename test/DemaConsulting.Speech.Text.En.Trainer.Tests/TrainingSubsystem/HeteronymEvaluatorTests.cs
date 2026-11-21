@@ -122,51 +122,107 @@ public sealed class HeteronymEvaluatorTests
         Assert.Equal(new BootstrapInterval(0, 0, 0, 0, false), empty);
     }
 
-    /// <summary>Proves the gate needs both the pooled accuracy at the threshold and a lower bound above zero, and the threshold is inclusive.</summary>
+    /// <summary>Proves every gate set at exactly its threshold passes: the comparison is inclusive and exact in integers.</summary>
+    [Fact]
+    public void HeteronymEvaluator_DecideGate_EverySetAtThreshold_Passes()
+    {
+        // Arrange: 9520 bp of 1167 rows is 1110.98 rows, so 1111 passes; 6902 bp of 242 rows is 167.03, so 168 passes
+        var settings = Settings with { GateThresholds = [new GateThreshold("generalization", 6902), new GateThreshold("holdout-natural", 9520)] };
+        var sets = new[] { Evaluation("generalization", 242, 168), Evaluation("holdout-natural", 1167, 1111) };
+
+        // Act
+        var verdict = HeteronymEvaluator.DecideGate(sets, settings);
+
+        // Assert
+        Assert.True(verdict.Passed);
+        Assert.Equal(["generalization", "holdout-natural"], verdict.Sets.Select(static set => set.Set));
+        Assert.All(verdict.Sets, static set => Assert.True(set.Passed));
+        Assert.Equal(9520, verdict.Sets[1].ThresholdBasisPoints);
+    }
+
+    /// <summary>Proves one set below its threshold fails the gate and the verdict names that set, whatever the others do.</summary>
+    [Fact]
+    public void HeteronymEvaluator_DecideGate_OneSetBelow_FailsNamingTheSet()
+    {
+        // Arrange: 1110 of 1167 is below 9520 bp
+        var settings = Settings with { GateThresholds = [new GateThreshold("generalization", 6902), new GateThreshold("holdout-natural", 9520)] };
+        var sets = new[] { Evaluation("generalization", 242, 242), Evaluation("holdout-natural", 1167, 1110) };
+
+        // Act
+        var verdict = HeteronymEvaluator.DecideGate(sets, settings);
+
+        // Assert
+        Assert.False(verdict.Passed);
+        Assert.Equal("holdout-natural", Assert.Single(verdict.Sets, static set => !set.Passed).Set);
+    }
+
+    /// <summary>Proves a set without rows never passes, and a gate set that was not evaluated is a data error.</summary>
+    [Fact]
+    public void HeteronymEvaluator_DecideGate_NoRowsFailsAndMissingSetThrows()
+    {
+        // Arrange
+        var settings = Settings with { GateThresholds = [new GateThreshold("holdout-natural", 9520)] };
+
+        // Act
+        var empty = HeteronymEvaluator.DecideGate([Evaluation("holdout-natural", 0, 0)], settings);
+        var missing = Assert.Throws<InvalidDataException>(() => HeteronymEvaluator.DecideGate([Evaluation("regression", 10, 10)], settings));
+
+        // Assert
+        Assert.False(empty.Passed);
+        Assert.Contains("holdout-natural", missing.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves the threshold rule is the floor of the mean minus two sample standard deviations, in basis points, with the
+    ///     values of the seed study: the natural holdout gives 9520 and the independent holdout 9483.
+    /// </summary>
+    [Fact]
+    public void HeteronymEvaluator_DeriveGateThreshold_FiveSeeds_FloorOfMeanMinusTwoSd()
+    {
+        // Act
+        var natural = HeteronymEvaluator.DeriveGateThreshold([1123, 1114, 1129, 1132, 1129], 1167);
+        var independent = HeteronymEvaluator.DeriveGateThreshold([1882, 1912, 1914, 1905, 1886], 1972);
+        var equal = HeteronymEvaluator.DeriveGateThreshold([50, 50, 50, 50, 50], 100);
+        var tooSpread = HeteronymEvaluator.DeriveGateThreshold([0, 0, 0, 0, 100], 100);
+
+        // Assert
+        Assert.Equal(9520, natural);
+        Assert.Equal(9483, independent);
+        Assert.Equal(5000, equal);
+        Assert.Equal(0, tooSpread);
+        Assert.Throws<ArgumentException>(() => HeteronymEvaluator.DeriveGateThreshold([5], 10));
+    }
+
+    /// <summary>Proves every one of five seeds passes the threshold derived from their counts (Samuelson's inequality), for widely spread counts too.</summary>
     [Theory]
-    [InlineData(930, 1000, true, true)]
-    [InlineData(929, 1000, false, true)]
-    public void HeteronymEvaluator_DecideGate_AccuracyThresholdIsInclusive(int correct, int rows, bool accuracyOk, bool intervalOk)
+    [InlineData(519, 518, 517, 518, 509, 529)]
+    [InlineData(177, 182, 182, 182, 169, 242)]
+    [InlineData(10, 90, 50, 50, 50, 100)]
+    [InlineData(0, 100, 100, 100, 100, 100)]
+    public void HeteronymEvaluator_DeriveGateThreshold_EverySeedPasses(int a, int b, int c, int d, int e, int rows)
     {
         // Arrange
-        var natural = Evaluation(rows, correct, new BootstrapInterval(10, 300, 100, 500, true));
+        int[] counts = [a, b, c, d, e];
 
         // Act
-        var verdict = HeteronymEvaluator.DecideGate(natural, Settings);
+        var threshold = HeteronymEvaluator.DeriveGateThreshold(counts, rows);
 
         // Assert
-        Assert.Equal(accuracyOk, verdict.AccuracyOk);
-        Assert.Equal(intervalOk, verdict.IntervalOk);
-        Assert.Equal(accuracyOk && intervalOk, verdict.Passed);
+        Assert.All(counts, count => Assert.True(count * 10_000L >= (long)threshold * rows, $"{count} of {rows} below {threshold} bp"));
     }
 
-    /// <summary>Proves a lower bound that is not above zero fails the gate however accurate the model is.</summary>
-    [Fact]
-    public void HeteronymEvaluator_DecideGate_LowerBoundNotPositive_Fails()
+    /// <summary>Proves a changed row is classified as fixed, broken or changed, and an unchanged or new row is no flip.</summary>
+    [Theory]
+    [InlineData("read.past", "read.present", "read.past", "fixed")]
+    [InlineData("read.past", "read.past", "none", "broken")]
+    [InlineData("bass.fish", "bass.music", "none", "changed")]
+    [InlineData("read.past", "read.past", "read.past", null)]
+    [InlineData("read.past", "-", "read.present", null)]
+    public void HeteronymEvaluator_ClassifyFlip_ClassifiesTheChange(string gold, string previous, string current, string? expected)
     {
-        // Arrange
-        var natural = Evaluation(1000, 990, new BootstrapInterval(10, 300, 0, 500, false));
-
-        // Act
-        var verdict = HeteronymEvaluator.DecideGate(natural, Settings);
-
-        // Assert
-        Assert.True(verdict.AccuracyOk);
-        Assert.False(verdict.IntervalOk);
-        Assert.False(verdict.Passed);
+        // Act / Assert
+        Assert.Equal(expected, HeteronymEvaluator.ClassifyFlip(gold, previous, current));
     }
-
-    /// <summary>Proves a set without rows never passes the gate.</summary>
-    [Fact]
-    public void HeteronymEvaluator_DecideGate_NoRows_Fails()
-    {
-        // Act
-        var verdict = HeteronymEvaluator.DecideGate(Evaluation(0, 0, new BootstrapInterval(0, 0, 0, 0, false)), Settings);
-
-        // Assert
-        Assert.False(verdict.Passed);
-    }
-
     /// <summary>Proves the natural holdout fixture is scored exactly: accuracy, the three baselines, coverage, strata and clusters.</summary>
     [Fact]
     public void HeteronymEvaluator_Evaluate_NaturalHoldout_ComputesExactMetrics()
@@ -599,10 +655,10 @@ public sealed class HeteronymEvaluatorTests
     /// <summary>
     ///     Builds a set evaluation with only the figures the gate reads.
     /// </summary>
+    /// <param name="set">The set name.</param>
     /// <param name="rows">The rows.</param>
     /// <param name="correct">The rows decided correctly.</param>
-    /// <param name="interval">The interval.</param>
-    /// <returns>The evaluation.</returns>
-    private static SetEvaluation Evaluation(int rows, int correct, BootstrapInterval interval) =>
-        new("holdout-natural", rows, rows, 0, rows, correct, 0, 0, 0, [], [], [], interval, new ParityCounts(rows, 0, 0));
+    /// <returns>The evaluation, with an accuracy interval.</returns>
+    private static SetEvaluation Evaluation(string set, int rows, int correct) =>
+        new(set, rows, rows, 0, rows, correct, 0, 0, 0, [], [], [], new BootstrapInterval(1, 0, 0, 0, false), new ParityCounts(rows, 0, 0), new BootstrapInterval(1, HeteronymEvaluator.RoundBasisPoints(correct, rows), 0, 10_000, true));
 }

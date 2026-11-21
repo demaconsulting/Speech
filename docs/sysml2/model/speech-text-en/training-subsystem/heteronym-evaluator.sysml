@@ -20,10 +20,12 @@ package SpeechTextEn_HeteronymEvaluator {
         doc /* End-to-end model evaluator: decides each row through the real EnglishTextAnalyzer (no reading counts as
              * wrong), compares it with the direct classifier path for parity, reports three baselines and strata by
              * source, reading and confidence, computes the paired document-clustered bootstrap interval in integer
-             * arithmetic, and decides the quality gate. Also evaluates caller-supplied rows with caller-supplied
-             * clustering (the external sets) and reports a clustered interval of the accuracy itself for them. Also
-             * holds the SetEvaluation, GroupTally, BootstrapInterval, ClusterStats, ParityCounts, SeedResult and
-             * GateVerdict result records. */
+             * arithmetic, decides the statistical gate per scored set by an exact integer threshold comparison,
+             * derives a threshold from seed counts (the floor of the mean minus two sample standard deviations), and
+             * classifies flips as fixed, broken or changed. Also evaluates caller-supplied rows with caller-supplied
+             * clustering (the external sets and the overlays) and reports a clustered interval of the accuracy itself
+             * for them and for a gate set. Also holds the SetEvaluation, RowReading, GroupTally, BootstrapInterval,
+             * ClusterStats, ParityCounts, SeedSetCount, SeedResult, GateSetVerdict and GateVerdict result records. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/HeteronymEvaluator.cs");

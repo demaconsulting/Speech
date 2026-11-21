@@ -15,7 +15,7 @@ generalization	<0.600	32	17	5313	0
 generalization	0.600-0.899	94	64	6809	0
 generalization	>=0.900	116	96	8276	0
 generalization	none	0	0	0	0
-regression	<0.600	11	11	10000	0
-regression	0.600-0.899	48	48	10000	0
-regression	>=0.900	460	460	10000	0
+regression	<0.600	11	10	9091	0
+regression	0.600-0.899	56	49	8750	0
+regression	>=0.900	462	460	9957	0
 regression	none	0	0	0	0

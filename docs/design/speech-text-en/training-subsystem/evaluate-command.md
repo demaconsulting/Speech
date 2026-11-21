@@ -33,21 +33,30 @@ evaluation record folder is `--record-dir` or else `docs/evaluation/text-en` of 
 1. Resolves the locations and settings, reads the model file and computes the SHA-256 of its uncompressed image (a
    compressed or an uncompressed file gives the same hash).
 2. Chooses the sets: all three, in ordinal order, followed by the overlays whose files exist (`generalization`, then
-   `regression`; an absent file is named and left out), when the record is written or checked; the natural holdout
-   alone for `--gate`; otherwise the requested sets, `dev` by default.
+   `regression`; an absent file is named and left out, except that it is an `InvalidDataException` for a gate set with
+   `--gate`), when the record is written or checked; the gate sets of the record's thresholds for `--gate`, each of
+   which must have its file; otherwise the requested sets, `dev` by default. A gate set is evaluated with the interval
+   of its accuracy.
 3. Loads the corpus and creates the evaluator. When a holdout set is among the sets it prints a line that says a holdout
    set is being read.
 4. Evaluates each set end to end through the analyzer (see *HeteronymEvaluator Design*) and prints the accuracy, the
    three baselines, the improvement and its interval, the parity counts, the strata and the worst readings of at least
    five rows. An overlay is loaded with `EvaluationOverlay` (an overlay without rows is named and skipped) and evaluated
-   with `HeteronymEvaluator.EvaluateOverlay`: the same figures for the shipped classifier, then a line confirming the
+   with `HeteronymEvaluator.EvaluateOverlay` (with `--gate`, a gate overlay without rows is an `InvalidDataException`):
+   the same figures for the shipped classifier, then a line confirming the
    verified cue-unsolvable rows and one line per slice with the accuracy with and without the curated cue priors, both
    intervals, the cue effect and its interval, and the rows on which a cue acts and whose reading it changes.
 5. With `--seeds`, or when the record is written or checked, retrains with each seed of the evaluation settings (the
-   same training settings and the same development-set choices, only the seed changes) and evaluates each model on the
-   natural and the independent holdout through the direct path.
-6. With `--gate`, prints the verdict on the natural holdout from `HeteronymEvaluator.DecideGate` and returns 0 for a
-   pass and 1 for a fail.
+   same training settings and the same development-set choices, only the seed changes) and scores each model end to end
+   with the cue priors, exactly as the gate scores the shipped model, on every gate set that has rows (an overlay
+   through `HeteronymEvaluator.EvaluateRows`). It prints the image hash and the counts of each seed and, per set, the
+   counts and the threshold by `HeteronymEvaluator.DeriveGateThreshold` beside the recorded one; it never prints a
+   per-row result.
+6. With `--gate`, prints per gate set the accuracy, its interval, the threshold and whether it is met, from
+   `HeteronymEvaluator.DecideGate`; then, when the record folder has committed gate rows
+   (`EvaluationRecord.ReadCommitted`), every row whose reading under the model being evaluated differs from the
+   committed current reading (`evaluate: FLIP <set> <id> <gold> <previous>-><current> <change>`) and the fixed and
+   broken counts per set; then the verdict. It returns 0 for a pass and 1 for a fail.
 7. With `--write`, writes the evaluation record (`EvaluationRecord.Write`), the overlays appended after the data sets;
    with `--check`, compares it
    (`EvaluationRecord.Compare`), names every file that is missing or differs and returns 1 when any is. The check never
