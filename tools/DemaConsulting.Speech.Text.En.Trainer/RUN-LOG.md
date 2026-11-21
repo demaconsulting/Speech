@@ -474,3 +474,25 @@ rows, review 2 for the 10 rewritten rows kept); the bytes of every row are the w
 `novel-vocabulary` and 107 `novel-construction` rows, 81 `cue_unsolvable=yes` rows over 13 targets; 9 rows per reading
 except `bow.bend` (8) and `wind.coil` (27). `check-data` passes with the shape quotas. The review is
 `data/text-en/audit/generalization-review.tsv` (254 lines: one per row and review round).
+
+## Word-cluster subsystem (PR A): freeze commit and first overlay evaluation (2026-11-21)
+
+**Freeze commit.** The generalization set, its blind review and the manifest were frozen in commit
+`2869a472fb2a3b638190394a71b2f8ba4f210316` ("Text.En: blind generalization set, frozen").
+
+**Overlay evaluation, first run.** With the overlay evaluation of the trainer (`evaluate --set regression --set
+generalization`, the shipped model with image SHA-256 `73de5a3f...3df0`; the code was not yet committed), run once:
+
+- Regression overlay (519 rows, each its own cluster; 95 percent intervals): with the cue priors 519 of 519 (100.00
+  percent); the model alone 515 of 519 (99.23 percent, 98.46 to 99.81); cue effect +0.77 points (+0.19 to +1.54); a
+  cue prior acts on 37 rows and changes the reading of 4. Seen rows (25): 25 against 24 (+4.00, 0.00 to +12.00).
+  Unseen rows (494): 494 against 491 (+0.61, 0.00 to +1.42). By origin, with cues against model alone: `listening` 7
+  against 4 of 7 (+42.86, +14.29 to +85.71), `data-row` 21 against 20 of 21, `analyzer-test` 11 and 11 of 11,
+  `golden-pipeline` 37 and 37 of 37, `golden-readings` 382 and 382 of 382, `golden-sentences` 61 and 61 of 61. Parity
+  519 compared, 0 mismatched, 0 suppressed; own-part-of-speech baseline 471 of 519.
+- Generalization set: **stopped by the cue-unsolvable check before any figure of the set was printed or seen**:
+  `gen-0060` (*Beneath the pulley, the cord wound.*, `wind.coil`, `cue_unsolvable=yes`) is one the curated cues can
+  act on: the tagger tags *wound* there as a noun, so the noun-form prior is added and the reading with the priors
+  differs from the model alone. This is a data error of the frozen set (the row does not belong to the cue-unsolvable
+  subset), found by a structural check, not by an accuracy. It is reported to the owner for a decision under protocol
+  step 6 (a defect fix, logged here); the row was not edited. No accuracy of the generalization set has been read.
