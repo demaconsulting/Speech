@@ -254,12 +254,12 @@ model or to choose any setting. A word that gets no reading counts as wrong. The
 | Natural sentences (266 documents) | 1,167 | 96.2% | 90.7% | 82.0% |
 | Sentences written blind by a different model family | 1,972 | 95.4% | 91.2% | 51.4% |
 | External: Wikipedia homographs (WHD `eval`) | 1,615 | 93.0% | 90.6% | 69.2% |
-| External: heteronym-bench (299 sentences) | 299 | 93.0% | 80.3% | 40.1% |
+| External: heteronym-bench (299 sentences) | 299 | 93.3% | 80.3% | 40.1% |
 
 "Part of speech alone" is the reading the tag of the word decides, and "most common reading" is the reading the form has
 most often in the training data. The 95 percent intervals of the external figures are 91.7 to 94.2 percent (WHD) and
-90.0 to 95.7 percent (benchmark). Five training runs that differ only in the random seed give 95.5 to 97.0 percent on
-the natural set, 95.4 to 97.1 percent on the independent one, 92.4 to 93.0 percent on WHD and 92.0 to 96.7 percent on
+90.3 to 96.0 percent (benchmark). Five training runs that differ only in the random seed give 95.5 to 97.0 percent on
+the natural set, 95.4 to 97.1 percent on the independent one, 92.4 to 93.0 percent on WHD and 92.6 to 97.0 percent on
 the benchmark, which shows how little 299 sentences can tell.
 
 These numbers come with limits that you should know:
