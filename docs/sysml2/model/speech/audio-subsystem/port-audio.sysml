@@ -1,11 +1,24 @@
-package Speech {
-    part def PortAudio {
-        doc /* Internal child subsystem that isolates PortAudioSharp2 and supplementary native
-             * host-API interop behind mockable managed abstractions for deterministic testing. */
+package Speech_PortAudio {
+    private import SoftwareItemMetadata::*;
+    private import OtsDependencies::*;
+    private import Speech_IPortAudioApi::*;
+    private import Speech_IPortAudioStream::*;
+    private import Speech_PortAudioApi::*;
+    private import Speech_PortAudioDeviceInfo::*;
+    private import Speech_PortAudioEnvironment::*;
+    private import Speech_PortAudioHostApiInfo::*;
+    private import Speech_PortAudioHostApiType::*;
+    private import Speech_PortAudioNativeMethods::*;
 
-        comment designRef /* Design: docs/design/speech/audio-subsystem/port-audio.md */
-        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem/port-audio.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/port-audio.yaml */
+    part def PortAudio {
+        doc /* Internal child subsystem that isolates PortAudioSharp2 and supplementary native host-API interop behind
+             * mockable managed abstractions for deterministic testing. */
+
+        metadata info : SoftwareInfo {
+            designFiles = ("docs/design/speech/audio-subsystem/port-audio.md");
+            verificationFiles = ("docs/verification/speech/audio-subsystem/port-audio.md");
+            requirementFiles = ("docs/reqstream/speech/audio-subsystem/port-audio.yaml");
+        }
 
         part iPortAudioApi : IPortAudioApi;
         part iPortAudioStream : IPortAudioStream;

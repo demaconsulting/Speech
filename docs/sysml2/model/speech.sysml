@@ -1,18 +1,28 @@
 package Speech {
+    private import SoftwareItemMetadata::*;
+    private import OtsDependencies::*;
+    private import Speech_AudioSubsystem::*;
+    private import Speech_Diagnostics::*;
+    private import Speech_ModelManagementSubsystem::*;
+    private import Speech_RecognitionSubsystem::*;
+    private import Speech_SynthesisSubsystem::*;
+
     doc
     /*
-     * Speech is a cross-platform .NET library providing local, offline speech-to-text (STT)
-     * and text-to-speech (TTS) services for desktop applications, with mockable audio
-     * interfaces, on-demand model download and verification, and Natural Language Audio Tags.
+     * Speech is a cross-platform .NET library providing local, offline speech-to-text (STT) and text-to-speech (TTS)
+     * services for desktop applications, with mockable audio interfaces, on-demand model download and verification,
+     * and Natural Language Audio Tags.
      */
 
     part def SpeechSystem {
         doc /* The core Speech library: engine-neutral audio, model management, recognition and synthesis. */
 
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/SpeechTests.cs */
-        comment designRef /* Design: docs/design/speech.md */
-        comment verificationRef /* Verification: docs/verification/speech.md */
-        comment reqRef /* Requirements: docs/reqstream/speech.yaml */
+        metadata info : SoftwareInfo {
+            testFiles = ("test/DemaConsulting.Speech.Tests/SpeechTests.cs", "test/DemaConsulting.Speech.Tests/PlatformSupportTests.cs");
+            designFiles = ("docs/design/speech.md");
+            verificationFiles = ("docs/verification/speech.md");
+            requirementFiles = ("docs/reqstream/speech.yaml");
+        }
 
         part diagnostics : Diagnostics;
         part audioSubsystem : AudioSubsystem;

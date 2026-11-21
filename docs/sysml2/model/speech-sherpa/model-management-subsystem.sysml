@@ -1,14 +1,24 @@
-package SpeechSherpa {
+package SpeechSherpa_ModelManagementSubsystem {
+    private import SoftwareItemMetadata::*;
+    private import SpeechSherpa_SherpaOnnxKokoroEnglishSynthesisModel::*;
+    private import SpeechSherpa_SherpaOnnxNemotronStreamingEnRecognitionModel::*;
+    private import SpeechSherpa_SherpaOnnxVitsLibriTtsEnglishSynthesisModel::*;
+    private import SpeechSherpa_SherpaOnnxZipformerEnRecognitionModel::*;
+    private import SpeechSherpa_SpeechModelCatalogSherpaExtensions::*;
+    private import SpeechSherpa_TarBz2ArchiveExtractor::*;
+    private import SpeechSherpa_UppercaseTranscriptRestorer::*;
+
     part def ModelManagementSubsystem {
-        doc /* The AddSherpaModels() catalog registration entry point, the four concrete
-             * sherpa-onnx-backed models (Zipformer and NVIDIA Nemotron streaming recognition
-             * models, VITS/Piper LibriTTS-R and Kokoro synthesis models) implementing Speech's
-             * IRecognitionModel/ISynthesisModel contract, and the shared .tar.bz2
+        doc /* The AddSherpaModels() catalog registration entry point, the four concrete sherpa-onnx-backed models
+             * (Zipformer and NVIDIA Nemotron streaming recognition models, VITS/Piper LibriTTS-R and Kokoro synthesis
+             * models) implementing Speech's IRecognitionModel/ISynthesisModel contract, and the shared .tar.bz2
              * archive-extraction and uppercase-transcript-restoration helpers they use. */
 
-        comment designRef /* Design: docs/design/speech-sherpa/model-management-subsystem.md */
-        comment verificationRef /* Verification: docs/verification/speech-sherpa/model-management-subsystem.md */
-        comment reqRef /* Requirements: docs/reqstream/speech-sherpa/model-management-subsystem.yaml */
+        metadata info : SoftwareInfo {
+            designFiles = ("docs/design/speech-sherpa/model-management-subsystem.md");
+            verificationFiles = ("docs/verification/speech-sherpa/model-management-subsystem.md");
+            requirementFiles = ("docs/reqstream/speech-sherpa/model-management-subsystem.yaml");
+        }
 
         part speechModelCatalogSherpaExtensions : SpeechModelCatalogSherpaExtensions;
         part sherpaOnnxZipformerEnRecognitionModel : SherpaOnnxZipformerEnRecognitionModel;

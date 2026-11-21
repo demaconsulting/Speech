@@ -1,11 +1,19 @@
-package Speech {
+package Speech_WavDecoder {
+    private import SoftwareItemMetadata::*;
+    private import Speech_AudioClip::*;
+
     part def WavDecoder {
         doc /* Internal RIFF/WAVE decoder for PCM 8/16/24/32-bit and float32 audio. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/WavDecoder.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/AudioSubsystem/WavDecoderTests.cs */
-        comment designRef /* Design: docs/design/speech/audio-subsystem/wav-decoder.md */
-        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem/wav-decoder.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/wav-decoder.yaml */
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech/AudioSubsystem/WavDecoder.cs");
+            testFiles = ("test/DemaConsulting.Speech.Tests/AudioSubsystem/WavDecoderTests.cs");
+            designFiles = ("docs/design/speech/audio-subsystem/wav-decoder.md");
+            verificationFiles = ("docs/verification/speech/audio-subsystem/wav-decoder.md");
+            requirementFiles = ("docs/reqstream/speech/audio-subsystem/wav-decoder.yaml");
+        }
+
+        // Decodes RIFF/WAVE data into AudioClip values for the file reader.
+        dependency WavDecoder to AudioClip;
     }
 }
