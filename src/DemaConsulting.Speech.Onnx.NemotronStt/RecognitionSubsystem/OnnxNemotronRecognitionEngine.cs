@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
@@ -27,7 +28,9 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 ///     the encoder caches, decoder state and feature stream are deliberately <i>kept</i>, so
 ///     speech that resumes is decoded with its full left context and no word is lost or replayed.
 ///     The maximum-length rule splits only between words: the last (possibly incomplete) word is
-///     carried into the next utterance. Silence alone never produces a result.
+///     carried into the next utterance. Silence alone never produces a result. Because the model
+///     state is kept, the model may emit the closing punctuation of a finalized sentence after
+///     its endpoint; such punctuation at the start of a segment is dropped from the text.
 ///     </para>
 ///     <para>
 ///     <b>Silence padding</b>: a chunk is only ever completed with <i>real silence features</i> -
@@ -49,6 +52,12 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
 {
     /// <summary>Frames in one encoder input: pre-encode context plus the new chunk.</summary>
     private const int EncoderFrames = NemotronEngineOptions.PreEncodeFrames + NemotronEngineOptions.ChunkFrames;
+
+    /// <summary>
+    ///     The sentence-closing punctuation (besides the Unicode closing brackets and quotes) that
+    ///     never opens a segment: Latin, ellipsis, and the CJK and full-width forms.
+    /// </summary>
+    private const string SentenceClosingPunctuation = ".,;:!?\u2026\u3001\u3002\uFF01\uFF0C\uFF0E\uFF1A\uFF1B\uFF1F";
 
     /// <summary>The encoder.</summary>
     private readonly INemotronEncoder _encoder;
@@ -490,8 +499,15 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
                 var featureStart = chunkStart + ((long)k * NemotronEngineOptions.ChunkFrames / outputFrames);
                 CreditDroppedSilence(featureStart);
 
-                // Decode the frame and tell the detector whether it held speech
+                // Decode the frame and tell the detector whether it held speech; closing
+                // punctuation that opens a segment belongs to the segment already finalized
+                var segmentWasEmpty = _tokens.Count == 0;
                 var emitted = _decoder.Decode(output.Slice(k * hidden, hidden), 1, hidden, _tokens) > 0;
+                if (emitted && segmentWasEmpty)
+                {
+                    emitted = DropLeadingClosingPunctuation();
+                }
+
                 if (IsPadding(featureStart))
                 {
                     _detector.AdvancePaddingFrame(emitted);
@@ -507,6 +523,42 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
 
         // Silence removed right at the chunk end belongs before the next chunk's speech
         CreditDroppedSilence(_framesDequeued);
+    }
+
+    /// <summary>
+    ///     Removes the closing-punctuation tokens that open the segment just started, because they
+    ///     end the sentence of the segment already finalized.
+    /// </summary>
+    /// <returns><see langword="true"/> when tokens remain (the frame still held speech); otherwise <see langword="false"/>.</returns>
+    /// <remarks>
+    ///     The model keeps its state across endpoints and often emits a sentence's closing
+    ///     punctuation (".", ",", "?") a little after the endpoint has already finalized that
+    ///     sentence. Kept, it would become a final of its own (".") or open the next segment
+    ///     (", and then"). Dropped tokens still advanced the prediction network, so the model's
+    ///     context is unchanged; they only leave the reported text and do not count as speech for
+    ///     the endpoint detector. Call only when the segment was empty before the frame was decoded.
+    /// </remarks>
+    private bool DropLeadingClosingPunctuation()
+    {
+        var count = 0;
+        while (count < _tokens.Count && IsClosingPunctuation(_tokens[count]))
+        {
+            count++;
+        }
+
+        _tokens.RemoveRange(0, count);
+        return _tokens.Count > 0;
+    }
+
+    /// <summary>Determines whether a token's text consists only of sentence-closing punctuation.</summary>
+    /// <param name="token">The token id.</param>
+    /// <returns><see langword="true"/> for tokens such as ".", "," or ")"; <see langword="false"/> for words and opening punctuation.</returns>
+    private bool IsClosingPunctuation(int token)
+    {
+        var text = _vocabulary.Detokenize([token]);
+        return text.Length > 0 && text.All(c =>
+            SentenceClosingPunctuation.Contains(c) ||
+            char.GetUnicodeCategory(c) is UnicodeCategory.ClosePunctuation or UnicodeCategory.FinalQuotePunctuation);
     }
 
     /// <summary>Applies the endpoint detector's decision to the utterance in progress.</summary>

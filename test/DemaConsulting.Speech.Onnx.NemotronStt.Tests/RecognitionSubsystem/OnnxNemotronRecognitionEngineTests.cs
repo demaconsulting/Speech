@@ -19,6 +19,9 @@ public sealed class OnnxNemotronRecognitionEngineTests
     /// <summary>A tiny vocabulary: unk, "hello", "world", blank.</summary>
     private static readonly string[] Words = ["<unk>", "\u2581hello", "\u2581world", "<blank>"];
 
+    /// <summary>The id of the "." token in the vocabulary of <see cref="CreateWithPunctuation"/>.</summary>
+    private const int PeriodToken = 2;
+
     /// <summary>Builds a speech-level tone.</summary>
     private static float[] Tone(double seconds)
     {
@@ -102,6 +105,22 @@ public sealed class OnnxNemotronRecognitionEngineTests
             new NemotronRnntGreedyDecoder(network),
             new NemotronVocabulary(["<unk>", "\u2581hel", "lo", "<blank>"]),
             new NemotronEngineOptions(Endpoint: new NemotronEndpointRules(MaxUtteranceMs: maxUtteranceMs)));
+        return (engine, network);
+    }
+
+    /// <summary>
+    ///     Creates an engine whose vocabulary also holds a period token, for the handling of
+    ///     punctuation emitted after an endpoint.
+    /// </summary>
+    /// <param name="script">The scripted tokens.</param>
+    /// <returns>The engine and its network.</returns>
+    private static (OnnxNemotronRecognitionEngine Engine, FakeRnntNetwork Network) CreateWithPunctuation(params int[] script)
+    {
+        var network = new FakeRnntNetwork(Blank, script);
+        var engine = new OnnxNemotronRecognitionEngine(
+            new FakeNemotronEncoder(),
+            new NemotronRnntGreedyDecoder(network),
+            new NemotronVocabulary(["<unk>", "\u2581hello", ".", "<blank>"]));
         return (engine, network);
     }
 
@@ -401,6 +420,50 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.Equal(2, network.Emitted);
         Assert.Equal(0, encoder.ResetCount);
         Assert.Equal(resetsBefore, network.ResetCount);
+    }
+
+    /// <summary>
+    ///     Proves that closing punctuation the model emits after an endpoint has finalized the
+    ///     sentence never becomes a final of its own.
+    /// </summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_PunctuationAfterEndpoint_ReportsNoPunctuationOnlyFinal()
+    {
+        // Arrange: "hello" finalized by the endpoint, then the network emits a late "."
+        var (engine, network) = CreateWithPunctuation(1, Blank);
+        engine.AcceptSamples(Join(Tone(1), Silence(3)));
+        var finals = Drain(engine).Where(r => r.IsFinal).Select(r => r.Text).ToList();
+        network.Enqueue(PeriodToken, Blank);
+
+        // Act: flush, which decodes the silence tail where the "." is emitted
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: only the sentence was finalized; the late punctuation produced nothing
+        Assert.Equal(["hello"], finals);
+        Assert.False(flushed, $"Unexpected flushed text: {result?.Text}");
+    }
+
+    /// <summary>
+    ///     Proves that closing punctuation emitted after an endpoint does not open the next
+    ///     segment, while the words that follow it are kept.
+    /// </summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_PunctuationBeforeNextWords_StartsSegmentWithWord()
+    {
+        // Arrange: "hello" finalized by the endpoint, then a late "." followed by the next word
+        var (engine, network) = CreateWithPunctuation(1, Blank);
+        engine.AcceptSamples(Join(Tone(1), Silence(3)));
+        Drain(engine);
+        network.Enqueue(PeriodToken, 1, Blank);
+
+        // Act: more speech, then flush
+        engine.AcceptSamples(Tone(0.5));
+        Drain(engine);
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: the new segment starts with its word, without the previous sentence's period
+        Assert.True(flushed);
+        Assert.Equal("hello", result!.Text);
     }
 
     /// <summary>Proves continuous speech beyond the maximum utterance length is split into several finals without losing words.</summary>
