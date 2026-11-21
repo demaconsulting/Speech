@@ -65,8 +65,8 @@ sections:
                   that is not an integer.
                 justification: |
                   The overlay checks and the evaluation read the same rows, and a generalization set staged
-                  outside the repository must be read exactly like the committed one. The set is committed
-                  with its header only until a blind writer has written it.
+                  outside the repository must be read exactly like the committed one. The set was committed
+                  with its header only until a blind writer had written it.
                 tests:
                   - TextEnDataSet_Load_ValidFixture_LoadsAllTablesWithoutFindings
                   - TextEnDataSet_Load_OverlayRows_CarryFileLineOffsetsAndColumns

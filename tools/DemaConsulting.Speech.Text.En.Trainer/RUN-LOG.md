@@ -431,3 +431,46 @@ natural audit set is planned:
 - frozen before PR B training and read once, as PR B's final natural audit.
 
 The existing natural holdout stays as the legacy non-regression gate (at least 1,123 of 1,167).
+
+## Word-cluster subsystem (PR A): generalization set frozen (2026-11-21)
+
+Written when the set was frozen (2026-11-21, 01:48 UTC), before any model, evaluation or cluster output on it existed.
+Evaluations of the generalization set so far: none. Sets read for this entry: none. The freeze commit SHA is recorded in
+the next entry (a commit cannot name itself).
+
+**Writing.** The writer prompt (`data/text-en/prompts/generalization.md`) was committed first (`abae8f2`). The staging
+folder outside the repository held only `readings.tsv`, `forms.tsv` and the prompt; the corpus had not been fetched and
+no clustering had been run. Times are UTC, from the files of the staging folder.
+
+| Round | Writer instance | Rows written or replaced | `check-data --generalization` of the staged copy after |
+| --- | --- | ---: | --- |
+| 1 | `gpt-5.6-luna` (first output 2026-11-20, about 23:46) | 243 written | 77 findings on 61 rows (45 N2, 16 N3) |
+| 2 | `gpt-5.6-luna`, new instance | 61 replaced | 20 rows (13 N2, 7 N3) |
+| 3 | `gpt-5.6-luna`, new instance | 20 replaced | 2 rows (`gen-0130` N2, `gen-0160` N3) |
+| 4 | `gpt-5.6-luna`, new instance | 2 replaced | no finding |
+| 5 | `gpt-5.6-luna`, new instance (2026-11-21, 01:40 to 01:42) | 11 rewritten after review 1 | `gen-0125` N3: dropped |
+
+**Deviations from the protocol above.**
+
+1. *Same writer* (step 3): the sub-agent tool runs a writer to completion and cannot send it a later message, so each
+   replacement round used a new `gpt-5.6-luna` instance under the same isolation rules. Each round received only row
+   ids and the generic reason, never a training sentence or the matching cue word.
+2. *A disagreement drops the row* (step 4): the 11 rows that review 1 did not confirm were rewritten instead of dropped.
+   They were writing defects found before the freeze and before any model output was seen (a bare *read* without a sign
+   of its tense, *bow* without a sign of its sense, one *tear* and one *minute* whose context pointed the other way).
+   The new writer made the intended reading clear and kept the labels; nothing was relabeled. The rewritten rows went
+   through the novelty check again and a second blind review.
+
+**Blind label review** (`claude-sonnet-5.5`; it saw the id, sentence, span, target and the candidate readings with their
+descriptions in a shuffled order with seed 20261120, not the writer's label):
+
+- review 1 (2026-11-21, output 01:39), 243 rows: 232 agree; 11 disagree or `unclear`: `gen-0009`, `gen-0067`,
+  `gen-0082`, `gen-0083`, `gen-0085`, `gen-0086`, `gen-0087`, `gen-0088`, `gen-0093`, `gen-0122`, `gen-0125`;
+- review 2 (a new instance, 2026-11-21, output 01:43), the 11 rewritten rows: 11 agree, high confidence;
+- `gen-0125` is dropped (its rewritten sentence failed N3) and not rewritten again.
+
+**Frozen set.** `data/text-en/generalization.tsv`: 242 rows, every label confirmed by a blind reviewer (review 1 for 232
+rows, review 2 for the 10 rewritten rows kept); the bytes of every row are the writer's. 64 families (3 to 9 rows), 135
+`novel-vocabulary` and 107 `novel-construction` rows, 81 `cue_unsolvable=yes` rows over 13 targets; 9 rows per reading
+except `bow.bend` (8) and `wind.coil` (27). `check-data` passes with the shape quotas. The review is
+`data/text-en/audit/generalization-review.tsv` (254 lines: one per row and review round).

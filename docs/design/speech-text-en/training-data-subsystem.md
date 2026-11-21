@@ -97,7 +97,8 @@ The files and their columns are:
 - `generalization.tsv` (`id lemma reading_id sentence start end kind family cue_forms cue_unsolvable source license`):
   the blind generalization set; `kind` is `novel-vocabulary` or `novel-construction`, `family` the cue or template
   family (the unit of the bootstrap), `cue_forms` the designated cue words and `cue_unsolvable` whether the curated cues
-  of the classifier cannot solve the row; committed with its header only until a blind writer has written it
+  of the classifier cannot solve the row; committed with its header only until a blind writer had written it, then
+  frozen with 242 rows
 - `MANIFEST.tsv` (`file sha256 bytes rows`): the pinned hash, size and row count of every other file
 - the other tables, `README.md`, `ATTRIBUTION.md`, `audit/`, `prompts/` and `check-output.txt`: documentation and
   records, covered by the manifest
@@ -127,9 +128,9 @@ sentence (it records that as seen) but never refers to or repeats a holdout sent
 new against the training, development, holdout and regression data under the rules N1 to N3 of *EvaluationOverlayChecker
 Design*; those rules run on every check, so a later training or development row that makes a generalization row
 familiar fails the check. The quotas of the set apply only once it has rows: the set is written by a blind writer after
-the checks are committed, and a header-only file is valid until then. A staged copy outside the repository is checked
-with `--generalization <file>`; its novelty findings give a generic reason and never name a training row, so they can
-be passed back to the writer.
+the checks are committed, and a header-only file was valid until then (and stays valid). A staged copy outside the
+repository is checked with `--generalization <file>`; its novelty findings give a generic reason and never name a
+training row, so they can be passed back to the writer.
 
 **Manifest.** `MANIFEST.tsv` lists every file of the folder except itself and the local cache folders `external/` and
 `work/`, which are never committed, sorted by ordinal comparison of the forward-slash relative path, with the SHA-256

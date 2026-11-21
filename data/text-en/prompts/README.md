@@ -24,7 +24,7 @@ adjudication and the holdout review).
 | [adjudication.md](adjudication.md) | `gpt-6.1-sol` | the decisions on the 85 disagreements and the description fixes | `audit/adjudication.tsv`, `audit/description-fixes.tsv` |
 | [holdout-review.md](holdout-review.md) | `gpt-6.1-sol` | the blind review of the LLM-labeled holdout-natural rows | `audit/holdout-review.tsv` |
 | [final-review.md](final-review.md) | `gpt-6.1-sol` | the final blind review of the 650 round-3 synthetic rows and 17 holdout rows | `audit/final-review.tsv` |
-| [generalization.md](generalization.md) | `gpt-5.6-luna` (planned) | the blind generalization set of the word-cluster work (committed before the set is written, 2026-11-20) | `generalization.tsv` |
+| [generalization.md](generalization.md) | `gpt-5.6-luna` | the blind generalization set of the word-cluster work (committed before the set was written, 2026-11-20; written in five rounds and reviewed blind by `claude-sonnet-5.5`, 2026-11-20 and 2026-11-21 UTC; see the record in the prompt file) | `generalization.tsv` (242 rows), `audit/generalization-review.tsv` |
 
 The prompt files are the verbatim task prompts recovered from the session event log of the runs (they are not
 reconstructions). Only local absolute paths were replaced by `<SPIKE>`, `<PARTOFSPEECH>`, `<SPEECH-REPO>` and `<STAGE>`.
@@ -32,3 +32,8 @@ The first-round prompts refer to the working files of the spike (`gaps.tsv`, `la
 to its working reading labels (WikipediaHomographData word ids); the committed rows use the reading ids of
 `readings.tsv`, mapped by a one-off builder script that is not part of the repository. The second-round prompts use the
 reading ids of `readings.tsv` directly.
+
+The two blind label reviews of the generalization set have no prompt file here (their task prompt is not recorded). Each
+reviewer saw only the row id, the sentence, the target span and the candidate readings with their descriptions (not the
+writer's label), in a seeded shuffled order, and answered a reading id or `unclear` with a confidence and a short note
+(`audit/generalization-review.tsv`).

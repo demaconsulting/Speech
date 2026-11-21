@@ -30,8 +30,8 @@ recorded per file and per row. Nothing here is legal advice.
 | [extension-decisions.tsv](extension-decisions.tsv) | 60 | the decision per candidate (add or defer) with the CMUdict evidence | CC0-1.0 |
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
 | [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
-| [generalization.tsv](generalization.tsv) | 0 | the blind generalization test set; header only until the blind writer has written it (see "Evaluation Overlays") | CC0-1.0 |
-| [audit/](audit/audit-summary.md) | 6 files | blind relabel audit, adjudication, holdout review and final review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review | CC0-1.0 |
+| [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 81 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
+| [audit/](audit/audit-summary.md) | 7 files | blind relabel audit, adjudication, holdout review, final review and the generalization review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review, the blind label review of the generalization set | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
 | [prompts/](prompts/README.md) | 12 | the prompts that produced the generated, LLM-labeled and audited data, and the prompt of the blind generalization set | CC0-1.0 |
@@ -223,7 +223,8 @@ once by a throwaway script from the golden files, the analyzer tests, the run lo
 
 `generalization.tsv` (`id lemma reading_id sentence start end kind family cue_forms cue_unsolvable source license`) is a
 test set written blind by a model of another family that sees only `readings.tsv`, `forms.tsv` and
-[its prompt](prompts/generalization.md), which was committed before the set was written. It covers 13 target words in 27 target slots. Its
+[its prompt](prompts/generalization.md), which was committed before the set was written. It covers 13 target words and 26 pairs of a target word and a reading (the prompt counts 27 slots; the writer gave the
+pair *wound* as `wind.coil` 18 rows). Its
 rows are novel by construction, and `check-data` enforces the novelty against the data as it is now:
 
 - **N1**: no sentence equals a sentence of the four data files or of the regression overlay, or nearly repeats a training
@@ -235,10 +236,23 @@ rows are novel by construction, and `check-data` enforces the novelty against th
 
 Once the set has rows it must have at least 30 families (`family`, the cue or template family, the unit of the bootstrap)
 of 2 to 12 rows, 90 `novel-vocabulary` and 70 `novel-construction` rows, 60 rows that the curated cues of the classifier
-cannot solve (`cue_unsolvable=yes`) over 8 lemmas, and rows for at least two readings of every target. Until the blind
-writer has written it, the file has its header only and these quotas do not apply. A staged copy is checked before it is
+cannot solve (`cue_unsolvable=yes`) over 8 lemmas, and rows for at least two readings of every target. While the file
+had its header only, these quotas did not apply. A staged copy is checked before it is
 committed with `check-data --generalization <file>`, whose novelty findings give a generic reason and never name a
 training row. Every row is `CC0-1.0` and has the source `generalization`.
+
+**The frozen set: 242 rows** (2026-11-21 UTC). 64 families of 3 to 9 rows; 135 `novel-vocabulary` and 107
+`novel-construction` rows; 81 `cue_unsolvable=yes` rows (54 and 27 by kind) over all 13 targets; 9 rows for every
+reading except `bow.bend` (8) and `wind.coil` (27: 18 with the target *wound*, 9 with *wind* or *winds*). One
+`gpt-5.6-luna` writer wrote 243 rows; four further rounds, each a new `gpt-5.6-luna` instance (the tool cannot message a
+finished writer), replaced the rows that the novelty check rejected (61, 20 and 2 rows) and rewrote the 11 rows that
+the first blind review did not confirm. A blind label review by `claude-sonnet-5.5` (sentence, span and candidate readings,
+not the label) agreed with 232 of 243 rows; the 11 others were rewritten with their labels unchanged and all 11 were
+confirmed by a second blind review. One rewritten row (`gen-0125`) failed the novelty rule N3 and was dropped. The
+per-row review is [audit/generalization-review.tsv](audit/generalization-review.tsv) (`id round original review agree
+confidence decision reason note`: one line per row and review round, `decision` `keep`, `rewritten` or `drop`), and the
+rounds, models and times are in [the prompt's record](prompts/generalization.md). The set is read only as the protocol
+of the trainer's `RUN-LOG.md` allows.
 
 ## Harvest rules
 
@@ -400,7 +414,7 @@ is all a regeneration needs.
 ### Review of the data files
 
 The large TSV files (`train.tsv`, `dev.tsv`, `holdout-natural.tsv`, `holdout-independent.tsv`, both provenance tables, `exclusions.tsv`, `gaps-v4.tsv`, `extension-candidates.tsv`,
-`audit/*.tsv` and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
+`audit/*.tsv` except `audit/generalization-review.tsv`, and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
 any change of any file changes it), by the `check-data` gates, by the documented second-model audits (see Audit), and by a sampled review recorded in the pull request.
 
 ### How the files were built

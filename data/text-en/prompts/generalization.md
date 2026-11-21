@@ -12,10 +12,40 @@ subsystem (PR A)". This prompt was committed before the set was written.
 | --- | --- |
 | Operator | GitHub Copilot CLI session orchestrated for DEMA Consulting |
 | Agent type | `general-purpose` |
-| Model | `gpt-5.6-luna` (planned) |
-| Dispatched (UTC) | recorded here when the writer is dispatched |
-| Completed (UTC) | recorded here when the set is frozen |
+| Model | `gpt-5.6-luna` (writer, five instances: rounds 1 to 5); blind label review `claude-sonnet-5.5` (two instances) |
+| Dispatched (UTC) | 2026-11-20, about 23:46 (the first output file of round 1; the sub-agent tool keeps no other dispatch time) |
+| Completed (UTC) | 2026-11-21, 01:48 (the set frozen; the freeze commit is recorded in `RUN-LOG.md`) |
 | Source | The prompt text below is given to the writer verbatim. Only the staging folder is replaced by `<STAGE>`. |
+
+## Writing and review record
+
+The writer was isolated to the staging folder, which held only `readings.tsv`, `forms.tsv` and this prompt (copies of
+the committed files). No model, evaluation or cluster output existed or was consulted at any point: the cluster corpus
+had not been fetched and no clustering had been run. Times are UTC, taken from the files of the staging folder.
+
+| Round | Writer instance | Rows written or replaced | Novelty check of the staged copy after the round |
+| --- | --- | ---: | --- |
+| 1 | `gpt-5.6-luna` | 243 written | 77 findings on 61 rows (45 N2, 16 N3) |
+| 2 | `gpt-5.6-luna`, new instance | 61 replaced | 20 rows (13 N2, 7 N3) |
+| 3 | `gpt-5.6-luna`, new instance | 20 replaced | 2 rows (1 N2, 1 N3) |
+| 4 | `gpt-5.6-luna`, new instance | 2 replaced | no finding |
+| 5 | `gpt-5.6-luna`, new instance (2026-11-21, 01:40 to 01:42) | 11 rewritten after the blind review | 1 row (N3): dropped |
+
+- **Deviation from the protocol.** The sub-agent tool runs a writer to completion and cannot send it a later message, so
+  every replacement round used a new `gpt-5.6-luna` instance under the same isolation rules instead of the same writer.
+  Each round received only row ids and the generic reason of the finding, never a training sentence or the matching
+  cue word.
+- **Blind review 1** (`claude-sonnet-5.5`, 2026-11-21, output 01:39): all 243 rows, in a seeded shuffled order, with
+  the sentence, the target span and the candidate readings with their descriptions, without the writer's label. 232
+  agreed; 11 disagreed or answered `unclear` (mostly a bare *read* without a sign of its tense, and *bow* without a
+  sign of its sense).
+- **Rewrite, not relabel.** The set was not frozen and no model output had been seen, so the 11 rows were treated as
+  writing defects: the round-5 writer rewrote their sentences to make the intended reading clear, with the labels
+  unchanged. One rewritten row (`gen-0125`) then failed the novelty rule N3 and was **dropped**, not rewritten again.
+- **Blind review 2** (a new `claude-sonnet-5.5` instance, 2026-11-21, output 01:43): the 11 rewritten rows; all agreed
+  with the writer's labels, with high confidence.
+- **Frozen set**: 242 rows. Every row's label is confirmed by a blind reviewer (review 1 for the 232 unchanged rows,
+  review 2 for the 10 rewritten rows that were kept). The per-row review is `audit/generalization-review.tsv`.
 
 ## Prompt text
 

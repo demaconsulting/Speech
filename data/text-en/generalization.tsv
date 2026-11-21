@@ -1,1 +1,243 @@
 id	lemma	reading_id	sentence	start	end	kind	family	cue_forms	cue_unsolvable	source	license
+gen-0001	tear	tear.drop	A lacrimal tear glistened beside the ophthalmic lamp.	11	15	novel-vocabulary	tear:ocular	lacrimal|ophthalmic	yes	generalization	CC0-1.0
+gen-0002	tear	tear.drop	Saline eased one tear after the corneal examination.	17	21	novel-vocabulary	tear:ocular	eased|corneal	yes	generalization	CC0-1.0
+gen-0003	tear	tear.drop	The mourner hid a tear beneath tinted spectacles.	18	22	novel-vocabulary	tear:ocular	mourner|spectacles	no	generalization	CC0-1.0
+gen-0004	tear	tear.drop	Each tear marked the margin of the condolence form.	5	9	novel-vocabulary	tear:grief	marked|condolence	no	generalization	CC0-1.0
+gen-0005	tear	tear.drop	One tear traced a path across her cheekbone.	4	8	novel-vocabulary	tear:grief	traced|cheekbone	no	generalization	CC0-1.0
+gen-0006	tear	tear.drop	Across the cheek, a tear appeared.	20	24	novel-construction	tear:grief	-	yes	generalization	CC0-1.0
+gen-0007	tear	tear.drop	Beneath her eyelid, did a tear bead?	26	30	novel-construction	tear:syntax	-	no	generalization	CC0-1.0
+gen-0008	tear	tear.drop	When a tear surfaced, the witness paused.	7	11	novel-construction	tear:syntax	-	no	generalization	CC0-1.0
+gen-0009	tear	tear.drop	Beneath the eyelash, a tear glistened.	23	27	novel-construction	tear:syntax	-	no	generalization	CC0-1.0
+gen-0010	tear	tear.rip	A frayed tear exposed the warp beside the hem.	9	13	novel-vocabulary	tear:ocular	frayed|warp	yes	generalization	CC0-1.0
+gen-0011	tear	tear.rip	The tailor repaired a tear with darning wool.	22	26	novel-vocabulary	tear:ocular	tailor|darning	yes	generalization	CC0-1.0
+gen-0012	tear	tear.rip	A jagged tear split the parchment near its seal.	9	13	novel-vocabulary	tear:ocular	jagged|parchment	no	generalization	CC0-1.0
+gen-0013	tear	tear.rip	The seamstress measured each tear before patching.	29	33	novel-vocabulary	tear:textile	seamstress|patching	no	generalization	CC0-1.0
+gen-0014	tear	tear.rip	A diagonal tear weakened the paper's corner.	11	15	novel-vocabulary	tear:textile	diagonal|weakened	no	generalization	CC0-1.0
+gen-0015	tear	tear.rip	Through the envelope, a tear widened.	24	28	novel-construction	tear:textile	-	yes	generalization	CC0-1.0
+gen-0016	tear	tear.rip	Could a tear ruin the map during folding?	8	12	novel-construction	tear:syntax	-	no	generalization	CC0-1.0
+gen-0017	tear	tear.rip	The document, bearing a tear, needed review.	24	28	novel-construction	tear:syntax	-	no	generalization	CC0-1.0
+gen-0018	tear	tear.rip	Repair the tear before filing the invoice.	11	15	novel-construction	tear:syntax	-	no	generalization	CC0-1.0
+gen-0019	wound	wound.injury	Careless barbs wound the clavicle during sparring.	15	20	novel-vocabulary	wound:medical	barbs|clavicle|sparring	yes	generalization	CC0-1.0
+gen-0020	wound	wound.injury	Abrasive talus can wound climbers along the scree traverse.	19	24	novel-vocabulary	wound:medical	talus|scree	yes	generalization	CC0-1.0
+gen-0021	wound	wound.injury	Bruising surrounded the wound after the collision.	24	29	novel-vocabulary	wound:medical	surrounded|collision	no	generalization	CC0-1.0
+gen-0022	wound	wound.injury	A puncture wound required careful debridement.	11	16	novel-vocabulary	wound:clinical	puncture|debridement	no	generalization	CC0-1.0
+gen-0023	wound	wound.injury	The feldsher charted each wound after eschar excision.	26	31	novel-vocabulary	wound:clinical	feldsher|eschar|excision	no	generalization	CC0-1.0
+gen-0024	wound	wound.injury	Careless remarks can wound deeply today.	21	26	novel-construction	wound:clinical	-	yes	generalization	CC0-1.0
+gen-0025	wound	wound.injury	Did the thorn wound the gardener during pruning?	14	19	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0026	wound	wound.injury	The report described a wound beside the scar.	23	28	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0027	wound	wound.injury	Healing complete, the wound troubled the sailor.	22	27	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0028	wind	wind.air	A katabatic wind crossed the ravine before dawn.	12	16	novel-vocabulary	wind:weather	katabatic|ravine	yes	generalization	CC0-1.0
+gen-0029	wind	wind.air	The anemometer recorded a wind above the escarpment.	26	30	novel-vocabulary	wind:weather	anemometer|escarpment	yes	generalization	CC0-1.0
+gen-0030	wind	wind.air	A zephyr wind cooled the kiln during the vigil.	9	13	novel-vocabulary	wind:weather	zephyr|kiln	no	generalization	CC0-1.0
+gen-0031	wind	wind.air	A williwaw wind scoured sastrugi beside the nunatak.	11	15	novel-vocabulary	wind:terrain	williwaw|sastrugi|nunatak	no	generalization	CC0-1.0
+gen-0032	wind	wind.air	The anemometer tracked wind above the basalt escarpment.	23	27	novel-vocabulary	wind:terrain	anemometer|basalt|escarpment	no	generalization	CC0-1.0
+gen-0033	wind	wind.air	Across the moor came a wind.	23	27	novel-construction	wind:terrain	-	yes	generalization	CC0-1.0
+gen-0034	wind	wind.air	How did the wind enter beneath the sealed hatch?	12	16	novel-construction	wind:syntax	-	no	generalization	CC0-1.0
+gen-0035	wind	wind.air	The wind, rising offshore, rattled loose shutters.	4	8	novel-construction	wind:syntax	-	no	generalization	CC0-1.0
+gen-0036	wind	wind.air	Let the wind pass through the louvered screen.	8	12	novel-construction	wind:syntax	-	no	generalization	CC0-1.0
+gen-0037	wind	wind.coil	The machinist wound the spindle around a mandrel.	14	19	novel-vocabulary	wound:machinery	machinist|spindle|mandrel	yes	generalization	CC0-1.0
+gen-0038	wind	wind.coil	She wound the filigree wire around a mandrel.	4	9	novel-vocabulary	wound:machinery	filigree|mandrel	yes	generalization	CC0-1.0
+gen-0039	wind	wind.coil	The torsion spring wound around the camshaft.	19	24	novel-vocabulary	wound:machinery	torsion|camshaft	no	generalization	CC0-1.0
+gen-0040	wind	wind.coil	The rigger wound marline around the belaying pin.	11	16	novel-vocabulary	wound:cordage	rigger|marline|belaying	no	generalization	CC0-1.0
+gen-0041	wind	wind.coil	The wound around the pulley showed uneven tension.	4	9	novel-vocabulary	wound:cordage	pulley|tension	no	generalization	CC0-1.0
+gen-0042	wind	wind.coil	Around the reel, she wound carefully.	21	26	novel-construction	wound:cordage	-	yes	generalization	CC0-1.0
+gen-0043	wind	wind.coil	By what route had the rigger wound hempen rope?	29	34	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0044	wind	wind.coil	The cord that I wound stayed taut.	16	21	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0045	wind	wind.coil	The filament wound beneath the ceramic guide.	13	18	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0046	wind	wind.coil	The watchmaker winds the mainspring with tweezers.	15	20	novel-vocabulary	wind:machinery	watchmaker|mainspring|tweezers	yes	generalization	CC0-1.0
+gen-0047	wind	wind.coil	A spiral wind marked the spring barrel.	9	13	novel-vocabulary	wind:machinery	spiral|barrel	yes	generalization	CC0-1.0
+gen-0048	wind	wind.coil	A watchmaker winds the mainspring with tweezers.	13	18	novel-vocabulary	wind:machinery	watchmaker|mainspring|tweezers	no	generalization	CC0-1.0
+gen-0049	wind	wind.coil	Each helical wind tightened the capstan's hawser.	13	17	novel-vocabulary	wind:cordage	helical|capstan|hawser	no	generalization	CC0-1.0
+gen-0050	wind	wind.coil	The passementier winds metallic gimp through a lucet.	17	22	novel-vocabulary	wind:cordage	passementier|gimp|lucet	no	generalization	CC0-1.0
+gen-0051	wind	wind.coil	Under an idle capstan, wind hempen line.	23	27	novel-construction	wind:cordage	-	yes	generalization	CC0-1.0
+gen-0052	wind	wind.coil	Did the gears wind the chain evenly?	14	18	novel-construction	wind:syntax	-	no	generalization	CC0-1.0
+gen-0053	wind	wind.coil	The cord that we wind remains taut.	17	21	novel-construction	wind:syntax	-	no	generalization	CC0-1.0
+gen-0054	wind	wind.coil	Wind beneath the flange before locking it.	0	4	novel-construction	wind:syntax	-	no	generalization	CC0-1.0
+gen-0055	wind	wind.coil	A clockmaker wound the fusee using a ratchet key.	13	18	novel-vocabulary	wound:machinery	clockmaker|fusee|ratchet	yes	generalization	CC0-1.0
+gen-0056	wind	wind.coil	A braider wound flax about a distaff spindle, leaving a sinuous welt.	10	15	novel-vocabulary	wound:machinery	braider|distaff|spindle	yes	generalization	CC0-1.0
+gen-0057	wind	wind.coil	The ceramicist wound slip into a spiral coil.	15	20	novel-vocabulary	wound:machinery	ceramicist|slip|spiral	no	generalization	CC0-1.0
+gen-0058	wind	wind.coil	A wound towline resisted the capstan.	2	7	novel-vocabulary	wound:cordage	towline|capstan	no	generalization	CC0-1.0
+gen-0059	wind	wind.coil	The weaver wound gimp through the shuttle.	11	16	novel-vocabulary	wound:cordage	weaver|gimp|shuttle	no	generalization	CC0-1.0
+gen-0060	wind	wind.coil	Beneath the pulley, the cord wound.	29	34	novel-construction	wound:cordage	-	yes	generalization	CC0-1.0
+gen-0061	wind	wind.coil	Round which spindle had that braider wound?	37	42	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0062	wind	wind.coil	The thread that she wound held firm.	20	25	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0063	wind	wind.coil	Wound tautly round the hook, the wire sagged.	0	5	novel-construction	wound:syntax	-	no	generalization	CC0-1.0
+gen-0064	minute	minute.time	The chronometer gained a minute during calibration.	25	31	novel-vocabulary	minute:chronometry	chronometer|calibration	yes	generalization	CC0-1.0
+gen-0065	minute	minute.time	A single minute of sidereal time shifted the meridian chronometer.	9	15	novel-vocabulary	minute:chronometry	sidereal|meridian|chronometer	yes	generalization	CC0-1.0
+gen-0066	minute	minute.time	The registrar entered each minute into the chancery roll.	27	33	novel-vocabulary	minute:chronometry	registrar|chancery|roll	no	generalization	CC0-1.0
+gen-0067	minute	minute.time	A minute elapsed while the horologist calibrated the chronometer.	2	8	novel-vocabulary	minute:record	elapsed|horologist|chronometer	no	generalization	CC0-1.0
+gen-0068	minute	minute.time	The interval lasted one minute by sundial.	24	30	novel-vocabulary	minute:record	interval|sundial	no	generalization	CC0-1.0
+gen-0069	minute	minute.time	At minute twelve, the bell sounded.	3	9	novel-construction	minute:record	-	yes	generalization	CC0-1.0
+gen-0070	minute	minute.time	Could one minute suffice for the inspection?	10	16	novel-construction	minute:syntax	-	no	generalization	CC0-1.0
+gen-0071	minute	minute.time	One minute, not two, remained for us.	4	10	novel-construction	minute:syntax	-	no	generalization	CC0-1.0
+gen-0072	minute	minute.time	Record the minute before filing the ledger.	11	17	novel-construction	minute:syntax	-	no	generalization	CC0-1.0
+gen-0073	minute	minute.tiny	A minute aperture admitted the capillary tube.	2	8	novel-vocabulary	minute:scale	aperture|capillary	yes	generalization	CC0-1.0
+gen-0074	minute	minute.tiny	The entomologist observed minute setae under magnification.	26	32	novel-vocabulary	minute:scale	entomologist|setae|magnification	yes	generalization	CC0-1.0
+gen-0075	minute	minute.tiny	Minute denticles fringed the sgraffito cartouche.	0	6	novel-vocabulary	minute:scale	denticles|sgraffito|cartouche	no	generalization	CC0-1.0
+gen-0076	minute	minute.tiny	The technician mapped minute spores on the slide.	22	28	novel-vocabulary	minute:detail	technician|spores	no	generalization	CC0-1.0
+gen-0077	minute	minute.tiny	A minute papillule marred the guilloche escutcheon.	2	8	novel-vocabulary	minute:detail	papillule|guilloche|escutcheon	no	generalization	CC0-1.0
+gen-0078	minute	minute.tiny	Within minute detail, small errors hid.	7	13	novel-construction	minute:detail	-	yes	generalization	CC0-1.0
+gen-0079	minute	minute.tiny	How minute the etched symbols seemed!	4	10	novel-construction	minute:syntax	-	no	generalization	CC0-1.0
+gen-0080	minute	minute.tiny	The specimen was minute beside its scale.	17	23	novel-construction	minute:syntax	-	no	generalization	CC0-1.0
+gen-0081	minute	minute.tiny	Keep minute spacing between adjacent marks.	5	11	novel-construction	minute:syntax	-	no	generalization	CC0-1.0
+gen-0082	read	read.past	The archivist has read marginalia from a palimpsest.	18	22	novel-vocabulary	read:archive	archivist|marginalia|palimpsest	yes	generalization	CC0-1.0
+gen-0083	read	read.past	She had read the dispatch beside a microfilm reader.	8	12	novel-vocabulary	read:archive	dispatch|microfilm	yes	generalization	CC0-1.0
+gen-0084	read	read.past	The auditor read every codicil before signing.	12	16	novel-vocabulary	read:archive	auditor|codicil	no	generalization	CC0-1.0
+gen-0085	read	read.past	He had read runes etched into the lintel.	7	11	novel-vocabulary	read:document	runes|lintel	no	generalization	CC0-1.0
+gen-0086	read	read.past	The curator had read annotations from a scholastic manuscript.	16	20	novel-vocabulary	read:document	curator|annotations|scholastic	no	generalization	CC0-1.0
+gen-0087	read	read.past	From the docket, had she read aloud?	25	29	novel-construction	read:document	-	yes	generalization	CC0-1.0
+gen-0088	read	read.past	Scarcely had the usher read a docket when recess ended.	23	27	novel-construction	read:syntax	-	no	generalization	CC0-1.0
+gen-0089	read	read.past	The memo that she read contained a cipher.	18	22	novel-construction	read:syntax	-	no	generalization	CC0-1.0
+gen-0090	read	read.past	The ruling, she had read before recess.	20	24	novel-construction	read:syntax	-	no	generalization	CC0-1.0
+gen-0091	read	read.present	Please read the rubric before calibrating instruments.	7	11	novel-vocabulary	read:instruction	rubric|calibrating|instruments	yes	generalization	CC0-1.0
+gen-0092	read	read.present	I read journals on lichen taxonomy.	2	6	novel-vocabulary	read:instruction	journals|lichen|taxonomy	yes	generalization	CC0-1.0
+gen-0093	read	read.present	They do read telemetry from the stratospheric probe.	8	12	novel-vocabulary	read:instruction	telemetry|stratospheric|probe	no	generalization	CC0-1.0
+gen-0094	read	read.present	A good read can illuminate obscure jurisprudence.	7	11	novel-vocabulary	read:scholarship	illuminate|jurisprudence	no	generalization	CC0-1.0
+gen-0095	read	read.present	Readers read marginal notes during exegesis.	8	12	novel-vocabulary	read:scholarship	marginal|exegesis	no	generalization	CC0-1.0
+gen-0096	read	read.present	Read aloud while the metronome ticks.	0	4	novel-construction	read:scholarship	-	yes	generalization	CC0-1.0
+gen-0097	read	read.present	From which palimpsest might scholars read privately?	37	41	novel-construction	read:syntax	-	no	generalization	CC0-1.0
+gen-0098	read	read.present	The guide asked whether I read Latin.	26	30	novel-construction	read:syntax	-	no	generalization	CC0-1.0
+gen-0099	read	read.present	Read the inscription, then copy its marks.	0	4	novel-construction	read:syntax	-	no	generalization	CC0-1.0
+gen-0100	bass	bass.fish	The angler netted a bass beside the oxbow.	20	24	novel-vocabulary	bass:angling	netted|oxbow	yes	generalization	CC0-1.0
+gen-0101	bass	bass.fish	A piscary warden lifted the bass from a weirside creel.	28	32	novel-vocabulary	bass:angling	piscary|weirside|creel	yes	generalization	CC0-1.0
+gen-0102	bass	bass.fish	The ichthyologist tagged each bass near the estuary.	30	34	novel-vocabulary	bass:angling	ichthyologist|estuary	no	generalization	CC0-1.0
+gen-0103	bass	bass.fish	A bass followed the spinner through silt.	2	6	novel-vocabulary	bass:ichthyology	spinner|silt	no	generalization	CC0-1.0
+gen-0104	bass	bass.fish	The hatchery counted bass during the survey.	21	25	novel-vocabulary	bass:ichthyology	hatchery|survey	no	generalization	CC0-1.0
+gen-0105	bass	bass.fish	From the reed bed rose a bass.	25	29	novel-construction	bass:ichthyology	-	yes	generalization	CC0-1.0
+gen-0106	bass	bass.fish	Did the bass strike after dusk?	8	12	novel-construction	bass:syntax	-	no	generalization	CC0-1.0
+gen-0107	bass	bass.fish	The bass that escaped disturbed the netter.	4	8	novel-construction	bass:syntax	-	no	generalization	CC0-1.0
+gen-0108	bass	bass.fish	In the aerated tank, keep the bass.	30	34	novel-construction	bass:syntax	-	no	generalization	CC0-1.0
+gen-0109	bass	bass.music	The bass deepened the ensemble's nocturne.	4	8	novel-vocabulary	bass:orchestration	ensemble|nocturne	yes	generalization	CC0-1.0
+gen-0110	bass	bass.music	A violone traced a bass beneath the isorhythmic motet.	19	23	novel-vocabulary	bass:orchestration	violone|isorhythmic|motet	yes	generalization	CC0-1.0
+gen-0111	bass	bass.music	The organist retuned bass pipes beneath the swell box.	21	25	novel-vocabulary	bass:orchestration	organist|swell	no	generalization	CC0-1.0
+gen-0112	bass	bass.music	Her bass resonated through the vaulted studio.	4	8	novel-vocabulary	bass:instrument	resonated|vaulted|studio	no	generalization	CC0-1.0
+gen-0113	bass	bass.music	The composer assigned bass to a serpent.	22	26	novel-vocabulary	bass:instrument	composer|assigned|serpent	no	generalization	CC0-1.0
+gen-0114	bass	bass.music	Beneath the soprano, bass carried weight.	21	25	novel-construction	bass:instrument	-	yes	generalization	CC0-1.0
+gen-0115	bass	bass.music	Can the bass enter after the oboe?	8	12	novel-construction	bass:syntax	-	no	generalization	CC0-1.0
+gen-0116	bass	bass.music	A bass, sustained beneath, steadied the fugue.	2	6	novel-construction	bass:syntax	-	no	generalization	CC0-1.0
+gen-0117	bass	bass.music	Let bass support the upper counterpoint.	4	8	novel-construction	bass:syntax	-	no	generalization	CC0-1.0
+gen-0118	bow	bow.bend	The envoy made a bow before the tribunal.	17	20	novel-vocabulary	bow:gesture	envoy|tribunal	yes	generalization	CC0-1.0
+gen-0119	bow	bow.bend	A courteous bow acknowledged the visiting delegation.	12	15	novel-vocabulary	bow:gesture	courteous|delegation	yes	generalization	CC0-1.0
+gen-0120	bow	bow.bend	The courtier's bow acknowledged the visiting legate.	15	18	novel-vocabulary	bow:gesture	courtier|acknowledged|legate	no	generalization	CC0-1.0
+gen-0121	bow	bow.bend	From the forecastle, the ship's bow met the chop.	32	35	novel-vocabulary	bow:nautical	forecastle|chop	no	generalization	CC0-1.0
+gen-0122	bow	bow.bend	Her genuflective bow impressed the heraldic judges.	17	20	novel-vocabulary	bow:nautical	genuflective|heraldic|judges	no	generalization	CC0-1.0
+gen-0123	bow	bow.bend	Before the monarch, she made a bow.	31	34	novel-construction	bow:nautical	-	yes	generalization	CC0-1.0
+gen-0124	bow	bow.bend	Did the vessel's bow clear the shoal?	17	20	novel-construction	bow:syntax	-	no	generalization	CC0-1.0
+gen-0126	bow	bow.bend	She bows gracefully when the conductor signals.	4	8	novel-construction	bow:syntax	-	no	generalization	CC0-1.0
+gen-0127	bow	bow.weapon	A fletcher tested the bow against a clout.	22	25	novel-vocabulary	bow:archery	fletcher|clout	yes	generalization	CC0-1.0
+gen-0128	bow	bow.weapon	A recurved bow rested in the armory.	11	14	novel-vocabulary	bow:archery	recurved|armory	yes	generalization	CC0-1.0
+gen-0129	bow	bow.weapon	The fletcher inspected bow limbs for warping.	23	26	novel-vocabulary	bow:archery	fletcher|limbs|warping	no	generalization	CC0-1.0
+gen-0130	bow	bow.weapon	An archetier calibrated the bow beside a velvet case.	28	31	novel-vocabulary	bow:craft	archetier	no	generalization	CC0-1.0
+gen-0131	bow	bow.weapon	The milliner secured a bow with a gimp rosette.	23	26	novel-vocabulary	bow:craft	milliner|gimp|rosette	no	generalization	CC0-1.0
+gen-0132	bow	bow.weapon	Against the target, a bow waited.	22	25	novel-construction	bow:craft	-	yes	generalization	CC0-1.0
+gen-0133	bow	bow.weapon	Could the bow fit inside this quiver?	10	13	novel-construction	bow:syntax	-	no	generalization	CC0-1.0
+gen-0134	bow	bow.weapon	The bow that she carried was laminated.	4	7	novel-construction	bow:syntax	-	no	generalization	CC0-1.0
+gen-0135	bow	bow.weapon	Raise the bow before releasing it.	10	13	novel-construction	bow:syntax	-	no	generalization	CC0-1.0
+gen-0136	lead	lead.guide	A coxswain took the lead through the regatta.	20	24	novel-vocabulary	lead:navigation	coxswain|regatta	yes	generalization	CC0-1.0
+gen-0137	lead	lead.guide	The guide's lead brought scouts toward the cairn.	12	16	novel-vocabulary	lead:navigation	guide|scouts|cairn	yes	generalization	CC0-1.0
+gen-0138	lead	lead.guide	Her lead clarified the negotiation's hidden sequence.	4	8	novel-vocabulary	lead:navigation	negotiation|sequence	no	generalization	CC0-1.0
+gen-0139	lead	lead.guide	The lead runner crossed the timing mat first.	4	8	novel-vocabulary	lead:signal	runner|timing|mat	no	generalization	CC0-1.0
+gen-0140	lead	lead.guide	The tracer dye gave researchers a lead through the aquifer.	34	38	novel-vocabulary	lead:signal	tracer|aquifer	no	generalization	CC0-1.0
+gen-0141	lead	lead.guide	Into the ravine, I lead today.	19	23	novel-construction	lead:signal	-	yes	generalization	CC0-1.0
+gen-0142	lead	lead.guide	Who will lead after the briefing?	9	13	novel-construction	lead:syntax	-	no	generalization	CC0-1.0
+gen-0143	lead	lead.guide	The captain asked whether I lead.	28	32	novel-construction	lead:syntax	-	no	generalization	CC0-1.0
+gen-0144	lead	lead.guide	Lead the procession beneath the arch.	0	4	novel-construction	lead:syntax	-	no	generalization	CC0-1.0
+gen-0145	lead	lead.metal	Galena yielded lead beside the assay furnace.	15	19	novel-vocabulary	lead:geology	yielded|assay|furnace	yes	generalization	CC0-1.0
+gen-0146	lead	lead.metal	The plumber replaced lead flashing near the chimney.	21	25	novel-vocabulary	lead:geology	plumber|flashing|chimney	yes	generalization	CC0-1.0
+gen-0147	lead	lead.metal	A lead isotope revealed the ore's provenance.	2	6	novel-vocabulary	lead:geology	isotope|ore|provenance	no	generalization	CC0-1.0
+gen-0148	lead	lead.metal	The battery used lead plates in its cells.	17	21	novel-vocabulary	lead:plumbing	battery|plates|cells	no	generalization	CC0-1.0
+gen-0149	lead	lead.metal	The assay yielded lead from cerussite during cupellation of litharge.	18	22	novel-vocabulary	lead:plumbing	cerussite|cupellation|litharge	no	generalization	CC0-1.0
+gen-0150	lead	lead.metal	Inside the ingot, lead remained dense.	18	22	novel-construction	lead:plumbing	-	yes	generalization	CC0-1.0
+gen-0151	lead	lead.metal	Was the lead sealed beneath the casing?	8	12	novel-construction	lead:syntax	-	no	generalization	CC0-1.0
+gen-0152	lead	lead.metal	The sample that contained lead required disposal.	26	30	novel-construction	lead:syntax	-	no	generalization	CC0-1.0
+gen-0153	lead	lead.metal	Handle the lead with insulated tongs.	11	15	novel-construction	lead:syntax	-	no	generalization	CC0-1.0
+gen-0154	row	row.argument	A rancorous row disrupted the committee's agenda.	12	15	novel-vocabulary	row:dispute	rancorous|disrupted|committee	yes	generalization	CC0-1.0
+gen-0155	row	row.argument	The barristers' row delayed the injunction hearing.	16	19	novel-vocabulary	row:dispute	barristers|injunction|hearing	yes	generalization	CC0-1.0
+gen-0156	row	row.argument	A maritime row erupted over salvage rights.	11	14	novel-vocabulary	row:dispute	maritime|salvage|rights	no	generalization	CC0-1.0
+gen-0157	row	row.argument	Their row unsettled the otherwise tranquil workshop.	6	9	novel-vocabulary	row:legal	unsettled|tranquil|workshop	no	generalization	CC0-1.0
+gen-0158	row	row.argument	The litigants' row reached the tribunal docket.	15	18	novel-vocabulary	row:legal	litigants|tribunal|docket	no	generalization	CC0-1.0
+gen-0159	row	row.argument	After the vote, a row began.	18	21	novel-construction	row:legal	-	yes	generalization	CC0-1.0
+gen-0160	row	row.argument	Why might obdurate polemicists row apropos palimpsest marginalia?	31	34	novel-construction	row:syntax	-	no	generalization	CC0-1.0
+gen-0161	row	row.argument	The dispute that caused the row reached arbitration.	28	31	novel-construction	row:syntax	-	no	generalization	CC0-1.0
+gen-0162	row	row.argument	Do not row near the display cases.	7	10	novel-construction	row:syntax	-	no	generalization	CC0-1.0
+gen-0163	row	row.line	A regimented row of flasks filled the rack.	13	16	novel-vocabulary	row:arrangement	regimented|flasks|rack	yes	generalization	CC0-1.0
+gen-0164	row	row.line	The oarsman began to row beside the quay.	21	24	novel-vocabulary	row:arrangement	oarsman|quay	yes	generalization	CC0-1.0
+gen-0165	row	row.line	A row of prisms refracted the laser beam.	2	5	novel-vocabulary	row:arrangement	prisms|refracted|laser	no	generalization	CC0-1.0
+gen-0166	row	row.line	Each row aligned with the planting furrow.	5	8	novel-vocabulary	row:boating	aligned|planting|furrow	no	generalization	CC0-1.0
+gen-0167	row	row.line	The gallery displayed rowed skiffs beneath the gantry.	22	27	novel-vocabulary	row:boating	gallery|skiffs|gantry	no	generalization	CC0-1.0
+gen-0168	row	row.line	Along the quay, we row at dawn.	19	22	novel-construction	row:boating	-	yes	generalization	CC0-1.0
+gen-0169	row	row.line	Can you row beyond the anchored barge?	8	11	novel-construction	row:syntax	-	no	generalization	CC0-1.0
+gen-0170	row	row.line	The skiff that we row carries samples.	18	21	novel-construction	row:syntax	-	no	generalization	CC0-1.0
+gen-0171	row	row.line	Row until the marker, beneath the bridge.	0	3	novel-construction	row:syntax	-	no	generalization	CC0-1.0
+gen-0172	sow	sow.pig	The stockman penned a sow beside the gilt.	22	25	novel-vocabulary	sow:livestock	stockman|penned|gilt	yes	generalization	CC0-1.0
+gen-0173	sow	sow.pig	A meishan sow entered the parturition sty.	10	13	novel-vocabulary	sow:livestock	meishan|parturition|sty	yes	generalization	CC0-1.0
+gen-0174	sow	sow.pig	The veterinarian examined the sow after parturition.	30	33	novel-vocabulary	sow:livestock	veterinarian|parturition	no	generalization	CC0-1.0
+gen-0175	sow	sow.pig	A rangy sow nosed through the swill trough.	8	11	novel-vocabulary	sow:breeding	rangy|nosed|swill	no	generalization	CC0-1.0
+gen-0176	sow	sow.pig	The studbook recorded each sow's litter lineage.	27	30	novel-vocabulary	sow:breeding	studbook|lineage	no	generalization	CC0-1.0
+gen-0177	sow	sow.pig	Near the sty stood a sow.	21	24	novel-construction	sow:breeding	-	yes	generalization	CC0-1.0
+gen-0178	sow	sow.pig	Did the sow escape through the wicket?	8	11	novel-construction	sow:syntax	-	no	generalization	CC0-1.0
+gen-0179	sow	sow.pig	The sow that won the class wore a tag.	4	7	novel-construction	sow:syntax	-	no	generalization	CC0-1.0
+gen-0180	sow	sow.pig	Move the sow beyond the loading gate.	9	12	novel-construction	sow:syntax	-	no	generalization	CC0-1.0
+gen-0181	sow	sow.plant	Growers sow teff before the monsoon breaks.	8	11	novel-vocabulary	sow:agriculture	growers|teff|monsoon	yes	generalization	CC0-1.0
+gen-0182	sow	sow.plant	They sow lupine across exhausted terraces.	5	8	novel-vocabulary	sow:agriculture	lupine|exhausted|terraces	yes	generalization	CC0-1.0
+gen-0183	sow	sow.plant	The agronomist urged tenants to sow triticale.	32	35	novel-vocabulary	sow:agriculture	agronomist|tenants|triticale	no	generalization	CC0-1.0
+gen-0184	sow	sow.plant	Sow spores across the sterilized substrate.	0	3	novel-vocabulary	sow:seed	spores|sterilized|substrate	no	generalization	CC0-1.0
+gen-0185	sow	sow.plant	Drip irrigation lets orchardists sow phacelia between rows.	33	36	novel-vocabulary	sow:seed	irrigation|orchardists|phacelia	no	generalization	CC0-1.0
+gen-0186	sow	sow.plant	By hand, in spring, sow the furrow.	20	23	novel-construction	sow:seed	-	yes	generalization	CC0-1.0
+gen-0187	sow	sow.plant	Before the storm, will the volunteers sow?	38	41	novel-construction	sow:syntax	-	no	generalization	CC0-1.0
+gen-0188	sow	sow.plant	The plots where we sow remain unmulched.	19	22	novel-construction	sow:syntax	-	no	generalization	CC0-1.0
+gen-0189	sow	sow.plant	Sow when the furrows have settled.	0	3	novel-construction	sow:syntax	-	no	generalization	CC0-1.0
+gen-0190	close	close.adj-noun	The close courtyard bordered the cloister's apse.	4	9	novel-vocabulary	close:architecture	courtyard|cloister|apse	yes	generalization	CC0-1.0
+gen-0191	close	close.adj-noun	A close friendship survived the schism.	2	7	novel-vocabulary	close:architecture	friendship|survived|schism	yes	generalization	CC0-1.0
+gen-0192	close	close.adj-noun	The cathedral close contained a chantry.	14	19	novel-vocabulary	close:architecture	cathedral|contained|chantry	no	generalization	CC0-1.0
+gen-0193	close	close.adj-noun	Their close inspection revealed a palimpsest.	6	11	novel-vocabulary	close:relationship	inspection|revealed|palimpsest	no	generalization	CC0-1.0
+gen-0194	close	close.adj-noun	A close ally guarded the treaty seal.	2	7	novel-vocabulary	close:relationship	ally|guarded|treaty	no	generalization	CC0-1.0
+gen-0195	close	close.adj-noun	Within close quarters, patience still mattered.	7	12	novel-construction	close:relationship	-	yes	generalization	CC0-1.0
+gen-0196	close	close.adj-noun	How close the lantern seemed tonight!	4	9	novel-construction	close:syntax	-	no	generalization	CC0-1.0
+gen-0197	close	close.adj-noun	The room remained close despite open windows.	18	23	novel-construction	close:syntax	-	no	generalization	CC0-1.0
+gen-0198	close	close.adj-noun	Keep close beside the old guide.	5	10	novel-construction	close:syntax	-	no	generalization	CC0-1.0
+gen-0199	close	close.verb	Please close the sluice after the distillation.	7	12	novel-vocabulary	close:closure	sluice|distillation	yes	generalization	CC0-1.0
+gen-0200	close	close.verb	The custodian will close the reliquary after vespers.	19	24	novel-vocabulary	close:closure	custodian|reliquary|vespers	yes	generalization	CC0-1.0
+gen-0201	close	close.verb	They close escrow after the novation clears.	5	10	novel-vocabulary	close:closure	escrow|novation|clears	no	generalization	CC0-1.0
+gen-0202	close	close.verb	The hinge lets engineers close the hatch remotely.	25	30	novel-vocabulary	close:operation	hinge|engineers|hatch	no	generalization	CC0-1.0
+gen-0203	close	close.verb	At the close of settlement, the registrar seals the folio.	7	12	novel-vocabulary	close:operation	settlement|registrar|folio	no	generalization	CC0-1.0
+gen-0204	close	close.verb	At dusk, close the shutters promptly.	9	14	novel-construction	close:operation	-	yes	generalization	CC0-1.0
+gen-0205	close	close.verb	Will you close once the signal changes?	9	14	novel-construction	close:syntax	-	no	generalization	CC0-1.0
+gen-0206	close	close.verb	The gate that we close protects seedlings.	17	22	novel-construction	close:syntax	-	no	generalization	CC0-1.0
+gen-0207	close	close.verb	Close the hatch, then inspect the gasket.	0	5	novel-construction	close:syntax	-	no	generalization	CC0-1.0
+gen-0208	live	live.adj	A live circuit powered the galvanometer.	2	6	novel-vocabulary	live:electrical	circuit|galvanometer	yes	generalization	CC0-1.0
+gen-0209	live	live.adj	The broadcaster aired a live sonata during rehearsal.	24	28	novel-vocabulary	live:electrical	broadcaster|sonata	yes	generalization	CC0-1.0
+gen-0210	live	live.adj	Live larvae moved beneath the microscope.	0	4	novel-vocabulary	live:electrical	larvae|microscope	no	generalization	CC0-1.0
+gen-0211	live	live.adj	The technician handled live specimens in quarantine.	23	27	novel-vocabulary	live:performance	technician|specimens|quarantine	no	generalization	CC0-1.0
+gen-0212	live	live.adj	A live busbar crossed the calibration rack.	2	6	novel-vocabulary	live:performance	busbar|calibration|rack	no	generalization	CC0-1.0
+gen-0213	live	live.adj	On air, live music filled the hall.	8	12	novel-construction	live:performance	-	yes	generalization	CC0-1.0
+gen-0214	live	live.adj	How live the embers looked at midnight!	4	8	novel-construction	live:syntax	-	no	generalization	CC0-1.0
+gen-0215	live	live.adj	The signal remained live after testing.	20	24	novel-construction	live:syntax	-	no	generalization	CC0-1.0
+gen-0216	live	live.adj	Keep live samples within the cabinet.	5	9	novel-construction	live:syntax	-	no	generalization	CC0-1.0
+gen-0217	live	live.verb	Nomads live beside seasonal wetlands each winter.	7	11	novel-vocabulary	live:habitation	seasonal|wetlands	yes	generalization	CC0-1.0
+gen-0218	live	live.verb	The hermit chose to live near basalt cliffs.	20	24	novel-vocabulary	live:habitation	hermit|basalt|cliffs	yes	generalization	CC0-1.0
+gen-0219	live	live.verb	Many organisms live within hydrothermal vents.	15	19	novel-vocabulary	live:habitation	organisms|hydrothermal|vents	no	generalization	CC0-1.0
+gen-0220	live	live.verb	She hopes to live beyond the floodplain.	13	17	novel-vocabulary	live:ecology	hopes|floodplain	no	generalization	CC0-1.0
+gen-0221	live	live.verb	The ethnography records how boatwrights live.	40	44	novel-vocabulary	live:ecology	ethnography|boatwrights	no	generalization	CC0-1.0
+gen-0222	live	live.verb	In frostbitten quarters, how might they live?	40	44	novel-construction	live:ecology	-	yes	generalization	CC0-1.0
+gen-0223	live	live.verb	Will they live under the observatory?	10	14	novel-construction	live:syntax	-	no	generalization	CC0-1.0
+gen-0224	live	live.verb	The village where we live exports saffron.	21	25	novel-construction	live:syntax	-	no	generalization	CC0-1.0
+gen-0225	live	live.verb	Live as though the archive were permanent.	0	4	novel-construction	live:syntax	-	no	generalization	CC0-1.0
+gen-0226	content	content.noun	The syllabus listed content on paleography.	20	27	novel-vocabulary	content:archive	syllabus|paleography	yes	generalization	CC0-1.0
+gen-0227	content	content.noun	Researchers indexed content from the oral archive.	20	27	novel-vocabulary	content:archive	indexed|archive	yes	generalization	CC0-1.0
+gen-0228	content	content.noun	The cartridge's content exceeded its metadata.	16	23	novel-vocabulary	content:archive	cartridge|metadata	no	generalization	CC0-1.0
+gen-0229	content	content.noun	A content audit revealed duplicated imagery.	2	9	novel-vocabulary	content:analysis	audit|duplicated|imagery	no	generalization	CC0-1.0
+gen-0230	content	content.noun	Editors assessed content for doctrinal accuracy.	17	24	novel-vocabulary	content:analysis	assessed|doctrinal|accuracy	no	generalization	CC0-1.0
+gen-0231	content	content.noun	Within the content, hidden contradictions surfaced.	11	18	novel-construction	content:analysis	-	yes	generalization	CC0-1.0
+gen-0232	content	content.noun	What content did the archive preserve?	5	12	novel-construction	content:syntax	-	no	generalization	CC0-1.0
+gen-0233	content	content.noun	The content that arrived required encryption.	4	11	novel-construction	content:syntax	-	no	generalization	CC0-1.0
+gen-0234	content	content.noun	Review content before approving the publication.	7	14	novel-construction	content:syntax	-	no	generalization	CC0-1.0
+gen-0235	content	content.satisfied	She remained content after the cloistered retreat.	13	20	novel-vocabulary	content:equanimity	remained|cloistered|retreat	yes	generalization	CC0-1.0
+gen-0236	content	content.satisfied	The monk remained content with sparse provisions.	18	25	novel-vocabulary	content:equanimity	monk|sparse|provisions	yes	generalization	CC0-1.0
+gen-0237	content	content.satisfied	A content child watched the lantern procession.	2	9	novel-vocabulary	content:equanimity	child|lantern|procession	no	generalization	CC0-1.0
+gen-0238	content	content.satisfied	He was content amid the monsoon shelter.	7	14	novel-vocabulary	content:retreat	monsoon|shelter	no	generalization	CC0-1.0
+gen-0239	content	content.satisfied	The patient grew content during convalescence.	17	24	novel-vocabulary	content:retreat	patient|convalescence	no	generalization	CC0-1.0
+gen-0240	content	content.satisfied	At sunset, content, she folded maps.	11	18	novel-construction	content:retreat	-	yes	generalization	CC0-1.0
+gen-0241	content	content.satisfied	Why, despite changed plans, remain content?	35	42	novel-construction	content:syntax	-	no	generalization	CC0-1.0
+gen-0242	content	content.satisfied	The traveler who stayed content avoided quarrels.	24	31	novel-construction	content:syntax	-	no	generalization	CC0-1.0
+gen-0243	content	content.satisfied	Remain content despite the sparse quarters.	7	14	novel-construction	content:syntax	-	no	generalization	CC0-1.0

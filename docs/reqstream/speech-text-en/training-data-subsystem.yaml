@@ -140,7 +140,7 @@ sections:
             justification: |
               Both sets are evaluation data whose value depends on rules that a change to any data file can
               break, so the rules are checked with the rest of the data on every change. The generalization
-              set is written later by a writer who may not see the training data, so it is committed with its
+              set is written later by a writer who may not see the training data, so it was committed with its
               header only until then, and a copy staged outside the repository is checked before it is
               committed, with reasons that can be passed back to the writer.
             children:

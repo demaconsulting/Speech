@@ -30,6 +30,7 @@ needs-review:
   - "data/text-en/leakage-report.tsv"                               # Text.En recorded external leakage result
   - "data/text-en/regression.tsv"                                   # Text.En regression overlay (references to flagged, golden and existing sentences)
   - "data/text-en/generalization.tsv"                               # Text.En blind generalization test set
+  - "data/text-en/audit/generalization-review.tsv"                  # Text.En blind label review of the generalization set
   - "tools/DemaConsulting.Speech.Text.En.Trainer/README.md"         # Text.En trainer commands and determinism contract
   - "tools/DemaConsulting.Speech.Text.En.Trainer/RUN-LOG.md"        # Text.En heteronym model protocol, dev exploration and gate runs
   - "tools/DemaConsulting.Speech.Text.En.Trainer/training.json"     # Text.En heteronym model training record (pins the model image hash)
@@ -3819,6 +3820,7 @@ reviews:
     paths:
       - "data/text-en/regression.tsv"                               # regression overlay
       - "data/text-en/generalization.tsv"                           # blind generalization set
+      - "data/text-en/audit/generalization-review.tsv"              # blind label review of the generalization set
       - "data/text-en/prompts/generalization.md"                    # prompt of the blind generalization writer
 
   # SpeechTextEn-TrainingDataInventory Review (one per system data set)
