@@ -312,7 +312,9 @@ internal sealed record CorpusFetchResult(string SourceId, string Outcome, string
 ///     status <c>used</c> are fetched, only missing or failing files are requested, requests are sequential with at least
 ///     the configured delay between them (the first request of a run is not delayed), a failed request is retried at most
 ///     three times after 5, 15 and 45 seconds, a refusal (HTTP 403 or 429) stops the whole run, and a redirect (which
-///     the default fetcher never follows) fails only that book, without a retry. The network is
+///     the default fetcher never follows) fails only that book, without a retry. A cancellation by the caller is never
+///     retried or reported as a failed download: it propagates as soon as it is seen, also before and after every
+///     pause, while a canceled task without a canceled caller (the HTTP client's timeout) is retried. The network is
 ///     reached only through the fetcher delegate and the pause only through the sleeper delegate, so tests run offline
 ///     and instantly. Not thread-safe.
 ///     </para>
@@ -337,8 +339,8 @@ internal sealed class ClusterCorpusCache
     /// <summary>Opens a URL; the default is the HTTPS mirror download.</summary>
     private readonly Func<Uri, CancellationToken, Stream> _fetcher;
 
-    /// <summary>Pauses between requests; the default sleeps the thread.</summary>
-    private readonly Action<TimeSpan> _sleeper;
+    /// <summary>Pauses between requests, or null to wait on the run's cancellation token (which a cancellation wakes).</summary>
+    private readonly Action<TimeSpan>? _sleeper;
 
     /// <summary>The delay between two requests.</summary>
     private readonly TimeSpan _delay;
@@ -354,7 +356,7 @@ internal sealed class ClusterCorpusCache
     /// </summary>
     /// <param name="root">The cache folder; created on the first write.</param>
     /// <param name="fetcher">Opens a URL, or null for the HTTPS mirror download.</param>
-    /// <param name="sleeper">Pauses, or null to sleep the thread.</param>
+    /// <param name="sleeper">Pauses, or null to wait on the cancellation token of the run, which a cancellation wakes.</param>
     /// <param name="delay">The delay between two requests; not negative.</param>
     /// <param name="mirror">A host from <see cref="ClusterSourceList.AllowedHosts"/> that replaces each listed host, or null.</param>
     /// <exception cref="ArgumentException"><paramref name="mirror"/> is not an allowed host, or <paramref name="delay"/> is negative.</exception>
@@ -368,7 +370,7 @@ internal sealed class ClusterCorpusCache
 
         _root = Path.GetFullPath(root);
         _fetcher = fetcher ?? GutenbergMirrorFetcher.Open;
-        _sleeper = sleeper ?? Thread.Sleep;
+        _sleeper = sleeper;
         _delay = delay ?? DefaultDelay;
         if (_delay < TimeSpan.Zero)
         {
@@ -393,7 +395,7 @@ internal sealed class ClusterCorpusCache
     /// </summary>
     /// <param name="sources">The source list.</param>
     /// <param name="log">Receives one progress line per book.</param>
-    /// <param name="cancellationToken">Stops between books.</param>
+    /// <param name="cancellationToken">Stops between books, and before or during a request or a pause; a cancellation is never retried.</param>
     /// <returns>The outcome per used book in ordinal source-id order.</returns>
     /// <exception cref="IOException">The mirror refused a request (HTTP 403 or 429); the run stops at once.</exception>
     /// <exception cref="OperationCanceledException">The run was canceled.</exception>
@@ -628,6 +630,7 @@ internal sealed class ClusterCorpusCache
     /// <exception cref="IOException">The mirror refused the request, or every attempt failed.</exception>
     /// <exception cref="HttpRequestException">The file does not exist on the mirror (HTTP 404).</exception>
     /// <exception cref="InvalidDataException">The URL is not an allowed mirror, the mirror answered with a redirect, or the download is too large.</exception>
+    /// <exception cref="OperationCanceledException">The caller canceled, before or during a request or a pause; never retried.</exception>
     private void Download(Uri url, string path, CancellationToken cancellationToken)
     {
         if (!GutenbergMirrorFetcher.IsAllowedMirror(url))
@@ -641,7 +644,7 @@ internal sealed class ClusterCorpusCache
             // Be polite: at least the configured delay between the starts of two requests
             if (_requested)
             {
-                _sleeper(_delay);
+                Pause(_delay, cancellationToken);
             }
 
             _requested = true;
@@ -651,6 +654,12 @@ internal sealed class ClusterCorpusCache
                 using var stream = _fetcher(url, cancellationToken);
                 WriteAtomically(path, ReadLimited(stream, url));
                 return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // The caller canceled: never retried and never turned into a download failure. A canceled task
+                // without a canceled caller (the client's own timeout) falls through to the retry below.
+                throw;
             }
             catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
             {
@@ -662,7 +671,7 @@ internal sealed class ClusterCorpusCache
             }
             catch (Exception exception) when ((exception is HttpRequestException or IOException or TaskCanceledException) && attempt < RetryWaits.Count)
             {
-                _sleeper(RetryWaits[attempt]);
+                Pause(RetryWaits[attempt], cancellationToken);
                 attempt++;
             }
             catch (Exception exception) when (exception is HttpRequestException or IOException or TaskCanceledException)
@@ -670,6 +679,36 @@ internal sealed class ClusterCorpusCache
                 throw new IOException($"could not download {url} after {RetryWaits.Count + 1} attempts: {exception.Message}", exception);
             }
         }
+    }
+
+    /// <summary>
+    ///     Pauses before a request or a retry, observing the caller's cancellation before and after the pause.
+    /// </summary>
+    /// <remarks>
+    ///     An injected sleeper cannot be interrupted, so the token is checked again when it returns; a sleeper that
+    ///     observes a cancellation therefore stops the run before the next request. Without an injected sleeper the
+    ///     pause waits on the token, so a cancellation ends it at once.
+    /// </remarks>
+    /// <param name="wait">The length of the pause; not negative.</param>
+    /// <param name="cancellationToken">The caller's cancellation token.</param>
+    /// <exception cref="OperationCanceledException">The caller canceled before or during the pause.</exception>
+    private void Pause(TimeSpan wait, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_sleeper is not null)
+        {
+            _sleeper(wait);
+        }
+        else if (cancellationToken.CanBeCanceled)
+        {
+            cancellationToken.WaitHandle.WaitOne(wait);
+        }
+        else
+        {
+            Thread.Sleep(wait);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     /// <summary>

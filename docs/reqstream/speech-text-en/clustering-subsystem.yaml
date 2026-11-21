@@ -40,6 +40,7 @@ sections:
               - SpeechTextEn-Clustering-ClusterCorpusCache-WritePins
               - SpeechTextEn-Clustering-ClusterCorpusCache-PoliteFetch
               - SpeechTextEn-Clustering-ClusterCorpusCache-VerifiedBodies
+              - SpeechTextEn-Clustering-ClusterCorpusCache-Cancellation
               - SpeechTextEn-Clustering-ClusterCommand-Fetch
             tests:
               - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
@@ -120,7 +121,8 @@ sections:
               hashes of the source list, the removal list and the evaluation files, the tokenizer version, the
               snapshot hash, the corpus counts and the table hash; keep a byte-reproducible snapshot archive of the
               corpus; on request repeat the whole induction with the recorded settings, from the cache or from the
-              snapshot alone, and report each output as current or stale; print progress, an estimate of the time
+              snapshot alone, and report each output, the existing snapshot included, as current or stale without
+              writing or repairing any of them; print progress, an estimate of the time
               left and the time of each stage; and exit with 0 when done or current, 1 when an output is stale or a
               book failed, and 2 for a usage, input or data error.
             justification: |
@@ -134,6 +136,7 @@ sections:
               - SpeechTextEn-Clustering-ClusteringRecord-Parse
               - SpeechTextEn-Clustering-WordClusterTable-Format
               - SpeechTextEn-Clustering-CorpusSnapshot-Read
+              - SpeechTextEn-Clustering-CorpusSnapshot-Measure
               - SpeechTextEn-Clustering-ClusterCorpusCache-Snapshot
               - SpeechTextEn-Clustering-ClusterInducer-Progress
               - SpeechTextEn-Clustering-ClusterCommand-WriteAndCheck

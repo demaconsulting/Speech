@@ -504,6 +504,37 @@ public sealed class HeteronymEvaluatorTests
         Assert.DoesNotContain("gen-0004", exception.Message);
     }
 
+    /// <summary>
+    ///     Proves a row marked as not solvable by the curated cues on which the noun-form prior is added is named with
+    ///     <c>noun-form cue</c> although the prior does not change its reading, and that the same row unmarked is evaluated.
+    /// </summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateOverlay_CueUnsolvableNounFormCueWithoutChange_ThrowsNamingTheCue()
+    {
+        // Arrange: a third reading of the form lead that is a noun of another lemma only, so lead tagged NOUN gets the
+        // noun-form prior on lead.noun; the model's trained noun pattern already chooses lead.noun, so nothing changes
+        using var fixture = new TrainingFixture();
+        fixture.Write("readings.tsv", fixture.Read("readings.tsv") + string.Join('\t', "lead.extra", "plumb", "NOUN", "Noun of another lemma only.", "active") + "\n");
+        fixture.Write("forms.tsv", fixture.Read("forms.tsv") + string.Join('\t', "lead", "lead.extra", "other") + "\n");
+        var (evaluator, image) = Prepare(fixture);
+        const string Sentence = "The lead pipe was very heavy.";
+        fixture.WriteGeneralization(("gen-0001", "lead.noun", Sentence, "novel-vocabulary", "lead:metal", "yes"));
+        var marked = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Generalization);
+        fixture.WriteGeneralization(("gen-0001", "lead.noun", Sentence, "novel-vocabulary", "lead:metal", "no"));
+        var unmarked = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Generalization);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => evaluator.EvaluateOverlay("generalization", marked, image));
+        var overlay = evaluator.EvaluateOverlay("generalization", unmarked, image);
+
+        // Assert: the cue acts without changing the reading, and the marked row is refused naming the noun-form cue
+        Assert.True(overlay.Rows[0].CueFired);
+        Assert.Equal("lead.noun", overlay.Rows[0].Shipped);
+        Assert.Equal(overlay.Rows[0].Shipped, overlay.Rows[0].ModelOnly);
+        Assert.Contains("1 rows marked cue_unsolvable=yes", exception.Message);
+        Assert.Contains("gen-0001 (noun-form cue)", exception.Message);
+    }
+
     /// <summary>Proves the rows on which a cue prior acts are counted per slice, apart from the rows whose reading it changes.</summary>
     [Fact]
     public void HeteronymEvaluator_EvaluateOverlay_CueFires_CountsFiredRowsApartFromChangedRows()

@@ -81,10 +81,11 @@ model-only (the model-only counts in the place of the baseline), and the counts 
 rows whose two readings differ. The model, the classifier and the analyzer are not changed by any of this.
 
 **Cue-unsolvable rows.** A row marked `cue_unsolvable=yes` must be one runtime token on which none of
-`HasAdjectiveCue`, `HasPastTimeCue` and `HasContextCue` (for any candidate) fires and whose shipped and model-only
-readings agree (which covers the noun-form cue). Every row that fails is collected with its reason (the cue test that
-fires, a changed reading, with the noun-form cue named when it applies, or "not one runtime token"), and the evaluation
-then stops with one `InvalidDataException` that names them all, before any figure of the overlay is returned.
+`HasAdjectiveCue`, `HasPastTimeCue` and `HasContextCue` (for any candidate) fires, to whose candidates the mirrored
+noun-form test adds no prior (checked on its own, whether or not the prior changes the reading), and whose shipped and
+model-only readings agree. Every row that fails is collected with its reason (the cue test that fires, `noun-form cue`,
+a changed reading, or "not one runtime token"), and the evaluation then stops with one `InvalidDataException` that
+names them all, before any figure of the overlay is returned.
 
 **Baselines.** The **own-part-of-speech** baseline picks the one candidate whose `pos_hint` list (in `readings.tsv`)
 holds the tagger's part of speech of the word; with no tag, no such candidate or several, it picks the first candidate.

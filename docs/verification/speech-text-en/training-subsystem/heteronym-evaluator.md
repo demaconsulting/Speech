@@ -61,7 +61,9 @@ analyzer scores every row, so the parity tests compare two real code paths. Noth
 - **Cue-unsolvable check**: a generalization overlay whose marked rows include one with *yesterday* in the target's
   clause and one whose target lies inside a longer word throws `InvalidDataException` naming exactly those two rows,
   with `past-time cue` and `not one runtime token`, and not a marked row without a cue or an unmarked row with the same
-  cue.
+  cue; with a third reading of `lead` that is a noun of another lemma only, a marked row whose target is tagged as a
+  noun gets the noun-form prior without a change of reading (shipped and model-only both `lead.noun`, cue fired) and
+  throws `InvalidDataException` naming it with `noun-form cue`, while the same row unmarked is evaluated.
 
 #### Test Scenarios
 
@@ -127,12 +129,15 @@ and one per row. The committed data is covered by the subsystem test
 **Tests**: `HeteronymEvaluator_EvaluateOverlay_NoCueFires_ReportsSlicesWithEqualModelOnly`,
 `HeteronymEvaluator_EvaluateOverlay_CueFires_CountsFiredRowsApartFromChangedRows`,
 `HeteronymEvaluator_EvaluateOverlay_CueUnsolvableViolation_ThrowsNamingRowsAndReasons`,
+`HeteronymEvaluator_EvaluateOverlay_CueUnsolvableNounFormCueWithoutChange_ThrowsNamingTheCue`,
 `HeteronymEvaluator_EvaluateOverlay_RepeatedId_ThrowsInvalidDataException`
 
 The fixture model evaluates overlays written into the fixture folder (one row labeled against its trained pattern, so it
 is wrong both ways), and the results, slices and messages listed in the acceptance criteria are compared. The default
 fixture has no reading that a cue prior acts on; a second fixture makes `lead.noun` the adjective reading, so the
 adjective cue acts on two rows, but the fixture model's own weights are larger than the prior and no reading changes.
+A third fixture adds to `lead` a reading that is a noun of another lemma only, so the noun-form prior acts on a target
+tagged as a noun without changing its reading.
 A model-only reading that differs from the shipped one is therefore not produced by a fixture; the committed-data test
 of the subsystem checks the record of the real overlays, whose cue rows do differ (the regression overlay has rows
 whose reading a cue prior changes), and the evaluator's own consistency stop covers the rows on which no cue is

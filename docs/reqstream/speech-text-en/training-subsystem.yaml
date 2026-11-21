@@ -186,9 +186,10 @@ sections:
               intervals of both and of their paired difference (a generalization row resampling with its family,
               a regression row alone), the rows on which a cue prior acts and the rows whose reading it changes;
               shall stop with a data error that names every generalization row marked cue_unsolvable=yes that is
-              not one runtime token, on which the adjective, past-time or a context cue test fires, or whose
-              reading a cue prior changes; and shall append the overlays to the record after the data sets, with
-              a per-row file and a per-slice file, so every earlier line of the record stays byte-identical.
+              not one runtime token, on which the adjective, past-time or a context cue test fires, to which the
+              noun-form prior applies, or whose reading a cue prior changes; and shall append the overlays to the
+              record after the data sets, with a per-row file and a per-slice file, so every earlier line of the
+              record stays byte-identical.
             justification: |
               The overlays measure whether the cue priors and later features help on flagged and on unseen
               sentences; the model-only decision uses the classifier's own scoring and changes neither the

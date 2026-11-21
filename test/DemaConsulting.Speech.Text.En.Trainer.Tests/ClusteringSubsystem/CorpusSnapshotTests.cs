@@ -60,6 +60,21 @@ public sealed class CorpusSnapshotTests : IDisposable
         Assert.Equal(forward.Sha256, reversed.Sha256);
     }
 
+    /// <summary>Proves measuring gives the golden hash, size and file count of the built archive without writing any file.</summary>
+    [Fact]
+    public void CorpusSnapshot_Measure_FixedInputs_SameIdentityWithoutWriting()
+    {
+        // Act
+        var measured = CorpusSnapshot.Measure(SourcesFile, [.. Bodies.Reverse()]);
+        var built = CorpusSnapshot.Build(Path.Combine(_folder, "m.tar"), SourcesFile, Bodies);
+
+        // Assert: the same identity, an empty path, and only the built archive in the folder
+        Assert.Equal(GoldenSha256, measured.Sha256);
+        Assert.Equal((built.Sha256, built.Bytes, built.Files), (measured.Sha256, measured.Bytes, measured.Files));
+        Assert.Equal(string.Empty, measured.Path);
+        Assert.Equal(["m.tar"], Directory.GetFiles(_folder).Select(Path.GetFileName));
+    }
+
     /// <summary>Proves the members come back in the fixed order with fixed time, mode, owner and group.</summary>
     [Fact]
     public void CorpusSnapshot_Build_HeaderFields_AreFixed()

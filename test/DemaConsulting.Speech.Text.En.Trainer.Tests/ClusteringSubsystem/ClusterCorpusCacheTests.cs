@@ -200,6 +200,98 @@ public sealed class ClusterCorpusCacheTests
         Assert.Equal([TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)], fixture.Sleeps);
     }
 
+    /// <summary>Proves a cancellation raised by the fetcher for a canceled caller propagates at once: no retry, no pause and no IOException.</summary>
+    [Fact]
+    public void ClusterCorpusCache_Fetch_CallerCanceledDuringRequest_PropagatesWithoutRetry()
+    {
+        // Arrange: the fetcher sees the caller cancel and throws the cancellation the HTTP client would
+        using var fixture = new ClusteringFixture();
+        fixture.WriteSources((101, "used", null, null));
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Stream Canceling(Uri uri, CancellationToken token)
+        {
+            calls++;
+            cancellation.Cancel();
+            throw new TaskCanceledException("canceled", null, token);
+        }
+
+        // Act / Assert
+        Assert.ThrowsAny<OperationCanceledException>(() => CacheOf(fixture, Canceling).Fetch(Sources(fixture), TextWriter.Null, cancellation.Token));
+        Assert.Equal(1, calls);
+        Assert.Empty(fixture.Sleeps);
+    }
+
+    /// <summary>Proves a cancellation during a retry pause stops the run before the next request, and is not turned into an IOException.</summary>
+    [Fact]
+    public void ClusterCorpusCache_Fetch_CallerCanceledDuringBackoff_StopsBeforeNextRequest()
+    {
+        // Arrange: every request fails transiently, and the caller cancels while the cache waits to retry
+        using var fixture = new ClusteringFixture();
+        fixture.WriteSources((101, "used", null, null));
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Stream Failing(Uri uri, CancellationToken token)
+        {
+            calls++;
+            throw new HttpRequestException("HTTP 503", null, HttpStatusCode.ServiceUnavailable);
+        }
+
+        var sleeps = new List<TimeSpan>();
+        var cache = new ClusterCorpusCache(fixture.CacheDirectory, Failing, wait => { sleeps.Add(wait); cancellation.Cancel(); }, TimeSpan.FromSeconds(2));
+
+        // Act / Assert
+        Assert.ThrowsAny<OperationCanceledException>(() => cache.Fetch(Sources(fixture), TextWriter.Null, cancellation.Token));
+        Assert.Equal(1, calls);
+        Assert.Equal([ClusterCorpusCache.RetryWaits[0]], sleeps);
+    }
+
+    /// <summary>Proves the default pause (no injected sleeper) waits on the caller's token, so a cancellation ends a 5-second backoff at once.</summary>
+    [Fact]
+    public void ClusterCorpusCache_Fetch_DefaultPauseCanceled_EndsAtOnce()
+    {
+        // Arrange: every request fails transiently, and the caller cancels shortly after the backoff starts
+        using var fixture = new ClusteringFixture();
+        fixture.WriteSources((101, "used", null, null));
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Stream Failing(Uri uri, CancellationToken token)
+        {
+            calls++;
+            cancellation.CancelAfter(TimeSpan.FromMilliseconds(50));
+            throw new IOException("connection reset");
+        }
+
+        var cache = new ClusterCorpusCache(fixture.CacheDirectory, Failing, null, TimeSpan.FromSeconds(2));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        // Act / Assert: well before the first 5-second backoff would have ended
+        Assert.ThrowsAny<OperationCanceledException>(() => cache.Fetch(Sources(fixture), TextWriter.Null, cancellation.Token));
+        Assert.Equal(1, calls);
+        Assert.True(clock.Elapsed < ClusterCorpusCache.RetryWaits[0], $"the pause took {clock.Elapsed}");
+    }
+
+    /// <summary>Proves a canceled task without a canceled caller (the HTTP client's timeout) is still retried after the backoff.</summary>
+    [Fact]
+    public void ClusterCorpusCache_Fetch_TimeoutWithoutCallerCancellation_Retries()
+    {
+        // Arrange: the first request times out
+        using var fixture = new ClusteringFixture();
+        fixture.WriteSources((101, "used", null, null));
+        var calls = 0;
+        Stream TimingOut(Uri uri, CancellationToken token) => ++calls == 1
+            ? throw new TaskCanceledException("the request timed out")
+            : new MemoryStream(fixture.Mirror[uri]);
+
+        // Act
+        var results = CacheOf(fixture, TimingOut).Fetch(Sources(fixture), TextWriter.Null, TestContext.Current.CancellationToken);
+
+        // Assert: the metadata request is retried after 5 s, then the text is fetched
+        Assert.Equal("pinned", results[0].Outcome);
+        Assert.Equal(3, calls);
+        Assert.Equal([TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)], fixture.Sleeps);
+    }
+
     /// <summary>Proves a missing file (HTTP 404) fails only that book, without retries.</summary>
     [Fact]
     public void ClusterCorpusCache_Fetch_NotFound_FailsBookWithoutRetry()

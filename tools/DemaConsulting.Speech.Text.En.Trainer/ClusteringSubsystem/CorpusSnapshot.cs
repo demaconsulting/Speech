@@ -6,7 +6,7 @@ using System.Text;
 namespace DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 
 /// <summary>The identity of a built snapshot archive.</summary>
-/// <param name="Path">The full path of the archive.</param>
+/// <param name="Path">The full path of the archive, or empty when the archive was only measured and never written.</param>
 /// <param name="Sha256">The lowercase hexadecimal SHA-256 of the archive bytes.</param>
 /// <param name="Bytes">The size of the archive in bytes.</param>
 /// <param name="Files">The number of member files.</param>
@@ -85,37 +85,41 @@ internal static class CorpusSnapshot
         ArgumentNullException.ThrowIfNull(sourcesFile);
         ArgumentNullException.ThrowIfNull(bodies);
 
-        // Fixed member order: notice, list, then the bodies in ordinal id order
-        var members = new List<(string Name, byte[] Data)>
-        {
-            (NoticeName, Encoding.UTF8.GetBytes(Notice(bodies.Count))),
-            (ClusterSourceList.FileName, sourcesFile),
-        };
-        members.AddRange(bodies.OrderBy(static body => body.SourceId, StringComparer.Ordinal).Select(static body => (BodyMemberName(body.SourceId), body.Body)));
-
+        // Write through a partial sibling and rename, so a reader never sees a truncated archive
+        var members = Members(sourcesFile, bodies);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path))!);
         var partial = path + ".partial";
         long size;
         string sha;
         using (var stream = File.Create(partial))
-        using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
         {
-            size = 0;
-            foreach (var (name, data) in members)
-            {
-                size += Write(stream, hash, Header(name, data.LongLength));
-                size += Write(stream, hash, data);
-                size += Write(stream, hash, new byte[Pad(data.LongLength, BlockSize)]);
-            }
-
-            // Two zero blocks end the archive; zeros then fill the last record
-            size += Write(stream, hash, new byte[2 * BlockSize]);
-            size += Write(stream, hash, new byte[Pad(size, RecordSize)]);
-            sha = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+            (size, sha) = WriteArchive(stream, members);
         }
 
         File.Move(partial, path, true);
         return new CorpusSnapshotInfo(System.IO.Path.GetFullPath(path), sha, size, members.Count);
+    }
+
+    /// <summary>
+    ///     Computes the identity of the archive <see cref="Build"/> would write, without writing any file.
+    /// </summary>
+    /// <remarks>
+    ///     A check must compare an existing archive with the one the current inputs give without replacing it; the
+    ///     bytes are produced exactly as <see cref="Build"/> produces them and only hashed and counted. No side effects;
+    ///     thread-safe.
+    /// </remarks>
+    /// <param name="sourcesFile">The bytes of <c>cluster-sources.tsv</c>.</param>
+    /// <param name="bodies">The normalized bodies by source id; in any order.</param>
+    /// <returns>The identity of the archive, with an empty <see cref="CorpusSnapshotInfo.Path"/>.</returns>
+    /// <exception cref="ArgumentException">A source id would make a member name too long or unsafe.</exception>
+    public static CorpusSnapshotInfo Measure(byte[] sourcesFile, IReadOnlyList<(string SourceId, byte[] Body)> bodies)
+    {
+        ArgumentNullException.ThrowIfNull(sourcesFile);
+        ArgumentNullException.ThrowIfNull(bodies);
+
+        var members = Members(sourcesFile, bodies);
+        var (size, sha) = WriteArchive(Stream.Null, members);
+        return new CorpusSnapshotInfo(string.Empty, sha, size, members.Count);
     }
 
     /// <summary>
@@ -167,6 +171,47 @@ internal static class CorpusSnapshot
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+    }
+
+    /// <summary>
+    ///     Lists the members of the archive in their fixed order.
+    /// </summary>
+    /// <param name="sourcesFile">The bytes of <c>cluster-sources.tsv</c>.</param>
+    /// <param name="bodies">The normalized bodies by source id.</param>
+    /// <returns>The notice, the list, then the bodies in ordinal source-id order.</returns>
+    private static List<(string Name, byte[] Data)> Members(byte[] sourcesFile, IReadOnlyList<(string SourceId, byte[] Body)> bodies)
+    {
+        var members = new List<(string Name, byte[] Data)>
+        {
+            (NoticeName, Encoding.UTF8.GetBytes(Notice(bodies.Count))),
+            (ClusterSourceList.FileName, sourcesFile),
+        };
+        members.AddRange(bodies.OrderBy(static body => body.SourceId, StringComparer.Ordinal).Select(static body => (BodyMemberName(body.SourceId), body.Body)));
+        return members;
+    }
+
+    /// <summary>
+    ///     Writes the archive bytes of the members to a stream while hashing them.
+    /// </summary>
+    /// <param name="stream">The destination; <see cref="Stream.Null"/> only hashes and counts.</param>
+    /// <param name="members">The members in archive order.</param>
+    /// <returns>The archive size in bytes and its lowercase hexadecimal SHA-256.</returns>
+    /// <exception cref="ArgumentException">A member name is too long or unsafe.</exception>
+    private static (long Size, string Sha256) WriteArchive(Stream stream, IReadOnlyList<(string Name, byte[] Data)> members)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        long size = 0;
+        foreach (var (name, data) in members)
+        {
+            size += Write(stream, hash, Header(name, data.LongLength));
+            size += Write(stream, hash, data);
+            size += Write(stream, hash, new byte[Pad(data.LongLength, BlockSize)]);
+        }
+
+        // Two zero blocks end the archive; zeros then fill the last record
+        size += Write(stream, hash, new byte[2 * BlockSize]);
+        size += Write(stream, hash, new byte[Pad(size, RecordSize)]);
+        return (size, Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant());
     }
 
     /// <summary>

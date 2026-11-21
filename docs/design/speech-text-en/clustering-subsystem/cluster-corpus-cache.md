@@ -15,8 +15,9 @@ reaches the network or opens a file of the corpus cache.
   automatic redirects off (`CreateHandler`), turns any 3xx answer into an `InvalidDataException` (that book fails,
   without a retry) and any other non-success status into an `HttpRequestException` with the status; the overload
   `Open(HttpClient, uri, token)` is the seam the tests answer through a fake handler, and `IsAllowedMirror` is the one
-  HTTPS-and-allowed-host rule that the fetcher and `Download` share), the **sleeper** (a delegate that pauses; the
-  default sleeps the thread), the delay and the optional mirror host; the number of requests made. Not thread-safe
+  HTTPS-and-allowed-host rule that the fetcher and `Download` share), the **sleeper** (a delegate that pauses; by
+  default the pause waits on the caller's cancellation token, so a cancellation ends it at once), the delay and the
+  optional mirror host; the number of requests made. Not thread-safe
 - `CorpusFetchResult`: per used book, the outcome `cached`, `fetched`, `pinned` (a new pin was computed) or `failed`,
   the problem and the body
 
@@ -44,7 +45,11 @@ Every file is written to a `.partial` sibling and renamed, so a reader never see
 - **Download (private)**: refuses a URL that is not HTTPS on an allowed mirror; pauses for the delay before every
   request except the first of the run; on HTTP 403 or 429 throws `IOException` (the run stops); on HTTP 404 rethrows
   (the book fails); a redirect refused by the fetcher (`InvalidDataException`) is not retried and fails the book; on any
-  other failure retries after 5, 15 and 45 seconds and then throws `IOException`; reads at most 64 MiB
+  other failure retries after 5, 15 and 45 seconds and then throws `IOException`; reads at most 64 MiB. A cancellation
+  by the caller is never retried: an `OperationCanceledException` (such as the `TaskCanceledException` of a canceled
+  HTTP request) is rethrown at once when the caller's token is canceled, and every pause checks the token before and
+  after it, so a cancellation during a backoff stops the run before the next request. A `TaskCanceledException` while
+  the caller's token is not canceled (the HTTP client's own timeout) is a transient failure and is retried
 - **CheckBody(source)** and **ReadBodies(sources)**: verify each used book's cached body against its pin, without the
   network, and return the bodies in ordinal id order
 - **ReadBodiesFromSnapshot(sources, path)**: reads the members of a snapshot with `CorpusSnapshot.Read` and returns each
@@ -52,7 +57,8 @@ Every file is written to a `.partial` sibling and renamed, so a reader never see
 
 **Error Handling**: null arguments throw `ArgumentNullException`; a mirror off the allow-list or a negative delay throws
 `ArgumentException`. An invalid list, an unpinned or missing body, a body that differs from its pin, and a snapshot that
-lacks a body throw `InvalidDataException`. A refusal by the mirror or exhausted retries throw `IOException`. The
+lacks a body throw `InvalidDataException`. A refusal by the mirror or exhausted retries throw `IOException`. A
+cancellation by the caller throws `OperationCanceledException`, never wrapped and never retried. The
 default fetcher never follows a redirect: a 3xx answer throws `InvalidDataException`, because a redirect could lead from
 the mirror to the main web site. Within `Fetch`, a book whose download or extraction fails (including a redirect)
 becomes a `failed` result and the other books continue.

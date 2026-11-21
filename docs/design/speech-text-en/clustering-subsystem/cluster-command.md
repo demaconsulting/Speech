@@ -32,11 +32,15 @@ default the processor count); `--delay-ms <n>` (at least 1,000); `--mirror <host
   - **preflight**: tokenizes and counts with the committed removals (if any) and the given minimum count, prints the
     token coverage of each candidate size and, per nominated word, its count, rank and cut status or "too rare";
   - **write** and **check**: tokenize, audit (exit 1 when the committed removals are missing or differ), count, induce
-    with progress lines that estimate the time left from the rate so far, build the table, the snapshot (in the cache)
-    and the record (keeping the recorded snapshot URL when the snapshot hash is unchanged); print the table and snapshot
-    hashes and the total time with the thread count; **write** writes the table and the record to the output folder;
-    **check** reads the settings from the record in the output folder and reports the table, the record and the snapshot
-    as current or stale
+    with progress lines that estimate the time left from the rate so far, build the table and the record (keeping the
+    recorded snapshot URL when the snapshot hash is unchanged); print the table and snapshot hashes and the total time
+    with the thread count; **write** builds the snapshot in the cache (`CorpusSnapshot.Build`) and writes the table and
+    the record to the output folder; **check** reads the settings from the record in the output folder, only measures
+    the snapshot (`CorpusSnapshot.Measure`, no file written), reports the table and the record as current or stale by
+    their bytes, and reports the existing snapshot (the `--from-snapshot` archive, otherwise `cluster-corpus.tar` in the
+    cache) as `current` when its SHA-256 equals the measured and the recorded hash, `missing` when it does not exist and
+    `stale` otherwise; it writes no file, so a damaged snapshot is reported, never repaired, and exits 1 unless all
+    three are current
   Every stage prints its time, so a run can be benchmarked
 - **TryParse(args, out error)**: the option rules above
 

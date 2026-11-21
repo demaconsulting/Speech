@@ -29,6 +29,16 @@ sections:
                   - CorpusSnapshot_Build_ReversedInput_SameArchive
                   - CorpusSnapshot_Build_HeaderFields_AreFixed
 
+              - id: SpeechTextEn-Clustering-CorpusSnapshot-Measure
+                title: >-
+                  The CorpusSnapshot unit shall report the SHA-256, size and file count of the archive that building
+                  the given inputs would write, without writing any file.
+                justification: |
+                  A check of an existing snapshot needs the hash the current inputs give; building the archive to learn
+                  it would replace the archive under check and hide a missing or tampered one.
+                tests:
+                  - CorpusSnapshot_Measure_FixedInputs_SameIdentityWithoutWriting
+
               - id: SpeechTextEn-Clustering-CorpusSnapshot-Read
                 title: >-
                   The CorpusSnapshot unit shall read every member of a snapshot archive, throwing InvalidDataException

@@ -7,7 +7,7 @@ namespace DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 
 /// <summary>The seams of the <c>cluster</c> command that tests replace: the network and the pause between requests.</summary>
 /// <param name="Fetcher">Opens a URL instead of the network, or null for the HTTPS mirror download.</param>
-/// <param name="Sleeper">Pauses instead of sleeping the thread, or null to sleep.</param>
+/// <param name="Sleeper">Pauses instead of the real pause, or null for the real one.</param>
 internal sealed record ClusterEnvironment(Func<Uri, CancellationToken, Stream>? Fetcher = null, Action<TimeSpan>? Sleeper = null);
 
 /// <summary>
@@ -19,7 +19,8 @@ internal sealed record ClusterEnvironment(Func<Uri, CancellationToken, Stream>? 
 ///     The command is a manual developer tool: only its unit and subsystem tests run in CI, offline. Exactly one mode is
 ///     given per run. <c>--fetch</c> is the only mode that uses the network. <c>--write</c> refuses to run when the
 ///     committed removals are not what the audit computes now, so the removals are always reviewed on their own first.
-///     <c>--check</c> repeats the whole induction with the settings of the committed record and compares bytes. Console
+///     <c>--check</c> repeats the whole induction with the settings of the committed record and compares bytes, writing
+///     nothing: the snapshot is only measured and compared with the existing archive, never rebuilt. Console
 ///     output holds counts, ids, hashes and timings, never corpus text. Exit codes: <c>0</c> done or current, <c>1</c>
 ///     stale output or a failed book, <c>2</c> usage, I/O or data error.
 ///     </para>
@@ -60,8 +61,9 @@ internal static class ClusterCommand
                                   generalization set.
           --write                 Verify the pins and the removals, count, induce, then write word-clusters.tsv and
                                   clustering.json (to --out) and the corpus snapshot (to the cache).
-          --check                 Repeat --write with the settings of the record in --out and compare the table, the
-                                  record and the snapshot hash byte for byte; exit 1 when stale.
+          --check                 Repeat --write with the settings of the record in --out and compare the table and the
+                                  record byte for byte and the existing snapshot (--from-snapshot, otherwise the cache's)
+                                  by hash, writing nothing; exit 1 when one is stale or the snapshot is missing.
 
         Options:
           --clusters <n>      The number of clusters (default 512; --write only).
@@ -159,13 +161,13 @@ internal static class ClusterCommand
     /// <param name="Data">The data folder.</param>
     /// <param name="Out">The output folder.</param>
     /// <param name="Cache">The cache folder.</param>
-    /// <param name="Snapshot">The snapshot to build.</param>
+    /// <param name="Snapshot">The snapshot in the cache: built by <c>--write</c>, compared by <c>--check</c>.</param>
     private sealed record ClusterPaths(string Data, string Out, string Cache, string Snapshot);
 
     /// <summary>The products of one induction.</summary>
     /// <param name="Table">The table bytes.</param>
     /// <param name="Record">The record.</param>
-    /// <param name="Snapshot">The built snapshot.</param>
+    /// <param name="Snapshot">The built (write) or measured (check) snapshot.</param>
     private sealed record Induction(byte[] Table, ClusteringRecord Record, CorpusSnapshotInfo Snapshot);
 
     /// <summary>
@@ -589,12 +591,37 @@ internal static class ClusterCommand
             return 0;
         }
 
-        // --check: every product must equal the written one byte for byte
+        // --check: every product must equal the written one byte for byte, and the existing snapshot (the one read with
+        // --from-snapshot, otherwise the one in the cache) must be the archive the inputs give, with the recorded hash
         var tableCurrent = File.Exists(tablePath) && File.ReadAllBytes(tablePath).AsSpan().SequenceEqual(induction.Table);
         var recordCurrent = File.ReadAllBytes(recordPath).AsSpan().SequenceEqual(recordBytes);
-        var snapshotCurrent = string.Equals(existing!.Inputs.SnapshotSha256, induction.Snapshot.Sha256, StringComparison.Ordinal);
-        output.WriteLine($"cluster: check: {WordClusterTable.FileName} {(tableCurrent ? "current" : "stale")}, {ClusteringRecord.FileName} {(recordCurrent ? "current" : "stale")}, snapshot {(snapshotCurrent ? "current" : "stale")}");
-        return tableCurrent && recordCurrent && snapshotCurrent ? 0 : 1;
+        var archive = options.FromSnapshot is not null ? Path.GetFullPath(options.FromSnapshot, currentDirectory) : paths.Snapshot;
+        var snapshotState = SnapshotState(archive, induction.Snapshot.Sha256, existing!.Inputs.SnapshotSha256);
+        output.WriteLine($"cluster: check: {WordClusterTable.FileName} {(tableCurrent ? "current" : "stale")}, {ClusteringRecord.FileName} {(recordCurrent ? "current" : "stale")}, snapshot {snapshotState}");
+        return tableCurrent && recordCurrent && snapshotState == "current" ? 0 : 1;
+    }
+
+    /// <summary>
+    ///     Compares an existing snapshot archive with the one the inputs give, without changing it.
+    /// </summary>
+    /// <remarks>
+    ///     The check exists to detect a snapshot that is missing, stale or tampered with, so it hashes the archive on
+    ///     disk instead of rebuilding it; only reading, no side effects.
+    /// </remarks>
+    /// <param name="archive">The existing archive.</param>
+    /// <param name="measured">The SHA-256 of the archive the current inputs give.</param>
+    /// <param name="recorded">The SHA-256 named by the committed record.</param>
+    /// <returns><c>missing</c> when there is no archive, <c>current</c> when the archive, the measured and the recorded hashes all agree, otherwise <c>stale</c>.</returns>
+    private static string SnapshotState(string archive, string measured, string recorded)
+    {
+        if (!File.Exists(archive))
+        {
+            return "missing";
+        }
+
+        var current = string.Equals(recorded, measured, StringComparison.Ordinal)
+            && string.Equals(CorpusSnapshot.FileSha256(archive), measured, StringComparison.Ordinal);
+        return current ? "current" : "stale";
     }
 
     /// <summary>
@@ -640,7 +667,12 @@ internal static class ClusterCommand
         var table = WordClusterTable.Write(entries);
         output.WriteLine($"cluster: table: {entries.Count} words; {collisions} dropped for a shared lookup hash, {ineligible} ineligible");
         var bodies = sources.UsedInCorpusOrder.Zip(corpus.Bodies, static (source, body) => (source.Id, System.Text.Encoding.UTF8.GetBytes(body))).ToList();
-        var snapshot = CorpusSnapshot.Build(paths.Snapshot, sources.Bytes, bodies);
+
+        // --check never writes the snapshot: it only measures the archive the inputs give, so an existing archive that
+        // is missing, stale or tampered with stays as it is and is reported rather than silently repaired
+        var snapshot = options.Mode == ClusterMode.Check
+            ? CorpusSnapshot.Measure(sources.Bytes, bodies)
+            : CorpusSnapshot.Build(paths.Snapshot, sources.Bytes, bodies);
         var snapshotUrl = existing is not null && string.Equals(existing.Inputs.SnapshotSha256, snapshot.Sha256, StringComparison.Ordinal)
             ? existing.Inputs.SnapshotUrl
             : string.Empty;

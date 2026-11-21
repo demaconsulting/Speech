@@ -60,9 +60,11 @@ new pins. Every other mode loads the verified bodies (from the cache or `--from-
 tokenize them once. `--audit` runs `CorpusLeakageAudit` and writes or compares `cluster-removals.tsv`. `--preflight` has
 the reader count the corpus with the committed removals and prints the coverage report. `--write` and `--check` audit
 (and refuse to continue when the committed removals differ), count, induce with `ClusterInducer`, build the table with
-`WordClusterTable`, build the snapshot with `CorpusSnapshot` and the record with `ClusteringRecord`; `--write` writes
-the table and the record, `--check` compares them byte for byte, with the snapshot hash, against the files in the output
-folder.
+`WordClusterTable`, and the record with `ClusteringRecord`; `--write` builds the snapshot with `CorpusSnapshot` and
+writes the table and the record, while `--check` only measures the snapshot (computes its hash without writing it) and
+compares the table and the record byte for byte against the files in the output folder and the existing snapshot (the
+`--from-snapshot` archive, otherwise the cache's) by hash, so a missing, stale or tampered snapshot is reported and
+never silently rebuilt.
 
 **Mirror only, politely (decision).** Books are fetched only over HTTPS from an allowed official mirror
 (`gutenberg.pglaf.org`, or `aleph.gutenberg.org` with `--mirror`), never from the main web site: the source list refuses

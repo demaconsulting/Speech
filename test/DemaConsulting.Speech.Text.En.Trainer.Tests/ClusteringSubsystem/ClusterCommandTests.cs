@@ -241,6 +241,61 @@ public sealed class ClusterCommandTests
         Assert.Contains("clustering.json stale", stale.Output, StringComparison.Ordinal);
     }
 
+    /// <summary>Proves <c>--check</c> with a current snapshot in the cache reports it current and leaves every file of the cache as it was.</summary>
+    [Fact]
+    public void ClusterCommand_Run_CheckCurrentSnapshot_LeavesCacheUnchanged()
+    {
+        // Arrange: write, then note every cache file with its time and bytes
+        using var fixture = new ClusteringFixture();
+        fixture.Prepare();
+        fixture.Run("--write", "--clusters", "3", "--min-count", "1");
+        var before = CacheFiles(fixture);
+
+        // Act
+        var (exitCode, output, error) = fixture.Run("--check");
+
+        // Assert
+        Assert.True(exitCode == 0, output + error);
+        Assert.Contains("snapshot current", output, StringComparison.Ordinal);
+        Assert.Equal(before, CacheFiles(fixture));
+    }
+
+    /// <summary>
+    ///     Proves <c>--check</c> reports a missing snapshot as missing and a tampered one as stale (exit 1) without
+    ///     writing, repairing or leaving any file in the cache.
+    /// </summary>
+    [Fact]
+    public void ClusterCommand_Run_CheckMissingOrTamperedSnapshot_ReportsWithoutRepairing()
+    {
+        // Arrange
+        using var fixture = new ClusteringFixture();
+        fixture.Prepare();
+        fixture.Run("--write", "--clusters", "3", "--min-count", "1");
+        var snapshot = Path.Combine(fixture.CacheDirectory, "cluster-corpus.tar");
+        var original = File.ReadAllBytes(snapshot);
+
+        // Act: once with the snapshot deleted, once with one byte of a body changed
+        File.Delete(snapshot);
+        var withoutSnapshot = CacheFiles(fixture);
+        var missing = fixture.Run("--check");
+        var missingAfter = CacheFiles(fixture);
+        var tampered = (byte[])original.Clone();
+        tampered[^(original.Length / 2)] ^= 0x01;
+        File.WriteAllBytes(snapshot, tampered);
+        var withTampered = CacheFiles(fixture);
+        var stale = fixture.Run("--check");
+
+        // Assert: both are reported, and the cache is exactly as before each check
+        Assert.Equal(1, missing.ExitCode);
+        Assert.Contains("clustering.json current, snapshot missing", missing.Output, StringComparison.Ordinal);
+        Assert.Equal(withoutSnapshot, missingAfter);
+        Assert.DoesNotContain(missingAfter, static line => line.StartsWith("cluster-corpus.tar", StringComparison.Ordinal));
+        Assert.Equal(1, stale.ExitCode);
+        Assert.Contains("clustering.json current, snapshot stale", stale.Output, StringComparison.Ordinal);
+        Assert.Equal(withTampered, CacheFiles(fixture));
+        Assert.Equal(tampered, File.ReadAllBytes(snapshot));
+    }
+
     /// <summary>Proves the trainer's command line dispatches <c>cluster</c> and lists it in its usage.</summary>
     [Fact]
     public void Program_Run_Cluster_IsDispatched()
@@ -259,4 +314,16 @@ public sealed class ClusterCommandTests
         Assert.Contains("Usage: cluster <mode>", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("cluster      Fetch, audit and cluster", usage.ToString(), StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Lists every file of the fixture's cache with its content hash and last write time, to prove a run changed none.
+    /// </summary>
+    /// <param name="fixture">The fixture.</param>
+    /// <returns>One line per file, <c>relative path|SHA-256|ticks</c>, in ordinal order.</returns>
+    private static List<string> CacheFiles(ClusteringFixture fixture) =>
+    [
+        .. Directory.GetFiles(fixture.CacheDirectory, "*", SearchOption.AllDirectories)
+            .Select(path => $"{Path.GetRelativePath(fixture.CacheDirectory, path)}|{CorpusSnapshot.FileSha256(path)}|{File.GetLastWriteTimeUtc(path).Ticks}")
+            .Order(StringComparer.Ordinal),
+    ];
 }

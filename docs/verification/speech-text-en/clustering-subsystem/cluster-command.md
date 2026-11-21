@@ -30,7 +30,10 @@ preflight prints the coverage of each size and each word's count, rank and cuts 
 
 **Write and check.** A write without removals exits 1 and writes no table; a check without a record exits 2; a write
 with explicit settings prints progress, the total time with the thread count and the table hash, records the settings,
-and a following check is current until the record is edited, then stale.
+and a following check is current until the record is edited, then stale. A check with a current snapshot reports it
+current and leaves every file of the cache with the same bytes and time; a check with the snapshot deleted reports it
+missing and with one byte of it changed reports it stale (exit 1 both times, the table and record current), and neither
+check creates, replaces or repairs a file of the cache.
 
 #### Test Scenarios
 
@@ -57,9 +60,14 @@ with "1 failed" and the list is unchanged. The audit prints `dev.tsv exact: 0 co
 ##### Write and check
 
 **Tests**: `ClusterCommand_Run_WriteWithoutRemovals_Exits1`, `ClusterCommand_Run_CheckWithoutRecord_Exits2`,
-`ClusterCommand_Run_WriteThenCheck_CurrentThenStale`
+`ClusterCommand_Run_WriteThenCheck_CurrentThenStale`, `ClusterCommand_Run_CheckCurrentSnapshot_LeavesCacheUnchanged`,
+`ClusterCommand_Run_CheckMissingOrTamperedSnapshot_ReportsWithoutRepairing`
 
 A write before `--audit --write` prints the instruction and writes nothing. A write with 3 clusters, minimum count 2,
 limit 12 and two threads prints `induce: 12/12 words (100.0%)`, the total time `with 2 threads` and the table hash, and
 records those settings; the check exits 0, and after the used-book count in the record is edited it exits 1 reporting
-the record stale.
+the record stale. After a write with 3 clusters, the cache files (relative path, SHA-256 and last write time) are
+listed: a check prints `snapshot current` and the list is unchanged; with `cluster-corpus.tar` deleted a check prints
+`clustering.json current, snapshot missing` and the list is unchanged (no archive appears); with one byte in the middle
+of the archive flipped a check prints `clustering.json current, snapshot stale`, and the list and the archive's bytes
+are unchanged.

@@ -74,12 +74,19 @@ sections:
                   list is missing or differs from the audit, and otherwise write the table and the record to the
                   output folder and the snapshot to the cache, printing the progress with the time left, the time of
                   each stage, the table and snapshot hashes and the thread count; and in check mode repeat the
-                  induction with the settings of the record in the output folder (a usage error when there is none)
-                  and report the table, the record and the snapshot as current (exit 0) or stale (exit 1).
+                  induction with the settings of the record in the output folder (a usage error when there is none),
+                  report the table and the record as current or stale by comparing their bytes, and report the existing
+                  snapshot (the one given with --from-snapshot, otherwise the one in the cache) as current when its
+                  SHA-256 equals both the hash of the archive the inputs give and the recorded hash, as missing when it
+                  does not exist and otherwise as stale, writing no file, and exit with 0 when everything is current
+                  and 1 otherwise.
                 justification: |
                   The write produces the committed evidence and the check proves it; timings and hashes printed by the
-                  run are what the run log records.
+                  run are what the run log records. A check that rebuilt the snapshot would silently repair a missing
+                  or tampered archive and could never report it.
                 tests:
                   - ClusterCommand_Run_WriteWithoutRemovals_Exits1
                   - ClusterCommand_Run_CheckWithoutRecord_Exits2
                   - ClusterCommand_Run_WriteThenCheck_CurrentThenStale
+                  - ClusterCommand_Run_CheckCurrentSnapshot_LeavesCacheUnchanged
+                  - ClusterCommand_Run_CheckMissingOrTamperedSnapshot_ReportsWithoutRepairing

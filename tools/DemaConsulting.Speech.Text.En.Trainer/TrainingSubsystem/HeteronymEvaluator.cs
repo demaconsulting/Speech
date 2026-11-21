@@ -328,8 +328,9 @@ internal sealed class HeteronymEvaluator
     ///     </para>
     ///     <para>
     ///     <b>Cue-unsolvable rows.</b> A row marked as not solvable by the curated cues must be a single runtime token
-    ///     on which neither the adjective, the past-time nor any context cue test fires and on which the classifier and
-    ///     the model alone choose the same reading (which also covers the noun-form cue); any other row is a data error.
+    ///     on which neither the adjective, the past-time nor any context cue test fires, on which the noun-form prior is
+    ///     not added to any candidate (whether or not it would change the reading), and on which the classifier and the
+    ///     model alone choose the same reading; any other row is a data error naming the cue.
     ///     </para>
     /// </remarks>
     public OverlayEvaluation EvaluateOverlay(string set, IReadOnlyList<OverlayRow> rows, byte[] image)
@@ -381,7 +382,7 @@ internal sealed class HeteronymEvaluator
                 }
                 else if (rows[i].CueUnsolvable && withCues != alone)
                 {
-                    violations.Add($"{row.Row.Id} (a cue prior changes the reading{(NounFormCueApplies(row) ? ": noun-form cue" : string.Empty)})");
+                    violations.Add($"{row.Row.Id} (a cue prior changes the reading)");
                 }
             }
             else if (rows[i].CueUnsolvable)
@@ -409,8 +410,13 @@ internal sealed class HeteronymEvaluator
     private string ReadingName(int reading) => reading < 0 ? "none" : _corpus.Inventory.ReadingIdAt(reading);
 
     /// <summary>
-    ///     Names the adjective, past-time or context cue test that fires on an aligned row, whatever its candidates.
+    ///     Names the cue test that fires on an aligned row: the adjective, past-time or context cue test whatever the
+    ///     row's candidates, or the noun-form cue when the classifier adds its prior to a candidate.
     /// </summary>
+    /// <remarks>
+    ///     The noun-form cue is reported whether or not it changes the reading, so a row marked as not solvable by the
+    ///     curated cues cannot carry it unnoticed just because the model alone already chooses the same reading.
+    /// </remarks>
     /// <param name="row">The aligned prepared row.</param>
     /// <returns>The name of the first test that fires, or <see langword="null"/> when none does.</returns>
     private string? FiringCueTest(PreparedRow row)
@@ -426,9 +432,13 @@ internal sealed class HeteronymEvaluator
             return "past-time cue";
         }
 
-        return row.Candidates.Any(candidate => HeteronymClassifier.HasContextCue(row.Context!, row.Target, _corpus.Inventory.ReadingIdAt(candidate)))
-            ? "context cue"
-            : null;
+        if (row.Candidates.Any(candidate => HeteronymClassifier.HasContextCue(row.Context!, row.Target, _corpus.Inventory.ReadingIdAt(candidate))))
+        {
+            return "context cue";
+        }
+
+        // The noun-form prior is a cue acting on the row even when the model alone already prefers the same reading
+        return NounFormCueApplies(row) ? "noun-form cue" : null;
     }
 
     /// <summary>

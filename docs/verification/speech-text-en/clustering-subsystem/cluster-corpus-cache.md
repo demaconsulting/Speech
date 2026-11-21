@@ -7,7 +7,8 @@
 clustering fixture (`Fakes/ClusteringFixture.cs`): a temporary data folder with a source list written in code and three
 generated books served by a fake mirror. The network and the pause are the injected dependencies: the fetcher delegate
 answers from memory (or with a configured HTTP status, or a test-specific failure sequence) and records every requested
-address, and the sleeper records every pause, so no test waits or reaches the network. `GutenbergBody` and
+address, and the sleeper records every pause, so no test waits or reaches the network (one cancellation test uses the
+default pause, which a cancellation ends after 50 ms). `GutenbergBody` and
 `CorpusSnapshot` are used as they are. The default fetcher's own HTTP path is tested through its
 `GutenbergMirrorFetcher.Open(HttpClient, uri, token)` overload with a fake `HttpMessageHandler` that answers from a
 callback and records every request (still no network); its production handler is inspected directly.
@@ -36,6 +37,12 @@ within `Fetch`, a redirected book fails once, without a retry, and the other boo
 **Verified bodies.** A pinned, cached corpus makes no request; a tampered body is refused at reading and restored from
 the raw download without a request; a mirror text that differs from its pin fails the book and writes no body; an
 unpinned book cannot be read; a snapshot is read only when each body matches its pin.
+
+**Cancellation.** A cancellation raised by the fetcher for a canceled caller propagates as `OperationCanceledException`
+after one request and no pause; a cancellation during the first retry pause stops the run after that one pause, before
+a second request; with the default pause, a cancellation 50 ms into the 5-second backoff ends the run well before 5
+seconds; a `TaskCanceledException` without a canceled caller (a timeout) is retried after 5 seconds and the book is
+pinned.
 
 #### Test Scenarios
 
@@ -84,3 +91,17 @@ After pinning, a second fetch reports every book cached with no request. A body 
 `ReadBodies`, and the next fetch restores it from the raw file without a request. A pin that no download matches makes
 the book fail with a message about the pin and no body file. Reading unpinned bodies throws and says to write the pins.
 A snapshot of the pinned bodies reads back in ordinal order; one without a book and one with a changed body are refused.
+
+##### Cancellation
+
+**Tests**: `ClusterCorpusCache_Fetch_CallerCanceledDuringRequest_PropagatesWithoutRetry`,
+`ClusterCorpusCache_Fetch_CallerCanceledDuringBackoff_StopsBeforeNextRequest`,
+`ClusterCorpusCache_Fetch_DefaultPauseCanceled_EndsAtOnce`,
+`ClusterCorpusCache_Fetch_TimeoutWithoutCallerCancellation_Retries`
+
+A fetcher that cancels the caller's token and throws `TaskCanceledException` makes `Fetch` throw
+`OperationCanceledException` after one call with no recorded pause. A fetcher that always fails with HTTP 503 and a
+sleeper that cancels the token make `Fetch` throw `OperationCanceledException` after one call and the single pause of
+5 s. With no injected sleeper and the token canceled 50 ms after a failed request, `Fetch` throws
+`OperationCanceledException` after one call in less than the 5-second backoff. A `TaskCanceledException` on the first
+call with an uncanceled token gives the pauses 5 s, 2 s and 2 s, three calls and a pinned book.

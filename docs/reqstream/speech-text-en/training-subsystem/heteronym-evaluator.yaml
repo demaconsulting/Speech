@@ -161,11 +161,14 @@ sections:
                 title: >-
                   The HeteronymEvaluator class shall stop the evaluation of an overlay with a data error that
                   names, with the reason, every row marked as not solvable by the curated cues that is not one
-                  runtime token, on which the adjective, the past-time or a context cue test fires, or whose
-                  reading differs with and without the cue priors, and shall not name a row without that mark.
+                  runtime token, on which the adjective, the past-time or a context cue test fires, on which the
+                  noun-form prior is added to a candidate whether or not it changes the reading, or whose reading
+                  differs with and without the cue priors, and shall not name a row without that mark.
                 justification: |
                   The cue-unsolvable subset measures what the model achieves where the hand-written cues cannot
                   help; a row in it on which a cue acts would make that figure wrong, and the operator needs the
-                  row and the reason to correct the data.
+                  row and the reason to correct the data. A cue that acts without changing the reading today still
+                  acts on the row, and would change it under a different model.
                 tests:
                   - HeteronymEvaluator_EvaluateOverlay_CueUnsolvableViolation_ThrowsNamingRowsAndReasons
+                  - HeteronymEvaluator_EvaluateOverlay_CueUnsolvableNounFormCueWithoutChange_ThrowsNamingTheCue

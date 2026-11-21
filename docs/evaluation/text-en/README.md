@@ -133,8 +133,9 @@ Each overlay is measured twice with the same shipped model on the same path:
 Intervals are 95 percent percentile intervals of the clustered bootstrap (10,000 resamples, seed 7). A generalization
 row resamples with its family (the cue or template family it was written from), a regression row alone. The cue effect
 is the paired difference of the two accuracies. Every generalization row marked `cue_unsolvable=yes` is verified: none
-of the adjective, past-time or context cue tests may fire on it and both readings must agree; otherwise the evaluation
-stops with a data error.
+of the adjective, past-time or context cue tests may fire on it, the noun-form prior may not be added to any of its
+candidates (whether or not it changes the reading), and both readings must agree; otherwise the evaluation stops with a
+data error.
 
 ### Baseline of the Shipped Model (PR A)
 

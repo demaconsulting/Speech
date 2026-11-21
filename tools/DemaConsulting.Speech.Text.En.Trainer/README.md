@@ -209,8 +209,10 @@ and its record `data/text-en/clustering.json` from the US public-domain books li
   cut of each nominated word (default: the pre-registered list in `RUN-LOG.md`). It never reads the generalization set
 - `--write`: verify the pins, require the committed removals to be current, count, induce, then write the table and the
   record to `--out` (default the data folder) and the snapshot `cluster-corpus.tar` to the cache
-- `--check`: repeat `--write` with the settings of the record in `--out` and compare the table, the record and the
-  snapshot hash byte for byte; exit `1` when stale
+- `--check`: repeat `--write` with the settings of the record in `--out`, compare the table and the record byte for
+  byte, and compare the existing snapshot (the `--from-snapshot` file, otherwise the cache's `cluster-corpus.tar`) by
+  SHA-256 with the archive the inputs give, without writing anything; exit `1` when one is stale or the snapshot is
+  missing
 
 Options: `--clusters <n>` (default 512, `--write` only), `--max-words <n>` (default 0, no limit) and `--min-count <n>`
 (default 5) for `--write` and `--preflight`; `--threads <n>` (default the processor count; the output does not depend on
@@ -235,7 +237,8 @@ threads and 6 minutes 9 seconds with one thread, most of it the induction; both 
 hash to the analyzer's key). When two vocabulary words share a lookup hash, both are left out of the table, so no word
 can take another word's class.
 
-**Corpus snapshot.** `--write` and `--check` also build `cluster-corpus.tar` in the cache: a ustar archive of
+**Corpus snapshot.** `--write` also builds `cluster-corpus.tar` in the cache (`--check` only computes its hash and
+compares it with the existing archive, which it never replaces): a ustar archive of
 `cluster-sources.tsv`, a `NOTICE.txt` and every normalized body in a fixed order, with zero timestamps, owners and
 modes fixed, so the archive is byte-reproducible and its SHA-256, size and file count go into `clustering.json`. It is
 not published. The proposal, an open question for the owner, is to attach it to a release of the repository as

@@ -239,8 +239,9 @@ public sealed class ClusteringSubsystemTests
         // Act
         var (exitCode, output, error) = fixture.Run("--check", "--from-snapshot", kept);
 
-        // Assert
+        // Assert: current, no request, and the deleted cache is not re-created
         Assert.True(exitCode == 0, output + error);
         Assert.Equal(requests, fixture.Requests.Count);
+        Assert.False(Directory.Exists(fixture.CacheDirectory));
     }
 }

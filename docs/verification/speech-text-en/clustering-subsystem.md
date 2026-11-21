@@ -46,7 +46,8 @@ hash and word count.
 table.
 
 **Record and check.** A check after a write reports every output current; a hand-edited table is reported stale (exit
-1); the snapshot alone, with the cache deleted, reproduces the table without any request; the written table and record
+1); the snapshot alone, with the cache deleted, reproduces the table without any request and without re-creating the
+cache; the written table and record
 pass the offline word-cluster check of `check-data` with this build's tokenizer, and an edit of the source list
 afterwards fails it, naming the stale hash.
 
@@ -95,10 +96,10 @@ fixture corpus with four clusters gives exactly the golden table text.
 `ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck`
 
 After a path in the table is edited, `--check` exits 1 and reports the table stale. With the snapshot copied out and
-the cache deleted, `--check --from-snapshot` exits 0 and makes no request. After a write, the manifest of the fixture
-data is regenerated and `check-data` (with `TrainingCorpus.TaggerVersion`) exits 0 and reports the word-cluster table;
-after a title in the source list is changed and the manifest regenerated again, it exits 1 with a `clusters` finding on
-`sourcesSha256`.
+the cache deleted, `--check --from-snapshot` exits 0, makes no request and leaves the cache folder absent. After a
+write, the manifest of the fixture data is regenerated and `check-data` (with `TrainingCorpus.TaggerVersion`) exits 0
+and reports the word-cluster table; after a title in the source list is changed and the manifest regenerated again, it
+exits 1 with a `clusters` finding on `sourcesSha256`.
 
 See also *SpeechTextEn System Verification* and the unit documents `gutenberg-body.md`, `cluster-corpus-cache.md`,
 `corpus-snapshot.md`, `corpus-leakage-audit.md`, `cluster-corpus-reader.md`, `cluster-inducer.md`,
