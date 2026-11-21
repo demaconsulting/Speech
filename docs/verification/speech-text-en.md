@@ -273,7 +273,10 @@ the labels themselves are not claimed correct. Training is verified on a small d
 trainings of the same inputs give the same image and record, the fixture model has a pinned hash (its identity on every
 operating system is evidenced by the CI build matrix, not by one local run), the holdout files have no influence,
 unusable rows are counted, the trainer and the analyzer decide alike on every aligned row, and the evaluation figures,
-gate exit codes and record follow the fixture exactly. Three tests run against the committed files: the committed model
+gate exit codes and record follow the fixture exactly. The overlay evaluation runs on a fixture regression overlay and
+generalization set: the figures with and without the cue priors and their family-clustered intervals are reported, the
+results are appended to the evaluation record without changing its earlier lines, and a cue-unsolvable row that a cue
+can act on stops the evaluation. Three tests run against the committed files: the committed model
 and record are what retraining produces, the committed model passes the gate on the natural holdout through the analyzer
 that embeds it, and the committed external record has the expected files with a strict numeric grammar. External
 evaluation runs on hand-written fake datasets in fake archives with matching pins: **no automated test uses the network,

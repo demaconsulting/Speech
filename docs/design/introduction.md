@@ -460,13 +460,14 @@ that `Speech` neither references nor knows about, and two more, `SpeechTextEn` a
   its two embedded tables, the feature extractor, the sparse perceptron model and the classifier, which uses the trained
   model embedded in the package); the first uses the other two, never the reverse. It implements Speech's
   `ITextAnalyzer` seam rather than a model or backend seam, depends on `Speech` and on the `DemaConsulting.PartOfSpeech`
-  OTS package, and uses no inference runtime. Three further subsystems belong to the system but not to the package, all
+  OTS package, and uses no inference runtime. Four further subsystems belong to the system but not to the package, all
   in the non-shipped trainer tool. `TrainingDataSubsystem` (the strict file reader, the typed data loader, the manifest
-  verifier, the span validator, the finding collector, the schema, license and leakage checks and the command entry) is
-  the `check-data` command that verifies the training data in `data/text-en/`, uses only the .NET base class library and
-  is not used by the three runtime subsystems. `TrainingSubsystem` (the corpus loader, the deterministic random
-  generator and math, the integer averaged perceptron, the model selection, the training record and command, the
-  evaluator, the evaluation record and the evaluate command) is the `train` and `evaluate` commands that train and
+  verifier, the span validator, the finding collector, the schema, license, leakage, evaluation-overlay and word-cluster
+  checks and the command entry) is the `check-data` command that verifies the training data in `data/text-en/`, uses
+  only the .NET base class library and is not used by the three runtime subsystems. `TrainingSubsystem` (the corpus
+  loader, the deterministic random generator and math, the integer averaged perceptron, the model selection, the
+  training record and command, the evaluator, the evaluation-overlay loader, the evaluation record and the evaluate
+  command) is the `train` and `evaluate` commands that train and
   measure the heteronym model; it references the library and reuses its internals through `InternalsVisibleTo`, and the
   library does not know it exists. `ExternalEvaluationSubsystem` (the pinned source cache, the row conversion, the two
   dataset adapters, the external evaluation record and the command) is the `evaluate-external` command that measures the
@@ -474,8 +475,8 @@ that `Speech` neither references nor knows about, and two more, `SpeechTextEn` a
   and the data folder discovery of the `TrainingDataSubsystem`, and none of them uses it. `ClusteringSubsystem` (the
   body extraction, the corpus cache, the snapshot, the leakage audit, the reader, the clusterer, the table, the record
   and the command) is the `cluster` command that induces the word-cluster table; it uses the deterministic logarithm and
-  the tokenizer version of the `TrainingSubsystem`, the strict reader, data loader and sentence keys of the
-  `TrainingDataSubsystem` and the library's tokenizer and lookup hash, and none of them uses it.
+  the tokenizer version of the `TrainingSubsystem`, the strict reader, data loader, sentence keys and word-cluster file
+  and field names of the `TrainingDataSubsystem` and the library's tokenizer and lookup hash, and none of them uses it.
 - `SpeechPhonemesEn` (`DemaConsulting.Speech.Phonemes.En`, a preview) supplies English phonemization in four
   subsystems, one per step of the pipeline: `LexiconSubsystem` (the embedded CMU Pronouncing Dictionary, the phone and
   pronunciation types, the morphology rules and the pronunciation of every reading id), `LetterToSoundSubsystem` (the
@@ -1027,13 +1028,13 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 │   ├── EvaluationOverlay.cs                               — Loader of the regression overlay and the generalization set with strata, slices and clusters (with OverlayRow)
 │   ├── EvaluationRecord.cs                                — Eight deterministic tab-separated evaluation record files (with EvaluationReport)
 │   └── EvaluateCommand.cs                                 — Command line entry of evaluate
-└── ExternalEvaluationSubsystem/
-    ├── ExternalSourceCache.cs                             — Pins, pinned fetch into the cache and verified reading of cached files (with PinnedFile, ExternalSourcePin, ExternalSourcePins and the default download)
-    ├── ExternalRowConversion.cs                           — Byte offsets, label mapping and row conversion with skip accounting (with ExternalRecord, ExternalReadResult, ConversionCounts, ExternalRowSet, SkipReasons, ByteOffsets, ReadingIdMap and ExternalRowConverter)
-    ├── WikipediaHomographAdapter.cs                       — Reader of the pinned WikipediaHomographData files
-    ├── HeteronymBenchAdapter.cs                           — Reader of the pinned English read set of heteronym-bench
-    ├── ExternalEvaluationRecord.cs                        — Seven deterministic tab-separated external record files (with ExternalEvaluationReport, ExternalSetResult and ExternalSeedResult)
-    └── EvaluateExternalCommand.cs                         — Command line entry of evaluate-external
+├── ExternalEvaluationSubsystem/
+│   ├── ExternalSourceCache.cs                             — Pins, pinned fetch into the cache and verified reading of cached files (with PinnedFile, ExternalSourcePin, ExternalSourcePins and the default download)
+│   ├── ExternalRowConversion.cs                           — Byte offsets, label mapping and row conversion with skip accounting (with ExternalRecord, ExternalReadResult, ConversionCounts, ExternalRowSet, SkipReasons, ByteOffsets, ReadingIdMap and ExternalRowConverter)
+│   ├── WikipediaHomographAdapter.cs                       — Reader of the pinned WikipediaHomographData files
+│   ├── HeteronymBenchAdapter.cs                           — Reader of the pinned English read set of heteronym-bench
+│   ├── ExternalEvaluationRecord.cs                        — Seven deterministic tab-separated external record files (with ExternalEvaluationReport, ExternalSetResult and ExternalSeedResult)
+│   └── EvaluateExternalCommand.cs                         — Command line entry of evaluate-external
 └── ClusteringSubsystem/
     ├── GutenbergBody.cs                                   — Body extraction and normalization of a downloaded e-book (with GutenbergBodyText)
     ├── ClusterCorpusCache.cs                              — Source list, mirror-only rate-limited fetch, body pins and verified bodies (with ClusterSource, ClusterSourceList, CorpusFetchResult and GutenbergMirrorFetcher)
@@ -1124,7 +1125,10 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   the `sourceRef` of those units.
 - **Data is a tool input, not a software item.** The training and evaluation data in `data/text-en/` is described
   in the design of the subsystem that checks it (*SpeechTextEn TrainingDataSubsystem Design*), reviewed through its
-  own review sets and pinned by its manifest; it has no requirement, design or SysML2 part of its own. Likewise the
+  own review sets and pinned by its manifest; it has no requirement, design or SysML2 part of its own. This includes
+  the evaluation overlays `regression.tsv` and `generalization.tsv`, the blind review
+  `audit/generalization-review.tsv` and the prompt of the generalization set (checked by `check-data` and measured by
+  `evaluate`, whose overlay rows are part of the evaluation record). Likewise the
   trained model `Resources/heteronyms.bin` is data produced by the training subsystem: it is pinned by
   `training.json` and verified by `train --check`, and the committed evaluation record in `docs/evaluation/text-en/`
   is verified by `evaluate --check`; neither has a software item of its own. The external evaluation follows the same

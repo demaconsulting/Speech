@@ -76,8 +76,10 @@ needs-review:
   # of its uncompressed image, the hash of its inputs and its settings) and verified by the trainer's train --check
   # command, which retrains it, as the design documents explain.
   # The large data tables of data/text-en (train, dev, holdout-*, both provenance tables, exclusions, gaps,
-  # extension candidates, audit/*.tsv, check-output.txt) are deliberately not review files: they are pinned by
-  # the reviewed MANIFEST.tsv and verified by the trainer's check-data command, as the design documents explain.
+  # extension candidates, audit/*.tsv except audit/generalization-review.tsv, check-output.txt and the word-cluster
+  # table word-clusters.tsv) are deliberately not review files: they are pinned by the reviewed MANIFEST.tsv (the
+  # word-cluster table also by the reviewed clustering.json) and verified by the trainer's check-data command, as the
+  # design documents explain.
 
 # Evidence source: review data and index.json are located in the 'reviews' branch
 # of this repository, accessed through the GitHub public HTTPS raw content access.

@@ -90,12 +90,16 @@ The following software items of the SpeechTextEn system are also covered; it is 
   alignment model, the text normalizer, the numeric expression recognizer, the number verbalizer, the
   abbreviation resolver, the acronym recognizer, the web address recognizer and the alphanumeric token
   recognizer, whose
-  tests feed the real tokenizer's tokens to the normalizer through a test helper), and its
-  non-shipped **TrainingDataSubsystem** (the `check-data` command of the Text.En trainer that verifies the
-  training data in `data/text-en/`: the strict file reader, the typed loader, the manifest verifier, the span
-  validator, the finding collector, the schema, license and leakage checks and the command entry, verified in
-  `test/DemaConsulting.Speech.Text.En.Trainer.Tests` over data folders that the tests build in code and once over
-  the real committed data)
+  tests feed the real tokenizer's tokens to the normalizer through a test helper), and the non-shipped subsystems of
+  the Text.En trainer, all verified in `test/DemaConsulting.Speech.Text.En.Trainer.Tests` over data folders, models,
+  datasets and books that the tests build in code (and once over the real committed data): the
+  **TrainingDataSubsystem** (the `check-data` command that verifies the training data in `data/text-en/`: the strict
+  file reader, the typed loader, the manifest verifier, the span validator, the finding collector, the schema,
+  license, leakage, evaluation-overlay and word-cluster checks and the command entry), the **TrainingSubsystem** (the
+  `train` and `evaluate` commands, including the overlay evaluation with and without the cue priors), the
+  **ExternalEvaluationSubsystem** (the `evaluate-external` command, offline on fake datasets) and the
+  **ClusteringSubsystem** (the `cluster` command, offline on generated books served by a fake mirror, with golden
+  results of a fixed-input clustering that every CI platform must reproduce)
 - **SpeechPhonemesEn (System)** — The `DemaConsulting.Speech.Phonemes.En` English phonemizer package (a preview),
   verified through its public API with golden corpora (sentences, readings, out-of-vocabulary words and both
   renderers) and symbol-coverage gates against the Piper symbol table and the Kokoro vocabulary, with its
