@@ -52,3 +52,21 @@ sections:
                 tests:
                   - EvaluationRecord_Render_IsDeterministicWithLineFeedsOnly
                   - EvaluationRecord_WriteThenCompare_DetectsEditedAndMissingFiles
+
+              - id: SpeechTextEn-Training-EvaluationRecord-OverlayFiles
+                title: >-
+                  The EvaluationRecord class shall append the shipped evaluations of the overlays to the
+                  summary, source, reading and confidence files after the data sets, leaving the gate and seeds
+                  files unchanged, and shall write an overlay rows file with the set, id, group, kind, seen mark,
+                  cue-unsolvable mark, labeled, shipped and model-only readings and whether a cue acted for
+                  every overlay row, and a curated ablation file with the rows, clusters, correct counts and
+                  basis-point accuracies with intervals with and without the cue priors, the paired difference
+                  with its interval, the rows on which a cue acted and the changed rows for every overlay slice,
+                  both files with their header only when no overlay was evaluated.
+                justification: |
+                  Appending keeps every earlier line of the committed record byte-identical, so adding the
+                  overlays changes no gate evidence. The per-row file lets a reviewer see each flagged sentence,
+                  and the per-slice file holds the baseline cells that the pre-registered criterion of the
+                  word-cluster work refers to.
+                tests:
+                  - EvaluationRecord_Render_Overlays_AppendedWithRowsAndCuratedAblation

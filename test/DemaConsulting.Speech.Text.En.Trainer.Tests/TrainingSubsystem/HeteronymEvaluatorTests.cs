@@ -427,6 +427,163 @@ public sealed class HeteronymEvaluatorTests
         Assert.Null(fromFile.AccuracyInterval);
     }
 
+    /// <summary>Proves an overlay is reported with and without the cue priors per slice, with family clusters, and that without a cue the model alone decides like the shipped classifier.</summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateOverlay_NoCueFires_ReportsSlicesWithEqualModelOnly()
+    {
+        // Arrange: two families; one row is labeled against the model's clear pattern, so it is wrong both ways
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var (evaluator, image) = Prepare(fixture);
+        fixture.WriteGeneralization(
+            ("gen-0001", "lead.verb", "They will lead the march today.", "novel-construction", "lead:future", "yes"),
+            ("gen-0002", "lead.verb", "Please lead the parade now.", "novel-construction", "lead:future", "no"),
+            ("gen-0003", "lead.noun", "The lead roof was very heavy.", "novel-vocabulary", "lead:metal", "no"),
+            ("gen-0004", "lead.verb", "A lead plate fell down.", "novel-vocabulary", "lead:metal", "no"));
+        var rows = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Generalization);
+
+        // Act
+        var overlay = evaluator.EvaluateOverlay("generalization", rows, image);
+
+        // Assert: the shipped evaluation
+        Assert.Equal(4, overlay.Shipped.Rows);
+        Assert.Equal(3, overlay.Shipped.Correct);
+        Assert.Equal(2, overlay.Shipped.Interval.Clusters);
+        Assert.NotNull(overlay.Shipped.AccuracyInterval);
+        Assert.Equal(1, overlay.CueUnsolvableRows);
+        Assert.Contains(overlay.Shipped.BySource, tally => tally.Name == "generalization/novel-vocabulary/cue-solvable" && tally.Rows == 2);
+
+        // Assert: the rows, with and without the cues
+        Assert.Equal(new[] { "gen-0001", "gen-0002", "gen-0003", "gen-0004" }, overlay.Rows.Select(static row => row.Overlay.Row.Id));
+        Assert.All(overlay.Rows, static row => Assert.Equal(row.Shipped, row.ModelOnly));
+        Assert.All(overlay.Rows, static row => Assert.False(row.CueFired));
+        Assert.Equal("lead.noun", overlay.Rows[3].Shipped);
+        Assert.False(overlay.Rows[3].ShippedCorrect);
+
+        // Assert: the slices, all first and the rest in ordinal order
+        Assert.Equal(
+            new[] { "all", "cue_unsolvable:no", "cue_unsolvable:yes", "family:lead:future", "family:lead:metal", "kind:novel-construction", "kind:novel-vocabulary" },
+            overlay.Slices.Select(static slice => slice.Name));
+        var all = overlay.Slices[0];
+        Assert.Equal(4, all.Rows);
+        Assert.Equal(3, all.ShippedCorrect);
+        Assert.Equal(3, all.ModelOnlyCorrect);
+        Assert.Equal(7500, all.ShippedAccuracy.DifferenceBasisPoints);
+        Assert.Equal(2, all.ShippedAccuracy.Clusters);
+        Assert.Equal(all.ShippedAccuracy, all.ModelOnlyAccuracy);
+        Assert.Equal(new BootstrapInterval(2, 0, 0, 0, false), all.CueEffect);
+        Assert.Equal(0, all.CueFired);
+        Assert.Equal(0, all.Changed);
+        var metal = overlay.Slices.Single(static slice => slice.Name == "family:lead:metal");
+        Assert.Equal(2, metal.Rows);
+        Assert.Equal(1, metal.ShippedCorrect);
+        Assert.Equal(1, metal.ShippedAccuracy.Clusters);
+    }
+
+    /// <summary>Proves a row marked as not solvable by the curated cues stops the evaluation with a data error that names it and the reason when a cue test fires on it or it is not one runtime token.</summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateOverlay_CueUnsolvableViolation_ThrowsNamingRowsAndReasons()
+    {
+        // Arrange: a past-time word in the clause of the target, and a target inside a longer word
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var (evaluator, image) = Prepare(fixture);
+        fixture.WriteGeneralization(
+            ("gen-0001", "lead.verb", "They will lead the march today.", "novel-construction", "lead:future", "yes"),
+            ("gen-0002", "lead.verb", "Yesterday we lead the team.", "novel-construction", "lead:past", "yes"),
+            ("gen-0003", "lead.noun", "The leader spoke softly.", "novel-vocabulary", "lead:metal", "yes"),
+            ("gen-0004", "lead.verb", "Yesterday we lead the class.", "novel-construction", "lead:past", "no"));
+        var rows = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Generalization);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => evaluator.EvaluateOverlay("generalization", rows, image));
+
+        // Assert: only the two marked rows are named; the unmarked row with the same cue is not
+        Assert.Contains("2 rows marked cue_unsolvable=yes", exception.Message);
+        Assert.Contains("gen-0002 (past-time cue)", exception.Message);
+        Assert.Contains("gen-0003 (not one runtime token)", exception.Message);
+        Assert.DoesNotContain("gen-0001", exception.Message);
+        Assert.DoesNotContain("gen-0004", exception.Message);
+    }
+
+    /// <summary>
+    ///     Proves a row marked as not solvable by the curated cues on which the noun-form prior is added is named with
+    ///     <c>noun-form cue</c> although the prior does not change its reading, and that the same row unmarked is evaluated.
+    /// </summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateOverlay_CueUnsolvableNounFormCueWithoutChange_ThrowsNamingTheCue()
+    {
+        // Arrange: a third reading of the form lead that is a noun of another lemma only, so lead tagged NOUN gets the
+        // noun-form prior on lead.noun; the model's trained noun pattern already chooses lead.noun, so nothing changes
+        using var fixture = new TrainingFixture();
+        fixture.Write("readings.tsv", fixture.Read("readings.tsv") + string.Join('\t', "lead.extra", "plumb", "NOUN", "Noun of another lemma only.", "active") + "\n");
+        fixture.Write("forms.tsv", fixture.Read("forms.tsv") + string.Join('\t', "lead", "lead.extra", "other") + "\n");
+        var (evaluator, image) = Prepare(fixture);
+        const string Sentence = "The lead pipe was very heavy.";
+        fixture.WriteGeneralization(("gen-0001", "lead.noun", Sentence, "novel-vocabulary", "lead:metal", "yes"));
+        var marked = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Generalization);
+        fixture.WriteGeneralization(("gen-0001", "lead.noun", Sentence, "novel-vocabulary", "lead:metal", "no"));
+        var unmarked = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Generalization);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => evaluator.EvaluateOverlay("generalization", marked, image));
+        var overlay = evaluator.EvaluateOverlay("generalization", unmarked, image);
+
+        // Assert: the cue acts without changing the reading, and the marked row is refused naming the noun-form cue
+        Assert.True(overlay.Rows[0].CueFired);
+        Assert.Equal("lead.noun", overlay.Rows[0].Shipped);
+        Assert.Equal(overlay.Rows[0].Shipped, overlay.Rows[0].ModelOnly);
+        Assert.Contains("1 rows marked cue_unsolvable=yes", exception.Message);
+        Assert.Contains("gen-0001 (noun-form cue)", exception.Message);
+    }
+
+    /// <summary>Proves the rows on which a cue prior acts are counted per slice, apart from the rows whose reading it changes.</summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateOverlay_CueFires_CountsFiredRowsApartFromChangedRows()
+    {
+        // Arrange: lead.noun is the adjective reading; a degree adverb or a coordinated adjective stands beside the
+        // target in two rows, so the adjective cue acts there, and the model's own weights already decide every row
+        using var fixture = new TrainingFixture("VERB", "ADJ");
+        var (evaluator, image) = Prepare(fixture);
+        fixture.WriteRegression(
+            ("reg-0001", "lead.noun", "The metal was lead and heavy.", "listening", "no"),
+            ("reg-0002", "lead.verb", "They will lead the team today.", "data-row", "no"),
+            ("reg-0003", "lead.noun", "The very lead pipe fell.", "data-row", "no"),
+            ("reg-0004", "lead.noun", "A grey and lead pipe fell.", "data-row", "no"));
+        var rows = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Regression);
+
+        // Act
+        var overlay = evaluator.EvaluateOverlay("regression", rows, image);
+
+        // Assert: the cue acts on the first and third rows and changes no reading
+        Assert.Equal(new[] { true, false, true, false }, overlay.Rows.Select(static row => row.CueFired));
+        Assert.All(overlay.Rows, static row => Assert.Equal(row.Shipped, row.ModelOnly));
+        var all = overlay.Slices[0];
+        Assert.Equal(4, all.Rows);
+        Assert.Equal(4, all.ShippedCorrect);
+        Assert.Equal(2, all.CueFired);
+        Assert.Equal(0, all.Changed);
+        Assert.Equal(1, overlay.Slices.Single(static slice => slice.Name == "origin:listening").CueFired);
+        Assert.Equal(1, overlay.Slices.Single(static slice => slice.Name == "origin:data-row").CueFired);
+    }
+
+    /// <summary>Proves an overlay whose row id repeats is refused.</summary>
+    [Fact]
+    public void HeteronymEvaluator_EvaluateOverlay_RepeatedId_ThrowsInvalidDataException()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var (evaluator, image) = Prepare(fixture);
+        fixture.WriteRegression(
+            ("reg-0001", "lead.verb", "They will lead the team today.", "listening", "no"),
+            ("reg-0001", "lead.noun", "The lead pipe was very heavy.", "data-row", "yes"));
+        var rows = EvaluationOverlay.Load(fixture.Root, EvaluationOverlay.Regression);
+
+        // Act
+        var exception = Assert.Throws<InvalidDataException>(() => evaluator.EvaluateOverlay("regression", rows, image));
+
+        // Assert
+        Assert.Contains("reg-0001", exception.Message);
+    }
+
     /// <summary>
     ///     Builds an evaluator over the fixture and the image of a model trained on it.
     /// </summary>

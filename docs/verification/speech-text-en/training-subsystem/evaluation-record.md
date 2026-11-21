@@ -24,6 +24,11 @@ Nothing is mocked.
   when there are no sets; the source, reading and confidence files list every group with its counts, its basis-point
   accuracy and the baseline count; the seeds file lists each seed and then the mean, the minimum and the maximum; basis
   points format as `93.12%`, `+2.46%` and `-0.05%` for the given sign option.
+- **Overlay files**: a report with a generalization overlay keeps the summary, source, reading and confidence files of
+  the report without it as a byte-identical prefix, followed by the overlay's lines, and leaves the gate and seeds files
+  unchanged; the overlay rows file has its header and one exact line per row (with `-` where a mark does not apply) and
+  the curated ablation file its header and one exact line per slice; without overlays both files have their header
+  only.
 - **Deterministic**: the files of the same evaluation are equal on every rendering, in ordinal file-name order, with
   line feeds only and a final line feed; a written folder compares as current, and an appended and a deleted file are
   named.
@@ -40,6 +45,13 @@ three cases)
 The summary, the source and reading files and the seeds file are compared with the expected text, and a confidence line
 with its expected text. The sample gives the verdict `pass`; the sample with a lower bound that is not above zero and
 too few correct gives `fail` with both conditions `no`; an evaluation without sets gives `not evaluated`.
+
+##### Overlay files
+
+**Test**: `EvaluationRecord_Render_Overlays_AppendedWithRowsAndCuratedAblation`
+
+A hand-built generalization overlay of two rows in one family (the cue priors change one row) is added to the sample
+report, and the files are compared with the sample's files and with the expected text.
 
 ##### Deterministic files and staleness
 

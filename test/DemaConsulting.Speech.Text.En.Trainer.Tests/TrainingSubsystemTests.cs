@@ -272,6 +272,38 @@ public sealed class TrainingSubsystemTests
         Assert.Contains("seeds.tsv", stale.Output);
     }
 
+    /// <summary>Proves the overlays are evaluated with and without the cue priors and appended to the evaluation record after the data sets, which then checks as current.</summary>
+    [Fact]
+    public void TrainingSubsystem_Evaluate_Overlays_ReportedWithAndWithoutCuesAndAppendedToRecord()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        fixture.WriteRegression(
+            ("reg-0001", "lead.verb", "They will lead the team today.", "listening", "yes"),
+            ("reg-0002", "lead.noun", "The lead box was very heavy.", "data-row", "no"));
+        fixture.WriteGeneralization(
+            ("gen-0001", "lead.verb", "Please lead the hike now.", "novel-construction", "lead:request", "yes"),
+            ("gen-0002", "lead.noun", "A lead ball fell down.", "novel-vocabulary", "lead:metal", "no"));
+        var record = Path.Combine(fixture.BaseDirectory, "record");
+
+        // Act
+        var report = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--set", "regression", "--set", "generalization");
+        var write = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", record);
+        var check = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--check", "--record-dir", record);
+
+        // Assert
+        Assert.Equal(0, report.ExitCode);
+        Assert.Contains("regression slice unseen: 1 rows", report.Output);
+        Assert.Contains("generalization slice cue_unsolvable:yes: 1 rows", report.Output);
+        Assert.Contains("model only", report.Output);
+        Assert.Equal(0, write.ExitCode);
+        Assert.Equal(0, check.ExitCode);
+        var summary = File.ReadAllLines(Path.Combine(record, EvaluationRecord.SummaryFile));
+        Assert.Equal(new[] { "set", "dev", "holdout-independent", "holdout-natural", "generalization", "regression" }, summary.Select(static line => line.Split('\t')[0]));
+        Assert.Equal(5, File.ReadAllLines(Path.Combine(record, EvaluationRecord.OverlayRowsFile)).Length);
+    }
+
     /// <summary>Proves the tool's entry point dispatches the train and evaluate commands and still reports an unknown command.</summary>
     [Fact]
     public void TrainingSubsystem_Program_DispatchesTrainAndEvaluate()

@@ -82,6 +82,52 @@ internal sealed record GateVerdict(bool AccuracyOk, bool IntervalOk)
     public bool Passed => AccuracyOk && IntervalOk;
 }
 
+/// <summary>The result of one overlay row with and without the curated cue priors.</summary>
+/// <param name="Overlay">The overlay row.</param>
+/// <param name="Shipped">The reading the shipped classifier (with its cue priors) emits end to end, or <c>none</c>.</param>
+/// <param name="ModelOnly">The reading the model alone (without the cue priors) chooses on the same path, or <c>none</c>.</param>
+/// <param name="CueFired">Whether a cue prior is added to at least one candidate of the row.</param>
+internal sealed record OverlayRowOutcome(OverlayRow Overlay, string Shipped, string ModelOnly, bool CueFired)
+{
+    /// <summary>Gets a value indicating whether the shipped reading is the labeled one.</summary>
+    public bool ShippedCorrect => Shipped == Overlay.Row.ReadingId;
+
+    /// <summary>Gets a value indicating whether the model-only reading is the labeled one.</summary>
+    public bool ModelOnlyCorrect => ModelOnly == Overlay.Row.ReadingId;
+}
+
+/// <summary>One slice of an overlay with and without the curated cue priors, with clustered intervals.</summary>
+/// <param name="Name">The slice name, for example <c>all</c>, <c>unseen</c> or <c>kind:novel-vocabulary</c>.</param>
+/// <param name="Rows">The rows of the slice.</param>
+/// <param name="ShippedCorrect">The rows the shipped classifier decides correctly.</param>
+/// <param name="ShippedAccuracy">The clustered interval of the shipped accuracy (its point estimate is the accuracy).</param>
+/// <param name="ModelOnlyCorrect">The rows the model alone decides correctly.</param>
+/// <param name="ModelOnlyAccuracy">The clustered interval of the model-only accuracy.</param>
+/// <param name="CueEffect">The paired clustered interval of the shipped minus the model-only accuracy.</param>
+/// <param name="CueFired">The rows where a cue prior is added to at least one candidate.</param>
+/// <param name="Changed">The rows where the shipped and the model-only readings differ.</param>
+internal sealed record OverlaySlice(
+    string Name,
+    int Rows,
+    int ShippedCorrect,
+    BootstrapInterval ShippedAccuracy,
+    int ModelOnlyCorrect,
+    BootstrapInterval ModelOnlyAccuracy,
+    BootstrapInterval CueEffect,
+    int CueFired,
+    int Changed);
+
+/// <summary>The evaluation of an overlay: the shipped evaluation, every row with and without the cue priors, and the slices.</summary>
+/// <param name="Shipped">The evaluation of the shipped classifier, end to end, as for a data set, with the accuracy interval.</param>
+/// <param name="Rows">The per-row outcomes in file order.</param>
+/// <param name="Slices">The slices, <c>all</c> first and the others in ordinal order.</param>
+/// <param name="CueUnsolvableRows">The rows marked as not solvable by the curated cues, all verified.</param>
+internal sealed record OverlayEvaluation(
+    SetEvaluation Shipped,
+    IReadOnlyList<OverlayRowOutcome> Rows,
+    IReadOnlyList<OverlaySlice> Slices,
+    int CueUnsolvableRows);
+
 /// <summary>
 ///     Measures a trained model against labeled data sets through the product's own path, with baselines, strata, a
 ///     paired clustered bootstrap and a parity check, all in integer arithmetic.
@@ -122,6 +168,9 @@ internal sealed class HeteronymEvaluator
 
     /// <summary>The sets of the evaluation record and of <c>--set all</c>, in ordinal order: the development set and the holdouts.</summary>
     public static readonly IReadOnlyList<string> ReportSets = ["dev", "holdout-independent", "holdout-natural"];
+
+    /// <summary>The tag code of <c>NOUN</c>, for the mirror of the noun-form cue.</summary>
+    private static readonly byte NounTag = HeteronymContext.UposCode("NOUN");
 
     /// <summary>The confidence bucket names, in order.</summary>
     private static readonly string[] ConfidenceBuckets = ["<0.600", "0.600-0.899", ">=0.900", "none"];
@@ -246,6 +295,253 @@ internal sealed class HeteronymEvaluator
     }
 
     /// <summary>
+    ///     Evaluates an evaluation overlay with the shipped classifier (with its curated cue priors) and with the model
+    ///     alone (without them), per row and per slice, and verifies the rows that the curated cues cannot solve.
+    /// </summary>
+    /// <param name="set">The overlay set name; the prepared rows are cached under it.</param>
+    /// <param name="rows">The overlay rows, with unique ids.</param>
+    /// <param name="image">The model file bytes (compressed or not).</param>
+    /// <returns>The overlay evaluation.</returns>
+    /// <exception cref="InvalidDataException">
+    ///     A row id repeats, a row is not a form of the inventory or has a label that is not a candidate, the model does
+    ///     not load, or a row marked as not solvable by the curated cues is one they can affect (the message names every
+    ///     such row).
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///     <b>Shipped.</b> The analyzer's end-to-end reading with the model under test, exactly as <see cref="EvaluateRows"/>
+    ///     measures it; the rows cluster by <see cref="OverlayRow.Cluster"/>.
+    ///     </para>
+    ///     <para>
+    ///     <b>Model only.</b> The same decision without the curated cue priors: the candidate with the highest integer
+    ///     score over the row's own features and the loaded weights (<see cref="AveragedPerceptronTrainer.Decide"/>, the
+    ///     scoring the classifier itself uses), on the same path, so a row the analyzer leaves without a reading stays
+    ///     without one and a row whose target is not one runtime token keeps the analyzer's reading (its context is not
+    ///     available). It is an evaluation-only computation: the classifier, the model and the analyzer are not changed.
+    ///     </para>
+    ///     <para>
+    ///     <b>Cue detection.</b> A row's cue fires when one of the classifier's four priors is added to at least one
+    ///     candidate: the adjective cue, the noun-form cue, the past-time cue or a context cue. The noun-form test is
+    ///     private to the classifier and is mirrored here from the same inventory facts; a row where no cue fires must
+    ///     get the same reading from the classifier and from the model alone, and a difference stops the evaluation,
+    ///     so the mirror cannot drift silently.
+    ///     </para>
+    ///     <para>
+    ///     <b>Cue-unsolvable rows.</b> A row marked as not solvable by the curated cues must be a single runtime token
+    ///     on which neither the adjective, the past-time nor any context cue test fires, on which the noun-form prior is
+    ///     not added to any candidate (whether or not it would change the reading), and on which the classifier and the
+    ///     model alone choose the same reading; any other row is a data error naming the cue.
+    ///     </para>
+    /// </remarks>
+    public OverlayEvaluation EvaluateOverlay(string set, IReadOnlyList<OverlayRow> rows, byte[] image)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(image);
+
+        var overlays = new Dictionary<string, OverlayRow>(StringComparer.Ordinal);
+        var repeated = rows.FirstOrDefault(row => !overlays.TryAdd(row.Row.Id, row));
+        if (repeated is not null)
+        {
+            throw new InvalidDataException($"{set}: the row id '{repeated.Row.Id}' occurs twice; run check-data");
+        }
+
+        string ClusterOfRow(LabeledRow row) => overlays[row.Id].Cluster;
+        var prepared = PrepareRows(set, rows.Select(static row => row.Row).ToList());
+        var (outcomes, parity) = RunEndToEnd(prepared, image);
+        var shipped = Summarize(outcomes, parity, set, ClusterOfRow, withAccuracyInterval: true);
+
+        var model = SparsePerceptronModel.Load(image);
+        var classifier = new HeteronymClassifier(_corpus.Inventory, model);
+        var weights = new LoadedModelWeights(model);
+        var results = new List<OverlayRowOutcome>(rows.Count);
+        var violations = new List<string>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = prepared[i];
+            var emitted = outcomes[i].Reading;
+            var cueFired = false;
+            var modelOnly = emitted;
+            if (row.IsAligned)
+            {
+                var scores = new int[row.Candidates.Count];
+                var alone = row.Candidates[AveragedPerceptronTrainer.Decide(_corpus.Inventory, row, weights, model.Mask, scores)];
+                var withCues = classifier.Classify(row.Context!, row.Target, row.FormIndex).ReadingIndex;
+                cueFired = AnyCueFires(row);
+                if (!cueFired && withCues != alone)
+                {
+                    throw new InvalidDataException(
+                        $"{set}: row {row.Row.Id}: no cue prior was detected but the classifier and the model alone disagree; the cue detection of the evaluator no longer matches the classifier");
+                }
+
+                modelOnly = emitted < 0 ? -1 : alone;
+                var test = rows[i].CueUnsolvable ? FiringCueTest(row) : null;
+                if (test is not null)
+                {
+                    violations.Add($"{row.Row.Id} ({test})");
+                }
+                else if (rows[i].CueUnsolvable && withCues != alone)
+                {
+                    violations.Add($"{row.Row.Id} (a cue prior changes the reading)");
+                }
+            }
+            else if (rows[i].CueUnsolvable)
+            {
+                violations.Add($"{row.Row.Id} (not one runtime token)");
+            }
+
+            results.Add(new OverlayRowOutcome(rows[i], ReadingName(emitted), ReadingName(modelOnly), cueFired));
+        }
+
+        if (violations.Count > 0)
+        {
+            throw new InvalidDataException(
+                $"{set}: {violations.Count} rows marked cue_unsolvable=yes can be affected by a curated cue: {string.Join(", ", violations)}");
+        }
+
+        return new OverlayEvaluation(shipped, results, Slices(results), rows.Count(static row => row.CueUnsolvable));
+    }
+
+    /// <summary>
+    ///     Names a reading index for an overlay outcome.
+    /// </summary>
+    /// <param name="reading">The reading index, or -1 for none.</param>
+    /// <returns>The reading id, or <c>none</c>.</returns>
+    private string ReadingName(int reading) => reading < 0 ? "none" : _corpus.Inventory.ReadingIdAt(reading);
+
+    /// <summary>
+    ///     Names the cue test that fires on an aligned row: the adjective, past-time or context cue test whatever the
+    ///     row's candidates, or the noun-form cue when the classifier adds its prior to a candidate.
+    /// </summary>
+    /// <remarks>
+    ///     The noun-form cue is reported whether or not it changes the reading, so a row marked as not solvable by the
+    ///     curated cues cannot carry it unnoticed just because the model alone already chooses the same reading.
+    /// </remarks>
+    /// <param name="row">The aligned prepared row.</param>
+    /// <returns>The name of the first test that fires, or <see langword="null"/> when none does.</returns>
+    private string? FiringCueTest(PreparedRow row)
+    {
+        ReadOnlySpan<ContextToken> context = row.Context!;
+        if (HeteronymClassifier.HasAdjectiveCue(context, row.Target))
+        {
+            return "adjective cue";
+        }
+
+        if (HeteronymClassifier.HasPastTimeCue(context, row.Target))
+        {
+            return "past-time cue";
+        }
+
+        if (row.Candidates.Any(candidate => HeteronymClassifier.HasContextCue(row.Context!, row.Target, _corpus.Inventory.ReadingIdAt(candidate))))
+        {
+            return "context cue";
+        }
+
+        // The noun-form prior is a cue acting on the row even when the model alone already prefers the same reading
+        return NounFormCueApplies(row) ? "noun-form cue" : null;
+    }
+
+    /// <summary>
+    ///     Tells whether one of the classifier's four cue priors is added to at least one candidate of an aligned row.
+    /// </summary>
+    /// <param name="row">The aligned prepared row.</param>
+    /// <returns><see langword="true"/> when a prior is added to a candidate.</returns>
+    private bool AnyCueFires(PreparedRow row)
+    {
+        var inventory = _corpus.Inventory;
+        ReadOnlySpan<ContextToken> context = row.Context!;
+        if (HeteronymClassifier.HasAdjectiveCue(context, row.Target) && row.Candidates.Any(inventory.IsAdjective))
+        {
+            return true;
+        }
+
+        if (HeteronymClassifier.HasPastTimeCue(context, row.Target) && row.Candidates.Any(inventory.IsPastTense))
+        {
+            return true;
+        }
+
+        return row.Candidates.Any(candidate => HeteronymClassifier.HasContextCue(row.Context!, row.Target, inventory.ReadingIdAt(candidate)))
+            || NounFormCueApplies(row);
+    }
+
+    /// <summary>
+    ///     Mirrors the classifier's noun-form cue: the word is tagged <c>NOUN</c>, exactly one candidate can be a noun of
+    ///     the form, and another candidate is a noun of its lemma only in other forms.
+    /// </summary>
+    /// <param name="row">The aligned prepared row.</param>
+    /// <returns><see langword="true"/> when the classifier adds the noun-form prior to a candidate.</returns>
+    private bool NounFormCueApplies(PreparedRow row)
+    {
+        if (row.Context![row.Target].Upos != NounTag)
+        {
+            return false;
+        }
+
+        var inventory = _corpus.Inventory;
+        var nouns = 0;
+        var ruledOut = false;
+        foreach (var candidate in row.Candidates)
+        {
+            if (inventory.CanBeNoun(row.FormIndex, candidate))
+            {
+                nouns++;
+            }
+            else
+            {
+                ruledOut |= inventory.IsNounOfItsLemma(candidate);
+            }
+        }
+
+        return nouns == 1 && ruledOut;
+    }
+
+    /// <summary>
+    ///     Reduces the per-row outcomes of an overlay to its slices.
+    /// </summary>
+    /// <param name="results">The per-row outcomes.</param>
+    /// <returns>The slices, <c>all</c> first and the others in ordinal order.</returns>
+    private List<OverlaySlice> Slices(IReadOnlyList<OverlayRowOutcome> results)
+    {
+        var names = results.SelectMany(static result => result.Overlay.Slices).Where(static name => name != "all").Distinct().Order(StringComparer.Ordinal);
+        var slices = new List<OverlaySlice>();
+        foreach (var name in new[] { "all" }.Concat(names))
+        {
+            var members = results.Where(result => result.Overlay.Slices.Contains(name, StringComparer.Ordinal)).ToList();
+            var order = new List<string>();
+            var counts = new Dictionary<string, int[]>(StringComparer.Ordinal);
+            foreach (var member in members)
+            {
+                if (!counts.TryGetValue(member.Overlay.Cluster, out var count))
+                {
+                    count = new int[3];
+                    counts[member.Overlay.Cluster] = count;
+                    order.Add(member.Overlay.Cluster);
+                }
+
+                count[0]++;
+                count[1] += member.ShippedCorrect ? 1 : 0;
+                count[2] += member.ModelOnlyCorrect ? 1 : 0;
+            }
+
+            var shipped = order.Select(id => new ClusterStats(id, counts[id][0], counts[id][1], 0)).ToList();
+            var alone = order.Select(id => new ClusterStats(id, counts[id][0], counts[id][2], 0)).ToList();
+            var paired = order.Select(id => new ClusterStats(id, counts[id][0], counts[id][1], counts[id][2])).ToList();
+            slices.Add(new OverlaySlice(
+                name,
+                members.Count,
+                members.Count(static member => member.ShippedCorrect),
+                Bootstrap(shipped, _settings),
+                members.Count(static member => member.ModelOnlyCorrect),
+                Bootstrap(alone, _settings),
+                Bootstrap(paired, _settings),
+                members.Count(static member => member.CueFired),
+                members.Count(static member => member.Shipped != member.ModelOnly)));
+        }
+
+        return slices;
+    }
+
+    /// <summary>
     ///     Evaluates prepared rows through the analyzer and checks parity with the direct path.
     /// </summary>
     /// <param name="set">The set name.</param>
@@ -255,6 +551,18 @@ internal sealed class HeteronymEvaluator
     /// <param name="withAccuracyInterval">Whether to compute the interval of the accuracy itself.</param>
     /// <returns>The evaluation.</returns>
     private SetEvaluation EvaluateEndToEnd(string set, IReadOnlyList<PreparedRow> rows, byte[] image, Func<LabeledRow, string> clusterOf, bool withAccuracyInterval)
+    {
+        var (outcomes, parity) = RunEndToEnd(rows, image);
+        return Summarize(outcomes, parity, set, clusterOf, withAccuracyInterval);
+    }
+
+    /// <summary>
+    ///     Runs prepared rows through the analyzer and checks parity with the direct path.
+    /// </summary>
+    /// <param name="rows">The prepared rows.</param>
+    /// <param name="image">The model file bytes.</param>
+    /// <returns>The per-row outcomes in order and the parity counts.</returns>
+    private (List<Outcome> Outcomes, ParityCounts Parity) RunEndToEnd(IReadOnlyList<PreparedRow> rows, byte[] image)
     {
         var provider = new HeteronymModelProvider(() => new MemoryStream(image, writable: false), _corpus.Inventory);
         var analyzer = new EnglishTextAnalyzer(new EnglishTextAnalyzerOptions(), PartOfSpeechAdapter.Shared, null, provider);
@@ -283,7 +591,7 @@ internal sealed class HeteronymEvaluator
             }
         }
 
-        return Summarize(outcomes, new ParityCounts(compared, mismatched, suppressed), set, clusterOf, withAccuracyInterval);
+        return (outcomes, new ParityCounts(compared, mismatched, suppressed));
     }
 
     /// <summary>
@@ -335,7 +643,7 @@ internal sealed class HeteronymEvaluator
     /// <param name="row">The prepared row.</param>
     /// <returns>The prediction, or null for a row that is not aligned.</returns>
     private static HeteronymPrediction? Direct(HeteronymClassifier classifier, PreparedRow row) =>
-        row.IsAligned ? classifier.Classify(row.Context, row.Target, row.FormIndex) : null;
+        row.IsAligned ? classifier.Classify(row.Context!, row.Target, row.FormIndex) : null;
 
     /// <summary>
     ///     Runs the analyzer over a row's sentence and reads the reading emitted on exactly the row's span.
@@ -705,6 +1013,14 @@ internal sealed class HeteronymEvaluator
 
         var magnitude = ((2 * Math.Abs(numerator) * 10_000) + denominator) / (2 * denominator);
         return (int)(numerator < 0 ? -magnitude : magnitude);
+    }
+
+    /// <summary>The weights of a loaded model as a weight source, for the model-only decision.</summary>
+    /// <param name="Model">The model.</param>
+    private readonly record struct LoadedModelWeights(SparsePerceptronModel Model) : HeteronymClassifier.IWeightSource
+    {
+        /// <inheritdoc/>
+        public int GetWeight(uint bucket) => Model.GetWeight(bucket);
     }
 
     /// <summary>One row's end-to-end result.</summary>

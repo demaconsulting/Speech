@@ -29,10 +29,10 @@ random property tests of the alignment contract live at that level. System and u
 
 The non-shipped trainer has its own test project, `test/DemaConsulting.Speech.Text.En.Trainer.Tests`, and no
 system-level test class: its system requirements are evidenced by the subsystem-level tests of the
-TrainingDataSubsystem, TrainingSubsystem and ExternalEvaluationSubsystem, which drive its three commands through their
-one observable interface each. This cross-level link is deliberate and documented here once; a few Heteronym system
-requirements likewise link the analyzer unit tests that can inject a damaged model, which the system level cannot do
-through the public API.
+TrainingDataSubsystem, TrainingSubsystem, ExternalEvaluationSubsystem and ClusteringSubsystem, which drive its commands
+through their one observable interface each. This cross-level link is deliberate and documented here once; a few
+Heteronym system requirements likewise link the analyzer unit tests that can inject a damaged model, which the system
+level cannot do through the public API.
 
 Automated coverage does not extend to the accuracy of the tagger beyond a few unambiguous golden sentences: the analyzer
 relays the tagger's decisions, so the tests assert structure, offsets and wiring and use only sentences whose tags the
@@ -261,9 +261,9 @@ project file.
 ### Training Data, Training and External Evaluation
 
 **Tests**: the `TrainingDataSubsystem_CheckData_*`, `TrainingSubsystem_Train_*`, `TrainingSubsystem_TrainCheck_*`,
-`TrainingSubsystem_Evaluate_*` and `ExternalEvaluationSubsystem_*` tests in
+`TrainingSubsystem_Evaluate_*`, `ExternalEvaluationSubsystem_*` and `ClusteringSubsystem_*` tests in
 `test/DemaConsulting.Speech.Text.En.Trainer.Tests` that the requirements `SpeechTextEn-TrainingData-*`,
-`SpeechTextEn-Training-*` and `SpeechTextEn-Evaluation-*` link (see the verification documents of the three subsystems)
+`SpeechTextEn-Training-*` and `SpeechTextEn-Evaluation-*` link (see the verification documents of the four subsystems)
 
 Verifies the trainer's requirements through the one observable interface of each command. The real committed
 `data/text-en` folder passes `check-data`, and each class of defect written into a temporary copy (a restricted license,
@@ -273,7 +273,10 @@ the labels themselves are not claimed correct. Training is verified on a small d
 trainings of the same inputs give the same image and record, the fixture model has a pinned hash (its identity on every
 operating system is evidenced by the CI build matrix, not by one local run), the holdout files have no influence,
 unusable rows are counted, the trainer and the analyzer decide alike on every aligned row, and the evaluation figures,
-gate exit codes and record follow the fixture exactly. Three tests run against the committed files: the committed model
+gate exit codes and record follow the fixture exactly. The overlay evaluation runs on a fixture regression overlay and
+generalization set: the figures with and without the cue priors and their family-clustered intervals are reported, the
+results are appended to the evaluation record without changing its earlier lines, and a cue-unsolvable row that a cue
+can act on stops the evaluation. Three tests run against the committed files: the committed model
 and record are what retraining produces, the committed model passes the gate on the natural holdout through the analyzer
 that embeds it, and the committed external record has the expected files with a strict numeric grammar. External
 evaluation runs on hand-written fake datasets in fake archives with matching pins: **no automated test uses the network,
@@ -281,7 +284,13 @@ the real datasets or a sentence of them**. A tampered or malformed source is ref
 unusable rows are counted by reason, the seed study reports its spread and intervals, and neither the output nor the
 record holds any dataset text. The external figures themselves are not asserted by any automated test: they come from a
 local run, are committed as the external evaluation record and are claimed exactly as that record and its limits state
-them.
+them. The word-class induction runs on three generated books served by a fake mirror: fetching with pins, the audit, the
+write and a full re-induction check succeed, a book quoting a development sentence loses exactly that sentence, the
+table words are the analyzer's lookup keys, one and three threads give byte-identical files, and a fixed-input
+clustering, a fixture corpus and a snapshot have golden results that every CI platform must reproduce; the written table
+and record pass the offline word-cluster check of `check-data`, which a later edit of the source list fails. The
+induction of the real corpus is a manual step recorded in the trainer's run log, and the committed table and record pass
+`check-data` with the tokenizer of the build.
 
 ## Acceptance Criteria
 

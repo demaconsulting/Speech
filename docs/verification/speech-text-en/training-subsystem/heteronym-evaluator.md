@@ -47,6 +47,23 @@ analyzer scores every row, so the parity tests compare two real code paths. Noth
   an unknown set name throws `InvalidDataException`; a clustering supplied by the caller decides how many clusters
   there are (one cluster, one per reading and one per row); the accuracy interval of rows supplied by the caller
   encloses the point estimate on the end-to-end path and is absent on the direct path and on a file set.
+- **Overlay with and without the cue priors**: a generalization overlay of four rows in two families gives 4 rows, 3
+  correct, 2 clusters and one cue-unsolvable row; the rows keep their order, no cue fires on the fixture (it has no
+  adjective, past-tense or context-cue reading) and every model-only reading equals the shipped one; the slices are
+  `all`, then `cue_unsolvable:no`, `cue_unsolvable:yes`, the two families and the two kinds in ordinal order; the slice
+  `all` has 3 correct both ways, the accuracy 7,500 over 2 clusters, equal intervals and the cue effect interval
+  (2, 0, 0, 0, not positive); a family slice has its own single cluster; an overlay whose row id repeats throws
+  `InvalidDataException` naming the id.
+- **Rows a cue prior acts on**: with a fixture whose `lead.noun` is the adjective reading, a regression overlay of four
+  rows, two with a coordinated adjective or a degree adverb beside the target, marks exactly those two as cue-fired;
+  their readings are the same with and without the priors, so the slice `all` counts 4 rows, 4 correct, 2 cue-fired
+  and 0 changed, and each origin slice counts its own cue-fired row.
+- **Cue-unsolvable check**: a generalization overlay whose marked rows include one with *yesterday* in the target's
+  clause and one whose target lies inside a longer word throws `InvalidDataException` naming exactly those two rows,
+  with `past-time cue` and `not one runtime token`, and not a marked row without a cue or an unmarked row with the same
+  cue; with a third reading of `lead` that is a noun of another lemma only, a marked row whose target is tagged as a
+  noun gets the noun-form prior without a change of reading (shipped and model-only both `lead.noun`, cue fired) and
+  throws `InvalidDataException` naming it with `noun-form cue`, while the same row unmarked is evaluated.
 
 #### Test Scenarios
 
@@ -106,3 +123,22 @@ is evaluated each time; the sets of synthetic and independent rows are evaluated
 `holdout-secret` is rejected. The rows of a file set are supplied to `EvaluateRows` grouped as one cluster, by reading
 and one per row. The committed data is covered by the subsystem test
 `TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`.
+
+##### Overlay evaluation
+
+**Tests**: `HeteronymEvaluator_EvaluateOverlay_NoCueFires_ReportsSlicesWithEqualModelOnly`,
+`HeteronymEvaluator_EvaluateOverlay_CueFires_CountsFiredRowsApartFromChangedRows`,
+`HeteronymEvaluator_EvaluateOverlay_CueUnsolvableViolation_ThrowsNamingRowsAndReasons`,
+`HeteronymEvaluator_EvaluateOverlay_CueUnsolvableNounFormCueWithoutChange_ThrowsNamingTheCue`,
+`HeteronymEvaluator_EvaluateOverlay_RepeatedId_ThrowsInvalidDataException`
+
+The fixture model evaluates overlays written into the fixture folder (one row labeled against its trained pattern, so it
+is wrong both ways), and the results, slices and messages listed in the acceptance criteria are compared. The default
+fixture has no reading that a cue prior acts on; a second fixture makes `lead.noun` the adjective reading, so the
+adjective cue acts on two rows, but the fixture model's own weights are larger than the prior and no reading changes.
+A third fixture adds to `lead` a reading that is a noun of another lemma only, so the noun-form prior acts on a target
+tagged as a noun without changing its reading.
+A model-only reading that differs from the shipped one is therefore not produced by a fixture; the committed-data test
+of the subsystem checks the record of the real overlays, whose cue rows do differ (the regression overlay has rows
+whose reading a cue prior changes), and the evaluator's own consistency stop covers the rows on which no cue is
+detected.

@@ -10,11 +10,16 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 /// <param name="Evaluation">The evaluation settings, including the gate threshold.</param>
 /// <param name="Sets">The evaluated sets, in the order they are reported.</param>
 /// <param name="Seeds">The multi-seed results; empty when the study was not run.</param>
+/// <param name="Overlays">
+///     The evaluation overlays with and without the curated cue priors, in the order they are reported; null or empty
+///     when none was evaluated. Their shipped evaluations are also in <paramref name="Sets"/>, after the data sets.
+/// </param>
 internal sealed record EvaluationReport(
     string ImageSha256,
     EvaluationSettings Evaluation,
     IReadOnlyList<SetEvaluation> Sets,
-    IReadOnlyList<SeedResult> Seeds);
+    IReadOnlyList<SeedResult> Seeds,
+    IReadOnlyList<OverlayEvaluation>? Overlays = null);
 
 /// <summary>
 ///     Renders an evaluation as a small set of deterministic tab-separated files, and compares such files with a
@@ -29,7 +34,8 @@ internal sealed record EvaluationReport(
 ///     </para>
 ///     <para>
 ///     The files are plain tables rather than Markdown so that the repository's text formatters cannot reflow them
-///     and break the byte-for-byte comparison.
+///     and break the byte-for-byte comparison. The evaluation overlays come after the data sets in every shared file,
+///     so adding them leaves every earlier line byte-identical.
 ///     </para>
 /// </remarks>
 internal static class EvaluationRecord
@@ -52,6 +58,12 @@ internal static class EvaluationRecord
     /// <summary>The multi-seed file.</summary>
     public const string SeedsFile = "seeds.tsv";
 
+    /// <summary>The per-row file of the evaluation overlays.</summary>
+    public const string OverlayRowsFile = "overlay-rows.tsv";
+
+    /// <summary>The file of the overlay slices with and without the curated cue priors.</summary>
+    public const string CuratedAblationFile = "curated-ablation.tsv";
+
     /// <summary>
     ///     Renders the record files.
     /// </summary>
@@ -68,6 +80,8 @@ internal static class EvaluationRecord
             [ByReadingFile] = RenderGroups(report, "reading", static set => set.ByReading),
             [ConfidenceFile] = RenderGroups(report, "confidence", static set => set.ByConfidence),
             [SeedsFile] = RenderSeeds(report),
+            [OverlayRowsFile] = RenderOverlayRows(report),
+            [CuratedAblationFile] = RenderCuratedAblation(report),
         };
         return files;
     }
@@ -254,6 +268,74 @@ internal static class EvaluationRecord
 
         return text.ToString();
     }
+
+    /// <summary>
+    ///     Renders the per-row file of the overlays: the labeled, shipped and model-only reading of every row.
+    /// </summary>
+    /// <param name="report">The evaluation.</param>
+    /// <returns>The file text; the header only when no overlay was evaluated.</returns>
+    private static string RenderOverlayRows(EvaluationReport report)
+    {
+        var text = new StringBuilder();
+        text.Append("set\tid\tgroup\tkind\tseen_in_training\tcue_unsolvable\tgold\tshipped\tmodel_only\tcue_fired\n");
+        foreach (var overlay in report.Overlays ?? [])
+        {
+            foreach (var row in overlay.Rows)
+            {
+                var source = row.Overlay;
+                var unsolvable = source.Kind == "-" ? "-" : YesNo(source.CueUnsolvable);
+                Row(text, overlay.Shipped.Set, source.Row.Id, source.Group, source.Kind, source.SeenInTraining, unsolvable, source.Row.ReadingId, row.Shipped, row.ModelOnly, YesNo(row.CueFired));
+            }
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
+    ///     Renders the slices of the overlays with the curated cue priors (the shipped model) and without them (the model
+    ///     alone), with the clustered intervals of both accuracies and of their paired difference.
+    /// </summary>
+    /// <param name="report">The evaluation.</param>
+    /// <returns>The file text; the header only when no overlay was evaluated.</returns>
+    private static string RenderCuratedAblation(EvaluationReport report)
+    {
+        var text = new StringBuilder();
+        text.Append("set\tslice\trows\tclusters\tshipped_correct\tshipped_bp\tshipped_ci_lower_bp\tshipped_ci_upper_bp\tmodel_only_correct\tmodel_only_bp\tmodel_only_ci_lower_bp\tmodel_only_ci_upper_bp\tcue_effect_bp\tcue_effect_ci_lower_bp\tcue_effect_ci_upper_bp\tcue_fired\tchanged\n");
+        foreach (var overlay in report.Overlays ?? [])
+        {
+            foreach (var slice in overlay.Slices)
+            {
+                Row(
+                    text,
+                    overlay.Shipped.Set,
+                    slice.Name,
+                    slice.Rows,
+                    slice.ShippedAccuracy.Clusters,
+                    slice.ShippedCorrect,
+                    slice.ShippedAccuracy.DifferenceBasisPoints,
+                    slice.ShippedAccuracy.LowerBasisPoints,
+                    slice.ShippedAccuracy.UpperBasisPoints,
+                    slice.ModelOnlyCorrect,
+                    slice.ModelOnlyAccuracy.DifferenceBasisPoints,
+                    slice.ModelOnlyAccuracy.LowerBasisPoints,
+                    slice.ModelOnlyAccuracy.UpperBasisPoints,
+                    slice.CueEffect.DifferenceBasisPoints,
+                    slice.CueEffect.LowerBasisPoints,
+                    slice.CueEffect.UpperBasisPoints,
+                    slice.CueFired,
+                    slice.Changed);
+            }
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>
+    ///     Renders a flag as <c>yes</c> or <c>no</c>.
+    /// </summary>
+    /// <param name="value">The flag.</param>
+    /// <returns>The text.</returns>
+    private static string YesNo(bool value) => value ? "yes" : "no";
 
     /// <summary>
     ///     Computes the mean of basis-point values, rounded half up with integers.

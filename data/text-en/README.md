@@ -29,10 +29,16 @@ recorded per file and per row. Nothing here is legal advice.
 | [extension-candidates.tsv](extension-candidates.tsv) | 60 | the ranked proposal of heteronyms that inventory v1 did not cover (natural frequency, class Y/R/S) | CC0-1.0 |
 | [extension-decisions.tsv](extension-decisions.tsv) | 60 | the decision per candidate (add or defer) with the CMUdict evidence | CC0-1.0 |
 | [leakage-report.tsv](leakage-report.tsv) | 96 | per evaluation set and split: exact, near-duplicate and 5-gram overlap counts | CC0-1.0 |
-| [audit/](audit/audit-summary.md) | 6 files | blind relabel audit, adjudication, holdout review and final review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review | CC0-1.0 |
+| [regression.tsv](regression.tsv) | 519 | evaluation overlay: owner-flagged sentences, analyzer and golden test sentences and selected training and development rows, each referenced and marked seen or unseen in training (see "Evaluation Overlays") | per row |
+| [generalization.tsv](generalization.tsv) | 242 | the blind generalization test set: 13 target words, 64 families, 135 `novel-vocabulary` and 107 `novel-construction` rows, 80 rows the curated cues cannot solve (see "Evaluation Overlays") | CC0-1.0 |
+| [cluster-sources.tsv](cluster-sources.tsv) | 336 | the word-cluster corpus: every candidate Project Gutenberg book with its US public-domain basis, mirror URL and, for the 280 used books, the SHA-256 and size of its normalized body; 45 development and holdout books excluded and 11 domain candidates rejected, each with the reason; for every domain book, the publication year and its evidence (see "Word-Cluster Corpus") | CC0-1.0 |
+| [cluster-removals.tsv](cluster-removals.tsv) | 6 | the corpus sentences the leakage audit removed, by book, paragraph, sentence and SHA-256 (no text) | CC0-1.0 |
+| [word-clusters.tsv](word-clusters.tsv) | 60,000 | the word-cluster table: one row per word (`word path count`), 512 clusters of a binary hierarchy induced from the corpus; not yet used by any model | CC0-1.0 |
+| [clustering.json](clustering.json) | | the record of the table: settings, the hashes of its inputs, the tokenizer version, the snapshot hash, the corpus counts and the table hash; verified by `check-data` | CC0-1.0 |
+| [audit/](audit/audit-summary.md) | 7 files | blind relabel audit, adjudication, holdout review, final review and the generalization review: summary, the 85 adjudicated rows, the 13 description fixes, the consistency fixes, the holdout review, the final review, the blind label review of the generalization set | CC0-1.0 |
 | [MANIFEST.tsv](MANIFEST.tsv) | | size, SHA-256 and row count of every file; verified by `check-data` | CC0-1.0 |
 | [check-output.txt](check-output.txt) | | output of the Python prototype of the checks (schema, licenses, leakage) and of the gap report that built these files; kept as the historical baseline that `check-data` ports | CC0-1.0 |
-| [prompts/](prompts/README.md) | 11 | the prompts that produced the generated, LLM-labeled and audited data | CC0-1.0 |
+| [prompts/](prompts/README.md) | 12 | the prompts that produced the generated, LLM-labeled and audited data, and the prompt of the blind generalization set | CC0-1.0 |
 | [ATTRIBUTION.md](ATTRIBUTION.md) | | attribution for the MASC-derived sentences | |
 
 Row format of `train.tsv`, `dev.tsv`, `holdout-natural.tsv` and `holdout-independent.tsv` (UTF-8, LF, no quoting, header row):
@@ -188,6 +194,129 @@ WikipediaHomographData and heteronym-bench are **evaluation-only and never commi
 Because the evaluation sets are not committed, `check-data` runs only the internal separation checks by default (and so does CI). The external check must be
 re-run by an operator with local copies of the evaluation sets before any change of the data (command and options in "Check" below).
 
+## Evaluation Overlays
+
+Two evaluation files sit beside the splits. They are not splits: they are not part of the split separation, the per-reading
+counts or `gaps-v4.tsv`, nothing is trained on them, and `check-data` checks them with rules of their own (`overlay`
+findings). The protocol and the pre-registered use of both are in the trainer's `RUN-LOG.md`, entry "Word-cluster
+subsystem (PR A)".
+
+### Regression overlay: 519 rows
+
+`regression.tsv` (`id lemma reading_id sentence start end origin ref seen_in_training license`) collects the sentences the
+model has to keep getting right. Every row refers to where it comes from (`origin` and `ref`):
+
+| Origin | Rows | Seen in training | Reference |
+| --- | ---: | ---: | --- |
+| `listening` | 7 | 0 | the owner's listening flags and their controls: *grey and very minute and clear*, *The difference was extremely minute*, *a knife wound or a deep muscle tear* (two targets), *Yesterday I read the whole book*, *The tape wound onto the spool*, *A tear ran down her cheek* (`RUN-LOG.md:<line>` or `<Name>Tests.cs:<line>`) |
+| `analyzer-test` | 11 | 0 | the analyzer tests that assert a reading with the embedded model (`<Name>Tests.cs:<line>`) |
+| `golden-pipeline` | 37 | 0 | the heteronym targets of the Piper pipeline golden sentences (the Kokoro golden has the same sentences), labeled from the reviewed expected phonemes (`piper-pipeline-golden.tsv:<id>`) |
+| `golden-sentences` | 61 | 0 | the heteronym targets of the sentence golden whose expected phonemes match the reviewed readings golden of exactly one candidate, plus six inflected forms labeled from their phonemes and sentence (`sentences-golden.tsv:<id>`) |
+| `golden-readings` | 382 | 6 | the end-to-end rows of the readings golden, one per reading (`readings-golden.tsv:<line>`); 3 rows are already in the overlay as listening or analyzer rows |
+| `data-row` | 21 | 19 | training and development rows of the flagged constructions: `wound.injury` with *knife*, *stab* or *bullet*; `tear.rip` with a word of the body or a material; `minute.tiny` after a degree adverb; `read.past` with a past-time phrase (`train.tsv:<id>` or `dev.tsv:<id>`) |
+
+`seen_in_training` is `yes` exactly when the row refers to a training row, its sentence key equals a training sentence or
+it nearly repeats one (the near-duplicate rule of "Leakage"); `check-data` recomputes it. No row refers to or repeats a
+holdout sentence. A `data-row` reference must match the referenced row (lemma, reading, sentence, offsets and license);
+the golden and test references are resolved by a trainer test that reads the repository's test files. Own-written and
+golden rows are `CC0-1.0`; the listening sentence *To the eastward, of course, these little boats ...* is quoted from a
+public-domain book and is `Public-Domain`; `data-row` rows carry the license of the referenced row. The file was built
+once by a throwaway script from the golden files, the analyzer tests, the run log and the data rows.
+
+### Generalization set (written blind)
+
+`generalization.tsv` (`id lemma reading_id sentence start end kind family cue_forms cue_unsolvable source license`) is a
+test set written blind by a model of another family that sees only `readings.tsv`, `forms.tsv` and
+[its prompt](prompts/generalization.md), which was committed before the set was written. It covers 13 target words and 26 pairs of a target word and a reading (the prompt counts 27 slots; the writer gave the
+pair *wound* as `wind.coil` 18 rows). Its
+rows are novel by construction, and `check-data` enforces the novelty against the data as it is now:
+
+- **N1**: no sentence equals a sentence of the four data files or of the regression overlay, or nearly repeats a training
+  or development sentence;
+- **N2** (`kind` `novel-vocabulary`): every designated cue word (`cue_forms`) is absent from the training and development
+  sentences of the target's lemma group (the lemmas whose readings share a form, such as `wind` and `wound`);
+- **N3** (`kind` `novel-construction`): no word trigram around the target (positions -2..0, -1..+1, 0..+2, target
+  replaced) occurs at the same position around the target of a training or development row of the group.
+
+Once the set has rows it must have at least 30 families (`family`, the cue or template family, the unit of the bootstrap)
+of 2 to 12 rows, 90 `novel-vocabulary` and 70 `novel-construction` rows, 60 rows that the curated cues of the classifier
+cannot solve (`cue_unsolvable=yes`) over 8 lemmas, and rows for at least two readings of every target. While the file
+had its header only, these quotas did not apply. A staged copy is checked before it is
+committed with `check-data --generalization <file>`, whose novelty findings give a generic reason and never name a
+training row. Every row is `CC0-1.0` and has the source `generalization`.
+
+**The frozen set: 242 rows** (2026-11-21 UTC). 64 families of 3 to 9 rows; 135 `novel-vocabulary` and 107
+`novel-construction` rows; 80 `cue_unsolvable=yes` rows (54 and 26 by kind) over all 13 targets; 9 rows for every
+reading except `bow.bend` (8) and `wind.coil` (27: 18 with the target *wound*, 9 with *wind* or *winds*). One
+`gpt-5.6-luna` writer wrote 243 rows; four further rounds, each a new `gpt-5.6-luna` instance (the tool cannot message a
+finished writer), replaced the rows that the novelty check rejected (61, 20 and 2 rows) and rewrote the 11 rows that
+the first blind review did not confirm. A blind label review by `claude-sonnet-5.5` (sentence, span and candidate readings,
+not the label) agreed with 232 of 243 rows; the 11 others were rewritten with their labels unchanged and all 11 were
+confirmed by a second blind review. One rewritten row (`gen-0125`) failed the novelty rule N3 and was dropped. The
+per-row review is [audit/generalization-review.tsv](audit/generalization-review.tsv) (`id round original review agree
+confidence decision reason note`: one line per row and review round, `decision` `keep`, `rewritten` or `drop`), and the
+rounds, models and times are in [the prompt's record](prompts/generalization.md). The set is read only as the protocol
+of the trainer's `RUN-LOG.md` allows.
+
+**Defect fix after the freeze.** The `cue_unsolvable` flag of `gen-0060` (*Beneath the pulley, the cord wound.*) was
+corrected from `yes` to `no`: the noun-form cue detector of the evaluation fires on the row (the cue-unsolvable
+validity check, exit code 2), so by definition the curated cues can act on it. The sentence, label, kind and family are
+unchanged and the row stays in the set. No accuracy of the generalization set had been produced or seen. The fix is
+logged in the trainer's `RUN-LOG.md` and in [the prompt's record](prompts/generalization.md); the frozen set was 81
+`cue_unsolvable=yes` rows (27 `novel-construction`) before it.
+
+## Word-Cluster Corpus
+
+`word-clusters.tsv` assigns each of 60,000 frequent words to one of 512 classes of words that occur in similar contexts
+(Brown-style clusters with a bit-string path). The classes are induced by the trainer's `cluster` command from public-domain
+books only; no model uses them yet. The book texts are never committed: they are fetched into the git-ignored
+`external/cluster-corpus/` and pinned by hash.
+
+**Books.** `cluster-sources.tsv` lists 336 Project Gutenberg books; the 280 with status `used` form the corpus:
+
+- **224 core books**: the 269 Project Gutenberg books of the PartOfSpeech corpora, with the US public-domain basis that
+  PartOfSpeech recorded (copied verbatim; `basis_ref` names the PartOfSpeech file), minus the 26 books that hold
+  development sentences (`excluded-dev`) and the 19 that hold natural-holdout sentences (`excluded-holdout`), recomputed
+  from `harvest-provenance.tsv`. `check-data` recomputes them on every run.
+- **56 domain books** published in 1929 or earlier (anatomy and first aid 16, textiles and sewing 11, sport 14, music 12,
+  clocks 3), chosen from the mirror's catalog and accepted only when the book's RDF metadata states the rights "Public
+  domain in the USA.", the language is English, no creator died after 1929, no creator or printer is a government body,
+  the body has at least 50,000 bytes of prose, no year from 1930 to 2099 is printed in the first 200 body lines (except a
+  B.C. date), the book is not an edition of another listed book, and **the publication year of the transcribed edition is
+  1929 or earlier by evidence read in the book itself**. Each book's title page, imprint, copyright line and preface
+  dates were read by hand, and the whole body was scanned for later years. The `year` column holds that year, and
+  `license_basis` states the evidence, for example "title page: New York, Harper & Brothers, 1891; copyright 1891". For
+  the five books with no imprint year in the transcription, the basis gives the latest year in the text and the author's
+  death year. `basis_ref` holds the RDF URL, its SHA-256 and the retrieval date. **11 candidates were rejected** and
+  stay listed with the reason and no pin (8 `rejected-license`: no publication year found, a later edition year in the
+  front matter, or a transcribed text with chapters written after the author's death; 3 `rejected-content`: too short,
+  or no plain text on the mirror).
+- No US-government text and no sentence of this folder's CC0 training data is part of the corpus.
+
+Every book was fetched only from the official mirror `gutenberg.pglaf.org` (never the main web site), one request at a
+time at least 2 seconds apart. The body is the text between the start and end markers, without the transcriber credits,
+the license and every paragraph that names Project Gutenberg; its SHA-256 and size are the pin.
+
+**Leakage audit.** Before clustering, every corpus sentence was compared with every sentence of `dev.tsv`,
+`holdout-natural.tsv`, `holdout-independent.tsv`, `regression.tsv` and `generalization.tsv` (the same keys and thresholds
+as the leakage check): equal sentences, near duplicates and evaluation sentences quoted inside a corpus paragraph. **6
+corpus sentences in 5 books** were removed (two development, two natural-holdout and two regression sentences, quoted in
+other books; none of the independent holdout or the generalization set); `cluster-removals.tsv` lists them by position
+and hash.
+
+**Table and record.** 512 clusters over the 60,000 most frequent words with a count of at least 5 (99.11 percent of the
+31,278,354 corpus tokens). The size of 60,000 was chosen by a rule fixed before the count was seen: the smallest of
+30,000 to 75,000 words that holds every nominated cue word with a count of at least 5 (here *hamstring*, rank 53,751).
+Words are normalized exactly as the analyzer looks them up; a word whose lookup hash another table word shares would be
+left out (none was). `clustering.json` records the settings, the SHA-256 of `cluster-sources.tsv`, `cluster-removals.tsv`
+and the table, the hash of the evaluation files, the tokenizer version and the SHA-256 of a byte-reproducible snapshot
+archive of the corpus (153 MB, kept locally and not published). The induction is deterministic: one thread and 28
+threads give the same bytes, and the run log of the trainer records the full re-induction check.
+
+**Checks.** `check-data` verifies the three tables and that `clustering.json` still matches them and the tokenizer of the
+trainer build; an edit of a pin, a removal or the table, or a tokenizer upgrade, fails it until the table is induced again
+(see the trainer's README, `cluster`).
+
 ## Harvest rules
 
 - Reading from UPOS only when the part of speech decides every reading of the homograph and exactly one reading covers that tag;
@@ -304,6 +433,8 @@ Options:
 - `--eval-sets <dir>` (or the environment variable `TEXTEN_EVAL_SETS`; the option wins): a folder of neutral evaluation sets for the optional external leakage check
   (see below).
 - `--leakage-report <file>`: requires evaluation sets supplied via `--eval-sets` or `TEXTEN_EVAL_SETS`; writes the per-set and per-split counts in the format of `leakage-report.tsv`.
+- `--generalization <file>`: checks a staged copy of the generalization set in place of the committed `generalization.tsv` (see "Evaluation Overlays");
+  its novelty findings give a generic reason only.
 - `--max-findings <n>`: the number of findings printed per check (the rest is counted).
 - `--counts`: also prints the per-reading count table.
 - `--help`: prints the usage.
@@ -325,6 +456,11 @@ What the command enforces, in this order:
    `license` cells) contains a forbidden license or source term: share-alike, non-commercial, no-derivatives (CC-BY-SA, CC-BY-NC, CC-BY-ND), Wikipedia or Misaki. Each of
    `README.md`, `prompts/README.md` and `audit/audit-summary.md` declares `License:` with allowed ids only.
 5. **Internal separation**: a sentence is in only one data file, a natural document is in only one split, and a synthetic (reading, template) pair is in only one data file.
+6. **Evaluation overlays**: the rules of "Evaluation Overlays" for `regression.tsv` and `generalization.tsv` (or the staged copy given with `--generalization`). In the
+   overlays, every cell except the sentence is scanned for the forbidden terms of step 4.
+7. **Word clusters**: the schema of `cluster-sources.tsv`, `cluster-removals.tsv` and `word-clusters.tsv`; no `used` book is a development or natural-holdout document;
+   and `clustering.json` matches the SHA-256 of the three files, their book, word and path counts, and the tokenizer version of the trainer build. Only the header of
+   `word-clusters.tsv` is scanned for the forbidden terms of step 4 (its rows are corpus words).
 
 ### External leakage check (optional)
 
@@ -344,7 +480,7 @@ is all a regeneration needs.
 ### Review of the data files
 
 The large TSV files (`train.tsv`, `dev.tsv`, `holdout-natural.tsv`, `holdout-independent.tsv`, both provenance tables, `exclusions.tsv`, `gaps-v4.tsv`, `extension-candidates.tsv`,
-`audit/*.tsv` and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
+`audit/*.tsv` except `audit/generalization-review.tsv`, `word-clusters.tsv` (also pinned by `clustering.json`), and `check-output.txt`) cannot be reviewed line by line and are not listed in the review configuration. They are controlled instead by `MANIFEST.tsv` (which is reviewed:
 any change of any file changes it), by the `check-data` gates, by the documented second-model audits (see Audit), and by a sampled review recorded in the pull request.
 
 ### How the files were built

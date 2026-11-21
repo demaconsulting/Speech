@@ -132,3 +132,43 @@ sections:
                   - HeteronymEvaluator_Evaluate_UnknownSet_ThrowsInvalidDataException
                   - HeteronymEvaluator_EvaluateRows_CustomClustering_GroupsRowsOfOneCluster
                   - HeteronymEvaluator_EvaluateRows_AccuracyInterval_EnclosesPointEstimate
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-OverlayCuedAndModelOnly
+                title: >-
+                  The HeteronymEvaluator class shall evaluate the rows of an overlay end to end through the
+                  analyzer with the model under test, clustered as the overlay says, and shall give for every
+                  row the reading with the curated cue priors, the reading the model alone chooses with the
+                  classifier's own integer scoring on the same path (no reading where the analyzer emits none,
+                  and the analyzer's reading where the target is not one runtime token) and whether a cue prior
+                  acts on one of its candidates, and for every slice the rows, both correct counts, clustered
+                  intervals of both accuracies and of their paired difference, the rows on which a cue prior
+                  acts and the rows whose reading differs, all slice first and the others in ordinal order; it
+                  shall refuse an overlay whose row id repeats and shall stop with a data error when a row on
+                  which no cue prior acts gets different readings with and without the priors.
+                justification: |
+                  The difference between the shipped classifier and the model alone is the effect of the cue
+                  priors and nothing else only when both decide on the same features with the same scoring.
+                  The model-only decision is computed by the evaluation and leaves the classifier, the model and
+                  the analyzer untouched. One of the priors is private to the classifier and is mirrored for
+                  the count of rows it acts on; the stop on a row without a detected cue whose reading still
+                  changes keeps that mirror honest.
+                tests:
+                  - HeteronymEvaluator_EvaluateOverlay_NoCueFires_ReportsSlicesWithEqualModelOnly
+                  - HeteronymEvaluator_EvaluateOverlay_CueFires_CountsFiredRowsApartFromChangedRows
+                  - HeteronymEvaluator_EvaluateOverlay_RepeatedId_ThrowsInvalidDataException
+
+              - id: SpeechTextEn-Training-HeteronymEvaluator-CueUnsolvableCheck
+                title: >-
+                  The HeteronymEvaluator class shall stop the evaluation of an overlay with a data error that
+                  names, with the reason, every row marked as not solvable by the curated cues that is not one
+                  runtime token, on which the adjective, the past-time or a context cue test fires, on which the
+                  noun-form prior is added to a candidate whether or not it changes the reading, or whose reading
+                  differs with and without the cue priors, and shall not name a row without that mark.
+                justification: |
+                  The cue-unsolvable subset measures what the model achieves where the hand-written cues cannot
+                  help; a row in it on which a cue acts would make that figure wrong, and the operator needs the
+                  row and the reason to correct the data. A cue that acts without changing the reading today still
+                  acts on the row, and would change it under a different model.
+                tests:
+                  - HeteronymEvaluator_EvaluateOverlay_CueUnsolvableViolation_ThrowsNamingRowsAndReasons
+                  - HeteronymEvaluator_EvaluateOverlay_CueUnsolvableNounFormCueWithoutChange_ThrowsNamingTheCue

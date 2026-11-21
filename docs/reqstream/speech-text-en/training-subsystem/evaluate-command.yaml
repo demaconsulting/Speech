@@ -84,3 +84,21 @@ sections:
                 tests:
                   - EvaluateCommand_Run_WriteThenCheck_MatchesAndDetectsEditedRecord
                   - EvaluateCommand_Run_Seeds_ReportsEachSeed
+
+              - id: SpeechTextEn-Training-EvaluateCommand-OverlaySets
+                title: >-
+                  The EvaluateCommand class shall accept the regression overlay and the generalization set as
+                  set names that are not part of all, shall print for each the evaluation of the shipped
+                  classifier, the cue-unsolvable rows verified and every slice with and without the cue priors,
+                  shall skip an overlay without rows and say so, shall give the exit code 2 for a requested
+                  overlay whose file is missing or for a cue-unsolvable row on which a cue acts, and shall, when
+                  it writes or checks the record, evaluate the overlays whose files exist after the data sets,
+                  saying which overlay file it leaves out.
+                justification: |
+                  The overlays are measured on demand while a change is being judged and in the committed
+                  record as the baseline of later work. They are kept out of all because they are not part of
+                  the gate, and they come last in the record so the gate evidence keeps its lines.
+                tests:
+                  - EvaluateCommand_Run_OverlaySets_ReportedWithAndWithoutCues
+                  - EvaluateCommand_Run_OverlayMissingViolatedOrEmpty_ExitsTwoOrSkips
+                  - EvaluateCommand_Run_WriteWithOverlays_AppendsAfterTheDataSets

@@ -44,22 +44,26 @@ the analyzer, the tagger or the diagnostics sink. NormalizationSubsystem and Het
 part-of-speech package: the analyzer hands them token offsets and plain values (a tag name, a confidence). They do not
 depend on each other.
 
-Three further subsystems belong to the system but not to the package: the non-shipped trainer tool
+Four further subsystems belong to the system but not to the package: the non-shipped trainer tool
 (`tools/DemaConsulting.Speech.Text.En.Trainer`), modeled as subsystems because their requirements are system
 requirements of this repository (the licensing and integrity of the training data, the reproducibility and gate of the
-model trained from it, and the pinned, evaluation-only measurement of that model):
+model trained from it, the pinned, evaluation-only measurement of that model, and the reproducible word classes for a
+later model):
 
 - **TrainingDataSubsystem**: the `check-data` command that verifies the data in `data/text-en/`
 - **TrainingSubsystem**: the `train` and `evaluate` commands that train the model, verify that a committed model is what
   retraining produces, and decide the quality gate
 - **ExternalEvaluationSubsystem**: the `evaluate-external` command that measures the embedded model on external,
   evaluation-only datasets fetched from pinned revisions into a cache that is never committed
+- **ClusteringSubsystem**: the `cluster` command that induces the word-cluster table, deterministically, from a pinned
+  public-domain corpus fetched from an official mirror and audited against every evaluation set
 
 None is packed or loaded by a host. TrainingDataSubsystem shares no code with the library. TrainingSubsystem references
 the library, and only the library: the Text.En assembly grants its internals to the trainer and its tests with
 `InternalsVisibleTo`, so the trainer reuses the analyzer's own adapter, token description, feature extractor, scoring
 and model format (see *Feature parity*). ExternalEvaluationSubsystem uses the evaluator, the corpus loader and the data
-folder discovery. The runtime subsystems do not know the tool exists.
+folder discovery. ClusteringSubsystem uses the deterministic logarithm, the strict file reader, the data loader and the
+sentence keys, and the library's tokenizer and lookup hash. The runtime subsystems do not know the tool exists.
 
 ## External Interfaces
 
@@ -489,7 +493,7 @@ thread; the model and the inventory are immutable and serve any number of concur
 The data, the trainer and the evaluations change nothing in the library's runtime except that the two small inventory
 tables (`readings.tsv`, `forms.tsv`) and the trained model (`Resources/heteronyms.bin`) are embedded in the package;
 nothing else of `data/text-en/` is embedded, referenced or shipped. The subsystem designs (*TrainingDataSubsystem*,
-*TrainingSubsystem*, *ExternalEvaluationSubsystem*) specify the rules; the decisions are:
+*TrainingSubsystem*, *ExternalEvaluationSubsystem*, *ClusteringSubsystem*) specify the rules; the decisions are:
 
 - **Data and licensing (owner decisions).** `data/text-en/` holds the reading inventory (identifiers owned by this
   repository), labeled sentences split into training, development and two holdout files, provenance for every row and a
@@ -501,9 +505,11 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
 - **What `check-data` proves.** The committed files are exactly the reviewed files (a manifest of hashes pins them),
   every file and row is well formed and consistent with the inventory including a strict whole-word span, no license
   outside the allow-list is present, the splits share no sentence, document or template, and provenance, attribution and
-  license statements exist. It runs in the lint script, in the build on every operating system and as a test over the
-  real data. It does not prove a label is linguistically correct, that a harvested sentence really has its source's
-  license, or freedom from overlap with an evaluation set nobody supplied
+  license statements exist. It also checks the regression overlay and the generalization set (their references, seen
+  marks and novelty) and that the word-cluster record still matches its committed inputs. It runs in the lint script,
+  in the build on every operating system and as a test over the real data. It does not prove a label is linguistically
+  correct, that a harvested sentence really has its source's license, or freedom from overlap with an evaluation set
+  nobody supplied
 - **Training.** The trainer is a candidate-restricted averaged perceptron over the hashed features in integer arithmetic
   with its own seeded shuffle, exponential and logarithm (never `Math.Exp` or `Math.Log`), ordinal sorts and the
   invariant culture, so the same data, settings and seed give the same model on every platform and a committed model is
@@ -517,6 +523,14 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   holdout the gate requires a pooled end-to-end accuracy of at least 930 per mille and an interval lower bound exactly
   above zero; the gate settings are fixed before the first holdout evaluation and never changed by a result. The
   independent holdout and the seed study are reported, not gated
+- **Evaluation overlays (owner decisions).** Two further sets are measured, never gated: a regression overlay that
+  references owner-flagged sentences, golden targets and existing rows by identifier and marks each as seen or unseen in
+  training (not a new split, so the separation checks keep holding), and a generalization set written blind before any
+  training that uses word classes, whose novelty against the training and development data `check-data` proves. Each is
+  measured with and without the hand-written cue priors, with intervals that resample a family of rows together, and the
+  results are appended to the evaluation record without changing its earlier lines. These are the baseline of the
+  criterion, recorded in the evaluation README before any training that uses word classes, by which a later model with
+  word classes is judged
 - **Committed files.** The model, the training record and the evaluation record (`docs/evaluation/text-en/`) are
   committed, and CI runs `train --check` and `evaluate --check` on every operating system, so a change of the data, the
   tagger, the extractor or the trainer that makes them stale fails the build. Replacing the model is a deliberate act;
@@ -534,6 +548,14 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   be used is skipped, counted by reason and reported. The caveats travel with the figures (a domain shift, a coarser
   mapping, far fewer words than the inventory, labels not all verified by a person, clustering by sentence). The command
   needs the network once and third-party data, so no build, lint or workflow runs it
+- **Word classes (owner decisions).** The `cluster` command induces a table of 512 hierarchical word classes (by
+  default) from US public-domain books fetched only from an official mirror with a polite rate limit, pinned by body
+  hash, with every book that holds a development or natural-holdout sentence excluded and every corpus passage that
+  repeats or quotes an evaluation sentence removed; the induction is deterministic for any thread count and has no
+  platform-dependent arithmetic (see *ClusteringSubsystem Design*). The table keys words exactly as the analyzer looks
+  them up and leaves out every word of a shared lookup hash. Fetching and inducing are manual steps that no build runs;
+  instead `check-data` (in CI) compares the record with the committed table, source list, removal list and the
+  tokenizer of the build, offline. The table changes no model until a later change consumes it
 
 ## Design Constraints
 

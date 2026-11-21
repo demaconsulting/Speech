@@ -1,0 +1,255 @@
+id	round	original	review	agree	confidence	decision	reason	note
+gen-0001	1	tear.drop	tear.drop	true	high	keep	-	lacrimal
+gen-0002	1	tear.drop	tear.drop	true	high	keep	-	eye exam
+gen-0003	1	tear.drop	tear.drop	true	high	keep	-	mourner
+gen-0004	1	tear.drop	tear.drop	true	medium	keep	-	margin of condolence form
+gen-0005	1	tear.drop	tear.drop	true	high	keep	-	cheekbone
+gen-0006	1	tear.drop	tear.drop	true	high	keep	-	cheek
+gen-0007	1	tear.drop	tear.drop	true	high	keep	-	eyelid
+gen-0008	1	tear.drop	tear.drop	true	high	keep	-	witness
+gen-0009	1	tear.drop	tear.rip	false	medium	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	altered portrait
+gen-0009	2	tear.drop	tear.drop	true	high	keep	-	-
+gen-0010	1	tear.rip	tear.rip	true	high	keep	-	hem
+gen-0011	1	tear.rip	tear.rip	true	high	keep	-	cloth
+gen-0012	1	tear.rip	tear.rip	true	high	keep	-	parchment
+gen-0013	1	tear.rip	tear.rip	true	high	keep	-	patching
+gen-0014	1	tear.rip	tear.rip	true	high	keep	-	paper
+gen-0015	1	tear.rip	tear.rip	true	high	keep	-	envelope
+gen-0016	1	tear.rip	tear.rip	true	high	keep	-	map folding
+gen-0017	1	tear.rip	tear.rip	true	high	keep	-	document
+gen-0018	1	tear.rip	tear.rip	true	high	keep	-	repair
+gen-0019	1	wound.injury	wound.injury	true	high	keep	-	verb injure
+gen-0020	1	wound.injury	wound.injury	true	high	keep	-	climbers
+gen-0021	1	wound.injury	wound.injury	true	high	keep	-	collision
+gen-0022	1	wound.injury	wound.injury	true	high	keep	-	puncture
+gen-0023	1	wound.injury	wound.injury	true	high	keep	-	eschar
+gen-0024	1	wound.injury	wound.injury	true	high	keep	-	remarks
+gen-0025	1	wound.injury	wound.injury	true	high	keep	-	thorn
+gen-0026	1	wound.injury	wound.injury	true	high	keep	-	scar
+gen-0027	1	wound.injury	wound.injury	true	high	keep	-	healing
+gen-0028	1	wind.air	wind.air	true	high	keep	-	katabatic
+gen-0029	1	wind.air	wind.air	true	high	keep	-	anemometer
+gen-0030	1	wind.air	wind.air	true	high	keep	-	zephyr
+gen-0031	1	wind.air	wind.air	true	high	keep	-	williwaw
+gen-0032	1	wind.air	wind.air	true	high	keep	-	anemometer
+gen-0033	1	wind.air	wind.air	true	high	keep	-	moor
+gen-0034	1	wind.air	wind.air	true	high	keep	-	enter
+gen-0035	1	wind.air	wind.air	true	high	keep	-	shutters
+gen-0036	1	wind.air	wind.air	true	high	keep	-	louvered
+gen-0037	1	wind.coil	wind.coil	true	high	keep	-	mandrel
+gen-0038	1	wind.coil	wind.coil	true	high	keep	-	wire
+gen-0039	1	wind.coil	wind.coil	true	high	keep	-	spring around
+gen-0040	1	wind.coil	wind.coil	true	high	keep	-	marline
+gen-0041	1	wind.coil	wind.coil	true	medium	keep	-	garbled noun windings
+gen-0042	1	wind.coil	wind.coil	true	high	keep	-	reel
+gen-0043	1	wind.coil	wind.coil	true	high	keep	-	rope
+gen-0044	1	wind.coil	wind.coil	true	high	keep	-	cord
+gen-0045	1	wind.coil	wind.coil	true	high	keep	-	filament
+gen-0046	1	wind.coil	wind.coil	true	high	keep	-	winds mainspring
+gen-0047	1	wind.coil	wind.coil	true	medium	keep	-	noun turn
+gen-0048	1	wind.coil	wind.coil	true	high	keep	-	winds mainspring
+gen-0049	1	wind.coil	wind.coil	true	high	keep	-	helical
+gen-0050	1	wind.coil	wind.coil	true	high	keep	-	gimp
+gen-0051	1	wind.coil	wind.coil	true	high	keep	-	hempen line
+gen-0052	1	wind.coil	wind.coil	true	high	keep	-	chain
+gen-0053	1	wind.coil	wind.coil	true	high	keep	-	cord
+gen-0054	1	wind.coil	wind.coil	true	high	keep	-	imperative
+gen-0055	1	wind.coil	wind.coil	true	high	keep	-	fusee
+gen-0056	1	wind.coil	wind.coil	true	high	keep	-	flax
+gen-0057	1	wind.coil	wind.coil	true	high	keep	-	spiral coil
+gen-0058	1	wind.coil	wind.coil	true	high	keep	-	towline
+gen-0059	1	wind.coil	wind.coil	true	high	keep	-	gimp
+gen-0060	1	wind.coil	wind.coil	true	high	keep	-	cord
+gen-0061	1	wind.coil	wind.coil	true	high	keep	-	spindle
+gen-0062	1	wind.coil	wind.coil	true	high	keep	-	thread
+gen-0063	1	wind.coil	wind.coil	true	high	keep	-	wire
+gen-0064	1	minute.time	minute.time	true	high	keep	-	gained a minute
+gen-0065	1	minute.time	minute.time	true	high	keep	-	sidereal
+gen-0066	1	minute.time	minute.time	true	high	keep	-	minutes of record
+gen-0067	1	minute.time	minute.tiny	false	medium	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	minute index small
+gen-0067	2	minute.time	minute.time	true	high	keep	-	-
+gen-0068	1	minute.time	minute.time	true	high	keep	-	unit
+gen-0069	1	minute.time	minute.time	true	high	keep	-	minute twelve
+gen-0070	1	minute.time	minute.time	true	high	keep	-	unit
+gen-0071	1	minute.time	minute.time	true	high	keep	-	one minute
+gen-0072	1	minute.time	minute.time	true	high	keep	-	record minute
+gen-0073	1	minute.tiny	minute.tiny	true	high	keep	-	aperture
+gen-0074	1	minute.tiny	minute.tiny	true	high	keep	-	setae
+gen-0075	1	minute.tiny	minute.tiny	true	high	keep	-	denticles
+gen-0076	1	minute.tiny	minute.tiny	true	high	keep	-	spores
+gen-0077	1	minute.tiny	minute.tiny	true	high	keep	-	papillule
+gen-0078	1	minute.tiny	minute.tiny	true	high	keep	-	detail
+gen-0079	1	minute.tiny	minute.tiny	true	high	keep	-	symbols
+gen-0080	1	minute.tiny	minute.tiny	true	high	keep	-	specimen
+gen-0081	1	minute.tiny	minute.tiny	true	high	keep	-	spacing
+gen-0082	1	read.past	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	past vs present
+gen-0082	2	read.past	read.past	true	high	keep	-	present perfect
+gen-0083	1	read.past	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	past vs present
+gen-0083	2	read.past	read.past	true	high	keep	-	past perfect
+gen-0084	1	read.past	read.past	true	medium	keep	-	before signing
+gen-0085	1	read.past	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	past vs present
+gen-0085	2	read.past	read.past	true	high	keep	-	past perfect
+gen-0086	1	read.past	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	past vs present
+gen-0086	2	read.past	read.past	true	high	keep	-	past perfect
+gen-0087	1	read.past	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	past vs present
+gen-0087	2	read.past	read.past	true	high	keep	-	past perfect
+gen-0088	1	read.past	read.present	false	high	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	did...read base form
+gen-0088	2	read.past	read.past	true	high	keep	-	past perfect
+gen-0089	1	read.past	read.past	true	high	keep	-	contained
+gen-0090	1	read.past	read.past	true	high	keep	-	had read
+gen-0091	1	read.present	read.present	true	high	keep	-	please read
+gen-0092	1	read.present	read.present	true	medium	keep	-	habitual present
+gen-0093	1	read.present	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	past vs present
+gen-0093	2	read.present	read.present	true	high	keep	-	do + base form
+gen-0094	1	read.present	read.present	true	high	keep	-	a good read
+gen-0095	1	read.present	read.present	true	medium	keep	-	habitual
+gen-0096	1	read.present	read.present	true	high	keep	-	imperative
+gen-0097	1	read.present	read.present	true	high	keep	-	might read
+gen-0098	1	read.present	read.present	true	medium	keep	-	whether I read Latin ability
+gen-0099	1	read.present	read.present	true	high	keep	-	imperative
+gen-0100	1	bass.fish	bass.fish	true	high	keep	-	angler
+gen-0101	1	bass.fish	bass.fish	true	high	keep	-	creel
+gen-0102	1	bass.fish	bass.fish	true	high	keep	-	tagged
+gen-0103	1	bass.fish	bass.fish	true	high	keep	-	spinner
+gen-0104	1	bass.fish	bass.fish	true	high	keep	-	hatchery
+gen-0105	1	bass.fish	bass.fish	true	medium	keep	-	reed bed
+gen-0106	1	bass.fish	bass.fish	true	high	keep	-	strike
+gen-0107	1	bass.fish	bass.fish	true	high	keep	-	netter
+gen-0108	1	bass.fish	bass.fish	true	high	keep	-	tank
+gen-0109	1	bass.music	bass.music	true	high	keep	-	ensemble
+gen-0110	1	bass.music	bass.music	true	high	keep	-	violone
+gen-0111	1	bass.music	bass.music	true	high	keep	-	pipes
+gen-0112	1	bass.music	bass.music	true	high	keep	-	voice
+gen-0113	1	bass.music	bass.music	true	high	keep	-	part
+gen-0114	1	bass.music	bass.music	true	high	keep	-	soprano
+gen-0115	1	bass.music	bass.music	true	high	keep	-	oboe
+gen-0116	1	bass.music	bass.music	true	high	keep	-	fugue
+gen-0117	1	bass.music	bass.music	true	high	keep	-	counterpoint
+gen-0118	1	bow.bend	bow.bend	true	high	keep	-	tribunal
+gen-0119	1	bow.bend	bow.bend	true	high	keep	-	courteous
+gen-0120	1	bow.bend	bow.bend	true	high	keep	-	courtier
+gen-0121	1	bow.bend	bow.bend	true	high	keep	-	ship front
+gen-0122	1	bow.bend	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	curtsy vs ribbon vs ship
+gen-0122	2	bow.bend	bow.bend	true	high	keep	-	genuflective bow = bending
+gen-0123	1	bow.bend	bow.bend	true	high	keep	-	monarch
+gen-0124	1	bow.bend	bow.bend	true	high	keep	-	vessel
+gen-0125	1	bow.bend	unclear	false	low	rewritten	review-1 disagreement: the sentence was rewritten by a new blind writer with the same label and reviewed again	bow type ambiguous
+gen-0125	2	bow.bend	bow.bend	true	high	drop	the rewritten sentence failed novelty rule N3; dropped, not rewritten again	sank into a bow, gesture
+gen-0126	1	bow.bend	bow.bend	true	high	keep	-	bows gracefully
+gen-0127	1	bow.weapon	bow.weapon	true	high	keep	-	clout
+gen-0128	1	bow.weapon	bow.weapon	true	high	keep	-	recurved
+gen-0129	1	bow.weapon	bow.weapon	true	high	keep	-	limbs
+gen-0130	1	bow.weapon	bow.weapon	true	high	keep	-	violin bow archetier
+gen-0131	1	bow.weapon	bow.weapon	true	high	keep	-	ribbon bow
+gen-0132	1	bow.weapon	bow.weapon	true	medium	keep	-	target
+gen-0133	1	bow.weapon	bow.weapon	true	high	keep	-	quiver
+gen-0134	1	bow.weapon	bow.weapon	true	high	keep	-	laminated
+gen-0135	1	bow.weapon	bow.weapon	true	high	keep	-	release
+gen-0136	1	lead.guide	lead.guide	true	high	keep	-	took the lead
+gen-0137	1	lead.guide	lead.guide	true	high	keep	-	leadership
+gen-0138	1	lead.guide	lead.guide	true	high	keep	-	clarified
+gen-0139	1	lead.guide	lead.guide	true	high	keep	-	lead runner
+gen-0140	1	lead.guide	lead.guide	true	high	keep	-	clue
+gen-0141	1	lead.guide	lead.guide	true	high	keep	-	verb
+gen-0142	1	lead.guide	lead.guide	true	high	keep	-	verb
+gen-0143	1	lead.guide	lead.guide	true	high	keep	-	verb
+gen-0144	1	lead.guide	lead.guide	true	high	keep	-	imperative
+gen-0145	1	lead.metal	lead.metal	true	high	keep	-	galena
+gen-0146	1	lead.metal	lead.metal	true	high	keep	-	flashing
+gen-0147	1	lead.metal	lead.metal	true	high	keep	-	isotope
+gen-0148	1	lead.metal	lead.metal	true	high	keep	-	plates
+gen-0149	1	lead.metal	lead.metal	true	high	keep	-	cerussite
+gen-0150	1	lead.metal	lead.metal	true	high	keep	-	ingot
+gen-0151	1	lead.metal	lead.metal	true	low	keep	-	sealed under casing
+gen-0152	1	lead.metal	lead.metal	true	high	keep	-	sample disposal
+gen-0153	1	lead.metal	lead.metal	true	medium	keep	-	tongs
+gen-0154	1	row.argument	row.argument	true	high	keep	-	rancorous
+gen-0155	1	row.argument	row.argument	true	high	keep	-	dispute
+gen-0156	1	row.argument	row.argument	true	high	keep	-	dispute
+gen-0157	1	row.argument	row.argument	true	high	keep	-	unsettled
+gen-0158	1	row.argument	row.argument	true	high	keep	-	tribunal
+gen-0159	1	row.argument	row.argument	true	high	keep	-	quarrel began
+gen-0160	1	row.argument	row.argument	true	high	keep	-	verb quarrel
+gen-0161	1	row.argument	row.argument	true	high	keep	-	dispute
+gen-0162	1	row.argument	row.argument	true	low	keep	-	quarrel vs rowing
+gen-0163	1	row.line	row.line	true	high	keep	-	flasks
+gen-0164	1	row.line	row.line	true	high	keep	-	oarsman
+gen-0165	1	row.line	row.line	true	high	keep	-	row of things
+gen-0166	1	row.line	row.line	true	high	keep	-	planting
+gen-0167	1	row.line	row.line	true	medium	keep	-	oars skiffs
+gen-0168	1	row.line	row.line	true	high	keep	-	quay
+gen-0169	1	row.line	row.line	true	high	keep	-	barge
+gen-0170	1	row.line	row.line	true	high	keep	-	skiff
+gen-0171	1	row.line	row.line	true	high	keep	-	imperative boat
+gen-0172	1	sow.pig	sow.pig	true	high	keep	-	gilt
+gen-0173	1	sow.pig	sow.pig	true	high	keep	-	parturition
+gen-0174	1	sow.pig	sow.pig	true	high	keep	-	parturition
+gen-0175	1	sow.pig	sow.pig	true	high	keep	-	swill
+gen-0176	1	sow.pig	sow.pig	true	high	keep	-	litter
+gen-0177	1	sow.pig	sow.pig	true	high	keep	-	sty
+gen-0178	1	sow.pig	sow.pig	true	high	keep	-	wicket
+gen-0179	1	sow.pig	sow.pig	true	high	keep	-	class
+gen-0180	1	sow.pig	sow.pig	true	high	keep	-	gate
+gen-0181	1	sow.plant	sow.plant	true	high	keep	-	teff
+gen-0182	1	sow.plant	sow.plant	true	high	keep	-	lupine
+gen-0183	1	sow.plant	sow.plant	true	high	keep	-	triticale
+gen-0184	1	sow.plant	sow.plant	true	high	keep	-	spores
+gen-0185	1	sow.plant	sow.plant	true	high	keep	-	phacelia
+gen-0186	1	sow.plant	sow.plant	true	high	keep	-	furrow
+gen-0187	1	sow.plant	sow.plant	true	high	keep	-	volunteers
+gen-0188	1	sow.plant	sow.plant	true	high	keep	-	plots
+gen-0189	1	sow.plant	sow.plant	true	high	keep	-	imperative
+gen-0190	1	close.adj-noun	close.adj-noun	true	high	keep	-	adjective
+gen-0191	1	close.adj-noun	close.adj-noun	true	high	keep	-	friendship
+gen-0192	1	close.adj-noun	close.adj-noun	true	high	keep	-	cathedral close
+gen-0193	1	close.adj-noun	close.adj-noun	true	high	keep	-	inspection
+gen-0194	1	close.adj-noun	close.adj-noun	true	high	keep	-	ally
+gen-0195	1	close.adj-noun	close.adj-noun	true	high	keep	-	close quarters
+gen-0196	1	close.adj-noun	close.adj-noun	true	high	keep	-	near
+gen-0197	1	close.adj-noun	close.adj-noun	true	high	keep	-	stuffy
+gen-0198	1	close.adj-noun	close.adj-noun	true	high	keep	-	near
+gen-0199	1	close.verb	close.verb	true	high	keep	-	sluice
+gen-0200	1	close.verb	close.verb	true	high	keep	-	verb
+gen-0201	1	close.verb	close.verb	true	high	keep	-	escrow
+gen-0202	1	close.verb	close.verb	true	high	keep	-	hatch
+gen-0203	1	close.verb	close.verb	true	medium	keep	-	noun conclusion per z note
+gen-0204	1	close.verb	close.verb	true	high	keep	-	shutters
+gen-0205	1	close.verb	close.verb	true	high	keep	-	verb
+gen-0206	1	close.verb	close.verb	true	high	keep	-	verb
+gen-0207	1	close.verb	close.verb	true	high	keep	-	imperative
+gen-0208	1	live.adj	live.adj	true	high	keep	-	circuit
+gen-0209	1	live.adj	live.adj	true	high	keep	-	broadcast
+gen-0210	1	live.adj	live.adj	true	high	keep	-	larvae
+gen-0211	1	live.adj	live.adj	true	high	keep	-	specimens
+gen-0212	1	live.adj	live.adj	true	high	keep	-	busbar
+gen-0213	1	live.adj	live.adj	true	high	keep	-	music
+gen-0214	1	live.adj	live.adj	true	high	keep	-	embers
+gen-0215	1	live.adj	live.adj	true	high	keep	-	signal
+gen-0216	1	live.adj	live.adj	true	high	keep	-	samples
+gen-0217	1	live.verb	live.verb	true	high	keep	-	nomads live
+gen-0218	1	live.verb	live.verb	true	high	keep	-	chose to live
+gen-0219	1	live.verb	live.verb	true	high	keep	-	organisms
+gen-0220	1	live.verb	live.verb	true	high	keep	-	hopes to live
+gen-0221	1	live.verb	live.verb	true	high	keep	-	boatwrights
+gen-0222	1	live.verb	live.verb	true	high	keep	-	they live
+gen-0223	1	live.verb	live.verb	true	high	keep	-	will they live
+gen-0224	1	live.verb	live.verb	true	high	keep	-	where we live
+gen-0225	1	live.verb	live.verb	true	high	keep	-	imperative
+gen-0226	1	content.noun	content.noun	true	high	keep	-	syllabus
+gen-0227	1	content.noun	content.noun	true	high	keep	-	indexed
+gen-0228	1	content.noun	content.noun	true	high	keep	-	metadata
+gen-0229	1	content.noun	content.noun	true	high	keep	-	audit
+gen-0230	1	content.noun	content.noun	true	high	keep	-	assessed
+gen-0231	1	content.noun	content.noun	true	high	keep	-	within the content
+gen-0232	1	content.noun	content.noun	true	high	keep	-	archive
+gen-0233	1	content.noun	content.noun	true	high	keep	-	encryption
+gen-0234	1	content.noun	content.noun	true	high	keep	-	review
+gen-0235	1	content.satisfied	content.satisfied	true	high	keep	-	remained
+gen-0236	1	content.satisfied	content.satisfied	true	high	keep	-	monk
+gen-0237	1	content.satisfied	content.satisfied	true	high	keep	-	child
+gen-0238	1	content.satisfied	content.satisfied	true	high	keep	-	was content
+gen-0239	1	content.satisfied	content.satisfied	true	high	keep	-	patient
+gen-0240	1	content.satisfied	content.satisfied	true	high	keep	-	at sunset content
+gen-0241	1	content.satisfied	content.satisfied	true	high	keep	-	remain content
+gen-0242	1	content.satisfied	content.satisfied	true	high	keep	-	stayed content
+gen-0243	1	content.satisfied	content.satisfied	true	high	keep	-	remain content

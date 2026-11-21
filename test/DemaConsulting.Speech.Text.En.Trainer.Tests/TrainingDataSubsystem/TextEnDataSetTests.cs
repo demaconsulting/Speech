@@ -30,6 +30,49 @@ public sealed class TextEnDataSetTests
         Assert.Equal(3, data.HarvestProvenance.Count);
         Assert.Equal(3, data.SyntheticProvenance.Count);
         Assert.Equal(3, data.Gaps.Rows.Count);
+        Assert.Equal(2, data.Regression.Count);
+        Assert.Empty(data.Generalization);
+    }
+
+    /// <summary>Proves the overlay rows carry their file, line, offsets and overlay columns.</summary>
+    [Fact]
+    public void TextEnDataSet_Load_OverlayRows_CarryFileLineOffsetsAndColumns()
+    {
+        // Arrange
+        using var fixture = new DatasetFixture();
+        fixture.WriteGeneralization(
+            TextEnDataSet.GeneralizationFile,
+            DatasetFixture.GeneralizationRowText("gen-0001", "lead.noun", "The plumber replaced every old lead fitting.", "lead", "novel-vocabulary", "lead:plumbing", "plumber|fitting", "yes"));
+
+        // Act
+        var data = TextEnDataSet.Load(fixture.Root, new CheckReport());
+
+        // Assert
+        var regression = data.Regression[0];
+        Assert.Equal(("regression.tsv:2", "reg-0001", 4, 8), (regression.Location, regression.Id, regression.Start!.Value, regression.End!.Value));
+        Assert.Equal(("data-row", "train.tsv:syn-00001", "yes", "CC0-1.0"), (regression.Origin, regression.Reference, regression.SeenInTraining, regression.License));
+        var generalization = Assert.Single(data.Generalization);
+        Assert.Equal(("generalization.tsv:2", "novel-vocabulary", "lead:plumbing", "plumber|fitting", "yes"), (generalization.Location, generalization.Kind, generalization.Family, generalization.CueForms, generalization.CueUnsolvable));
+        Assert.Equal(("generalization", "CC0-1.0"), (generalization.Source, generalization.License));
+    }
+
+    /// <summary>Proves a missing overlay file and a non-integer overlay offset are findings, not exceptions.</summary>
+    [Fact]
+    public void TextEnDataSet_Load_MissingOverlayOrBadOffset_IsFinding()
+    {
+        // Arrange
+        using var fixture = new DatasetFixture();
+        File.Delete(fixture.PathOf(TextEnDataSet.GeneralizationFile));
+        fixture.EditRow(TextEnDataSet.RegressionFile, "reg-0002", ("start", "x"));
+        var report = new CheckReport();
+
+        // Act
+        var data = TextEnDataSet.Load(fixture.Root, report);
+
+        // Assert
+        Assert.True(DatasetFixture.Has(report, "format", "required file is missing"));
+        Assert.True(DatasetFixture.Has(report, "schema", "reg-0002: start and end must be integers"));
+        Assert.Null(data.Regression[1].Start);
     }
 
     /// <summary>Proves rows carry their file, logical split, line and parsed offsets.</summary>

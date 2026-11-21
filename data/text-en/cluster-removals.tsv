@@ -1,0 +1,7 @@
+source_id	paragraph	sentence	rule	eval_file	eval_id	text_sha256
+gutenberg-153	109	0	exact	holdout-natural.tsv	harvest-04215	b31cd61658d23a21afb8da4ecbd885695cf6def05c6147a034db0300ab870aaa
+gutenberg-153	109	1	exact	dev.tsv	harvest-u01269	0c8a7db2a6b4f577539667d1eca4586e3fb04342d21334f49da15021dfa789c6
+gutenberg-345	124	5	contains	holdout-natural.tsv	ext-00917	f9e79bbc5b5274b515899b7de041284f2e3f78476f323a3ca02efa4c282065ee
+gutenberg-36270	24	7	contains	regression.tsv	reg-0180	397d99f6e4c6fe2f9b29c59c9d7b04ffaa6e9a9a78c9b40d6a9b7467c36a6d48
+gutenberg-38644	481	4	contains	dev.tsv	harvest-u01111	747f3966feb3aa39d5b30ffb7df04ae392e1d88b0556e91fea890dd2337de768
+gutenberg-4823	891	4	exact	regression.tsv	reg-0499	656f105b7d870b719d09b7a6949f2568e101e1b49e31f0cede3e3bafd704bef3

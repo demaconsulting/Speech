@@ -68,3 +68,30 @@ sections:
                   - CheckDataCommand_Run_LeakageReportWithoutSetsOrInsideData_ExitsTwo
                   - CheckDataCommand_Run_MaxFindings_CapsPrintedFindings
                   - CheckDataCommand_Run_CountsOption_PrintsPerReadingTable
+
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-StagedGeneralization
+                title: >-
+                  The CheckDataCommand class shall run the evaluation overlay checks after the internal leakage
+                  check, and with the generalization option shall check the given staged generalization file
+                  in place of the committed set, locating its findings as staged and saying which file it
+                  checked, and shall end with the exit code 2 when that file does not exist.
+                justification: |
+                  The blind writer's output is checked against the committed data before it is committed,
+                  with the same command and rules that later gate the committed set; a missing file is an
+                  operator error, not a data finding.
+                tests:
+                  - CheckDataCommand_Run_StagedGeneralization_ChecksStagedFileWithGenericReasons
+                  - CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo
+                  - CheckDataCommand_TryParse_GeneralizationOption_IsParsed
+
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-ClusterCheck
+                title: >-
+                  The CheckDataCommand class shall run the word-cluster check after the evaluation overlay
+                  checks, passing it the tokenizer version it was given, so that a word-cluster record of another
+                  tokenizer fails the run with the exit code 1.
+                justification: |
+                  The command is the data gate of CI; the tokenizer version is a property of the trainer build,
+                  which the command receives from the program, while the check itself reads only the data
+                  folder.
+                tests:
+                  - CheckDataCommand_Run_TokenizerVersion_IsComparedWithClusterRecord

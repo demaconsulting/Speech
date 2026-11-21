@@ -26,7 +26,9 @@ following units:
 - **TrainCommand**: the command line entry of `train` and `train --check`
 - **HeteronymEvaluator**: the end-to-end evaluation with baselines, strata, the clustered bootstrap, the gate decision
   and the parity check (with its result records)
-- **EvaluationRecord**: the six deterministic tab-separated files of the evaluation record
+- **EvaluationRecord**: the eight deterministic tab-separated files of the evaluation record
+- **EvaluationOverlay**: the loader of the regression overlay and the generalization set as rows with strata, slices
+  and bootstrap clusters (with `OverlayRow`)
 - **EvaluateCommand**: the command line entry of `evaluate`
 
 The data is a tool input, not a software item (see *SpeechTextEn TrainingDataSubsystem Design*).
@@ -63,13 +65,33 @@ score each requested set through the real analyzer, compare it with the direct c
 baselines, strata and bootstrap interval. It decides the gate with `HeteronymEvaluator.DecideGate`, runs the multi-seed
 study with `ModelSelection`, and has `EvaluationRecord` write or verify the record.
 
+**Overlay evaluation.** For the set names `regression` and `generalization` (and for the record, after the data sets),
+`EvaluateCommand` loads the overlay with `EvaluationOverlay` and has `HeteronymEvaluator.EvaluateOverlay` score it end
+to end like a data set, with the overlay's clusters (a generalization row resamples with its family), and also decide
+every aligned row with the model alone, without the curated cue priors of the classifier. The per-row results and the
+slices (with clustered intervals of both accuracies and of their paired difference) go to the console and to two record
+files; the shipped evaluations are appended to the other record files after the data sets, so the earlier lines stay
+byte-identical. A generalization row marked `cue_unsolvable=yes` on which a cue can act stops the evaluation as a data
+error.
+
+**Model-only decision (decision).** The decision without the cue priors is an evaluation-only computation: the trainer
+scores the row's own features with the loaded weights through `AveragedPerceptronTrainer.Decide`, which calls
+`HeteronymClassifier.ScoreCandidate` and applies the runtime's tie rule, and adds no prior. The classifier, its priors,
+the model and `training.json` are unchanged, and no hook was added to the library. The library's internal cue tests
+(`HasAdjectiveCue`, `HasPastTimeCue`, `HasContextCue`) are called directly; the noun-form test is private to the
+classifier and is mirrored from the inventory facts it uses (`CanBeNoun`, `IsNounOfItsLemma`) only to count the rows a
+cue acts on. A row on which no cue is detected must get the same reading with and without the priors, and the evaluation
+stops otherwise, so the mirror cannot drift silently.
+
 **Unit collaboration.** `TrainingCorpus` is the only unit that opens a training file, `ModelSelection` the only one that
 makes a development-set choice and builds a model, `HeteronymEvaluator` the only one that opens a holdout file, and
 `TrainingRecord` the only one that knows the text form of the settings and the record. The dependency direction is
 `TrainCommand` and `EvaluateCommand` to `ModelSelection`, `TrainingCorpus`, `TrainingRecord`, `HeteronymEvaluator` and
-`EvaluationRecord`; `ModelSelection` to `AveragedPerceptronTrainer`, `DeterministicMath` and `TrainingCorpus`;
-`AveragedPerceptronTrainer` to `DeterministicRandom` and `TrainingCorpus`; `HeteronymEvaluator` to `TrainingCorpus` and
-`DeterministicRandom`; and `EvaluationRecord` to `HeteronymEvaluator`. There are no cycles.
+`EvaluationRecord`, and `EvaluateCommand` also to `EvaluationOverlay`; `ModelSelection` to `AveragedPerceptronTrainer`,
+`DeterministicMath` and `TrainingCorpus`; `AveragedPerceptronTrainer` to `DeterministicRandom` and `TrainingCorpus`;
+`HeteronymEvaluator` to `TrainingCorpus`, `DeterministicRandom`, `AveragedPerceptronTrainer` (the integer decision) and
+`EvaluationOverlay` (the row type); `EvaluationOverlay` to `TrainingCorpus` (the row type) and the TrainingDataSubsystem
+loaders; and `EvaluationRecord` to `HeteronymEvaluator` and `EvaluationOverlay`. There are no cycles.
 
 **Parity with the runtime (decision).** A trained model is valid only while the training sees exactly what the analyzer
 sees, so no step of the preparation or the scoring is a copy:

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 
 namespace DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
@@ -10,12 +11,16 @@ namespace DemaConsulting.Speech.Text.En.Trainer.Tests.Fakes;
 /// </summary>
 /// <remarks>
 ///     The fixture has three readings (<c>lead.verb</c>, <c>lead.noun</c>, <c>wind.noun</c>), nine labeled rows spread
-///     over the four splits (with the matching provenance rows), the documents that declare licenses, the attribution
+///     over the four splits (with the matching provenance rows), two regression overlay rows, a generalization set with
+///     its header only, the documents that declare licenses, the attribution
 ///     file and a computed <c>MANIFEST.tsv</c>. Offsets are computed from the target word, never typed by hand. The
 ///     folder is created in code so no fixture data files are checked in, and it is deleted on disposal.
 /// </remarks>
 internal sealed class DatasetFixture : IDisposable
 {
+    /// <summary>The tokenizer version the fixture's word-cluster record names by default.</summary>
+    public const string ClusterTokenizerVersion = "9.9.9-fixture";
+
     /// <summary>The UTF-8 encoding without byte order mark used for every file the fixture writes.</summary>
     private static readonly UTF8Encoding Utf8 = new(false);
 
@@ -202,6 +207,47 @@ internal sealed class DatasetFixture : IDisposable
     }
 
     /// <summary>
+    ///     Writes a small, consistent set of word-cluster files (source list, removals, table and record) and the manifest.
+    /// </summary>
+    /// <param name="tokenizerVersion">The tokenizer version the record names.</param>
+    /// <remarks>
+    ///     <c>gutenberg-1</c> is the used book and <c>gutenberg-2</c> a development book excluded from the corpus; the table
+    ///     has three words in three clusters with a minimum count of 5. The record is written by the real record writer, so a
+    ///     field-name drift between the writer and the check fails the tests; it carries the current hash of the evaluation
+    ///     files, so the check reports no evaluation drift until a test edits one of them.
+    /// </remarks>
+    public void WriteClusterFiles(string tokenizerVersion = ClusterTokenizerVersion)
+    {
+        Write(
+            ClusterDataChecker.SourcesFile,
+            string.Join('\t', ClusterDataChecker.SourcesHeader) + "\n" +
+            $"gutenberg-1\tcore-open\tA Book\tA. Writer, 1800-1870\t1850\thttps://gutenberg.pglaf.org/cache/epub/1/pg1.txt\tUS public domain: Public domain in the USA\tfixture\t{new string('a', 64)}\t120\tused\n" +
+            "gutenberg-2\tcore-silver\tB Book\tB. Writer, 1810-1880\t-\thttps://gutenberg.pglaf.org/cache/epub/2/pg2.txt\tUS public domain: Public domain in the USA\tfixture\t-\t-\texcluded-dev\n");
+        Write(
+            ClusterDataChecker.RemovalsFile,
+            string.Join('\t', ClusterDataChecker.RemovalsHeader) + "\n" + $"gutenberg-1\t0\t1\texact\tdev.tsv\tsyn-00003\t{new string('b', 64)}\n");
+        Write(ClusterDataChecker.TableFile, "word\tpath\tcount\n.\t00\t40\nthe\t01\t30\nwind\t1\t5\n");
+        RewriteClusterRecord(tokenizerVersion);
+    }
+
+    /// <summary>
+    ///     Writes <c>clustering.json</c> for the word-cluster files as they are now, and the manifest.
+    /// </summary>
+    /// <param name="tokenizerVersion">The tokenizer version the record names.</param>
+    public void RewriteClusterRecord(string tokenizerVersion = ClusterTokenizerVersion)
+    {
+        string Sha(string file) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(PathOf(file)))).ToLowerInvariant();
+        var record = new ClusteringRecord(
+            ClusterDataChecker.RecordSchema,
+            new ClusteringSettings(3, 0, 5, 1, 1, 1),
+            new ClusteringInputs(Sha(ClusterDataChecker.SourcesFile), 1, 1, Sha(ClusterDataChecker.RemovalsFile), ClusterDataChecker.EvaluationListingSha256(Root), tokenizerVersion, new string('d', 64), 10240, 3, string.Empty),
+            new ClusteringCorpus(4, 9, 75, 3, 4, 1, 6, 1, 1),
+            new ClusteringResult(Sha(ClusterDataChecker.TableFile), 3, 3, 0, 0, 10000));
+        WriteBytes(ClusterDataChecker.RecordFile, record.Write());
+        RewriteManifest();
+    }
+
+    /// <summary>
     ///     Replaces <c>MANIFEST.tsv</c> with one that matches the files as they are now.
     /// </summary>
     public void RewriteManifest()
@@ -284,6 +330,30 @@ internal sealed class DatasetFixture : IDisposable
     {
         var report = new CheckReport(1000);
         new LeakageChecker(TextEnDataSet.Load(Root, report), report).CheckInternal();
+        return report;
+    }
+
+    /// <summary>
+    ///     Loads the data set and runs the evaluation overlay checks on the committed overlay files.
+    /// </summary>
+    /// <param name="shape">The quotas of a populated generalization set; <see langword="null"/> for the default.</param>
+    /// <returns>The report (including load findings).</returns>
+    public CheckReport CheckOverlays(GeneralizationShape? shape = null)
+    {
+        var report = new CheckReport(1000);
+        new EvaluationOverlayChecker(TextEnDataSet.Load(Root, report), report, shape).Run();
+        return report;
+    }
+
+    /// <summary>
+    ///     Loads the data set and runs the word-cluster check.
+    /// </summary>
+    /// <param name="tokenizerVersion">The tokenizer version of the build, or <see langword="null"/> to skip that comparison.</param>
+    /// <returns>The report (including load findings).</returns>
+    public CheckReport CheckClusters(string? tokenizerVersion = ClusterTokenizerVersion)
+    {
+        var report = new CheckReport(1000);
+        new ClusterDataChecker(TextEnDataSet.Load(Root, report), report, tokenizerVersion).Run();
         return report;
     }
 
@@ -436,5 +506,63 @@ internal sealed class DatasetFixture : IDisposable
         Write("prompts/README.md", "# Prompts\n\nLicense: CC0-1.0\n");
         Write("audit/audit-summary.md", "# Audit\n\nLicense: CC0-1.0\n");
         Write("ATTRIBUTION.md", "# MASC Attribution\n\nLicense: CC-BY-3.0-US\n\nSentences are adapted from MASC.\n");
+
+        // The evaluation overlays: a regression row that refers to a training row and one from a golden test file, and
+        // a generalization set that is not written yet (header only)
+        WriteTable(
+            TextEnDataSet.RegressionFile,
+            [.. TextEnDataSet.RegressionHeader],
+            [
+                RegressionRowText("reg-0001", "lead.noun", "The lead pipe was heavy.", "lead", "data-row", "train.tsv:syn-00001", "yes"),
+                RegressionRowText("reg-0002", "lead.verb", "Guides lead the hikers uphill.", "lead", "golden-readings", "readings-golden.tsv:2", "no"),
+            ]);
+        WriteTable(TextEnDataSet.GeneralizationFile, [.. TextEnDataSet.GeneralizationHeader], []);
     }
+
+    /// <summary>
+    ///     Renders a regression overlay row whose offsets are computed from the target word.
+    /// </summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="readingId">The reading id; the lemma is its prefix.</param>
+    /// <param name="sentence">The sentence.</param>
+    /// <param name="word">The target word, which must occur in the sentence.</param>
+    /// <param name="origin">The origin.</param>
+    /// <param name="reference">The reference.</param>
+    /// <param name="seen">The seen-in-training mark.</param>
+    /// <param name="license">The license.</param>
+    /// <returns>The cells.</returns>
+    public static string[] RegressionRowText(string id, string readingId, string sentence, string word, string origin, string reference, string seen, string license = "CC0-1.0")
+    {
+        var row = DataRowText(id, readingId, sentence, word, "unused", license, "unused");
+        return [row[0], row[1], row[2], row[3], row[4], row[5], origin, reference, seen, license];
+    }
+
+    /// <summary>
+    ///     Renders a generalization set row whose offsets are computed from the target word.
+    /// </summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="readingId">The reading id; the lemma is its prefix.</param>
+    /// <param name="sentence">The sentence.</param>
+    /// <param name="word">The target word, which must occur in the sentence.</param>
+    /// <param name="kind">The kind.</param>
+    /// <param name="family">The family.</param>
+    /// <param name="cueForms">The cue forms.</param>
+    /// <param name="cueUnsolvable">The cue-unsolvable mark.</param>
+    /// <returns>The cells.</returns>
+    public static string[] GeneralizationRowText(string id, string readingId, string sentence, string word, string kind, string family, string cueForms, string cueUnsolvable = "no")
+    {
+        var row = DataRowText(id, readingId, sentence, word, "unused", "CC0-1.0", "unused");
+        return [row[0], row[1], row[2], row[3], row[4], row[5], kind, family, cueForms, cueUnsolvable, "generalization", "CC0-1.0"];
+    }
+
+    /// <summary>
+    ///     Writes a generalization set file (outside the data root when <paramref name="path"/> is absolute).
+    /// </summary>
+    /// <param name="path">The path, relative to the data root or absolute.</param>
+    /// <param name="rows">The rows.</param>
+    public void WriteGeneralization(string path, params string[][] rows) =>
+        File.WriteAllText(
+            Path.Combine(Root, path),
+            string.Join('\n', new[] { TextEnDataSet.GeneralizationHeader.ToArray() }.Concat(rows).Select(cells => string.Join('\t', cells))) + "\n",
+            Utf8);
 }

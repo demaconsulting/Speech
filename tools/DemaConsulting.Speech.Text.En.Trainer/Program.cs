@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.ExternalEvaluationSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
@@ -5,11 +6,12 @@ using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 namespace DemaConsulting.Speech.Text.En.Trainer;
 
 /// <summary>
-///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c>, <c>evaluate</c> and <c>evaluate-external</c>.
+///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c>, <c>evaluate</c>, <c>evaluate-external</c> and <c>cluster</c>.
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it exists so the Text.En training
-///     data can be verified, the heteronym model trained and verified, and the model evaluated, locally and in CI.
+///     data can be verified, the heteronym model trained and verified, the model evaluated, and the word-cluster table induced,
+///     locally and in CI.
 ///     <see cref="Main"/> only wires the real console, current directory and
 ///     environment to <see cref="Run"/>, which tests call with in-memory writers. Unknown or missing commands are a
 ///     usage error (exit code 2).
@@ -26,6 +28,7 @@ internal static class Program
           evaluate     Measure the heteronym model and decide the quality gate (run 'evaluate --help').
           evaluate-external
                        Measure the embedded model on external evaluation-only datasets (run 'evaluate-external --help').
+          cluster      Fetch, audit and cluster the word-cluster corpus, or re-verify the table (run 'cluster --help').
         """;
 
     /// <summary>
@@ -70,6 +73,11 @@ internal static class Program
             return EvaluateExternalCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
         }
 
+        if (string.Equals(args[0], ClusterCommand.Name, StringComparison.Ordinal))
+        {
+            return ClusterCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
+        }
+
         if (!string.Equals(args[0], CheckDataCommand.Name, StringComparison.Ordinal))
         {
             error.WriteLine($"Unknown command '{args[0]}'.");
@@ -83,6 +91,7 @@ internal static class Program
             error,
             currentDirectory,
             AppContext.BaseDirectory,
-            Environment.GetEnvironmentVariable);
+            Environment.GetEnvironmentVariable,
+            TrainingCorpus.TaggerVersion);
     }
 }

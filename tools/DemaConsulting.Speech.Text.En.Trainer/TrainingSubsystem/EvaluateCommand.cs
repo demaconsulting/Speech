@@ -15,7 +15,9 @@ namespace DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 ///     bootstrap interval and a parity check; <c>--gate</c> decides the quality gate on the natural holdout and exits
 ///     <c>0</c> for a pass and <c>1</c> for a failure; <c>--seeds</c> retrains with each evaluation seed (the same
 ///     settings and the same development-set choices) and reports the spread of the holdout accuracy;
-///     <c>--write</c> and <c>--check</c> produce and verify the deterministic evaluation record.
+///     <c>--write</c> and <c>--check</c> produce and verify the deterministic evaluation record. The evaluation overlays
+///     (<c>--set regression</c>, <c>--set generalization</c>, and the record after the data sets) are reported with and
+///     without the curated cue priors of the classifier, by slice.
 ///     </para>
 ///     <para>
 ///     Evaluating a holdout set is the one irreversible act of model development (a set that has guided a choice no
@@ -51,16 +53,20 @@ internal static class EvaluateCommand
           --model <file>      Evaluate this model file instead of the one in the model folder.
           --set <name>        train, dev, holdout-natural, holdout-independent or all (the last three; repeatable;
                               default: dev). 'train' exists for the parity check of the training rows.
+                              regression and generalization are the evaluation overlays (not part of all): they
+                              are reported with and without the curated cue priors, by slice, with clustered
+                              intervals, and their rows marked cue_unsolvable=yes are verified.
           --gate              Evaluate holdout-natural and decide the quality gate; exit 0 pass, 1 fail. With --check or
                               --write the exit code is 0 only when the gate passes and the record is current.
           --seeds             Also retrain with each evaluation seed and report the holdout spread.
-          --write             Write the evaluation record (all sets and the seeds) to --record-dir.
+          --write             Write the evaluation record (all sets, the overlays and the seeds) to --record-dir.
           --check             Verify the evaluation record in --record-dir; exit 1 when it is stale.
           --record-dir <dir>  The record folder (default: docs/evaluation/text-en of the repository).
           --help              Shows this text.
 
         Exit codes: 0 = done or gate passed, 1 = gate failed or record stale, 2 = usage, I/O or data error (for
-        example a harvested row without a source document in harvest-provenance.tsv).
+        example a harvested row without a source document in harvest-provenance.tsv, or an overlay row marked
+        cue_unsolvable=yes that a curated cue can affect).
         """;
 
     /// <summary>
@@ -201,13 +207,13 @@ internal static class EvaluateCommand
                             {
                                 sets.AddRange(HeteronymEvaluator.ReportSets);
                             }
-                            else if (HeteronymEvaluator.SetFiles.ContainsKey(value))
+                            else if (HeteronymEvaluator.SetFiles.ContainsKey(value) || EvaluationOverlay.IsOverlay(value))
                             {
                                 sets.Add(value);
                             }
                             else
                             {
-                                parseError = $"unknown set '{value}'; use train, dev, holdout-natural, holdout-independent or all";
+                                parseError = $"unknown set '{value}'; use train, dev, holdout-natural, holdout-independent, all, regression or generalization";
                                 return null;
                             }
 
@@ -270,7 +276,7 @@ internal static class EvaluateCommand
 
         // The sets to evaluate: the record needs all of them, the gate needs the natural holdout.
         var wantRecord = options.Write || options.Check;
-        var sets = SelectSets(options, wantRecord);
+        var sets = SelectSets(options, wantRecord, root, output);
 
         var corpus = TrainingCorpus.Load(root);
         var evaluator = new HeteronymEvaluator(corpus, root, evaluationSettings);
@@ -281,8 +287,26 @@ internal static class EvaluateCommand
         }
 
         var evaluations = new List<SetEvaluation>();
+        var overlays = new List<OverlayEvaluation>();
         foreach (var set in sets)
         {
+            if (EvaluationOverlay.IsOverlay(set))
+            {
+                var rows = EvaluationOverlay.Load(root, set);
+                if (rows.Count == 0)
+                {
+                    output.WriteLine($"evaluate: overlay {set}: the file has no rows; not evaluated");
+                    continue;
+                }
+
+                var overlay = evaluator.EvaluateOverlay(set, rows, image);
+                overlays.Add(overlay);
+                evaluations.Add(overlay.Shipped);
+                Print(overlay.Shipped, output);
+                PrintOverlay(overlay, output);
+                continue;
+            }
+
             var evaluation = evaluator.Evaluate(set, image);
             evaluations.Add(evaluation);
             Print(evaluation, output);
@@ -301,7 +325,7 @@ internal static class EvaluateCommand
             }
         }
 
-        var report = new EvaluationReport(imageSha, evaluationSettings, evaluations, seedResults);
+        var report = new EvaluationReport(imageSha, evaluationSettings, evaluations, seedResults, overlays);
         var exit = 0;
         if (options.Gate)
         {
@@ -353,12 +377,31 @@ internal static class EvaluateCommand
     /// </summary>
     /// <param name="options">The options.</param>
     /// <param name="wantRecord">Whether the evaluation record is written or checked.</param>
+    /// <param name="root">The data folder, where the record looks for the overlay files.</param>
+    /// <param name="output">The output writer, told about an overlay file the record leaves out.</param>
     /// <returns>The set names in evaluation order.</returns>
-    private static List<string> SelectSets(EvaluateOptions options, bool wantRecord)
+    /// <remarks>
+    ///     The record takes the data sets first and the overlays after them, so the lines of the data sets in the record
+    ///     files keep their place whether or not the overlays exist; an overlay whose file is absent is left out.
+    /// </remarks>
+    private static List<string> SelectSets(EvaluateOptions options, bool wantRecord, string root, TextWriter output)
     {
         if (wantRecord)
         {
-            return [.. HeteronymEvaluator.ReportSets];
+            var record = new List<string>(HeteronymEvaluator.ReportSets);
+            foreach (var overlay in EvaluationOverlay.Sets)
+            {
+                if (File.Exists(Path.Combine(root, EvaluationOverlay.FileOf(overlay))))
+                {
+                    record.Add(overlay);
+                }
+                else
+                {
+                    output.WriteLine($"evaluate: overlay {overlay}: {EvaluationOverlay.FileOf(overlay)} is not in the data folder; not evaluated");
+                }
+            }
+
+            return record;
         }
 
         if (options.Gate)
@@ -398,6 +441,33 @@ internal static class EvaluateCommand
         foreach (var bucket in set.ByConfidence)
         {
             output.WriteLine($"evaluate:   confidence {bucket.Name}: {bucket.Correct}/{bucket.Rows}");
+        }
+    }
+
+    /// <summary>
+    ///     Prints the slices of an overlay with and without the curated cue priors, and the verified cue-unsolvable rows.
+    /// </summary>
+    /// <param name="overlay">The overlay evaluation.</param>
+    /// <param name="output">The output writer.</param>
+    private static void PrintOverlay(OverlayEvaluation overlay, TextWriter output)
+    {
+        static string Interval(BootstrapInterval interval, bool signed) =>
+            $"[{EvaluationRecord.FormatPercent(interval.LowerBasisPoints, signed)}, {EvaluationRecord.FormatPercent(interval.UpperBasisPoints, signed)}]";
+
+        var set = overlay.Shipped.Set;
+        if (overlay.CueUnsolvableRows > 0)
+        {
+            output.WriteLine($"evaluate:   cue-unsolvable check: {overlay.CueUnsolvableRows} rows; on every one no curated cue test fires and the shipped reading equals the model-only reading");
+        }
+
+        foreach (var slice in overlay.Slices)
+        {
+            output.WriteLine(
+                $"evaluate:   {set} slice {slice.Name}: {slice.Rows} rows, {slice.ShippedAccuracy.Clusters} clusters; "
+                + $"with cues {slice.ShippedCorrect}/{slice.Rows} {EvaluationRecord.FormatPercent(slice.ShippedAccuracy.DifferenceBasisPoints)} {Interval(slice.ShippedAccuracy, false)}; "
+                + $"model only {slice.ModelOnlyCorrect}/{slice.Rows} {EvaluationRecord.FormatPercent(slice.ModelOnlyAccuracy.DifferenceBasisPoints)} {Interval(slice.ModelOnlyAccuracy, false)}; "
+                + $"cue effect {EvaluationRecord.FormatPercent(slice.CueEffect.DifferenceBasisPoints, signed: true)} {Interval(slice.CueEffect, true)}; "
+                + $"cue fired {slice.CueFired}, changed {slice.Changed}");
         }
     }
 

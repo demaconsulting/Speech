@@ -65,6 +65,90 @@ public sealed class CheckDataCommandTests
         Assert.Equal(string.Empty, error);
     }
 
+    /// <summary>
+    ///     Proves <c>--generalization</c> checks a staged file in place of the committed set: the staged rows' novelty
+    ///     findings carry the staged location and a generic reason, and the committed set is not checked.
+    /// </summary>
+    [Fact]
+    public void CheckDataCommand_Run_StagedGeneralization_ChecksStagedFileWithGenericReasons()
+    {
+        // Arrange: a staged row that repeats a training sentence, outside the data folder
+        using var fixture = new DatasetFixture();
+        var staged = Path.Combine(fixture.EvaluationDirectory, "generalization.tsv");
+        fixture.WriteGeneralization(
+            staged,
+            DatasetFixture.GeneralizationRowText("gen-0001", "lead.verb", "She will lead the team today!", "lead", "novel-construction", "lead:guide", "-"));
+
+        // Act
+        var (exitCode, output, _) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--generalization", staged);
+
+        // Assert
+        Assert.Equal(1, exitCode);
+        Assert.Contains($"check-data: overlay: staged:generalization.tsv:2: gen-0001: N1: {EvaluationOverlayChecker.GenericN1}", output);
+        Assert.Contains("generalization set checked from the staged file", output);
+        Assert.DoesNotContain("harvest-00001", output);
+    }
+
+    /// <summary>
+    ///     Proves the command runs the word-cluster check with the tokenizer version it is given: a record from another
+    ///     tokenizer fails the run, the matching version passes it.
+    /// </summary>
+    [Fact]
+    public void CheckDataCommand_Run_TokenizerVersion_IsComparedWithClusterRecord()
+    {
+        // Arrange
+        using var fixture = new DatasetFixture();
+        fixture.WriteClusterFiles("2.0.0");
+
+        // Act
+        string Check(string version)
+        {
+            var output = new StringWriter();
+            var exitCode = CheckDataCommand.Run(["--data", fixture.Root], output, new StringWriter(), fixture.BaseDirectory, fixture.BaseDirectory, _ => null, version);
+            return $"{exitCode}\n{output}";
+        }
+
+        var stale = Check("2.0.1");
+        var current = Check("2.0.0");
+
+        // Assert
+        Assert.StartsWith("1\n", stale, StringComparison.Ordinal);
+        Assert.Contains("check-data: clusters: clustering.json: tokenizerVersion '2.0.0' is not the tokenizer of this build '2.0.1'", stale, StringComparison.Ordinal);
+        Assert.StartsWith("0\n", current, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a staged generalization set that does not exist is a usage error with exit code 2.</summary>
+    [Fact]
+    public void CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo()
+    {
+        // Arrange
+        using var fixture = new DatasetFixture();
+
+        // Act
+        var (exitCode, _, error) = Run(fixture.BaseDirectory, null, "--data", fixture.Root, "--generalization", "absent.tsv");
+
+        // Assert
+        Assert.Equal(2, exitCode);
+        Assert.Contains("staged generalization set", error);
+    }
+
+    /// <summary>Proves <c>--generalization</c> is parsed in both spellings.</summary>
+    [Theory]
+    [InlineData("--generalization", "staged.tsv")]
+    [InlineData("--generalization=staged.tsv", null)]
+    public void CheckDataCommand_TryParse_GeneralizationOption_IsParsed(string first, string? second)
+    {
+        // Arrange
+        var args = second is null ? new[] { first } : [first, second];
+
+        // Act
+        var options = CheckDataCommand.TryParse(args, out var error);
+
+        // Assert
+        Assert.Null(error);
+        Assert.Equal("staged.tsv", options!.Generalization);
+    }
+
     /// <summary>Proves a violation exits with 1 and the output names the check, file and line.</summary>
     [Fact]
     public void CheckDataCommand_Run_Violation_ExitsOneAndNamesCheckFileAndLine()

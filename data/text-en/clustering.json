@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "settings": {
+    "clusters": 512,
+    "maxWords": 60000,
+    "minCount": 5,
+    "clustererVersion": 1,
+    "readerVersion": 1,
+    "auditVersion": 1
+  },
+  "inputs": {
+    "sourcesSha256": "18f4437765c8ef4dc2752a41b996c320563afd1a29a18a5a353c9f7599fba820",
+    "usedBooks": 280,
+    "excludedBooks": 56,
+    "removalsSha256": "84794fd8752dba2a9a8e85d30ab1ee2cfc2ed12ba1c1ba685541d058dfc1e77b",
+    "evaluationListingSha256": "f5e5f6ee8b2fb2a9d79041c86a2fe0ef45f3b0b325925633979366bd0152bcc0",
+    "tokenizerVersion": "0.1.0-beta.5",
+    "snapshotSha256": "3d1e4e8cb64e19b926385483e55d495eba11f6c9258ba7fcb87a6522173f471d",
+    "snapshotBytes": 152852480,
+    "snapshotFiles": 282,
+    "snapshotUrl": ""
+  },
+  "corpus": {
+    "paragraphs": 467991,
+    "sentences": 1336563,
+    "tokens": 31278354,
+    "types": 222070,
+    "bigramTypes": 3136242,
+    "removedSentences": 6,
+    "removedTokens": 191,
+    "matchedEvaluationSentences": 6,
+    "booksAffected": 5
+  },
+  "result": {
+    "tableSha256": "17e94d11a69627513a92679370432697d452011b6ffb3168ecc35f5643d5007b",
+    "words": 60000,
+    "paths": 512,
+    "droppedHashCollisions": 0,
+    "droppedIneligible": 0,
+    "tokenCoveragePerTenThousand": 9911
+  }
+}

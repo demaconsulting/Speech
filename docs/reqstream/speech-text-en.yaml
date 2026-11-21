@@ -12,8 +12,9 @@
 #
 # The requirements from SpeechTextEn-TrainingData-OpenLicenses onward describe the repository's
 # training and evaluation data (data/text-en/) and the non-shipped Text.En trainer that checks it,
-# trains the heteronym model from it and measures the model on the committed held-out data and on
-# pinned external datasets. They are tool behavior; the model they produce is the one the package
+# trains the heteronym model from it, measures the model on the committed held-out data and on
+# pinned external datasets, and induces the word-class table from a pinned public-domain corpus.
+# They are tool behavior; the model they produce is the one the package
 # embeds. The datasets are not part of the package.
 #
 # Covered by test/DemaConsulting.Speech.Text.En.Tests (the library) and test/DemaConsulting.Speech.Text.En.Trainer.Tests
@@ -439,6 +440,35 @@ sections:
           - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
           - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
 
+      - id: SpeechTextEn-TrainingData-EvaluationOverlays
+        title: >-
+          The repository shall keep, beside the Text.En training data, a regression overlay that refers to
+          owner-flagged sentences, golden test sentences and existing examples and marks each as seen or unseen
+          in training, and a generalization test set written blind, and its data check shall fail when an
+          overlay row is malformed, refers to an example it does not match or to a holdout, repeats a holdout
+          sentence or carries a wrong seen-in-training mark, or when a generalization row repeats a committed
+          sentence or is not new for its word in its designated cue words or in the words around it, or the
+          written set lacks the required number of rows of each kind, of families and of rows that the
+          hand-written cues cannot solve; a staged copy of the set shall be checkable before it is committed,
+          with reasons that reveal no training sentence.
+        tags: [system]
+        justification: |
+          Hand-written cues and new features are only worth keeping when they help on sentences the model
+          has never seen; the flagged sentences show where the model failed, and a set written blind,
+          before any model that uses it is trained, shows whether a change generalizes. Both sets only mean
+          something while they stay what they claim to be: the overlay must not touch the holdouts and must
+          say honestly which sentences were trained on, and the generalization set must stay new against the
+          training and development data as they change. The writer of the set may not see the training
+          data, so the check of a staged copy may only say what is wrong, not which training sentence it
+          resembles.
+        children:
+          - SpeechTextEn-TrainingData-OverlayChecks
+        tests:
+          - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
+          - TrainingDataSubsystem_CheckData_StagedGeneralization_ReportsGenericFindings
+          - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks
+          - TrainingDataSubsystem_CommittedRegression_GoldenAndTestReferencesResolve
+
       - id: SpeechTextEn-Training-Reproducible
         title: >-
           The repository shall provide a command that trains the heteronym model from the committed
@@ -515,6 +545,72 @@ sections:
           - TrainingSubsystem_Evaluate_Gate_ExitCodeFollowsThresholds
           - TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord
           - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
+
+      - id: SpeechTextEn-Training-OverlayEvaluation
+        title: >-
+          The evaluation command shall report the reading accuracy of the heteronym model with and without the
+          hand-written cue priors, with clustered confidence intervals of both and of their difference, on a
+          regression overlay of owner-flagged sentences and golden targets, each marked as seen or unseen in
+          training, and on a generalization set written blind, which the data check proves new against the
+          training and development data, by origin and seen or unseen rows of the overlay and by family, kind and
+          whether the curated cues can solve a row of the generalization set, resampling the generalization rows
+          by family; it shall treat a generalization row marked as not solvable by the curated cues on which a
+          curated cue can act as a data error, and shall add these results to the evaluation record without
+          changing its earlier lines.
+        tags: [system]
+        justification: |
+          The cue priors were written for single flagged sentences, and later features (word classes) are only
+          worth keeping when they help on sentences the model has never seen. Measuring the shipped model with
+          and without its cue priors, on the flagged sentences and on a set written blind, shows how much the
+          priors do and where the model alone fails; this is the baseline that the pre-registered criterion
+          for word classes is judged against. The rows of a family share one cue or template idea, so they are
+          resampled together and the interval is not overstated. A row that claims the curated cues cannot
+          solve it, but on which a cue acts, would misstate that subset, so it stops the evaluation rather than
+          count. The new results are appended so the record of the gate stays exactly as it was.
+        children:
+          - SpeechTextEn-Training-OverlayReport
+        tests:
+          - TrainingSubsystem_Evaluate_Overlays_ReportedWithAndWithoutCuesAndAppendedToRecord
+          - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
+
+      - id: SpeechTextEn-Training-WordClasses
+        title: >-
+          The repository shall provide a command that induces a table of hierarchical word classes only from a
+          pinned list of US public-domain books obtained from an official Project Gutenberg mirror and verified
+          against their pins, that excludes every passage repeating or nearly repeating a sentence of the
+          development, holdout, regression or generalization data and reports the removals, that keys every
+          table word exactly as the analyzer looks a word up and leaves out every word whose lookup key is
+          shared, and that produces the same table on every run, for any number of threads and on every
+          supported operating system, together with a record of its settings, input hashes and table hash and a
+          way to re-verify the table against a fresh induction. The data check shall fail when the committed
+          table, pin list, removal list or tokenizer version no longer matches the record.
+        tags: [system]
+        justification: |
+          Word classes induced from a large public-domain corpus let a later model generalize from the words
+          it was trained on to words of the same kind. The table can only ship when its origin is clean and
+          checkable: the books must be in the public domain in the USA and fetched politely from an official
+          mirror, each pinned so the corpus cannot drift, and no evaluation sentence may reach the corpus,
+          because a class learned from a test sentence would inflate every later measurement. A word whose
+          lookup key collides with another word's would silently take that word's class, so such keys are
+          left out. A table that differs between machines or thread counts could not be reviewed or
+          reproduced, so the induction is deterministic, its inputs are recorded by hash, and a full
+          re-induction can show that the committed table is exactly what the recorded inputs produce. The full
+          re-induction is manual, so the data check that runs on every change compares the record with the
+          committed files and the tokenizer instead, which catches any later edit or upgrade cheaply.
+        children:
+          - SpeechTextEn-Clustering-PinnedCorpus
+          - SpeechTextEn-Clustering-LeakageAudit
+          - SpeechTextEn-Clustering-RuntimeKeys
+          - SpeechTextEn-Clustering-Deterministic
+          - SpeechTextEn-Clustering-RecordAndCheck
+          - SpeechTextEn-TrainingData-ClusterChecks
+        tests:
+          - ClusteringSubsystem_Cluster_FetchAuditWriteCheck_EndToEnd
+          - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck
+          - ClusteringSubsystem_Cluster_BookQuotingEvaluation_SentenceRemoved
+          - ClusteringSubsystem_Cluster_TableWords_AreRuntimeKeys
+          - ClusteringSubsystem_Cluster_DifferentThreadCounts_IdenticalFiles
+          - ClusteringSubsystem_Cluster_FixtureCorpus_GoldenTable
 
       - id: SpeechTextEn-Evaluation-ExternalFetchOnly
         title: >-

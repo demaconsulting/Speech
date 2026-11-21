@@ -229,6 +229,11 @@ words:
   - milliwatts
   - nber
   - usgs
+  # The Text.En word-cluster corpus: the component that clusters words, the official mirror host of the public-domain
+  # e-book archive (gutenberg.pglaf.org) and the POSIX archive format of the reproducible corpus snapshot
+  - clusterer
+  - pglaf
+  - ustar
 
 ignorePaths:
   - '**/.git/**'

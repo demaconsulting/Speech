@@ -185,6 +185,26 @@ internal sealed class TrainingFixture : IDisposable
         Write(relativePath, Read(relativePath) + string.Join('\t', DataRow(id, readingId, sentence, word, source, split)) + "\n");
     }
 
+    /// <summary>
+    ///     Writes a regression overlay whose rows target the word <c>lead</c>.
+    /// </summary>
+    /// <param name="rows">The rows: id, reading, sentence, origin and seen-in-training mark.</param>
+    public void WriteRegression(params (string Id, string ReadingId, string Sentence, string Origin, string Seen)[] rows) =>
+        Table(
+            "regression.tsv",
+            ["id", "lemma", "reading_id", "sentence", "start", "end", "origin", "ref", "seen_in_training", "license"],
+            rows.Select(row => OverlayCells(row.Id, row.ReadingId, row.Sentence, [row.Origin, "RUN-LOG.md:1", row.Seen, "CC0-1.0"])));
+
+    /// <summary>
+    ///     Writes a generalization set whose rows target the word <c>lead</c>.
+    /// </summary>
+    /// <param name="rows">The rows: id, reading, sentence, kind, family and cue-unsolvable mark.</param>
+    public void WriteGeneralization(params (string Id, string ReadingId, string Sentence, string Kind, string Family, string CueUnsolvable)[] rows) =>
+        Table(
+            "generalization.tsv",
+            ["id", "lemma", "reading_id", "sentence", "start", "end", "kind", "family", "cue_forms", "cue_unsolvable", "source", "license"],
+            rows.Select(row => OverlayCells(row.Id, row.ReadingId, row.Sentence, [row.Kind, row.Family, "-", row.CueUnsolvable, "generalization", "CC0-1.0"])));
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -192,6 +212,20 @@ internal sealed class TrainingFixture : IDisposable
         {
             Directory.Delete(BaseDirectory, true);
         }
+    }
+
+    /// <summary>
+    ///     Renders an overlay row whose target is the word <c>lead</c>, with offsets computed from the sentence.
+    /// </summary>
+    /// <param name="id">The row id.</param>
+    /// <param name="readingId">The reading id.</param>
+    /// <param name="sentence">The sentence, which must contain <c>lead</c>.</param>
+    /// <param name="tail">The cells after the offsets.</param>
+    /// <returns>The cells.</returns>
+    private static string[] OverlayCells(string id, string readingId, string sentence, string[] tail)
+    {
+        var cells = DataRow(id, readingId, sentence, "lead", "synthetic", "train");
+        return [.. cells[..6], .. tail];
     }
 
     /// <summary>

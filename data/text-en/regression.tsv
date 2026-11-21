@@ -1,0 +1,520 @@
+id	lemma	reading_id	sentence	start	end	origin	ref	seen_in_training	license
+reg-0001	minute	minute.tiny	To the eastward, of course, these little boats were grey and very minute and clear, but to the westward they were little boats of gold.	66	72	listening	EnglishTextAnalyzerReadingTests.cs:88	no	Public-Domain
+reg-0002	minute	minute.tiny	The difference was extremely minute.	29	35	listening	EnglishTextAnalyzerReadingTests.cs:89	no	CC0-1.0
+reg-0003	wound	wound.injury	It has been compared to a knife wound or a deep muscle tear.	32	37	listening	RUN-LOG.md:278	no	CC0-1.0
+reg-0004	tear	tear.rip	It has been compared to a knife wound or a deep muscle tear.	55	59	listening	RUN-LOG.md:278	no	CC0-1.0
+reg-0005	read	read.past	Yesterday I read the whole book.	12	16	listening	SpeechTextEnTests.cs:340	no	CC0-1.0
+reg-0006	wind	wind.coil	The tape wound onto the spool.	9	14	listening	RUN-LOG.md:285	no	CC0-1.0
+reg-0007	tear	tear.drop	A tear ran down her cheek.	2	6	listening	RUN-LOG.md:308	no	CC0-1.0
+reg-0008	record	record.verb	They will record the meeting tonight.	10	16	analyzer-test	SpeechTextEnTests.cs:337	no	CC0-1.0
+reg-0009	record	record.noun	She broke the world record last year.	20	26	analyzer-test	SpeechTextEnTests.cs:338	no	CC0-1.0
+reg-0010	lead	lead.metal	The old pipes were made of lead.	27	31	analyzer-test	SpeechTextEnTests.cs:339	no	CC0-1.0
+reg-0011	wind	wind.air	A cold wind blew across the field.	7	11	analyzer-test	SpeechTextEnTests.cs:341	no	CC0-1.0
+reg-0012	tear	tear.rip	Be careful not to tear the paper.	18	22	analyzer-test	SpeechTextEnTests.cs:342	no	CC0-1.0
+reg-0013	bass	bass.fish	He caught a large bass in the lake.	18	22	analyzer-test	SpeechTextEnTests.cs:343	no	CC0-1.0
+reg-0014	bow	bow.weapon	He drew the bow and shot an arrow.	12	15	analyzer-test	SpeechTextEnTests.cs:344	no	CC0-1.0
+reg-0015	close	close.adj-noun	They were very close.	15	20	analyzer-test	EnglishTextAnalyzerReadingTests.cs:90	no	CC0-1.0
+reg-0016	content	content.satisfied	She was so content.	11	18	analyzer-test	EnglishTextAnalyzerReadingTests.cs:91	no	CC0-1.0
+reg-0017	minute	minute.time	Wait a minute and then go.	7	13	analyzer-test	EnglishTextAnalyzerReadingTests.cs:92	no	CC0-1.0
+reg-0018	content	content.noun	Most content is free.	5	12	analyzer-test	EnglishTextAnalyzerReadingTests.cs:93	no	CC0-1.0
+reg-0019	record	record.verb	They plan to record the song, and then everyone will play the record.	13	19	golden-pipeline	piper-pipeline-golden.tsv:s01	no	CC0-1.0
+reg-0020	record	record.noun	They plan to record the song, and then everyone will play the record.	62	68	golden-pipeline	piper-pipeline-golden.tsv:s01	no	CC0-1.0
+reg-0021	live	live.verb	I live near a theater that hosts live music every night.	2	6	golden-pipeline	piper-pipeline-golden.tsv:s02	no	CC0-1.0
+reg-0022	live	live.adj	I live near a theater that hosts live music every night.	33	37	golden-pipeline	piper-pipeline-golden.tsv:s02	no	CC0-1.0
+reg-0023	read	read.past	She read the book last night, but he will read it tomorrow.	4	8	golden-pipeline	piper-pipeline-golden.tsv:s03	no	CC0-1.0
+reg-0024	read	read.present	She read the book last night, but he will read it tomorrow.	42	46	golden-pipeline	piper-pipeline-golden.tsv:s03	no	CC0-1.0
+reg-0025	lead	lead.guide	The workers lead the way, and a lead pipe carried the water.	12	16	golden-pipeline	piper-pipeline-golden.tsv:s04	no	CC0-1.0
+reg-0026	lead	lead.metal	The workers lead the way, and a lead pipe carried the water.	32	36	golden-pipeline	piper-pipeline-golden.tsv:s04	no	CC0-1.0
+reg-0027	wind	wind.air	The wind will wind the kite string around the pole.	4	8	golden-pipeline	piper-pipeline-golden.tsv:s05	no	CC0-1.0
+reg-0028	wind	wind.coil	The wind will wind the kite string around the pole.	14	18	golden-pipeline	piper-pipeline-golden.tsv:s05	no	CC0-1.0
+reg-0029	tear	tear.drop	A tear rolled down her cheek as she tried not to tear the paper.	2	6	golden-pipeline	piper-pipeline-golden.tsv:s06	no	CC0-1.0
+reg-0030	tear	tear.rip	A tear rolled down her cheek as she tried not to tear the paper.	49	53	golden-pipeline	piper-pipeline-golden.tsv:s06	no	CC0-1.0
+reg-0031	bass	bass.fish	He caught a bass while his brother played the bass guitar.	12	16	golden-pipeline	piper-pipeline-golden.tsv:s07	no	CC0-1.0
+reg-0032	bass	bass.music	He caught a bass while his brother played the bass guitar.	46	50	golden-pipeline	piper-pipeline-golden.tsv:s07	no	CC0-1.0
+reg-0033	minute	minute.time	Wait a minute while I examine this minute detail.	7	13	golden-pipeline	piper-pipeline-golden.tsv:s08	no	CC0-1.0
+reg-0034	minute	minute.tiny	Wait a minute while I examine this minute detail.	35	41	golden-pipeline	piper-pipeline-golden.tsv:s08	no	CC0-1.0
+reg-0035	close	close.verb	Please close the door, because the shop is close to the station.	7	12	golden-pipeline	piper-pipeline-golden.tsv:s09	no	CC0-1.0
+reg-0036	close	close.adj-noun	Please close the door, because the shop is close to the station.	43	48	golden-pipeline	piper-pipeline-golden.tsv:s09	no	CC0-1.0
+reg-0037	use	use.verb	We use a lot of paper, and the use of so much is wasteful.	3	6	golden-pipeline	piper-pipeline-golden.tsv:s10	no	CC0-1.0
+reg-0038	use	use.noun	We use a lot of paper, and the use of so much is wasteful.	31	34	golden-pipeline	piper-pipeline-golden.tsv:s10	no	CC0-1.0
+reg-0039	content	content.satisfied	She was content with the content of the letter.	8	15	golden-pipeline	piper-pipeline-golden.tsv:s11	no	CC0-1.0
+reg-0040	content	content.noun	She was content with the content of the letter.	25	32	golden-pipeline	piper-pipeline-golden.tsv:s11	no	CC0-1.0
+reg-0041	desert	desert.verb	Soldiers who desert their posts are often lost in the desert.	13	19	golden-pipeline	piper-pipeline-golden.tsv:s12	no	CC0-1.0
+reg-0042	desert	desert.noun	Soldiers who desert their posts are often lost in the desert.	54	60	golden-pipeline	piper-pipeline-golden.tsv:s12	no	CC0-1.0
+reg-0043	live	live.verb	Dr. Smith lives at 221 Baker St. in London.	10	15	golden-pipeline	piper-pipeline-golden.tsv:s15	no	CC0-1.0
+reg-0044	use	use.verb	Knowledge is power, but wisdom is knowing how to use it.	49	52	golden-pipeline	piper-pipeline-golden.tsv:s25	no	CC0-1.0
+reg-0045	record	record.noun	The record was broken last year.	4	10	golden-pipeline	piper-pipeline-golden.tsv:e01	no	CC0-1.0
+reg-0046	record	record.verb	They want to record the meeting.	13	19	golden-pipeline	piper-pipeline-golden.tsv:e02	no	CC0-1.0
+reg-0047	live	live.verb	We live in a quiet town.	3	7	golden-pipeline	piper-pipeline-golden.tsv:e03	no	CC0-1.0
+reg-0048	concert	concert.noun	The concert was broadcast live.	4	11	golden-pipeline	piper-pipeline-golden.tsv:e04	no	CC0-1.0
+reg-0049	live	live.adj	The concert was broadcast live.	26	30	golden-pipeline	piper-pipeline-golden.tsv:e04	no	CC0-1.0
+reg-0050	read	read.present	I read every night before bed.	2	6	golden-pipeline	piper-pipeline-golden.tsv:e05	no	CC0-1.0
+reg-0051	read	read.past	Yesterday I read the whole report.	12	16	golden-pipeline	piper-pipeline-golden.tsv:e06	no	CC0-1.0
+reg-0052	wind	wind.air	The wind blew the leaves across the yard.	4	8	golden-pipeline	piper-pipeline-golden.tsv:e07	no	CC0-1.0
+reg-0053	wind	wind.coil	Please wind the clock before you leave.	7	11	golden-pipeline	piper-pipeline-golden.tsv:e08	no	CC0-1.0
+reg-0054	bass	bass.music	The bass line shook the floor.	4	8	golden-pipeline	piper-pipeline-golden.tsv:e09	no	CC0-1.0
+reg-0055	bass	bass.fish	The bass swam deep in the lake.	4	8	golden-pipeline	piper-pipeline-golden.tsv:e10	no	CC0-1.0
+reg-0056	number	number.noun	My phone number is 555-0199.	9	15	golden-sentences	sentences-golden.tsv:s008	no	CC0-1.0
+reg-0057	house	house.noun	The house sold for $250,000.	4	9	golden-sentences	sentences-golden.tsv:s011	no	CC0-1.0
+reg-0058	live	live.verb	We live on 5th Avenue.	3	7	golden-sentences	sentences-golden.tsv:s018	no	CC0-1.0
+reg-0059	live	live.verb	Mr. and Mrs. Jones live next door.	19	23	golden-sentences	sentences-golden.tsv:s030	no	CC0-1.0
+reg-0060	live	live.verb	He lives in Washington, D.C.	3	8	golden-sentences	sentences-golden.tsv:s036	no	CC0-1.0
+reg-0061	record	record.verb	I will record a record of my voice.	7	13	golden-sentences	sentences-golden.tsv:s073	no	CC0-1.0
+reg-0062	record	record.noun	I will record a record of my voice.	16	22	golden-sentences	sentences-golden.tsv:s073	no	CC0-1.0
+reg-0063	wind	wind.air	The wind will wind down by night.	4	8	golden-sentences	sentences-golden.tsv:s074	no	CC0-1.0
+reg-0064	wind	wind.coil	The wind will wind down by night.	14	18	golden-sentences	sentences-golden.tsv:s074	no	CC0-1.0
+reg-0065	read	read.past	He read the letter aloud yesterday.	3	7	golden-sentences	sentences-golden.tsv:s075	no	CC0-1.0
+reg-0066	wind	wind.coil	He wound the clock after the wound healed.	3	8	golden-sentences	sentences-golden.tsv:s076	no	CC0-1.0
+reg-0067	wound	wound.injury	He wound the clock after the wound healed.	29	34	golden-sentences	sentences-golden.tsv:s076	no	CC0-1.0
+reg-0068	live	live.verb	They live near a live concert.	5	9	golden-sentences	sentences-golden.tsv:s077	no	CC0-1.0
+reg-0069	live	live.adj	They live near a live concert.	17	21	golden-sentences	sentences-golden.tsv:s077	no	CC0-1.0
+reg-0070	concert	concert.noun	They live near a live concert.	22	29	golden-sentences	sentences-golden.tsv:s077	no	CC0-1.0
+reg-0071	bass	bass.music	The bass player caught a bass.	4	8	golden-sentences	sentences-golden.tsv:s078	no	CC0-1.0
+reg-0072	bass	bass.fish	The bass player caught a bass.	25	29	golden-sentences	sentences-golden.tsv:s078	no	CC0-1.0
+reg-0073	close	close.verb	Please close the door; the shop is close.	7	12	golden-sentences	sentences-golden.tsv:s079	no	CC0-1.0
+reg-0074	close	close.adj-noun	Please close the door; the shop is close.	35	40	golden-sentences	sentences-golden.tsv:s079	no	CC0-1.0
+reg-0075	lead	lead.guide	She will lead us through the old lead mine.	9	13	golden-sentences	sentences-golden.tsv:s080	no	CC0-1.0
+reg-0076	lead	lead.metal	She will lead us through the old lead mine.	33	37	golden-sentences	sentences-golden.tsv:s080	no	CC0-1.0
+reg-0077	object	object.verb	I object to that object.	2	8	golden-sentences	sentences-golden.tsv:s081	no	CC0-1.0
+reg-0078	object	object.noun	I object to that object.	17	23	golden-sentences	sentences-golden.tsv:s081	no	CC0-1.0
+reg-0079	desert	desert.noun	The desert soldiers desert the desert.	4	10	golden-sentences	sentences-golden.tsv:s082	no	CC0-1.0
+reg-0080	desert	desert.verb	The desert soldiers desert the desert.	20	26	golden-sentences	sentences-golden.tsv:s082	no	CC0-1.0
+reg-0081	desert	desert.noun	The desert soldiers desert the desert.	31	37	golden-sentences	sentences-golden.tsv:s082	no	CC0-1.0
+reg-0082	present	present.verb	She will present a present.	9	16	golden-sentences	sentences-golden.tsv:s083	no	CC0-1.0
+reg-0083	present	present.adj-noun	She will present a present.	19	26	golden-sentences	sentences-golden.tsv:s083	no	CC0-1.0
+reg-0084	dove	dove.bird	The dove dove into the bushes.	4	8	golden-sentences	sentences-golden.tsv:s084	no	CC0-1.0
+reg-0085	dive	dive.past	The dove dove into the bushes.	9	13	golden-sentences	sentences-golden.tsv:s084	no	CC0-1.0
+reg-0086	refuse	refuse.verb	He did not refuse to take out the refuse.	11	17	golden-sentences	sentences-golden.tsv:s085	no	CC0-1.0
+reg-0087	refuse	refuse.noun	He did not refuse to take out the refuse.	34	40	golden-sentences	sentences-golden.tsv:s085	no	CC0-1.0
+reg-0088	tear	tear.drop	He had a tear in his eye as he began to tear the letter.	9	13	golden-sentences	sentences-golden.tsv:s086	no	CC0-1.0
+reg-0089	tear	tear.rip	He had a tear in his eye as he began to tear the letter.	40	44	golden-sentences	sentences-golden.tsv:s086	no	CC0-1.0
+reg-0090	minute	minute.time	A minute is a minute amount of time.	2	8	golden-sentences	sentences-golden.tsv:s087	no	CC0-1.0
+reg-0091	minute	minute.tiny	A minute is a minute amount of time.	14	20	golden-sentences	sentences-golden.tsv:s087	no	CC0-1.0
+reg-0092	sow	sow.plant	They sow the field while the sow sleeps in the barn.	5	8	golden-sentences	sentences-golden.tsv:s088	no	CC0-1.0
+reg-0093	sow	sow.pig	They sow the field while the sow sleeps in the barn.	29	32	golden-sentences	sentences-golden.tsv:s088	no	CC0-1.0
+reg-0094	console	console.verb	I'd like to console you at the game console.	12	19	golden-sentences	sentences-golden.tsv:s089	no	CC0-1.0
+reg-0095	console	console.noun	I'd like to console you at the game console.	36	43	golden-sentences	sentences-golden.tsv:s089	no	CC0-1.0
+reg-0096	convict	convict.verb	The jury will convict the convict.	14	21	golden-sentences	sentences-golden.tsv:s090	no	CC0-1.0
+reg-0097	convict	convict.noun	The jury will convict the convict.	26	33	golden-sentences	sentences-golden.tsv:s090	no	CC0-1.0
+reg-0098	use	use.verb	I use it for no good use.	2	5	golden-sentences	sentences-golden.tsv:s091	no	CC0-1.0
+reg-0099	use	use.noun	I use it for no good use.	21	24	golden-sentences	sentences-golden.tsv:s091	no	CC0-1.0
+reg-0100	produce	produce.verb	They produce fresh produce.	5	12	golden-sentences	sentences-golden.tsv:s092	no	CC0-1.0
+reg-0101	produce	produce.noun	They produce fresh produce.	19	26	golden-sentences	sentences-golden.tsv:s092	no	CC0-1.0
+reg-0102	row	row.line	He rowed in a row.	3	8	golden-sentences	sentences-golden.tsv:s093	no	CC0-1.0
+reg-0103	row	row.line	He rowed in a row.	14	17	golden-sentences	sentences-golden.tsv:s093	no	CC0-1.0
+reg-0104	do	do.verb	She does what the does do.	4	8	golden-sentences	sentences-golden.tsv:s094	no	CC0-1.0
+reg-0105	doe	doe.plural	She does what the does do.	18	22	golden-sentences	sentences-golden.tsv:s094	no	CC0-1.0
+reg-0106	polish	polish.shine	Polish the Polish silver.	0	6	golden-sentences	sentences-golden.tsv:s095	no	CC0-1.0
+reg-0107	polish	polish.nationality	Polish the Polish silver.	11	17	golden-sentences	sentences-golden.tsv:s095	no	CC0-1.0
+reg-0108	record	record.noun	The records were recorded.	4	11	golden-sentences	sentences-golden.tsv:s096	no	CC0-1.0
+reg-0109	project	project.noun	The project will project onto the wall.	4	11	golden-sentences	sentences-golden.tsv:s097	no	CC0-1.0
+reg-0110	project	project.verb	The project will project onto the wall.	17	24	golden-sentences	sentences-golden.tsv:s097	no	CC0-1.0
+reg-0111	bow	bow.bend	The cast took a bow at the end of the play.	16	19	golden-sentences	sentences-golden.tsv:s098	no	CC0-1.0
+reg-0112	mouth	mouth.noun	Her mouth moves as she mouths the words.	4	9	golden-sentences	sentences-golden.tsv:s099	no	CC0-1.0
+reg-0113	mouth	mouth.verb	Her mouth moves as she mouths the words.	23	29	golden-sentences	sentences-golden.tsv:s099	no	CC0-1.0
+reg-0114	wound	wound.injury	The wound was wound with cloth.	4	9	golden-sentences	sentences-golden.tsv:s100	no	CC0-1.0
+reg-0115	wind	wind.coil	The wound was wound with cloth.	14	19	golden-sentences	sentences-golden.tsv:s100	no	CC0-1.0
+reg-0116	use	use.verb	Use the # key and the @ symbol.	0	3	golden-sentences	sentences-golden.tsv:s125	no	CC0-1.0
+reg-0117	absent	absent.adj	Her father was absent from the meeting.	15	21	golden-readings	readings-golden.tsv:2	no	CC0-1.0
+reg-0118	absent	absent.verb	He was told not to absent himself from class.	19	25	golden-readings	readings-golden.tsv:3	no	CC0-1.0
+reg-0119	abstract	abstract.adj-noun	The painting was abstract and bold.	17	25	golden-readings	readings-golden.tsv:4	no	CC0-1.0
+reg-0120	abstract	abstract.verb	Please abstract the key points from the long report.	7	15	golden-readings	readings-golden.tsv:5	no	CC0-1.0
+reg-0121	abuse	abuse.noun	The report described years of abuse at the school.	30	35	golden-readings	readings-golden.tsv:6	no	CC0-1.0
+reg-0122	abuse	abuse.verb	Never abuse your power over others.	6	11	golden-readings	readings-golden.tsv:7	no	CC0-1.0
+reg-0123	addict	addict.noun	The addict began treatment last week.	4	10	golden-readings	readings-golden.tsv:8	no	CC0-1.0
+reg-0124	addict	addict.verb	Drugs can addict a person within days.	10	16	golden-readings	readings-golden.tsv:9	no	CC0-1.0
+reg-0125	address	address.noun	Write your address on the envelope.	11	18	golden-readings	readings-golden.tsv:10	no	CC0-1.0
+reg-0126	address	address.verb	She will address the crowd tonight.	9	16	golden-readings	readings-golden.tsv:11	no	CC0-1.0
+reg-0127	advocate	advocate.noun	She is an advocate for clean water.	10	18	golden-readings	readings-golden.tsv:12	no	CC0-1.0
+reg-0128	advocate	advocate.verb	Doctors advocate daily exercise for everyone.	8	16	golden-readings	readings-golden.tsv:13	no	CC0-1.0
+reg-0129	affect	affect.psych	The patient showed a flat affect during the interview.	26	32	golden-readings	readings-golden.tsv:14	no	CC0-1.0
+reg-0130	affect	affect.verb	The weather can affect your mood.	16	22	golden-readings	readings-golden.tsv:15	no	CC0-1.0
+reg-0131	affiliate	affiliate.noun	The store is an affiliate of a larger company.	16	25	golden-readings	readings-golden.tsv:16	no	CC0-1.0
+reg-0132	affiliate	affiliate.verb	Our club will affiliate with the national league.	14	23	golden-readings	readings-golden.tsv:17	no	CC0-1.0
+reg-0133	age	age.verb	The children, aged five and seven, played outside.	14	18	golden-readings	readings-golden.tsv:18	no	CC0-1.0
+reg-0134	aged	aged.adj	The aged oak tree shaded the old house.	4	8	golden-readings	readings-golden.tsv:19	no	CC0-1.0
+reg-0135	aggregate	aggregate.adj-noun	The aggregate score was higher than expected.	4	13	golden-readings	readings-golden.tsv:20	no	CC0-1.0
+reg-0136	aggregate	aggregate.verb	We aggregate the data from all the sensors.	3	12	golden-readings	readings-golden.tsv:21	no	CC0-1.0
+reg-0137	alternate	alternate.adj-noun	They meet on alternate Tuesdays.	13	22	golden-readings	readings-golden.tsv:22	no	CC0-1.0
+reg-0138	alternate	alternate.verb	The lights alternate between red and green.	11	20	golden-readings	readings-golden.tsv:23	no	CC0-1.0
+reg-0139	analyse	analyse.verb	She analyses the results every morning.	4	12	golden-readings	readings-golden.tsv:24	no	CC0-1.0
+reg-0140	analysis	analysis.plural	The two analyses reached different conclusions.	8	16	golden-readings	readings-golden.tsv:25	no	CC0-1.0
+reg-0141	animate	animate.adj-noun	Rocks are not animate objects.	14	21	golden-readings	readings-golden.tsv:26	no	CC0-1.0
+reg-0142	animate	animate.verb	Artists animate drawings with a computer.	8	15	golden-readings	readings-golden.tsv:27	no	CC0-1.0
+reg-0143	appropriate	appropriate.adj	That dress is appropriate for the party.	14	25	golden-readings	readings-golden.tsv:28	no	CC0-1.0
+reg-0144	appropriate	appropriate.verb	The city may appropriate the land for a park.	13	24	golden-readings	readings-golden.tsv:29	no	CC0-1.0
+reg-0145	approximate	approximate.adj-noun	The approximate cost is ten dollars.	4	15	golden-readings	readings-golden.tsv:30	no	CC0-1.0
+reg-0146	approximate	approximate.verb	The machine can approximate the value quickly.	16	27	golden-readings	readings-golden.tsv:31	no	CC0-1.0
+reg-0147	articulate	articulate.adj	She is an articulate and confident speaker.	10	20	golden-readings	readings-golden.tsv:32	no	CC0-1.0
+reg-0148	articulate	articulate.verb	He struggled to articulate his feelings.	16	26	golden-readings	readings-golden.tsv:33	no	CC0-1.0
+reg-0149	associate	associate.adj-noun	He is an associate of the firm.	9	18	golden-readings	readings-golden.tsv:34	no	CC0-1.0
+reg-0150	attribute	attribute.noun	Patience is an important attribute in a teacher.	25	34	golden-readings	readings-golden.tsv:36	no	CC0-1.0
+reg-0151	attribute	attribute.verb	Historians attribute the poem to a monk.	11	20	golden-readings	readings-golden.tsv:37	no	CC0-1.0
+reg-0152	augment	augment.noun	In Greek grammar, the augment marks the past tense.	22	29	golden-readings	readings-golden.tsv:38	no	CC0-1.0
+reg-0153	augment	augment.verb	They plan to augment their income with a second job.	13	20	golden-readings	readings-golden.tsv:39	no	CC0-1.0
+reg-0154	august	august.majestic	The august judge entered the quiet courtroom.	4	10	golden-readings	readings-golden.tsv:40	no	CC0-1.0
+reg-0155	august	august.month	We always go on vacation in August.	28	34	golden-readings	readings-golden.tsv:41	no	CC0-1.0
+reg-0156	august	august.name	August Wilson was a famous playwright.	0	6	golden-readings	readings-golden.tsv:42	no	CC0-1.0
+reg-0157	axis	axis.plural	Draw the two axes on the graph.	13	17	golden-readings	readings-golden.tsv:44	no	CC0-1.0
+reg-0158	bless	bless.verb	She was blessed with good health.	8	15	golden-readings	readings-golden.tsv:47	no	CC0-1.0
+reg-0159	blessed	blessed.adj	He prayed to the Blessed Virgin.	17	24	golden-readings	readings-golden.tsv:48	no	CC0-1.0
+reg-0160	bologna	bologna.city	We visited the university in Bologna last spring.	29	36	golden-readings	readings-golden.tsv:49	no	CC0-1.0
+reg-0161	bologna	bologna.sausage	He ate a bologna sandwich for lunch.	9	16	golden-readings	readings-golden.tsv:50	no	CC0-1.0
+reg-0162	bow	bow.bend	The actors take a bow at the end.	18	21	golden-readings	readings-golden.tsv:51	no	CC0-1.0
+reg-0163	bow	bow.weapon	The archer drew back his bow.	25	28	golden-readings	readings-golden.tsv:52	no	CC0-1.0
+reg-0164	buffet	buffet.meal	The hotel serves a buffet every morning.	19	25	golden-readings	readings-golden.tsv:53	no	CC0-1.0
+reg-0165	buffet	buffet.strike	Strong winds buffet the small boat.	13	19	golden-readings	readings-golden.tsv:54	no	CC0-1.0
+reg-0166	celtic	celtic.culture	Celtic music uses fiddles and flutes.	0	6	golden-readings	readings-golden.tsv:55	no	CC0-1.0
+reg-0167	celtic	celtic.team	Celtic won the soccer match on Saturday.	0	6	golden-readings	readings-golden.tsv:56	no	CC0-1.0
+reg-0168	certificate	certificate.noun	She framed her birth certificate.	21	32	golden-readings	readings-golden.tsv:57	no	CC0-1.0
+reg-0169	certificate	certificate.verb	The board will certificate the new nurses next month.	15	26	golden-readings	readings-golden.tsv:58	no	CC0-1.0
+reg-0170	close	close.adj-noun	They are close friends.	9	14	golden-readings	readings-golden.tsv:59	no	CC0-1.0
+reg-0171	close	close.verb	Please close the door quietly.	7	12	golden-readings	readings-golden.tsv:60	no	CC0-1.0
+reg-0172	combat	combat.noun	He trained for close combat.	21	27	golden-readings	readings-golden.tsv:61	no	CC0-1.0
+reg-0173	combat	combat.verb	Doctors combat the disease with new drugs.	8	14	golden-readings	readings-golden.tsv:62	no	CC0-1.0
+reg-0174	combine	combine.noun	The farmer drove his combine across the field.	21	28	golden-readings	readings-golden.tsv:63	no	CC0-1.0
+reg-0175	combine	combine.verb	Combine the flour and the sugar.	0	7	golden-readings	readings-golden.tsv:64	no	CC0-1.0
+reg-0176	compact	compact.adj-noun	The compact car fit the small space.	4	11	golden-readings	readings-golden.tsv:65	no	CC0-1.0
+reg-0177	compact	compact.verb	The machine will compact the trash.	17	24	golden-readings	readings-golden.tsv:66	no	CC0-1.0
+reg-0178	compliment	compliment.noun	She gave him a nice compliment.	20	30	golden-readings	readings-golden.tsv:67	no	CC0-1.0
+reg-0179	compliment	compliment.verb	I want to compliment you on your work.	10	20	golden-readings	readings-golden.tsv:68	no	CC0-1.0
+reg-0180	compound	compound.noun	Water is a compound of hydrogen and oxygen.	11	19	golden-readings	readings-golden.tsv:69	yes	CC0-1.0
+reg-0181	compound	compound.verb	Late fees will compound the problem.	15	23	golden-readings	readings-golden.tsv:70	no	CC0-1.0
+reg-0182	compress	compress.noun	Apply a cold compress to the bruise.	13	21	golden-readings	readings-golden.tsv:71	no	CC0-1.0
+reg-0183	compress	compress.verb	You can compress the files to save space.	8	16	golden-readings	readings-golden.tsv:72	no	CC0-1.0
+reg-0184	concert	concert.noun	We heard a concert in the park.	11	18	golden-readings	readings-golden.tsv:73	no	CC0-1.0
+reg-0185	concert	concert.verb	Nations must concert their efforts to stop the spread.	13	20	golden-readings	readings-golden.tsv:74	no	CC0-1.0
+reg-0186	conduct	conduct.noun	His conduct at the meeting was rude.	4	11	golden-readings	readings-golden.tsv:75	no	CC0-1.0
+reg-0187	conduct	conduct.verb	They will conduct the experiment tomorrow.	10	17	golden-readings	readings-golden.tsv:76	no	CC0-1.0
+reg-0188	confederate	confederate.adj-noun	A confederate soldier wrote the letter.	2	13	golden-readings	readings-golden.tsv:77	no	CC0-1.0
+reg-0189	confederate	confederate.verb	The small states confederate to share defense.	17	28	golden-readings	readings-golden.tsv:78	no	CC0-1.0
+reg-0190	confine	confine.noun	He never left the confines of the village.	18	26	golden-readings	readings-golden.tsv:79	no	CC0-1.0
+reg-0191	conflict	conflict.noun	The conflict lasted ten years.	4	12	golden-readings	readings-golden.tsv:81	no	CC0-1.0
+reg-0192	conflict	conflict.verb	Your schedule may conflict with mine.	18	26	golden-readings	readings-golden.tsv:82	no	CC0-1.0
+reg-0193	conglomerate	conglomerate.adj-noun	The conglomerate owns dozens of companies.	4	16	golden-readings	readings-golden.tsv:83	no	CC0-1.0
+reg-0194	conglomerate	conglomerate.verb	Dust will conglomerate into larger clumps.	10	22	golden-readings	readings-golden.tsv:84	no	CC0-1.0
+reg-0195	conjugate	conjugate.adj-noun	The conjugate of the complex number is shown below.	4	13	golden-readings	readings-golden.tsv:85	no	CC0-1.0
+reg-0196	conjugate	conjugate.verb	Students must conjugate the verb correctly.	14	23	golden-readings	readings-golden.tsv:86	no	CC0-1.0
+reg-0197	conscript	conscript.noun	The conscript marched all day.	4	13	golden-readings	readings-golden.tsv:87	no	CC0-1.0
+reg-0198	conscript	conscript.verb	The king will conscript young men for the war.	14	23	golden-readings	readings-golden.tsv:88	no	CC0-1.0
+reg-0199	conserve	conserve.noun	She spread strawberry conserve on the toast.	22	30	golden-readings	readings-golden.tsv:89	no	CC0-1.0
+reg-0200	conserve	conserve.verb	We must conserve water during the drought.	8	16	golden-readings	readings-golden.tsv:90	no	CC0-1.0
+reg-0201	console	console.noun	He plugged the game console into the television.	20	27	golden-readings	readings-golden.tsv:91	yes	CC0-1.0
+reg-0202	console	console.verb	She tried to console the crying child.	13	20	golden-readings	readings-golden.tsv:92	no	CC0-1.0
+reg-0203	consort	consort.noun	The queen and her consort waved to the crowd.	18	25	golden-readings	readings-golden.tsv:93	no	CC0-1.0
+reg-0204	consort	consort.verb	He was seen to consort with thieves.	15	22	golden-readings	readings-golden.tsv:94	no	CC0-1.0
+reg-0205	construct	construct.noun	Time is a social construct.	17	26	golden-readings	readings-golden.tsv:95	no	CC0-1.0
+reg-0206	construct	construct.verb	Workers will construct the bridge next year.	13	22	golden-readings	readings-golden.tsv:96	no	CC0-1.0
+reg-0207	consummate	consummate.adj	She is a consummate professional.	9	19	golden-readings	readings-golden.tsv:97	no	CC0-1.0
+reg-0208	consummate	consummate.verb	They did not consummate the deal.	13	23	golden-readings	readings-golden.tsv:98	no	CC0-1.0
+reg-0209	content	content.noun	The content of the book was shocking.	4	11	golden-readings	readings-golden.tsv:99	no	CC0-1.0
+reg-0210	content	content.satisfied	She felt content with her simple life.	9	16	golden-readings	readings-golden.tsv:100	no	CC0-1.0
+reg-0211	contest	contest.noun	He won the baking contest.	18	25	golden-readings	readings-golden.tsv:101	no	CC0-1.0
+reg-0212	contest	contest.verb	They plan to contest the ruling.	13	20	golden-readings	readings-golden.tsv:102	no	CC0-1.0
+reg-0213	contract	contract.noun	She signed the contract on Monday.	15	23	golden-readings	readings-golden.tsv:103	no	CC0-1.0
+reg-0214	contract	contract.verb	Metal will contract in the cold.	11	19	golden-readings	readings-golden.tsv:104	no	CC0-1.0
+reg-0215	contrast	contrast.noun	The contrast between the two paintings is clear.	4	12	golden-readings	readings-golden.tsv:105	no	CC0-1.0
+reg-0216	contrast	contrast.verb	Critics often contrast the two writers.	14	22	golden-readings	readings-golden.tsv:106	no	CC0-1.0
+reg-0217	converse	converse.adj-noun	The converse of the statement is also true.	4	12	golden-readings	readings-golden.tsv:107	no	CC0-1.0
+reg-0218	converse	converse.verb	They converse in French at home.	5	13	golden-readings	readings-golden.tsv:108	no	CC0-1.0
+reg-0219	convert	convert.noun	He is a new convert to the faith.	12	19	golden-readings	readings-golden.tsv:109	no	CC0-1.0
+reg-0220	convert	convert.verb	You can convert the file to a different format.	8	15	golden-readings	readings-golden.tsv:110	no	CC0-1.0
+reg-0221	convict	convict.noun	The convict escaped from prison.	4	11	golden-readings	readings-golden.tsv:111	no	CC0-1.0
+reg-0222	convict	convict.verb	The jury did not convict him.	17	24	golden-readings	readings-golden.tsv:112	no	CC0-1.0
+reg-0223	coordinate	coordinate.adj-noun	Enter the coordinate of the point on the map.	10	20	golden-readings	readings-golden.tsv:113	no	CC0-1.0
+reg-0224	coordinate	coordinate.verb	We need to coordinate our schedules.	11	21	golden-readings	readings-golden.tsv:114	no	CC0-1.0
+reg-0225	correlate	correlate.noun	Height is a correlate of weight.	12	21	golden-readings	readings-golden.tsv:115	no	CC0-1.0
+reg-0226	correlate	correlate.verb	Scientists try to correlate the two sets of data.	18	27	golden-readings	readings-golden.tsv:116	no	CC0-1.0
+reg-0227	decrease	decrease.noun	There was a sharp decrease in sales.	18	26	golden-readings	readings-golden.tsv:117	no	CC0-1.0
+reg-0228	decrease	decrease.verb	Prices will decrease next month.	12	20	golden-readings	readings-golden.tsv:118	no	CC0-1.0
+reg-0229	defect	defect.noun	The car had a serious defect.	22	28	golden-readings	readings-golden.tsv:119	no	CC0-1.0
+reg-0230	defect	defect.verb	Some soldiers chose to defect to the other side.	23	29	golden-readings	readings-golden.tsv:120	yes	CC0-1.0
+reg-0231	degenerate	degenerate.adj-noun	The degenerate state of the building was clear.	4	14	golden-readings	readings-golden.tsv:121	no	CC0-1.0
+reg-0232	degenerate	degenerate.verb	Without care, the soil will degenerate.	28	38	golden-readings	readings-golden.tsv:122	no	CC0-1.0
+reg-0233	delegate	delegate.noun	Each state sent one delegate to the convention.	20	28	golden-readings	readings-golden.tsv:123	no	CC0-1.0
+reg-0234	delegate	delegate.verb	A good manager knows when to delegate.	29	37	golden-readings	readings-golden.tsv:124	no	CC0-1.0
+reg-0235	deliberate	deliberate.adj	It was a deliberate act.	9	19	golden-readings	readings-golden.tsv:125	no	CC0-1.0
+reg-0236	deliberate	deliberate.verb	The jury will deliberate for hours.	14	24	golden-readings	readings-golden.tsv:126	no	CC0-1.0
+reg-0237	desert	desert.noun	The Sahara is the largest desert in Africa.	26	32	golden-readings	readings-golden.tsv:127	no	CC0-1.0
+reg-0238	desert	desert.verb	Soldiers who desert the army face punishment.	13	19	golden-readings	readings-golden.tsv:128	no	CC0-1.0
+reg-0239	designate	designate.adj	He is the ambassador designate.	21	30	golden-readings	readings-golden.tsv:129	no	CC0-1.0
+reg-0240	designate	designate.verb	They will designate a new leader.	10	19	golden-readings	readings-golden.tsv:130	no	CC0-1.0
+reg-0241	deviate	deviate.noun	A normal deviate is a random value drawn from a bell curve.	9	16	golden-readings	readings-golden.tsv:131	no	CC0-1.0
+reg-0242	deviate	deviate.verb	Do not deviate from the plan.	7	14	golden-readings	readings-golden.tsv:132	no	CC0-1.0
+reg-0243	diagnose	diagnose.verb	The doctor diagnoses the illness quickly.	11	20	golden-readings	readings-golden.tsv:133	no	CC0-1.0
+reg-0244	diagnosis	diagnosis.plural	The two diagnoses were very different.	8	17	golden-readings	readings-golden.tsv:134	no	CC0-1.0
+reg-0245	diffuse	diffuse.adj	The room was lit by diffuse light.	20	27	golden-readings	readings-golden.tsv:135	no	CC0-1.0
+reg-0246	diffuse	diffuse.verb	Heat will diffuse through the metal.	10	17	golden-readings	readings-golden.tsv:136	no	CC0-1.0
+reg-0247	discard	discard.noun	She added a card to the discard pile.	24	31	golden-readings	readings-golden.tsv:137	no	CC0-1.0
+reg-0248	discard	discard.verb	Please discard the old batteries.	7	14	golden-readings	readings-golden.tsv:138	no	CC0-1.0
+reg-0249	discharge	discharge.noun	The soldier received an honorable discharge.	34	43	golden-readings	readings-golden.tsv:139	no	CC0-1.0
+reg-0250	discharge	discharge.verb	The hospital will discharge him today.	18	27	golden-readings	readings-golden.tsv:140	no	CC0-1.0
+reg-0251	discount	discount.noun	Students get a discount on tickets.	15	23	golden-readings	readings-golden.tsv:141	no	CC0-1.0
+reg-0252	discount	discount.verb	You should discount his wild claims.	11	19	golden-readings	readings-golden.tsv:142	no	CC0-1.0
+reg-0253	discourse	discourse.noun	The discourse lasted for an hour.	4	13	golden-readings	readings-golden.tsv:143	no	CC0-1.0
+reg-0254	discourse	discourse.verb	He loved to discourse on philosophy.	12	21	golden-readings	readings-golden.tsv:144	no	CC0-1.0
+reg-0255	dive	dive.past	He dove into the cold pool.	3	7	golden-readings	readings-golden.tsv:145	no	CC0-1.0
+reg-0256	do	do.verb	She does the dishes every night.	4	8	golden-readings	readings-golden.tsv:146	no	CC0-1.0
+reg-0257	document	document.noun	Please sign the document.	16	24	golden-readings	readings-golden.tsv:147	no	CC0-1.0
+reg-0258	document	document.verb	We document every change in a log.	3	11	golden-readings	readings-golden.tsv:148	no	CC0-1.0
+reg-0259	doe	doe.plural	The does grazed near the creek.	4	8	golden-readings	readings-golden.tsv:149	no	CC0-1.0
+reg-0260	dove	dove.bird	A white dove flew over the square.	8	12	golden-readings	readings-golden.tsv:150	no	CC0-1.0
+reg-0261	duplicate	duplicate.adj-noun	She made a duplicate of the key.	11	20	golden-readings	readings-golden.tsv:151	no	CC0-1.0
+reg-0262	duplicate	duplicate.verb	Please do not duplicate this file.	14	23	golden-readings	readings-golden.tsv:152	no	CC0-1.0
+reg-0263	elaborate	elaborate.adj	They planned an elaborate wedding.	16	25	golden-readings	readings-golden.tsv:153	no	CC0-1.0
+reg-0264	elaborate	elaborate.verb	Could you elaborate on that point?	10	19	golden-readings	readings-golden.tsv:154	yes	CC0-1.0
+reg-0265	entrance	entrance.noun	The entrance to the park is on Main Street.	4	12	golden-readings	readings-golden.tsv:155	no	CC0-1.0
+reg-0266	entrance	entrance.verb	The magician's tricks entrance the children.	22	30	golden-readings	readings-golden.tsv:156	no	CC0-1.0
+reg-0267	escort	escort.noun	The president arrived with a police escort.	36	42	golden-readings	readings-golden.tsv:157	no	CC0-1.0
+reg-0268	escort	escort.verb	A guard will escort you to the exit.	13	19	golden-readings	readings-golden.tsv:158	no	CC0-1.0
+reg-0269	essay	essay.noun	He wrote an essay about the war.	12	17	golden-readings	readings-golden.tsv:159	no	CC0-1.0
+reg-0270	essay	essay.verb	They essay a new approach to the problem.	5	10	golden-readings	readings-golden.tsv:160	no	CC0-1.0
+reg-0271	estimate	estimate.noun	The estimate was far too low.	4	12	golden-readings	readings-golden.tsv:161	no	CC0-1.0
+reg-0272	estimate	estimate.verb	I estimate that it will take two hours.	2	10	golden-readings	readings-golden.tsv:162	no	CC0-1.0
+reg-0273	excuse	excuse.noun	He gave a weak excuse for being late.	15	21	golden-readings	readings-golden.tsv:163	no	CC0-1.0
+reg-0274	excuse	excuse.verb	Please excuse my mistake.	7	13	golden-readings	readings-golden.tsv:164	no	CC0-1.0
+reg-0275	expatriate	expatriate.noun	The expatriate missed her home country.	4	14	golden-readings	readings-golden.tsv:165	no	CC0-1.0
+reg-0276	expatriate	expatriate.verb	The regime will expatriate the dissidents.	16	26	golden-readings	readings-golden.tsv:166	no	CC0-1.0
+reg-0277	exploit	exploit.noun	The novel tells of the heroic exploit of a sailor.	30	37	golden-readings	readings-golden.tsv:167	no	CC0-1.0
+reg-0278	exploit	exploit.verb	Some firms exploit their workers.	11	18	golden-readings	readings-golden.tsv:168	no	CC0-1.0
+reg-0279	export	export.noun	Coffee is the country's main export.	29	35	golden-readings	readings-golden.tsv:169	yes	CC0-1.0
+reg-0280	export	export.verb	They export cars to Europe.	5	11	golden-readings	readings-golden.tsv:170	no	CC0-1.0
+reg-0281	expose	expose.noun	The newspaper ran an expose on the scandal.	21	27	golden-readings	readings-golden.tsv:171	no	CC0-1.0
+reg-0282	expose	expose.verb	Do not expose the film to light.	7	13	golden-readings	readings-golden.tsv:172	no	CC0-1.0
+reg-0283	extract	extract.noun	He added a drop of vanilla extract.	27	34	golden-readings	readings-golden.tsv:173	no	CC0-1.0
+reg-0284	extract	extract.verb	The dentist will extract the tooth.	17	24	golden-readings	readings-golden.tsv:174	no	CC0-1.0
+reg-0285	fragment	fragment.noun	She found a fragment of pottery.	12	20	golden-readings	readings-golden.tsv:175	no	CC0-1.0
+reg-0286	fragment	fragment.verb	The ice began to fragment.	17	25	golden-readings	readings-golden.tsv:176	no	CC0-1.0
+reg-0287	frequent	frequent.adj	He is a frequent visitor.	8	16	golden-readings	readings-golden.tsv:177	no	CC0-1.0
+reg-0288	frequent	frequent.verb	Tourists frequent the old cafe.	9	17	golden-readings	readings-golden.tsv:178	no	CC0-1.0
+reg-0289	graduate	graduate.adj-noun	She is a graduate of Yale.	9	17	golden-readings	readings-golden.tsv:179	no	CC0-1.0
+reg-0290	graduate	graduate.verb	Students graduate in June.	9	17	golden-readings	readings-golden.tsv:180	no	CC0-1.0
+reg-0291	house	house.noun	They bought a big house.	18	23	golden-readings	readings-golden.tsv:181	no	CC0-1.0
+reg-0292	house	house.verb	The museum will house the collection.	16	21	golden-readings	readings-golden.tsv:182	no	CC0-1.0
+reg-0293	impact	impact.noun	The impact of the crash was felt miles away.	4	10	golden-readings	readings-golden.tsv:183	no	CC0-1.0
+reg-0294	impact	impact.verb	The new law will impact small businesses.	17	23	golden-readings	readings-golden.tsv:184	no	CC0-1.0
+reg-0295	implant	implant.noun	He received a dental implant.	21	28	golden-readings	readings-golden.tsv:185	no	CC0-1.0
+reg-0296	implant	implant.verb	Surgeons implant the device under the skin.	9	16	golden-readings	readings-golden.tsv:186	no	CC0-1.0
+reg-0297	implement	implement.noun	A hammer is a simple implement.	21	30	golden-readings	readings-golden.tsv:187	no	CC0-1.0
+reg-0298	implement	implement.verb	The city will implement the new rules.	14	23	golden-readings	readings-golden.tsv:188	no	CC0-1.0
+reg-0299	import	import.noun	Oil is a major import.	15	21	golden-readings	readings-golden.tsv:189	no	CC0-1.0
+reg-0300	import	import.verb	They import wine from France.	5	11	golden-readings	readings-golden.tsv:190	no	CC0-1.0
+reg-0301	incense	incense.noun	The temple smelled of burning incense.	30	37	golden-readings	readings-golden.tsv:191	no	CC0-1.0
+reg-0302	incense	incense.verb	Rude remarks incense him.	13	20	golden-readings	readings-golden.tsv:192	no	CC0-1.0
+reg-0303	incline	incline.noun	The truck struggled up the steep incline.	33	40	golden-readings	readings-golden.tsv:193	no	CC0-1.0
+reg-0304	incline	incline.verb	I incline to agree with you.	2	9	golden-readings	readings-golden.tsv:194	no	CC0-1.0
+reg-0305	incorporate	incorporate.adj	The incorporate body held its first meeting.	4	15	golden-readings	readings-golden.tsv:195	no	CC0-1.0
+reg-0306	incorporate	incorporate.verb	We will incorporate your ideas into the plan.	8	19	golden-readings	readings-golden.tsv:196	no	CC0-1.0
+reg-0307	increase	increase.noun	There was a large increase in prices.	18	26	golden-readings	readings-golden.tsv:197	no	CC0-1.0
+reg-0308	increase	increase.verb	Taxes will increase next year.	11	19	golden-readings	readings-golden.tsv:198	no	CC0-1.0
+reg-0309	increment	increment.noun	The price rose by a small increment.	26	35	golden-readings	readings-golden.tsv:199	no	CC0-1.0
+reg-0310	increment	increment.verb	The program will increment the counter.	17	26	golden-readings	readings-golden.tsv:200	no	CC0-1.0
+reg-0311	initiate	initiate.noun	The initiate took a sacred vow.	4	12	golden-readings	readings-golden.tsv:201	no	CC0-1.0
+reg-0312	initiate	initiate.verb	They will initiate the project in May.	10	18	golden-readings	readings-golden.tsv:202	no	CC0-1.0
+reg-0313	insert	insert.noun	The magazine had an insert about travel.	20	26	golden-readings	readings-golden.tsv:203	no	CC0-1.0
+reg-0314	insert	insert.verb	Insert the key into the lock.	0	6	golden-readings	readings-golden.tsv:204	no	CC0-1.0
+reg-0315	inside	inside.adj-noun	The inside of the box was red.	4	10	golden-readings	readings-golden.tsv:205	no	CC0-1.0
+reg-0316	inside	inside.adv-prep	Come inside before it rains.	5	11	golden-readings	readings-golden.tsv:206	no	CC0-1.0
+reg-0317	instrument	instrument.noun	The violin is a beautiful instrument.	26	36	golden-readings	readings-golden.tsv:207	no	CC0-1.0
+reg-0318	instrument	instrument.verb	Engineers instrument the bridge with sensors.	10	20	golden-readings	readings-golden.tsv:208	no	CC0-1.0
+reg-0319	insult	insult.noun	That remark was an insult.	19	25	golden-readings	readings-golden.tsv:209	no	CC0-1.0
+reg-0320	insult	insult.verb	Do not insult your guests.	7	13	golden-readings	readings-golden.tsv:210	no	CC0-1.0
+reg-0321	intercept	intercept.noun	The line crosses the axis at the intercept.	33	42	golden-readings	readings-golden.tsv:211	no	CC0-1.0
+reg-0322	intercept	intercept.verb	Police tried to intercept the message.	16	25	golden-readings	readings-golden.tsv:212	no	CC0-1.0
+reg-0323	interchange	interchange.noun	We exited at the highway interchange.	25	36	golden-readings	readings-golden.tsv:213	no	CC0-1.0
+reg-0324	interchange	interchange.verb	You can interchange the two parts.	8	19	golden-readings	readings-golden.tsv:214	no	CC0-1.0
+reg-0325	intern	intern.noun	The intern made coffee for the staff.	4	10	golden-readings	readings-golden.tsv:215	no	CC0-1.0
+reg-0326	intern	intern.verb	They will intern the prisoners in a camp.	10	16	golden-readings	readings-golden.tsv:216	no	CC0-1.0
+reg-0327	intimate	intimate.adj	They had an intimate dinner for two.	12	20	golden-readings	readings-golden.tsv:217	no	CC0-1.0
+reg-0328	intimate	intimate.verb	He did not intimate that he was leaving.	11	19	golden-readings	readings-golden.tsv:218	no	CC0-1.0
+reg-0329	intrigue	intrigue.noun	The play is full of royal intrigue.	26	34	golden-readings	readings-golden.tsv:219	no	CC0-1.0
+reg-0330	intrigue	intrigue.verb	The mystery will intrigue readers.	17	25	golden-readings	readings-golden.tsv:220	no	CC0-1.0
+reg-0331	invalid	invalid.adj	The password you entered is invalid.	28	35	golden-readings	readings-golden.tsv:221	no	CC0-1.0
+reg-0332	invalid	invalid.noun	The invalid rested in bed all day.	4	11	golden-readings	readings-golden.tsv:222	no	CC0-1.0
+reg-0333	invert	invert.adj-noun	The invert is the lowest point inside a pipe.	4	10	golden-readings	readings-golden.tsv:223	no	CC0-1.0
+reg-0334	invert	invert.verb	Invert the cake onto a plate.	0	6	golden-readings	readings-golden.tsv:224	no	CC0-1.0
+reg-0335	invite	invite.noun	She sent an invite to all her friends.	12	18	golden-readings	readings-golden.tsv:225	no	CC0-1.0
+reg-0336	invite	invite.verb	We invite you to join us.	3	9	golden-readings	readings-golden.tsv:226	no	CC0-1.0
+reg-0337	isolate	isolate.noun	Scientists studied the viral isolate.	29	36	golden-readings	readings-golden.tsv:227	no	CC0-1.0
+reg-0338	isolate	isolate.verb	Doctors isolate the patient to stop the spread.	8	15	golden-readings	readings-golden.tsv:228	no	CC0-1.0
+reg-0339	jesus	jesus.english	The church honors Jesus every Sunday.	18	23	golden-readings	readings-golden.tsv:229	no	CC0-1.0
+reg-0340	jesus	jesus.spanish	My neighbor Jesus speaks only Spanish.	12	17	golden-readings	readings-golden.tsv:230	no	CC0-1.0
+reg-0341	job	job.bible	The Book of Job tells of great suffering.	12	15	golden-readings	readings-golden.tsv:231	no	CC0-1.0
+reg-0342	job	job.work	He found a new job last week.	15	18	golden-readings	readings-golden.tsv:232	no	CC0-1.0
+reg-0343	laminate	laminate.noun	The kitchen has a laminate countertop.	18	26	golden-readings	readings-golden.tsv:233	no	CC0-1.0
+reg-0344	laminate	laminate.verb	She will laminate the poster.	9	17	golden-readings	readings-golden.tsv:234	no	CC0-1.0
+reg-0345	lead	lead.guide	She will lead the team to victory.	9	13	golden-readings	readings-golden.tsv:235	no	CC0-1.0
+reg-0346	lead	lead.metal	The pipes were made of lead.	23	27	golden-readings	readings-golden.tsv:236	no	CC0-1.0
+reg-0347	learn	learn.verb	He learned to swim last summer.	3	10	golden-readings	readings-golden.tsv:237	no	CC0-1.0
+reg-0348	learned	learned.adj	The learned professor spoke for an hour.	4	11	golden-readings	readings-golden.tsv:238	no	CC0-1.0
+reg-0349	legitimate	legitimate.adj	She has a legitimate reason.	10	20	golden-readings	readings-golden.tsv:239	no	CC0-1.0
+reg-0350	legitimate	legitimate.verb	The ruling would legitimate the new government.	17	27	golden-readings	readings-golden.tsv:240	no	CC0-1.0
+reg-0351	live	live.adj	The band played a live show.	18	22	golden-readings	readings-golden.tsv:242	no	CC0-1.0
+reg-0352	live	live.verb	They live in a small town.	5	9	golden-readings	readings-golden.tsv:243	no	CC0-1.0
+reg-0353	mate	mate.companion	Her mate waited by the door.	4	8	golden-readings	readings-golden.tsv:244	no	CC0-1.0
+reg-0354	mate	mate.drink	He sipped hot mate from a gourd.	14	18	golden-readings	readings-golden.tsv:245	no	CC0-1.0
+reg-0355	mediate	mediate.adj	The mediate cause of the fire was a spark.	4	11	golden-readings	readings-golden.tsv:246	no	CC0-1.0
+reg-0356	mediate	mediate.verb	A neutral party will mediate the dispute.	21	28	golden-readings	readings-golden.tsv:247	no	CC0-1.0
+reg-0357	merchandise	merchandise.noun	The store sells team merchandise.	21	32	golden-readings	readings-golden.tsv:248	no	CC0-1.0
+reg-0358	merchandise	merchandise.verb	They merchandise their brand with toys.	5	16	golden-readings	readings-golden.tsv:249	no	CC0-1.0
+reg-0359	minute	minute.time	Wait one minute please.	9	15	golden-readings	readings-golden.tsv:250	no	CC0-1.0
+reg-0360	minute	minute.tiny	The surface had minute scratches.	16	22	golden-readings	readings-golden.tsv:251	no	CC0-1.0
+reg-0361	misuse	misuse.noun	The misuse of funds led to his arrest.	4	10	golden-readings	readings-golden.tsv:252	no	CC0-1.0
+reg-0362	misuse	misuse.verb	Do not misuse the equipment.	7	13	golden-readings	readings-golden.tsv:253	no	CC0-1.0
+reg-0363	mobile	mobile.city	We took the bus to Mobile, Alabama.	19	25	golden-readings	readings-golden.tsv:254	no	CC0-1.0
+reg-0364	mobile	mobile.movable	She answered her mobile phone.	17	23	golden-readings	readings-golden.tsv:255	no	CC0-1.0
+reg-0365	mobile	mobile.sculpture	A colorful mobile hung above the crib.	11	17	golden-readings	readings-golden.tsv:256	no	CC0-1.0
+reg-0366	moderate	moderate.verb	A teacher will moderate the debate.	15	23	golden-readings	readings-golden.tsv:258	no	CC0-1.0
+reg-0367	mope	mope.verb	She moped around the house all day.	4	9	golden-readings	readings-golden.tsv:259	no	CC0-1.0
+reg-0368	moped	moped.noun	He rode his moped to work.	12	17	golden-readings	readings-golden.tsv:260	no	CC0-1.0
+reg-0369	mouth	mouth.noun	Open your mouth wide.	10	15	golden-readings	readings-golden.tsv:261	no	CC0-1.0
+reg-0370	mouth	mouth.verb	He mouthed the words to the song.	3	10	golden-readings	readings-golden.tsv:262	no	CC0-1.0
+reg-0371	nestle	nestle.company	Nestle sells chocolate worldwide.	0	6	golden-readings	readings-golden.tsv:263	no	CC0-1.0
+reg-0372	nestle	nestle.snuggle	The kitten likes to nestle in my lap.	20	26	golden-readings	readings-golden.tsv:264	no	CC0-1.0
+reg-0373	nominate	nominate.verb	I nominate her for president.	2	10	golden-readings	readings-golden.tsv:266	no	CC0-1.0
+reg-0374	number	number.noun	Pick a number between one and ten.	7	13	golden-readings	readings-golden.tsv:267	no	CC0-1.0
+reg-0375	number	number.numb	My fingers got number in the cold.	15	21	golden-readings	readings-golden.tsv:268	no	CC0-1.0
+reg-0376	object	object.noun	A ball is a round object.	18	24	golden-readings	readings-golden.tsv:269	no	CC0-1.0
+reg-0377	object	object.verb	I object to that statement.	2	8	golden-readings	readings-golden.tsv:270	no	CC0-1.0
+reg-0378	offset	offset.noun	The offset between the two lines is small.	4	10	golden-readings	readings-golden.tsv:271	no	CC0-1.0
+reg-0379	offset	offset.verb	Savings will offset the cost.	13	19	golden-readings	readings-golden.tsv:272	no	CC0-1.0
+reg-0380	orient	orient.noun	The ships sailed for the Orient.	25	31	golden-readings	readings-golden.tsv:273	no	CC0-1.0
+reg-0381	orient	orient.verb	Please orient the map to the north.	7	13	golden-readings	readings-golden.tsv:274	no	CC0-1.0
+reg-0382	ornament	ornament.noun	She hung an ornament on the tree.	12	20	golden-readings	readings-golden.tsv:275	no	CC0-1.0
+reg-0383	ornament	ornament.verb	They ornament the hall with flowers.	5	13	golden-readings	readings-golden.tsv:276	no	CC0-1.0
+reg-0384	overthrow	overthrow.noun	The overthrow of the king shocked everyone.	4	13	golden-readings	readings-golden.tsv:277	no	CC0-1.0
+reg-0385	overthrow	overthrow.verb	Rebels hoped to overthrow the government.	16	25	golden-readings	readings-golden.tsv:278	no	CC0-1.0
+reg-0386	pasty	pasty.adj	His face looked pale and pasty.	25	30	golden-readings	readings-golden.tsv:279	no	CC0-1.0
+reg-0387	pasty	pasty.noun	He ate a hot pasty from the bakery.	13	18	golden-readings	readings-golden.tsv:280	no	CC0-1.0
+reg-0388	perfect	perfect.adj	The weather was perfect.	16	23	golden-readings	readings-golden.tsv:281	no	CC0-1.0
+reg-0389	perfect	perfect.verb	She worked hard to perfect her skill.	19	26	golden-readings	readings-golden.tsv:282	no	CC0-1.0
+reg-0390	perfume	perfume.noun	Her perfume smelled of roses.	4	11	golden-readings	readings-golden.tsv:283	no	CC0-1.0
+reg-0391	perfume	perfume.verb	Flowers perfume the garden.	8	15	golden-readings	readings-golden.tsv:284	no	CC0-1.0
+reg-0392	permit	permit.noun	You need a permit to park here.	11	17	golden-readings	readings-golden.tsv:285	no	CC0-1.0
+reg-0393	permit	permit.verb	The rules do not permit pets.	17	23	golden-readings	readings-golden.tsv:286	no	CC0-1.0
+reg-0394	pervert	pervert.noun	The judge called the man a pervert.	27	34	golden-readings	readings-golden.tsv:287	no	CC0-1.0
+reg-0395	pervert	pervert.verb	Some fear that money will pervert justice.	26	33	golden-readings	readings-golden.tsv:288	no	CC0-1.0
+reg-0396	pigment	pigment.noun	The paint contains a red pigment.	25	32	golden-readings	readings-golden.tsv:289	no	CC0-1.0
+reg-0397	pigment	pigment.verb	Sunlight can pigment the skin.	13	20	golden-readings	readings-golden.tsv:290	no	CC0-1.0
+reg-0398	polish	polish.nationality	She speaks Polish and German.	11	17	golden-readings	readings-golden.tsv:291	no	CC0-1.0
+reg-0399	polish	polish.shine	He used wax to polish the shoes.	15	21	golden-readings	readings-golden.tsv:292	no	CC0-1.0
+reg-0400	postulate	postulate.noun	That is a basic postulate of the theory.	16	25	golden-readings	readings-golden.tsv:293	no	CC0-1.0
+reg-0401	postulate	postulate.verb	Scientists postulate that the universe is expanding.	11	20	golden-readings	readings-golden.tsv:294	no	CC0-1.0
+reg-0402	precipitate	precipitate.adj-noun	The precipitate in the test tube was white.	4	15	golden-readings	readings-golden.tsv:295	no	CC0-1.0
+reg-0403	precipitate	precipitate.verb	Rising prices may precipitate a crisis.	18	29	golden-readings	readings-golden.tsv:296	no	CC0-1.0
+reg-0404	predicate	predicate.noun	The predicate of the sentence is a verb phrase.	4	13	golden-readings	readings-golden.tsv:297	no	CC0-1.0
+reg-0405	predicate	predicate.verb	He will predicate his argument on the facts.	8	17	golden-readings	readings-golden.tsv:298	no	CC0-1.0
+reg-0406	present	present.adj-noun	I wrapped a present for my sister.	12	19	golden-readings	readings-golden.tsv:299	no	CC0-1.0
+reg-0407	present	present.verb	I will present the results tomorrow.	7	14	golden-readings	readings-golden.tsv:300	no	CC0-1.0
+reg-0408	primer	primer.paint	Apply a coat of primer before painting the wall.	16	22	golden-readings	readings-golden.tsv:301	no	CC0-1.0
+reg-0409	primer	primer.textbook	The child read a primer to learn the alphabet.	17	23	golden-readings	readings-golden.tsv:302	no	CC0-1.0
+reg-0410	proceeds	proceeds.noun	The proceeds go to charity.	4	12	golden-readings	readings-golden.tsv:303	no	CC0-1.0
+reg-0411	proceeds	proceeds.verb	The meeting proceeds as planned.	12	20	golden-readings	readings-golden.tsv:304	no	CC0-1.0
+reg-0412	produce	produce.noun	She bought fresh produce at the market.	17	24	golden-readings	readings-golden.tsv:305	no	CC0-1.0
+reg-0413	produce	produce.verb	Factories produce cars.	10	17	golden-readings	readings-golden.tsv:306	no	CC0-1.0
+reg-0414	progress	progress.noun	We made good progress today.	13	21	golden-readings	readings-golden.tsv:307	no	CC0-1.0
+reg-0415	progress	progress.verb	The disease may progress slowly.	16	24	golden-readings	readings-golden.tsv:308	no	CC0-1.0
+reg-0416	project	project.noun	The project is almost finished.	4	11	golden-readings	readings-golden.tsv:309	no	CC0-1.0
+reg-0417	project	project.verb	Light can project an image on the wall.	10	17	golden-readings	readings-golden.tsv:310	no	CC0-1.0
+reg-0418	protest	protest.noun	The students joined a protest.	22	29	golden-readings	readings-golden.tsv:311	no	CC0-1.0
+reg-0419	protest	protest.verb	Workers protest against the new rules.	8	15	golden-readings	readings-golden.tsv:312	no	CC0-1.0
+reg-0420	put	put.verb	He is putting the books on the shelf.	6	13	golden-readings	readings-golden.tsv:313	no	CC0-1.0
+reg-0421	putt	putt.verb	She is putting on the green.	7	14	golden-readings	readings-golden.tsv:314	no	CC0-1.0
+reg-0422	ravel	ravel.composer	The orchestra played a piece by Ravel.	32	37	golden-readings	readings-golden.tsv:315	no	CC0-1.0
+reg-0423	ravel	ravel.tangle	The cat began to ravel the wool.	17	22	golden-readings	readings-golden.tsv:316	no	CC0-1.0
+reg-0424	read	read.present	Please read the next page aloud.	7	11	golden-readings	readings-golden.tsv:318	no	CC0-1.0
+reg-0425	reading	reading.act	She enjoys reading before bed.	11	18	golden-readings	readings-golden.tsv:319	no	CC0-1.0
+reg-0426	rebel	rebel.noun	The rebel fled into the hills.	4	9	golden-readings	readings-golden.tsv:321	no	CC0-1.0
+reg-0427	rebel	rebel.verb	Teenagers often rebel against their parents.	16	21	golden-readings	readings-golden.tsv:322	no	CC0-1.0
+reg-0428	recall	recall.noun	The company announced a recall of the toys.	24	30	golden-readings	readings-golden.tsv:323	no	CC0-1.0
+reg-0429	recall	recall.verb	I cannot recall his name.	9	15	golden-readings	readings-golden.tsv:324	no	CC0-1.0
+reg-0430	recharge	recharge.noun	The phone needs a recharge.	18	26	golden-readings	readings-golden.tsv:325	no	CC0-1.0
+reg-0431	recharge	recharge.verb	Please recharge the battery.	7	15	golden-readings	readings-golden.tsv:326	no	CC0-1.0
+reg-0432	record	record.noun	She broke the world record.	20	26	golden-readings	readings-golden.tsv:327	no	CC0-1.0
+reg-0433	record	record.verb	They record the songs in a studio.	5	11	golden-readings	readings-golden.tsv:328	no	CC0-1.0
+reg-0434	recount	recount.again	Officials will recount the votes by hand.	15	22	golden-readings	readings-golden.tsv:329	no	CC0-1.0
+reg-0435	refund	refund.noun	I asked for a refund.	14	20	golden-readings	readings-golden.tsv:331	no	CC0-1.0
+reg-0436	refund	refund.verb	The store will refund your money.	15	21	golden-readings	readings-golden.tsv:332	no	CC0-1.0
+reg-0437	refuse	refuse.noun	The truck collects refuse every Friday.	19	25	golden-readings	readings-golden.tsv:333	no	CC0-1.0
+reg-0438	refuse	refuse.verb	I refuse to go.	2	8	golden-readings	readings-golden.tsv:334	no	CC0-1.0
+reg-0439	regiment	regiment.noun	The regiment marched through the town.	4	12	golden-readings	readings-golden.tsv:335	no	CC0-1.0
+reg-0440	regiment	regiment.verb	Schools should not regiment every minute of a child's day.	19	27	golden-readings	readings-golden.tsv:336	no	CC0-1.0
+reg-0441	reject	reject.noun	The machine threw out each reject.	27	33	golden-readings	readings-golden.tsv:337	no	CC0-1.0
+reg-0442	reject	reject.verb	They will reject the offer.	10	16	golden-readings	readings-golden.tsv:338	no	CC0-1.0
+reg-0443	relay	relay.noun	She ran the last leg of the relay.	28	33	golden-readings	readings-golden.tsv:339	no	CC0-1.0
+reg-0444	relay	relay.verb	Please relay the message to him.	7	12	golden-readings	readings-golden.tsv:340	no	CC0-1.0
+reg-0445	replicate	replicate.adj-noun	Each replicate gave the same result.	5	14	golden-readings	readings-golden.tsv:341	no	CC0-1.0
+reg-0446	replicate	replicate.verb	Other labs could not replicate the result.	21	30	golden-readings	readings-golden.tsv:342	yes	CC0-1.0
+reg-0447	rerelease	rerelease.noun	The studio announced a rerelease of the film.	23	32	golden-readings	readings-golden.tsv:343	no	CC0-1.0
+reg-0448	rerelease	rerelease.verb	They plan to rerelease the album.	13	22	golden-readings	readings-golden.tsv:344	no	CC0-1.0
+reg-0449	research	research.noun	Her research focuses on bees.	4	12	golden-readings	readings-golden.tsv:345	no	CC0-1.0
+reg-0450	research	research.verb	I need to research the topic first.	10	18	golden-readings	readings-golden.tsv:346	no	CC0-1.0
+reg-0451	resume	resume.noun	He sent his resume to ten companies.	12	18	golden-readings	readings-golden.tsv:347	no	CC0-1.0
+reg-0452	resume	resume.verb	Classes will resume on Monday.	13	19	golden-readings	readings-golden.tsv:348	no	CC0-1.0
+reg-0453	retard	retard.noun	The school bans the word "retard" because it is hurtful.	26	32	golden-readings	readings-golden.tsv:349	no	CC0-1.0
+reg-0454	retard	retard.verb	Cold weather can retard the growth of plants.	17	23	golden-readings	readings-golden.tsv:350	no	CC0-1.0
+reg-0455	rodeo	rodeo.drive	We went shopping on Rodeo Drive.	20	25	golden-readings	readings-golden.tsv:351	no	CC0-1.0
+reg-0456	rodeo	rodeo.event	The town holds a rodeo every summer.	17	22	golden-readings	readings-golden.tsv:352	no	CC0-1.0
+reg-0457	row	row.argument	The couple had a loud row about money.	22	25	golden-readings	readings-golden.tsv:353	no	CC0-1.0
+reg-0458	row	row.line	He sat in the front row.	20	23	golden-readings	readings-golden.tsv:354	no	CC0-1.0
+reg-0459	sake	sake.drink	They drank warm sake with dinner.	16	20	golden-readings	readings-golden.tsv:355	no	CC0-1.0
+reg-0460	sake	sake.purpose	Do it for the sake of your family.	14	18	golden-readings	readings-golden.tsv:356	no	CC0-1.0
+reg-0461	segment	segment.noun	Each segment of the show lasts ten minutes.	5	12	golden-readings	readings-golden.tsv:357	no	CC0-1.0
+reg-0462	segment	segment.verb	We segment customers by age.	3	10	golden-readings	readings-golden.tsv:358	no	CC0-1.0
+reg-0463	separate	separate.adj	They live in separate houses.	13	21	golden-readings	readings-golden.tsv:359	no	CC0-1.0
+reg-0464	separate	separate.verb	Please separate the eggs.	7	15	golden-readings	readings-golden.tsv:360	no	CC0-1.0
+reg-0465	sewer	sewer.drain	Rats ran through the sewer.	21	26	golden-readings	readings-golden.tsv:361	no	CC0-1.0
+reg-0466	sow	sow.pig	The sow fed her piglets.	4	7	golden-readings	readings-golden.tsv:363	no	CC0-1.0
+reg-0467	sow	sow.plant	Farmers sow the seeds in spring.	8	11	golden-readings	readings-golden.tsv:364	no	CC0-1.0
+reg-0468	subject	subject.adj-noun	The subject of the essay was history.	4	11	golden-readings	readings-golden.tsv:365	no	CC0-1.0
+reg-0469	subject	subject.verb	Do not subject the plants to frost.	7	14	golden-readings	readings-golden.tsv:366	no	CC0-1.0
+reg-0470	subordinate	subordinate.adj-noun	The manager scolded a subordinate.	22	33	golden-readings	readings-golden.tsv:367	no	CC0-1.0
+reg-0471	subordinate	subordinate.verb	We must not subordinate safety to profit.	12	23	golden-readings	readings-golden.tsv:368	no	CC0-1.0
+reg-0472	supplement	supplement.noun	She takes a vitamin supplement every day.	20	30	golden-readings	readings-golden.tsv:369	no	CC0-1.0
+reg-0473	supplement	supplement.verb	He took a night job to supplement his income.	23	33	golden-readings	readings-golden.tsv:370	no	CC0-1.0
+reg-0474	survey	survey.noun	The survey asked about voting habits.	4	10	golden-readings	readings-golden.tsv:371	no	CC0-1.0
+reg-0475	survey	survey.verb	Engineers survey the land before building.	10	16	golden-readings	readings-golden.tsv:372	no	CC0-1.0
+reg-0476	suspect	suspect.adj-noun	The police questioned the suspect.	26	33	golden-readings	readings-golden.tsv:373	no	CC0-1.0
+reg-0477	suspect	suspect.verb	I suspect that he is lying.	2	9	golden-readings	readings-golden.tsv:374	no	CC0-1.0
+reg-0478	syndicate	syndicate.noun	A crime syndicate ran the port.	8	17	golden-readings	readings-golden.tsv:375	no	CC0-1.0
+reg-0479	syndicate	syndicate.verb	They plan to syndicate her column to many papers.	13	22	golden-readings	readings-golden.tsv:376	no	CC0-1.0
+reg-0480	tear	tear.drop	A tear rolled down her cheek.	2	6	golden-readings	readings-golden.tsv:377	no	CC0-1.0
+reg-0481	transform	transform.noun	The Fourier transform is a useful tool.	12	21	golden-readings	readings-golden.tsv:379	no	CC0-1.0
+reg-0482	transform	transform.verb	The caterpillar will transform into a butterfly.	21	30	golden-readings	readings-golden.tsv:380	no	CC0-1.0
+reg-0483	transplant	transplant.noun	He needed a heart transplant.	18	28	golden-readings	readings-golden.tsv:381	no	CC0-1.0
+reg-0484	transplant	transplant.verb	Gardeners transplant the seedlings in May.	10	20	golden-readings	readings-golden.tsv:382	no	CC0-1.0
+reg-0485	transport	transport.noun	Public transport is cheap here.	7	16	golden-readings	readings-golden.tsv:383	no	CC0-1.0
+reg-0486	transport	transport.verb	Trucks transport goods across the country.	7	16	golden-readings	readings-golden.tsv:384	no	CC0-1.0
+reg-0487	underestimate	underestimate.noun	That was a gross underestimate.	17	30	golden-readings	readings-golden.tsv:385	no	CC0-1.0
+reg-0488	underestimate	underestimate.verb	Never underestimate your opponent.	6	19	golden-readings	readings-golden.tsv:386	no	CC0-1.0
+reg-0489	uplift	uplift.noun	The speech gave the crowd a feeling of uplift.	39	45	golden-readings	readings-golden.tsv:387	no	CC0-1.0
+reg-0490	uplift	uplift.verb	Good music can uplift the spirit.	15	21	golden-readings	readings-golden.tsv:388	no	CC0-1.0
+reg-0491	upset	upset.noun	The team pulled off a huge upset.	27	32	golden-readings	readings-golden.tsv:389	no	CC0-1.0
+reg-0492	upset	upset.verb	Do not upset the baby.	7	12	golden-readings	readings-golden.tsv:390	no	CC0-1.0
+reg-0493	use	use.habitual	He used to live in Paris.	3	7	golden-readings	readings-golden.tsv:391	no	CC0-1.0
+reg-0494	use	use.noun	The use of cell phones is banned.	4	7	golden-readings	readings-golden.tsv:392	no	CC0-1.0
+reg-0495	use	use.verb	Please use a pencil.	7	10	golden-readings	readings-golden.tsv:393	no	CC0-1.0
+reg-0496	wind	wind.air	The wind blew hard all night.	4	8	golden-readings	readings-golden.tsv:394	no	CC0-1.0
+reg-0497	wind	wind.coil	Wind the clock every week.	0	4	golden-readings	readings-golden.tsv:395	no	CC0-1.0
+reg-0498	wound	wound.injury	The nurse cleaned the wound.	22	27	golden-readings	readings-golden.tsv:396	no	CC0-1.0
+reg-0499	minute	minute.tiny	Upon the table in his cabinet was arranged all the business of his various realms , even to the most minute particulars .	101	107	data-row	train.tsv:harvest-05214	yes	Public-Domain
+reg-0500	minute	minute.tiny	The change in temperature was so minute that the instruments barely recorded it.	33	39	data-row	train.tsv:syn-06875	yes	CC0-1.0
+reg-0501	minute	minute.tiny	The traces of the toxin were so minute that only the new device could find them.	32	38	data-row	train.tsv:syn-06882	yes	CC0-1.0
+reg-0502	minute	minute.tiny	Even the most minute flaw could spoil the porcelain.	14	20	data-row	train.tsv:syn-06884	yes	CC0-1.0
+reg-0503	minute	minute.tiny	They combed the archive for the most minute clue.	37	43	data-row	train.tsv:syn-06890	yes	CC0-1.0
+reg-0504	read	read.past	Yesterday I read the entire report on the train.	12	16	data-row	train.tsv:syn-08503	yes	CC0-1.0
+reg-0505	read	read.past	Last night the children read by flashlight under the covers.	24	28	data-row	train.tsv:syn-08505	yes	CC0-1.0
+reg-0506	read	read.past	The students read and discussed the chapter during class yesterday.	13	17	data-row	train.tsv:syn-08515	yes	CC0-1.0
+reg-0507	read	read.past	Twenty years ago, millions read the paper every morning.	27	31	data-row	train.tsv:syn-08520	yes	CC0-1.0
+reg-0508	read	read.past	Two weeks ago they read the bill in Parliament for the first time.	19	23	data-row	train.tsv:syn-08540	yes	CC0-1.0
+reg-0509	tear	tear.rip	You can tear the fabric by hand.	8	12	data-row	train.tsv:syn-09968	yes	CC0-1.0
+reg-0510	tear	tear.rip	Heavy rain began to tear at the canvas.	20	24	data-row	train.tsv:syn-09974	yes	CC0-1.0
+reg-0511	tear	tear.rip	You'll tear a muscle if you stretch too far.	7	11	data-row	train.tsv:syn-09983	yes	CC0-1.0
+reg-0512	tear	tear.rip	The cloth will tear easily if wet.	15	19	data-row	train.tsv:syn-09988	yes	CC0-1.0
+reg-0513	wound	wound.injury	A bullet wound to the shoulder sent him to the hospital.	9	14	data-row	train.tsv:syn-10495	yes	CC0-1.0
+reg-0514	wound	wound.injury	A knife wound needs prompt medical attention.	8	13	data-row	train.tsv:syn-10500	yes	CC0-1.0
+reg-0515	wound	wound.injury	The bullet left a clean wound and missed the bone.	24	29	data-row	train.tsv:syn-10524	yes	CC0-1.0
+reg-0516	minute	minute.tiny	Even the most minute flaw in the glass can cause the lens to fail.	14	20	data-row	train.tsv:syn3-0-203	yes	CC0-1.0
+reg-0517	minute	minute.tiny	Quantities of the toxin were so minute that the lab nearly missed them.	32	38	data-row	train.tsv:syn3-0-206	yes	CC0-1.0
+reg-0518	read	read.past	The percentage change read from the chart is applied to last year's estimate to arrive at the current number.	22	26	data-row	dev.tsv:harvest-u00976	no	Public-Domain
+reg-0519	minute	minute.tiny	Even the most minute change in pressure sets off the alarm.	14	20	data-row	dev.tsv:syn2-0-436	no	CC0-1.0
