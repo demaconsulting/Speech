@@ -21,7 +21,7 @@ altered, mislabeled, restricted, undocumented or leaking evaluation material. It
 - **LeakageChecker**: the internal split separation checks and the optional check against external evaluation sets
 - **EvaluationOverlayChecker**: the checks of the regression overlay and of the blind generalization set (references,
   seen-in-training marks, holdout separation, novelty and the quotas of the set)
-- **ClusterDataChecker**: the offline checks of the committed corpus files (the schema of the source list and the
+- **CorpusDataChecker**: the offline checks of the committed corpus files (the schema of the source list and the
   removals, the pins of the used books, and the document-level leakage rule of the corpus)
 - **CheckDataCommand**: the command line entry that orchestrates the other units (the `Program.cs` glue of the tool
   dispatches to it)
@@ -57,7 +57,7 @@ and runs the checks in a fixed order, each of which adds findings to the report 
 5. `LeakageChecker` checks the separation of the splits.
 6. `EvaluationOverlayChecker` checks the regression overlay and the generalization set (or, with `--generalization`,
    a staged copy of the set in place of the committed one).
-7. `ClusterDataChecker` checks the corpus pins and removals (skipped when the folder has neither file).
+7. `CorpusDataChecker` checks the corpus pins and removals (skipped when the folder has neither file).
 8. `LeakageChecker`, only when an evaluation folder is supplied, compares the rows with the sentences of the external
    evaluation sets.
 9. `CheckReport` prints the summary and gives the exit code.
@@ -68,10 +68,10 @@ checker knows another. `TsvTable` is the only unit that parses a data file, `Dat
 them, `SpanValidator` the only one that knows what a whole-word span is, and `CheckReport` the only one that decides
 the exit code. The dependency direction is `CheckDataCommand` to the units it runs, the checkers to `TextEnDataSet`,
 `SpanValidator` and `CheckReport` (`LicenseChecker` also to `DataManifest` for the list of files, and
-`EvaluationOverlayChecker` also to the `SentenceKeys` normalization of the leakage unit, `ClusterDataChecker` also to
+`EvaluationOverlayChecker` also to the `SentenceKeys` normalization of the leakage unit, `CorpusDataChecker` also to
 `TsvTable`), and `TextEnDataSet` and `DataManifest` to `TsvTable` and `CheckReport` (`TextEnDataSet` also to
-`DataManifest`, and to `ClusterDataChecker` for the names of the tables it leaves to that check); there are no cycles.
-The ClusteringSubsystem depends on `ClusterDataChecker` for the shared file names, headers and record field names, never
+`DataManifest`, and to `CorpusDataChecker` for the names of the tables it leaves to that check); there are no cycles.
+The CorpusSubsystem depends on `CorpusDataChecker` for the shared file names, headers and record field names, never
 the other way round.
 
 **Data Model: the dataset as a tool input.** The dataset in `data/text-en/` is not a software item. It is reviewed
@@ -143,11 +143,11 @@ the checks are committed, and a header-only file was valid until then (and stays
 repository is checked with `--generalization <file>`; its novelty findings give a generic reason and never name a
 training row, so they can be passed back to the writer.
 
-**Corpus files.** The corpus is fetched and audited by the manual `cluster` command of the ClusteringSubsystem (see
-*SpeechTextEn ClusteringSubsystem Design*); the data check cannot repeat the fetch or the audit, which need the network
+**Corpus files.** The corpus is fetched and audited by the manual `corpus` command of the CorpusSubsystem (see
+*SpeechTextEn CorpusSubsystem Design*); the data check cannot repeat the fetch or the audit, which need the network
 or the corpus cache. It checks instead that the source list and the removals are well formed, that every used book has
 a pin and a public-domain basis, and that no used book is a development or natural-holdout document of the harvest
-provenance. Whether the removals are still current is shown only by the manual `cluster --audit`, which is re-run
+provenance. Whether the removals are still current is shown only by the manual `corpus --audit`, which is re-run
 before the corpus is next used.
 
 **Manifest.** `MANIFEST.tsv` lists every file of the folder except itself and the local cache folders `external/` and

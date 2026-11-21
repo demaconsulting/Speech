@@ -209,16 +209,16 @@ internal sealed class DatasetFixture : IDisposable
     ///     <c>gutenberg-1</c> is the used book and <c>gutenberg-2</c> a development book excluded from the corpus; the
     ///     removals name one sentence of the used book.
     /// </remarks>
-    public void WriteClusterFiles()
+    public void WriteCorpusFiles()
     {
         Write(
-            ClusterDataChecker.SourcesFile,
-            string.Join('\t', ClusterDataChecker.SourcesHeader) + "\n" +
+            CorpusDataChecker.SourcesFile,
+            string.Join('\t', CorpusDataChecker.SourcesHeader) + "\n" +
             $"gutenberg-1\tcore-open\tA Book\tA. Writer, 1800-1870\t1850\thttps://gutenberg.pglaf.org/cache/epub/1/pg1.txt\tUS public domain: Public domain in the USA\tfixture\t{new string('a', 64)}\t120\tused\n" +
             "gutenberg-2\tcore-silver\tB Book\tB. Writer, 1810-1880\t-\thttps://gutenberg.pglaf.org/cache/epub/2/pg2.txt\tUS public domain: Public domain in the USA\tfixture\t-\t-\texcluded-dev\n");
         Write(
-            ClusterDataChecker.RemovalsFile,
-            string.Join('\t', ClusterDataChecker.RemovalsHeader) + "\n" + $"gutenberg-1\t0\t1\texact\tdev.tsv\tsyn-00003\t{new string('b', 64)}\n");
+            CorpusDataChecker.RemovalsFile,
+            string.Join('\t', CorpusDataChecker.RemovalsHeader) + "\n" + $"gutenberg-1\t0\t1\texact\tdev.tsv\tsyn-00003\t{new string('b', 64)}\n");
         RewriteManifest();
     }
     /// <summary>
@@ -323,10 +323,10 @@ internal sealed class DatasetFixture : IDisposable
     ///     Loads the data set and runs the corpus check.
     /// </summary>
     /// <returns>The report (including load findings).</returns>
-    public CheckReport CheckClusters()
+    public CheckReport CheckCorpus()
     {
         var report = new CheckReport(1000);
-        new ClusterDataChecker(TextEnDataSet.Load(Root, report), report).Run();
+        new CorpusDataChecker(TextEnDataSet.Load(Root, report), report).Run();
         return report;
     }
 

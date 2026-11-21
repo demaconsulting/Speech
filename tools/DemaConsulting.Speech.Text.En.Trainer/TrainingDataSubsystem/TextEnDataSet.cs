@@ -462,7 +462,7 @@ internal sealed class TextEnDataSet
         }
 
         // The corpus tables are loaded with their exact headers by the corpus check
-        typed.UnionWith(ClusterDataChecker.Tables);
+        typed.UnionWith(CorpusDataChecker.Tables);
 
         foreach (var relative in DataManifest.EnumerateDataFiles(root).Where(file => file.EndsWith(".tsv", StringComparison.Ordinal) && !typed.Contains(file)))
         {

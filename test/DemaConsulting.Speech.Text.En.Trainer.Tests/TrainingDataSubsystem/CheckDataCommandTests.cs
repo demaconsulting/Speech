@@ -94,11 +94,11 @@ public sealed class CheckDataCommandTests
     ///     without a pin fails the run with exit code 1 on the corpus check.
     /// </summary>
     [Fact]
-    public void CheckDataCommand_Run_ClusterFinding_ExitsOne()
+    public void CheckDataCommand_Run_CorpusFinding_ExitsOne()
     {
         // Arrange
         using var fixture = new DatasetFixture();
-        fixture.WriteClusterFiles();
+        fixture.WriteCorpusFiles();
 
         // Act
         string Check()
@@ -109,15 +109,15 @@ public sealed class CheckDataCommandTests
         }
 
         var current = Check();
-        fixture.EditRow(ClusterDataChecker.SourcesFile, "gutenberg-1", ("body_sha256", "-"));
+        fixture.EditRow(CorpusDataChecker.SourcesFile, "gutenberg-1", ("body_sha256", "-"));
         fixture.RewriteManifest();
         var unpinned = Check();
 
         // Assert
         Assert.StartsWith("0\n", current, StringComparison.Ordinal);
-        Assert.Contains("word-cluster sources: 2 books, 1 used, 1 not used", current, StringComparison.Ordinal);
+        Assert.Contains("corpus sources: 2 books, 1 used, 1 not used", current, StringComparison.Ordinal);
         Assert.StartsWith("1\n", unpinned, StringComparison.Ordinal);
-        Assert.Contains("check-data: clusters: cluster-sources.tsv:2: gutenberg-1: a used book needs", unpinned, StringComparison.Ordinal);
+        Assert.Contains("check-data: corpus: cluster-sources.tsv:2: gutenberg-1: a used book needs", unpinned, StringComparison.Ordinal);
     }
     /// <summary>Proves a staged generalization set that does not exist is a usage error with exit code 2.</summary>
     [Fact]

@@ -98,7 +98,7 @@ The following software items of the SpeechTextEn system are also covered; it is 
   license, leakage, evaluation-overlay and corpus checks and the command entry), the **TrainingSubsystem** (the
   `train` and `evaluate` commands, including the overlay evaluation with and without the cue priors), the
   **ExternalEvaluationSubsystem** (the `evaluate-external` command, offline on fake datasets) and the
-  **ClusteringSubsystem** (the `cluster` command that fetches and audits the public-domain corpus, offline on
+  **CorpusSubsystem** (the `corpus` command that fetches and audits the public-domain corpus, offline on
   generated books served by a fake mirror)
 - **SpeechPhonemesEn (System)** — The `DemaConsulting.Speech.Phonemes.En` English phonemizer package (a preview),
   verified through its public API with golden corpora (sentences, readings, out-of-vocabulary words and both

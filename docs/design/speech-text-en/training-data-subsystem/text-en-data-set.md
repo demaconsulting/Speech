@@ -28,7 +28,7 @@ suffix `-llm`. The expected header of every table is a public constant of the cl
 
 - **Load(root, report)**: reads every table through `TsvTable` with its expected header, converts each row to a typed
   record, parses `start` and `end` as invariant-culture integers, indexes the forms by reading, applies the format rules
-  to every other `.tsv` file of the folder except the two corpus tables (`ClusterDataChecker.Tables`, which that
+  to every other `.tsv` file of the folder except the two corpus tables (`CorpusDataChecker.Tables`, which that
   check loads with their exact headers, so a defect is reported once), and returns the loaded set. A missing required
   file, a header that does not match, a format defect or a value that is not an integer is a finding that names the file
   and line; for an integer it keeps the row (with a null offset), for a wrong header it loads no row of that file; the

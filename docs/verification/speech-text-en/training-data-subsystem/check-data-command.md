@@ -32,8 +32,8 @@ sign; with a staged file outside the data folder that repeats a training sentenc
 finding located in the staged file that carries the generic reason, says which file it checked and names no training
 row; a staged file that does not exist is a usage error with exit code 2.
 
-**Corpus check** (`ClusterCheck`). With a consistent pair of corpus files the command exits 0 and reports the book
-counts; after the pin of the used book is blanked it exits 1 with a `clusters` finding on that row of the source
+**Corpus check** (`CorpusCheck`). With a consistent pair of corpus files the command exits 0 and reports the book
+counts; after the pin of the used book is blanked it exits 1 with a `corpus` finding on that row of the source
 list.
 
 #### Test Scenarios
@@ -71,4 +71,4 @@ directory below it.
 
 ##### Corpus check
 
-**Test**: `CheckDataCommand_Run_ClusterFinding_ExitsOne`
+**Test**: `CheckDataCommand_Run_CorpusFinding_ExitsOne`

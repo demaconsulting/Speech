@@ -1,4 +1,4 @@
-using DemaConsulting.Speech.Text.En.Trainer.ClusteringSubsystem;
+using DemaConsulting.Speech.Text.En.Trainer.CorpusSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.ExternalEvaluationSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingDataSubsystem;
 using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
@@ -6,7 +6,7 @@ using DemaConsulting.Speech.Text.En.Trainer.TrainingSubsystem;
 namespace DemaConsulting.Speech.Text.En.Trainer;
 
 /// <summary>
-///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c>, <c>evaluate</c>, <c>evaluate-external</c> and <c>cluster</c>.
+///     Hosts the Text.En trainer command line: <c>check-data</c>, <c>train</c>, <c>evaluate</c>, <c>evaluate-external</c> and <c>corpus</c>.
 /// </summary>
 /// <remarks>
 ///     This executable is a developer tool that is never packed or shipped; it exists so the Text.En training
@@ -28,7 +28,7 @@ internal static class Program
           evaluate     Measure the heteronym model and decide the quality gate (run 'evaluate --help').
           evaluate-external
                        Measure the embedded model on external evaluation-only datasets (run 'evaluate-external --help').
-          cluster      Fetch and audit the pinned public-domain corpus (run 'cluster --help').
+          corpus       Fetch and audit the pinned public-domain corpus (run 'corpus --help').
         """;
 
     /// <summary>
@@ -73,9 +73,9 @@ internal static class Program
             return EvaluateExternalCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
         }
 
-        if (string.Equals(args[0], ClusterCommand.Name, StringComparison.Ordinal))
+        if (string.Equals(args[0], CorpusCommand.Name, StringComparison.Ordinal))
         {
-            return ClusterCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
+            return CorpusCommand.Run(rest, output, error, currentDirectory, AppContext.BaseDirectory);
         }
 
         if (!string.Equals(args[0], CheckDataCommand.Name, StringComparison.Ordinal))

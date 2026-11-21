@@ -21,7 +21,7 @@ of the environment variable `TEXTEN_EVAL_SETS`, else none.
   (a folder that cannot be found is a usage error); and rejects `--leakage-report` without evaluation sets or with a
   path inside the data folder, and a `--generalization` file that does not exist. It then creates the `CheckReport` and
   runs, in this order, `DataManifest.Verify`, `TextEnDataSet.Load`, `SchemaChecker.Run`, `LicenseChecker.Run`,
-  `LeakageChecker.CheckInternal`, the overlay checks and `ClusterDataChecker.Run`, and then the external leakage check;
+  `LeakageChecker.CheckInternal`, the overlay checks and `CorpusDataChecker.Run`, and then the external leakage check;
   every check runs even after findings of an earlier one. The overlay checks run
   `EvaluationOverlayChecker.CheckRegression` and then `CheckGeneralization` on the committed set with matches revealed,
   or, with `--generalization`, on the staged file (loaded by `TextEnDataSet.LoadGeneralization` under the name
@@ -42,7 +42,7 @@ character) are caught, with the message but no stack trace; the paths are resolv
 catch-all handler is used, so a programming error still fails loudly.
 
 **Dependencies**: `DataManifest`, `TextEnDataSet`, `SchemaChecker`, `LicenseChecker`, `LeakageChecker`,
-`EvaluationOverlayChecker`, `ClusterDataChecker` and `CheckReport`; the .NET base class library only.
+`EvaluationOverlayChecker`, `CorpusDataChecker` and `CheckReport`; the .NET base class library only.
 
 **Callers**: `Program.Run` of the trainer, `TrainCommand`, `EvaluateCommand` and `EvaluateExternalCommand` (through
 `FindDataRoot`, the data folder discovery they share) and the unit tests.

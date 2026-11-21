@@ -130,7 +130,7 @@ sections:
               - TrainingDataSubsystem_CheckData_ExternalOverlap_IsReportedWhenSetsSupplied
               - TrainingDataSubsystem_CheckData_ValidFixture_PassesAllChecks
 
-          - id: SpeechTextEn-TrainingData-ClusterChecks
+          - id: SpeechTextEn-TrainingData-CorpusChecks
             title: >-
               The TrainingDataSubsystem shall check the committed corpus files on every run, offline: the schema
               of the pinned source list and the removals, the pin and the public-domain basis of every used book,
@@ -140,11 +140,11 @@ sections:
               cannot repeat them. A cheap offline check keeps the license record and the pins of the corpus
               complete, and keeps every development or natural-holdout book out of it, on every change.
             children:
-              - SpeechTextEn-TrainingData-ClusterDataChecker-Presence
-              - SpeechTextEn-TrainingData-ClusterDataChecker-Sources
-              - SpeechTextEn-TrainingData-ClusterDataChecker-Leakage
-              - SpeechTextEn-TrainingData-ClusterDataChecker-Removals
-              - SpeechTextEn-TrainingData-CheckDataCommand-ClusterCheck
+              - SpeechTextEn-TrainingData-CorpusDataChecker-Presence
+              - SpeechTextEn-TrainingData-CorpusDataChecker-Sources
+              - SpeechTextEn-TrainingData-CorpusDataChecker-Leakage
+              - SpeechTextEn-TrainingData-CorpusDataChecker-Removals
+              - SpeechTextEn-TrainingData-CheckDataCommand-CorpusCheck
             tests:
               - TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck
               - TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks

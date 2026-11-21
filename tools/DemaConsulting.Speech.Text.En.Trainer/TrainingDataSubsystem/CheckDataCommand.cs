@@ -272,7 +272,7 @@ internal static class CheckDataCommand
         var leakage = new LeakageChecker(data, report);
         leakage.CheckInternal();
         RunOverlayChecks(data, report, stagedPath);
-        new ClusterDataChecker(data, report).Run();
+        new CorpusDataChecker(data, report).Run();
         RunExternalLeakage(leakage, report, root, evalPath, reportPath);
 
         report.WriteTo(output);

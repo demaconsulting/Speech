@@ -265,7 +265,7 @@ logged in the trainer's `RUN-LOG.md` and in [the prompt's record](prompts/genera
 
 ## Public-Domain Corpus
 
-The trainer's `cluster` command fetches a corpus of US public-domain books and audits it against every evaluation set,
+The trainer's `corpus` command fetches a corpus of US public-domain books and audits it against every evaluation set,
 so that a later context feature (word vectors or word classes) can be learned from a corpus whose origin and overlap
 with the evaluation data are on record. No model uses the corpus. Word classes induced from it were tried and removed
 after they did not improve the model (see the trainer's `RUN-LOG.md`, the PR B entries). The book texts are never
@@ -304,23 +304,23 @@ other books; none of the independent holdout or the generalization set); `cluste
 and hash.
 
 **Identity, drift and re-pinning.** The identity of the corpus is the per-book `body_sha256` and `body_bytes` pins
-of `cluster-sources.tsv`; there is no separate archive. `cluster --fetch` into an empty cache reproduces the corpus bit
+of `cluster-sources.tsv`; there is no separate archive. `corpus --fetch` into an empty cache reproduces the corpus bit
 for bit when every book is `fetched` or `cached`. A book whose mirror text no longer matches its pin is reported as
 `failed: the mirror's text differs from the pin` and the run exits 1; a pin is never overwritten. For each such book:
 
 1. Inspect the new text and decide to keep or drop the book (a reviewer judgment, as for any edit of
    `cluster-sources.tsv`).
-2. To keep it, write `-` in its `body_sha256` and `body_bytes` and run `cluster --fetch --write-pins`, which fills only
+2. To keep it, write `-` in its `body_sha256` and `body_bytes` and run `corpus --fetch --write-pins`, which fills only
    rows without a pin. `check-data` rejects a used book without a pin, so both edits are committed together.
 3. To drop it, set its status to `rejected-content` with no pin.
-4. Run `cluster --audit` (exit 1 when `cluster-removals.tsv` is stale), review the removals, then run
-   `cluster --audit --write`.
+4. Run `corpus --audit` (exit 1 when `cluster-removals.tsv` is stale), review the removals, then run
+   `corpus --audit --write`.
 5. Regenerate `MANIFEST.tsv`, run `check-data`, and record the re-pin in the trainer's `RUN-LOG.md`.
 
 **Checks.** `check-data` verifies the schema of both tables, the pin and the public-domain basis of every used book, and
 that no used book is a development or natural-holdout document. It cannot tell whether the removals are still current
-(the audit needs the corpus cache, which CI does not have): `cluster --audit` compares them byte for byte and must be
-re-run before the corpus is next used (see the trainer's README, `cluster`).
+(the audit needs the corpus cache, which CI does not have): `corpus --audit` compares them byte for byte and must be
+re-run before the corpus is next used (see the trainer's README, `corpus`).
 
 ## Harvest rules
 

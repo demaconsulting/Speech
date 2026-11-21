@@ -55,14 +55,14 @@ corpus for later features):
   retraining produces, and decide the quality gate
 - **ExternalEvaluationSubsystem**: the `evaluate-external` command that measures the embedded model on external,
   evaluation-only datasets fetched from pinned revisions into a cache that is never committed
-- **ClusteringSubsystem**: the `cluster` command that fetches a pinned public-domain corpus from an official mirror and
+- **CorpusSubsystem**: the `corpus` command that fetches a pinned public-domain corpus from an official mirror and
   audits it against every evaluation set
 
 None is packed or loaded by a host. TrainingDataSubsystem shares no code with the library. TrainingSubsystem references
 the library, and only the library: the Text.En assembly grants its internals to the trainer and its tests with
 `InternalsVisibleTo`, so the trainer reuses the analyzer's own adapter, token description, feature extractor, scoring
 and model format (see *Feature parity*). ExternalEvaluationSubsystem uses the evaluator, the corpus loader and the data
-folder discovery. ClusteringSubsystem uses the deterministic logarithm, the strict file reader, the data loader and the
+folder discovery. CorpusSubsystem uses the deterministic logarithm, the strict file reader, the data loader and the
 sentence keys, and the library's tokenizer and lookup hash. The runtime subsystems do not know the tool exists.
 
 ## External Interfaces
@@ -493,7 +493,7 @@ thread; the model and the inventory are immutable and serve any number of concur
 The data, the trainer and the evaluations change nothing in the library's runtime except that the two small inventory
 tables (`readings.tsv`, `forms.tsv`) and the trained model (`Resources/heteronyms.bin`) are embedded in the package;
 nothing else of `data/text-en/` is embedded, referenced or shipped. The subsystem designs (*TrainingDataSubsystem*,
-*TrainingSubsystem*, *ExternalEvaluationSubsystem*, *ClusteringSubsystem*) specify the rules; the decisions are:
+*TrainingSubsystem*, *ExternalEvaluationSubsystem*, *CorpusSubsystem*) specify the rules; the decisions are:
 
 - **Data and licensing (owner decisions).** `data/text-en/` holds the reading inventory (identifiers owned by this
   repository), labeled sentences split into training, development and two holdout files, provenance for every row and a
@@ -548,10 +548,10 @@ nothing else of `data/text-en/` is embedded, referenced or shipped. The subsyste
   be used is skipped, counted by reason and reported. The caveats travel with the figures (a domain shift, a coarser
   mapping, far fewer words than the inventory, labels not all verified by a person, clustering by sentence). The command
   needs the network once and third-party data, so no build, lint or workflow runs it
-- **Public-domain corpus (owner decisions).** The `cluster` command fetches US public-domain books only from an
+- **Public-domain corpus (owner decisions).** The `corpus` command fetches US public-domain books only from an
   official mirror with a polite rate limit, pins each by the hash of its normalized body, excludes every book that holds
   a development or natural-holdout sentence, and lists every corpus sentence that repeats or quotes an evaluation
-  sentence for review; the audit is deterministic for any thread count (see *ClusteringSubsystem Design*). A book whose
+  sentence for review; the audit is deterministic for any thread count (see *CorpusSubsystem Design*). A book whose
   mirror text no longer matches its pin fails the fetch and is re-pinned only after review. Fetching and auditing are
   manual steps that no build runs; instead `check-data` (in CI) checks the committed pins and removals offline. Word
   classes induced from this corpus were tried and removed after they did not improve the model (see the evaluation

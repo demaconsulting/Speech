@@ -84,7 +84,7 @@ sections:
                   - CheckDataCommand_Run_StagedGeneralizationMissing_ExitsTwo
                   - CheckDataCommand_TryParse_GeneralizationOption_IsParsed
 
-              - id: SpeechTextEn-TrainingData-CheckDataCommand-ClusterCheck
+              - id: SpeechTextEn-TrainingData-CheckDataCommand-CorpusCheck
                 title: >-
                   The CheckDataCommand class shall run the corpus check after the evaluation overlay checks, so
                   that a finding in the corpus files fails the run with the exit code 1.
@@ -92,4 +92,4 @@ sections:
                   The command is the data gate of CI; the corpus pins and removals are committed data and must
                   pass the same gate as every other data file.
                 tests:
-                  - CheckDataCommand_Run_ClusterFinding_ExitsOne
+                  - CheckDataCommand_Run_CorpusFinding_ExitsOne

@@ -47,12 +47,12 @@ public sealed class TrainingDataSubsystemTests
             case "overlay-seen-mark":
                 fixture.EditRow(TextEnDataSet.RegressionFile, "reg-0001", ("seen_in_training", "no"));
                 break;
-            case "clusters-unpinned-book":
-                fixture.WriteClusterFiles();
-                fixture.EditRow(ClusterDataChecker.SourcesFile, "gutenberg-1", ("body_sha256", "-"));
+            case "corpus-unpinned-book":
+                fixture.WriteCorpusFiles();
+                fixture.EditRow(CorpusDataChecker.SourcesFile, "gutenberg-1", ("body_sha256", "-"));
                 break;
-            case "clusters-used-dev-book":
-                fixture.WriteClusterFiles();
+            case "corpus-used-dev-book":
+                fixture.WriteCorpusFiles();
                 fixture.EditRow("harvest-provenance.tsv", "harvest-00003", ("source_id", "gutenberg-1"));
                 break;
             case "leakage-duplicate-sentence":
@@ -89,8 +89,8 @@ public sealed class TrainingDataSubsystemTests
     [InlineData("license-evaluation-path", "license")]
     [InlineData("leakage-duplicate-sentence", "leakage")]
     [InlineData("overlay-seen-mark", "overlay")]
-    [InlineData("clusters-unpinned-book", "clusters")]
-    [InlineData("clusters-used-dev-book", "leakage")]
+    [InlineData("corpus-unpinned-book", "corpus")]
+    [InlineData("corpus-used-dev-book", "leakage")]
     public void TrainingDataSubsystem_CheckData_SingleViolation_ExitsOneNamingTheCheck(string mutation, string check)
     {
         // Arrange
@@ -141,7 +141,7 @@ public sealed class TrainingDataSubsystemTests
         Assert.Contains("check-data: leakage: train.tsv:4: syn-00002: exact match with evaluation set gold", output);
     }
 
-    /// <summary>Proves the committed <c>data/text-en</c> folder passes every check, including the word-cluster record against this build's tokenizer.</summary>
+    /// <summary>Proves the committed <c>data/text-en</c> folder passes every check, including the corpus pins and removals.</summary>
     [Fact]
     public void TrainingDataSubsystem_CheckData_CommittedData_PassesAllChecks()
     {

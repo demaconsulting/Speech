@@ -1,0 +1,79 @@
+---
+# Software Unit Requirements for CorpusLeakageAudit
+#
+# These requirements describe the design-level behavior of the CorpusLeakageAudit unit, the part of the Text.En trainer
+# that compares the public-domain corpus with every evaluation sentence and records the removals, decomposing the parent
+# SpeechTextEn CorpusSubsystem requirements. Each requirement states one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/CorpusSubsystem/CorpusLeakageAuditTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: CorpusSubsystem Requirements
+        sections:
+          - title: CorpusLeakageAudit Requirements
+            requirements:
+              - id: SpeechTextEn-Corpus-CorpusLeakageAudit-Rules
+                title: >-
+                  The CorpusLeakageAudit unit shall remove a corpus sentence whose normalized key equals an evaluation
+                  sentence's (rule exact); otherwise one of at least eight words with at least 80 percent of its
+                  distinct word 5-grams among the evaluation 5-grams (rule near); otherwise one that shares a 5-gram
+                  with an evaluation sentence of at least eight words of which at least 80 percent of the distinct
+                  5-grams occur in the corpus paragraph, or with one of five to seven words all of whose 5-grams occur
+                  in one sentence of that paragraph (rule contains).
+                justification: |
+                  Exact repeats, lightly edited repeats and quotations inside longer passages all put an evaluation
+                  sentence into the corpus; the thresholds are those of the data check's leakage rules so that both
+                  checks mean the same by a near repeat.
+                tests:
+                  - CorpusLeakageAudit_Run_ExactRepeat_IsRemoved
+                  - CorpusLeakageAudit_Run_NearRepeat_IsRemoved
+                  - CorpusLeakageAudit_Run_QuotedAcrossSentences_ContainsRemovesBoth
+                  - CorpusLeakageAudit_Run_ShortEvaluationInsideSentence_IsRemoved
+
+              - id: SpeechTextEn-Corpus-CorpusLeakageAudit-Attribution
+                title: >-
+                  The CorpusLeakageAudit unit shall attribute each removal to the first matching evaluation sentence in
+                  the order development, natural holdout, independent holdout, regression, generalization and then by
+                  ordinal id, and return the removals sorted by source id, paragraph and sentence, identical for any
+                  number of threads.
+                justification: |
+                  The removal list is committed and compared byte for byte, so it must not depend on hash order,
+                  timing or thread count.
+                tests:
+                  - CorpusLeakageAudit_Run_SeveralMatches_FirstFileThenLowestId
+                  - CorpusLeakageAudit_Run_DifferentThreadCounts_SameRemovals
+
+              - id: SpeechTextEn-Corpus-CorpusLeakageAudit-Counts
+                title: >-
+                  The CorpusLeakageAudit unit shall count, for every evaluation file and rule, the removed corpus
+                  sentences, the distinct evaluation sentences they name and the distinct books they come from.
+                justification: |
+                  The counts are the reportable result of the audit: they show which evaluation set leaked and by
+                  which kind of overlap.
+                tests:
+                  - CorpusLeakageAudit_Counts_PerFileAndRule
+
+              - id: SpeechTextEn-Corpus-CorpusLeakageAudit-RemovalsFile
+                title: >-
+                  The CorpusLeakageAudit unit shall write the removals as a tab-separated list with the header
+                  source_id, paragraph, sentence, rule, eval_file, eval_id, text_sha256 and LF line endings, and parse
+                  such a list back, throwing InvalidDataException for a wrong header, a malformed row, an unknown rule or
+                  evaluation file, or rows that are not unique and sorted.
+                justification: |
+                  The removals are reviewed and committed; they hold only ids and hashes, never corpus text, and the
+                  hash of each removed sentence lets a later user of the corpus prove the list still fits it.
+                tests:
+                  - CorpusLeakageAudit_WriteAndParse_RoundTripAndValidation
+
+              - id: SpeechTextEn-Corpus-CorpusLeakageAudit-EvaluationSentences
+                title: >-
+                  The CorpusLeakageAudit unit shall take every row of the development, natural holdout, independent
+                  holdout, regression and generalization files of the data folder and no training row, throw
+                  InvalidDataException when the data folder does not load cleanly.
+                justification: |
+                  Every set the model is ever measured on must be protected; training rows are meant to be seen and
+                  are not compared.
+                tests:
+                  - CorpusLeakageAudit_LoadEvaluationSentences_FixtureData_FiveFilesNoTraining

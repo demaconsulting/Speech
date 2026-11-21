@@ -244,7 +244,7 @@ includes:
   - docs/reqstream/speech-text-en/training-data-subsystem/license-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/leakage-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/evaluation-overlay-checker.yaml
-  - docs/reqstream/speech-text-en/training-data-subsystem/cluster-data-checker.yaml
+  - docs/reqstream/speech-text-en/training-data-subsystem/corpus-data-checker.yaml
   - docs/reqstream/speech-text-en/training-data-subsystem/check-data-command.yaml
   - docs/reqstream/speech-text-en/training-subsystem.yaml
   - docs/reqstream/speech-text-en/training-subsystem/training-corpus.yaml
@@ -265,12 +265,12 @@ includes:
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/heteronym-bench-adapter.yaml
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/external-evaluation-record.yaml
   - docs/reqstream/speech-text-en/external-evaluation-subsystem/evaluate-external-command.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/gutenberg-body.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-cache.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/corpus-leakage-audit.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/cluster-corpus-reader.yaml
-  - docs/reqstream/speech-text-en/clustering-subsystem/cluster-command.yaml
+  - docs/reqstream/speech-text-en/corpus-subsystem.yaml
+  - docs/reqstream/speech-text-en/corpus-subsystem/gutenberg-body.yaml
+  - docs/reqstream/speech-text-en/corpus-subsystem/corpus-cache.yaml
+  - docs/reqstream/speech-text-en/corpus-subsystem/corpus-leakage-audit.yaml
+  - docs/reqstream/speech-text-en/corpus-subsystem/corpus-reader.yaml
+  - docs/reqstream/speech-text-en/corpus-subsystem/corpus-command.yaml
   - docs/reqstream/speech-phonemes-en.yaml
   - docs/reqstream/speech-phonemes-en/lexicon-subsystem.yaml
   - docs/reqstream/speech-phonemes-en/lexicon-subsystem/cmu-lexicon.yaml

@@ -40,7 +40,7 @@ stated order, share one report and agree on the exit codes.
   with the generic reason and no training row named; every golden and test reference of the committed regression
   overlay resolves to a line or row of the repository's test files or run log that holds its sentence (and, where the
   file names one, its reading).
-- **Corpus files** (`ClusterChecks`): a used corpus book without a pin gives exit code 1 with a `clusters` finding, and
+- **Corpus files** (`CorpusChecks`): a used corpus book without a pin gives exit code 1 with a `corpus` finding, and
   a used corpus book that is the source document of a development row gives a `leakage` finding; the committed folder,
   with its committed pins and removals, passes.
 
@@ -95,4 +95,4 @@ skipped, and says so, only when the repository root or the overlay is absent.
 
 See also *SpeechTextEn System Verification* and the unit documents `tsv-table.md`, `text-en-data-set.md`,
 `data-manifest.md`, `span-validator.md`, `check-report.md`, `schema-checker.md`, `license-checker.md`,
-`leakage-checker.md`, `evaluation-overlay-checker.md`, `cluster-data-checker.md` and `check-data-command.md`.
+`leakage-checker.md`, `evaluation-overlay-checker.md`, `corpus-data-checker.md` and `check-data-command.md`.

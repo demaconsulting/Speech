@@ -4,7 +4,7 @@ Developer tool for the Text.En training data in `data/text-en/` and for the hete
 It is never packed or shipped. The `check-data` units use only the base class library; the `train` and `evaluate`
 units reference the Text.En library (its internals are visible to this tool) so a model is trained with the
 analyzer's own tokenization, part-of-speech tagging, feature extractor, scoring and model format, not a copy of them.
-The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache. The `cluster`
+The `evaluate-external` units read the pinned external datasets only through a SHA-256 verified cache. The `corpus`
 units fetch a pinned public-domain corpus and audit it against the evaluation sets with the analyzer's own tokenizer.
 
 Commands:
@@ -13,7 +13,7 @@ Commands:
 - `train`: train the heteronym model, or verify a committed one with `--check`
 - `evaluate`: measure a model on the development and holdout sets and decide the quality gate
 - `evaluate-external`: measure the embedded model on external, evaluation-only datasets fetched at evaluation time
-- `cluster`: fetch the pinned public-domain corpus and audit it against every evaluation set
+- `corpus`: fetch the pinned public-domain corpus and audit it against every evaluation set
 
 ## check-data
 
@@ -30,7 +30,7 @@ Verifies the data folder and reports every violation as `check-data: <check>: <f
 - `leakage`: the splits stay disjoint (sentences, source documents, synthetic templates)
 - `overlay`: the regression overlay (references, seen-in-training marks, no holdout contact) and the generalization
   set (novelty rules N1 to N3 against the training and development data, and its quotas once it has rows)
-- `clusters`: the corpus files, offline: the schema of `cluster-sources.tsv` and `cluster-removals.tsv` and a pin and
+- `corpus`: the corpus files, offline: the schema of `cluster-sources.tsv` and `cluster-removals.tsv` and a pin and
   a public-domain basis for every used book (a `leakage` finding when a used corpus book is a development or
   natural-holdout document); skipped when the folder has neither file
 
@@ -188,10 +188,10 @@ WHD is Apache-2.0 code with Wikipedia text (CC BY-SA 3.0); the heteronym-bench d
 committed, embedded or used to train. The record and the two mapping files contain no text of either dataset, only
 numbers, the pins and our own ids.
 
-## cluster
+## corpus
 
 ```text
-dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- cluster <mode> [options]
+dotnet run -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- corpus <mode> [options]
 ```
 
 Fetches the US public-domain books listed in `data/text-en/cluster-sources.tsv` and audits them against every
@@ -223,19 +223,19 @@ and every attribution and sort uses integer and ordinal comparisons only, so the
 archive (owner decision). `--fetch` into an empty
 cache reproduces it bit for bit; a book whose mirror text no longer matches its pin fails (`failed: the mirror's text
 differs from the pin`, exit `1`) and its pin is never overwritten. To keep such a book after review, write `-` in its
-`body_sha256` and `body_bytes` and run `cluster --fetch --write-pins` (both edits are committed together, because
+`body_sha256` and `body_bytes` and run `corpus --fetch --write-pins` (both edits are committed together, because
 `check-data` rejects a used book without a pin); to drop it, set its status to `rejected-content` with no pin. Then run
-`cluster --audit`, review the removals, run `cluster --audit --write`, regenerate `MANIFEST.tsv`, run `check-data` and
+`corpus --audit`, review the removals, run `corpus --audit --write`, regenerate `MANIFEST.tsv`, run `check-data` and
 record the re-pin in `RUN-LOG.md`.
 
 **Adding or removing a book.** Edit its row in `cluster-sources.tsv` (a domain book is used only with its publication
-year and the evidence for it read from the book itself), run `cluster --fetch --write-pins`, then
-`cluster --audit --write`, and record the run in `RUN-LOG.md`.
+year and the evidence for it read from the book itself), run `corpus --fetch --write-pins`, then
+`corpus --audit --write`, and record the run in `RUN-LOG.md`.
 
 The command is never run by `build.ps1`, `lint.ps1` or a workflow; only its tests run in CI, offline, on generated
-books. CI instead runs the cheap offline gate of `check-data` (check `clusters`): the source list and the removals must
+books. CI instead runs the cheap offline gate of `check-data` (check `corpus`): the source list and the removals must
 be well formed, and every used book needs a pin. Whether the removals are still current needs the corpus cache, so
-`check-data` cannot tell; `cluster --audit` compares them byte for byte and is re-run before the corpus is next used.
+`check-data` cannot tell; `corpus --audit` compares them byte for byte and is re-run before the corpus is next used.
 
 ## Files
 

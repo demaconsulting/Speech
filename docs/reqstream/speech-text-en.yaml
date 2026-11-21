@@ -594,16 +594,16 @@ sections:
           every change keeps the committed pins and removals well formed and every evaluation book out of the
           corpus instead.
         children:
-          - SpeechTextEn-Clustering-PinnedCorpus
-          - SpeechTextEn-Clustering-LeakageAudit
-          - SpeechTextEn-Clustering-Deterministic
-          - SpeechTextEn-Clustering-CommandLine
-          - SpeechTextEn-TrainingData-ClusterChecks
+          - SpeechTextEn-Corpus-PinnedCorpus
+          - SpeechTextEn-Corpus-LeakageAudit
+          - SpeechTextEn-Corpus-Deterministic
+          - SpeechTextEn-Corpus-CommandLine
+          - SpeechTextEn-TrainingData-CorpusChecks
         tests:
-          - ClusteringSubsystem_Cluster_FetchAudit_EndToEnd
-          - ClusteringSubsystem_Cluster_BookQuotingEvaluation_SentenceRemoved
-          - ClusteringSubsystem_Cluster_TamperedCache_IsRefused
-          - ClusteringSubsystem_Cluster_WrittenFiles_PassOfflineDataCheck
+          - CorpusSubsystem_Corpus_FetchAudit_EndToEnd
+          - CorpusSubsystem_Corpus_BookQuotingEvaluation_SentenceRemoved
+          - CorpusSubsystem_Corpus_TamperedCache_IsRefused
+          - CorpusSubsystem_Corpus_WrittenFiles_PassOfflineDataCheck
 
       - id: SpeechTextEn-Evaluation-ExternalFetchOnly
         title: >-

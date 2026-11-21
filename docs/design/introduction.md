@@ -250,7 +250,7 @@ Speech, not a subsystem of it, and the library must never depend on it:
   `DemaConsulting.Speech.Text.En.Trainer` tool, which verifies the training and evaluation data in `data/text-en/`: the
   internal `TsvTable` strict file reader, the `TextEnDataSet` typed loader with its source vocabulary, the
   `DataManifest` verifier, the `SpanValidator` whole-word span check, the `CheckReport` finding collector, the
-  `SchemaChecker`, `LicenseChecker`, `LeakageChecker`, `EvaluationOverlayChecker` and `ClusterDataChecker` checks, and
+  `SchemaChecker`, `LicenseChecker`, `LeakageChecker`, `EvaluationOverlayChecker` and `CorpusDataChecker` checks, and
   the `CheckDataCommand` entry (with the `Program.cs` glue)
 - **TrainingSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `train` and `evaluate` commands of the same
   `DemaConsulting.Speech.Text.En.Trainer` tool, which train the heteronym model from the training and development
@@ -267,11 +267,11 @@ Speech, not a subsystem of it, and the library must never depend on it:
   revisions into a cache that is never committed: the `ExternalSourceCache` of the pins and the verified cache, the
   `ExternalRowConversion` of offsets, labels and rows, the `WikipediaHomographAdapter` and `HeteronymBenchAdapter`
   readers, the `ExternalEvaluationRecord` files and the `EvaluateExternalCommand` entry (with the `Program.cs` glue)
-- **ClusteringSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `cluster` command of the same
+- **CorpusSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `corpus` command of the same
   `DemaConsulting.Speech.Text.En.Trainer` tool, which fetches a pinned corpus of US public-domain books from an official
-  mirror and audits it against every evaluation set: the `GutenbergBody` extraction, the `ClusterCorpusCache` of the
-  source list, the rate-limited fetch and the verified bodies, the `ClusterCorpusReader` with the analyzer's tokenizer,
-  the `CorpusLeakageAudit` against every evaluation set and the `ClusterCommand` entry (with the `Program.cs` glue)
+  mirror and audits it against every evaluation set: the `GutenbergBody` extraction, the `CorpusCache` of the
+  source list, the rate-limited fetch and the verified bodies, the `CorpusReader` with the analyzer's tokenizer,
+  the `CorpusLeakageAudit` against every evaluation set and the `CorpusCommand` entry (with the `Program.cs` glue)
 
 The following software items of the SpeechPhonemesEn system are also covered. It is a sibling system to Speech, not a
 subsystem of it, and the library must never depend on it:
@@ -470,8 +470,8 @@ that `Speech` neither references nor knows about, and two more, `SpeechTextEn` a
   library does not know it exists. `ExternalEvaluationSubsystem` (the pinned source cache, the row conversion, the two
   dataset adapters, the external evaluation record and the command) is the `evaluate-external` command that measures the
   model on pinned, evaluation-only external datasets; it uses the evaluator and corpus loader of the `TrainingSubsystem`
-  and the data folder discovery of the `TrainingDataSubsystem`, and none of them uses it. `ClusteringSubsystem` (the
-  body extraction, the corpus cache, the reader, the leakage audit and the command) is the `cluster`
+  and the data folder discovery of the `TrainingDataSubsystem`, and none of them uses it. `CorpusSubsystem` (the
+  body extraction, the corpus cache, the reader, the leakage audit and the command) is the `corpus`
   command that fetches and audits the public-domain corpus; it uses the strict reader, data loader, sentence keys and
   corpus file names of the `TrainingDataSubsystem` and the library's tokenizer and case folding, and none of them uses
   it.
@@ -1013,7 +1013,7 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 │   ├── LicenseChecker.cs                                  — License allow-list, source policy, restricted terms, paths, attribution
 │   ├── LeakageChecker.cs                                  — Split separation and optional external evaluation-set check (with SentenceKeys)
 │   ├── EvaluationOverlayChecker.cs                        — Regression overlay and generalization set checks: references, seen marks, novelty, quotas (with GeneralizationShape)
-│   └── ClusterDataChecker.cs                              — Offline corpus checks: source list and removals schemas, pins and corpus leakage
+│   └── CorpusDataChecker.cs                              — Offline corpus checks: source list and removals schemas, pins and corpus leakage
 ├── TrainingSubsystem/
 │   ├── TrainingCorpus.cs                                  — Loader of the four training inputs; row preparation with the runtime's own units (with LabeledRow, PreparedRow and RowPreparer)
 │   ├── DeterministicRandom.cs                             — SplitMix64 generator with unbiased draws and a Fisher-Yates shuffle
@@ -1033,12 +1033,12 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 │   ├── HeteronymBenchAdapter.cs                           — Reader of the pinned English read set of heteronym-bench
 │   ├── ExternalEvaluationRecord.cs                        — Seven deterministic tab-separated external record files (with ExternalEvaluationReport, ExternalSetResult and ExternalSeedResult)
 │   └── EvaluateExternalCommand.cs                         — Command line entry of evaluate-external
-└── ClusteringSubsystem/
+└── CorpusSubsystem/
     ├── GutenbergBody.cs                                   — Body extraction and normalization of a downloaded e-book (with GutenbergBodyText)
-    ├── ClusterCorpusCache.cs                              — Source list, mirror-only rate-limited fetch, body pins and verified bodies (with ClusterSource, ClusterSourceList, CorpusFetchResult and GutenbergMirrorFetcher)
-    ├── ClusterCorpusReader.cs                             — Tokenization with the analyzer's tokenizer and the runtime normalization (with CorpusParagraph, CorpusBook and TokenizedCorpus)
+    ├── CorpusCache.cs                              — Source list, mirror-only rate-limited fetch, body pins and verified bodies (with CorpusSource, CorpusSourceList, CorpusFetchResult and GutenbergMirrorFetcher)
+    ├── CorpusReader.cs                             — Tokenization with the analyzer's tokenizer and the runtime normalization (with CorpusParagraph, CorpusBook and TokenizedCorpus)
     ├── CorpusLeakageAudit.cs                              — Exact, near and contains audit against every evaluation set and the removal list (with EvaluationSentence, CorpusRemoval and AuditCount)
-    └── ClusterCommand.cs                                  — Command line entry of cluster (with ClusterEnvironment)
+    └── CorpusCommand.cs                                  — Command line entry of corpus (with CorpusEnvironment)
 
 data/text-en/
 ├── README.md, ATTRIBUTION.md, MANIFEST.tsv                — Documents, attribution and the pinned manifest (reviewed data)
@@ -1052,7 +1052,7 @@ data/text-en/
 ├── exclusions.tsv, extension-candidates.tsv, check-output.txt — Removed rows, candidates and the recorded check output
 ├── audit/                                                 — Blind audit records and their summary
 ├── prompts/                                               — The prompts that produced the generated and labeled data
-└── external/                                              — Git-ignored caches: the external evaluation datasets (evaluate-external --fetch) and the public-domain corpus in cluster-corpus/ (cluster --fetch) (never committed)
+└── external/                                              — Git-ignored caches: the external evaluation datasets (evaluate-external --fetch) and the public-domain corpus in cluster-corpus/ (corpus --fetch) (never committed)
 
 docs/evaluation/text-en/
 ├── README.md                                              — Method, headline results and the limits of the evidence (hand-written, reviewed data)
@@ -1085,7 +1085,7 @@ Each software item has corresponding artifacts in parallel directory trees:
 - Tests: `test/{System}.Tests/.../{Item}Tests.cs` (PascalCase for C#); the trainer's tests are in
   `test/DemaConsulting.Speech.Text.En.Trainer.Tests/{Subsystem}/{Item}Tests.cs`, with the subsystem-level tests
   directly in that folder (`TrainingDataSubsystemTests.cs`, `TrainingSubsystemTests.cs`,
-  `ExternalEvaluationSubsystemTests.cs` and `ClusteringSubsystemTests.cs`, with the shared fixtures in `Fakes/`)
+  `ExternalEvaluationSubsystemTests.cs` and `CorpusSubsystemTests.cs`, with the shared fixtures in `Fakes/`)
 - SysML2 model: `docs/sysml2/model/{system}/.../{item}.sysml` (kebab-case)
 - Review-sets: defined in `.reviewmark.yaml`
 
@@ -1114,7 +1114,7 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   namespace holders) and Avalonia `*.axaml.cs` view code-behind files contain no independent
   behavior and are covered by the view-model or panel unit they accompany. The trainer's `Program.cs`
   is entry-point glue that only dispatches to `CheckDataCommand`, `TrainCommand`, `EvaluateCommand`,
-  `EvaluateExternalCommand` and `ClusterCommand`; it is listed in
+  `EvaluateExternalCommand` and `CorpusCommand`; it is listed in
   the `sourceRef` of those units.
 - **Data is a tool input, not a software item.** The training and evaluation data in `data/text-en/` is described
   in the design of the subsystem that checks it (*SpeechTextEn TrainingDataSubsystem Design*), reviewed through its
@@ -1130,8 +1130,8 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   outputs described by the design of *SpeechTextEn ExternalEvaluationSubsystem Design*; the external datasets themselves
   are never committed and are not a software item, an OTS item or a shared package of this repository. The public-domain
   corpus follows the same rule: the source list `cluster-sources.tsv` and the removal list `cluster-removals.tsv`
-  (verified offline by `check-data`, and the removals fully by the manual `cluster --audit`) are tool inputs and outputs
-  described by *SpeechTextEn ClusteringSubsystem Design*, and the books themselves are only cached, never committed.
+  (verified offline by `check-data`, and the removals fully by the manual `corpus --audit`) are tool inputs and outputs
+  described by *SpeechTextEn CorpusSubsystem Design*, and the books themselves are only cached, never committed.
 - **SpeechPhonemesEn data is a tool input, not a software item either.** The embedded dictionary and letter-to-sound
   images (`Resources/cmudict-en.bin.gz`, `Resources/lts-en.bin.gz`) are produced and verified by the non-shipped
   `DemaConsulting.Speech.Phonemes.En.Tools` project (`build-lexicon --check`, `train-lts --check`, `propose-readings

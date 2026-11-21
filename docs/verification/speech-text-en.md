@@ -29,7 +29,7 @@ random property tests of the alignment contract live at that level. System and u
 
 The non-shipped trainer has its own test project, `test/DemaConsulting.Speech.Text.En.Trainer.Tests`, and no
 system-level test class: its system requirements are evidenced by the subsystem-level tests of the
-TrainingDataSubsystem, TrainingSubsystem, ExternalEvaluationSubsystem and ClusteringSubsystem, which drive its commands
+TrainingDataSubsystem, TrainingSubsystem, ExternalEvaluationSubsystem and CorpusSubsystem, which drive its commands
 through their one observable interface each. This cross-level link is deliberate and documented here once; a few
 Heteronym system requirements likewise link the analyzer unit tests that can inject a damaged model, which the system
 level cannot do through the public API.
@@ -261,7 +261,7 @@ project file.
 ### Training Data, Training and External Evaluation
 
 **Tests**: the `TrainingDataSubsystem_CheckData_*`, `TrainingSubsystem_Train_*`, `TrainingSubsystem_TrainCheck_*`,
-`TrainingSubsystem_Evaluate_*`, `ExternalEvaluationSubsystem_*` and `ClusteringSubsystem_*` tests in
+`TrainingSubsystem_Evaluate_*`, `ExternalEvaluationSubsystem_*` and `CorpusSubsystem_*` tests in
 `test/DemaConsulting.Speech.Text.En.Trainer.Tests` that the requirements `SpeechTextEn-TrainingData-*`,
 `SpeechTextEn-Training-*` and `SpeechTextEn-Evaluation-*` link (see the verification documents of the four subsystems)
 
