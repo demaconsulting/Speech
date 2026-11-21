@@ -1019,3 +1019,956 @@ legacy natural holdout is the natural guard, as the criterion states.
 runtime until the read, neither `build.ps1` nor the trainer tests whose names contain `Committed` are run (they evaluate
 the holdouts and the generalization set of the working-tree model); no candidate model or record is committed before the
 read is logged here.
+
+## PR B: synthetic-v4 data round (2026-11-21)
+
+Written after the data round and before any candidate was trained on its rows. Sets read for this entry: nobody read a
+generalization or holdout sentence. The mechanical filter script reads the overlays and both holdouts and prints only
+rule names, counts and stage row ids; the only model evaluated is the shipped model, on the regression overlay (allowed,
+see below). No candidate model was trained or evaluated for this entry.
+
+**Prompts and stage.** The committed prompts of entry "PR B: procedure fixed before any training with word classes"
+(`data/text-en/prompts/generation-synthetic-v4.md` and `review-synthetic-v4.md`, committed in C2 before any row was
+written), given verbatim with only the staging folder substituted. Stage `C:\work\sp-clusters-b-stage\` (outside the
+repository) with the copies named in the procedure entry; the writer files (outputs, notes, validators and the writers'
+scratch) were moved into `writers\` after each round. One more folder there holds an obsolete copy of the
+review inputs made before top-up round 1; it was never reviewed.
+
+**Writers** (`claude-sonnet-5.5`, `general-purpose`, dispatched by the orchestrator with the stage prompt text
+verbatim):
+
+- Round 1: part 0 (tear, wound, minute, read; 285 rows) and part 1 (bass, lead, close, live, wind, content; 180 rows),
+  both dispatched 2026-11-21 10:13:22 UTC; part 1 finished about 10:20, part 0 about 10:24.
+- Top-up round 1: two new instances (one per part) with the part's prompt and a generic first line naming only the
+  reading ids, the row counts and the quota-line text; dispatched about 11:48, finished about 11:51; 14 rows (8 and 6).
+- Top-up round 2 (after the review, see below): one new part-0 instance, about 11:55 to 11:57; 5 `read.present` rows
+  (habitual frames).
+
+**Mechanical filters** (`filter_v4.py`, scratch; rules of the procedure entry, the C# leakage and overlay rules ported
+exactly; it reproduces all 14,998 committed provenance templates). 484 rows written, **16 dropped**, 468 kept:
+
+- generalization novelty N2 (a cue word of a `novel-vocabulary` row of the lemma group): 12 (`syn4-0-7`, `-17`, `-23`,
+  `-54`, `-81`, `-103`, `-126`; `syn4-1-44`, `-65`, `-80`, `-103`; `syn4-1-t1-1`);
+- generalization novelty N3 (a construction trigram of a `novel-construction` row): 3 (`syn4-1-52`, `-107`,
+  `syn4-1-t1-4`);
+- label defect: 1 (`syn4-0-264`, `read.present` in "can be read", a participle);
+- format, offsets, form and single target; exact and near repeats of train, dev, both holdouts, the regression overlay,
+  the generalization set and the listening sentences L01 to L16 (both directions, cumulative); a regression or listening
+  row made seen in training; a (reading, template) pair already in train or dev: 0 each.
+
+After top-up round 1 every reading was at 90 percent of its quota or more (`lead.guide` and `close.verb` 14 of 15), so
+the blind review followed.
+
+**Blind review** (`gpt-6.1-sol`, `general-purpose`, the committed review prompt verbatim, stage file SHA-256
+`26d2d70cf09a5bdb4b84fd7273d8494e50b1fa8eca3398cac87581aa0db59071`; judgments frozen by SHA-256 before the labels were
+opened; a disagreement or `unsure` drops a row, never relabels it):
+
+- Round 1, 2026-11-21 11:52:12 to 11:54:34 UTC: 463 rows, **457 agree**, 0 disagreements other than `unsure`, 6
+  `unsure`, all dropped: `syn4-0-35` (`tear.rip`) and `syn4-0-251`, `-252`, `-254`, `-255`, `-257` (`read.present`
+  with only a habitual adverbial: the tense is not fixed). Judgments SHA-256
+  `0e7f773d3b62b0f0079fa912e059433a6f2b229de0404eb759309c4338af0369`. Files: stage `review-round-1\` (inputs in
+  `review-round-1-inputs\`).
+- `read.present` fell to 30 of 35 (under 90 percent), hence top-up round 2 (0 rows filtered) and review round 2 by a
+  new `gpt-6.1-sol` instance on those 5 rows only, about 11:57 to 11:59 UTC: **5 of 5 agree**. Judgments SHA-256
+  `ba20fb491222e9298620cdab5c23ae60102c04f491ac5d0590eff9c9abcc7500`. Files: stage `review\` (inputs
+  `review-blind.tsv` and `review-labels.tsv` at the stage root).
+- Recorded in `data/text-en/audit/review-synthetic-v4.tsv` (468 lines: one per reviewed row and round; `decision`
+  `keep` 462, `drop` 6).
+
+**Final rows: 462** (468 filter survivors minus 6 `unsure`), every reading at its quota except `tear.rip` 44 of 45,
+`lead.guide` 14 of 15 and `close.verb` 14 of 15:
+
+| Reading | Quota | Written | Filtered | Review dropped | Kept | Train | Dev |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `tear.rip` | 45 | 48 | 3 | 1 | 44 | 39 | 5 |
+| `tear.drop` | 45 | 47 | 2 | 0 | 45 | 40 | 5 |
+| `wound.injury` | 33 | 34 | 1 | 0 | 33 | 29 | 4 |
+| `wind.coil` (both parts) | 47 | 48 | 1 | 0 | 47 | 41 | 6 |
+| `minute.tiny` | 30 | 30 | 0 | 0 | 30 | 26 | 4 |
+| `minute.time` | 30 | 30 | 0 | 0 | 30 | 26 | 4 |
+| `read.past` | 35 | 35 | 0 | 0 | 35 | 31 | 4 |
+| `read.present` | 35 | 41 | 1 | 5 | 35 | 31 | 4 |
+| `bass.fish` | 15 | 15 | 0 | 0 | 15 | 13 | 2 |
+| `bass.music` | 15 | 15 | 0 | 0 | 15 | 13 | 2 |
+| `lead.guide` | 15 | 16 | 2 | 0 | 14 | 12 | 2 |
+| `lead.metal` | 15 | 16 | 1 | 0 | 15 | 13 | 2 |
+| `close.adj-noun` | 15 | 16 | 1 | 0 | 15 | 13 | 2 |
+| `close.verb` | 15 | 16 | 2 | 0 | 14 | 12 | 2 |
+| `live.adj` | 15 | 16 | 1 | 0 | 15 | 13 | 2 |
+| `live.verb` | 15 | 16 | 1 | 0 | 15 | 13 | 2 |
+| `wind.air` | 15 | 15 | 0 | 0 | 15 | 13 | 2 |
+| `content.noun` | 15 | 15 | 0 | 0 | 15 | 13 | 2 |
+| `content.satisfied` | 15 | 15 | 0 | 0 | 15 | 13 | 2 |
+| **Total** | **465** | **484** | **16** | **6** | **462** | **404** | **58** |
+
+**Development rows.** The round-1 rule: per reading, the round's templates (two words each side of the target,
+lowercased) in the order of `SHA-1("text-en-split-v1|syn|<reading_id>|<template>")` go to dev until
+`round(0.12 x rows)` of the reading's new rows are in dev; a (reading, template) pair is never split (the rule
+reproduces the first round's assignment for 285 of its 289 readings; the other 4 changed later by relabels and moves).
+404 rows to `train.tsv`, 58 to `dev.tsv`.
+
+**Merge** (`merge_v4.py`, scratch; it checks the frozen judgment hashes, that every filter survivor was reviewed exactly
+once and that no (reading, template) pair is already in train or dev):
+
+- `train.tsv` 19,865 to 20,269 rows and `dev.tsv` 3,235 to 3,293 rows (appended after the third-round rows, ids in the
+  order part, round, number); `synthetic-provenance.tsv` 14,998 to 15,460 (`id - <batch> <template>`, the writer's batch
+  `syn4-<part>-<reading>[-t<r>]-b<k>`).
+- Source `synthetic-v4` added to the closed source vocabulary (`TextEnDataSet`, generated, `CC0-1.0`), with the test
+  `SchemaChecker_Run_FourthRoundSyntheticRow_ReportsNoFindings`.
+- `gaps-v4.tsv` regenerated from `check-data --counts` (19 readings changed; 13 readings now one row short of 40, was
+  14); `MANIFEST.tsv` regenerated; data README, `audit/audit-summary.md`, the prompts README and both prompt records
+  completed.
+- SHA-256: `train.tsv` `3a9e5b653d0e0cc6fb5687ac21fd05ead21e083b8ca6d17ae175cb2b1af36738`, `dev.tsv`
+  `cde600b95b668cc695851337ba7b59fb1f9f464fd788da6633f287a9efbc9b81`, `synthetic-provenance.tsv`
+  `6a38e9836b1409714b45bc5143c93bf5bd81600394c094cd473058c0dbb2ce02`, `audit/review-synthetic-v4.tsv`
+  `de2e2bfecb861479d61697154f8c6ee9e784b78e8b2dc5a80aa662eedd280ea8`.
+
+**New regression rows.** `reg-0520` to `reg-0524` (origin `analyzer-test`, `ref SpeechTextEnTests.cs:1118` to `:1122`,
+the system theory of the readings the model makes alone, `seen_in_training no`, `CC0-1.0`): the listening sentences L07
+"Last night, I read it." (`read.past`), L08 "Two days ago she read it." (`read.past`), L09 "She read it two days ago."
+(`read.past`), L10 "Yesterday I wanted to read." (`read.present`) and L11 "Last night I did not read."
+(`read.present`). The overlay has 524 rows (`analyzer-test` 16); `regression.tsv` SHA-256
+`877bdf03bfaf543a8d37754197712f01a70320212fc91f10735e1013738bde39`. Every test reference of the five rows resolves (the
+line holds the sentence and the reading; checked by script, because the trainer test that checks it has `Committed` in
+its name and is not run before the read).
+
+**Extended PR A baseline** (the shipped model `73de5a3f...3df0` with the cue priors, PR A's trainer from the "before"
+worktree at `0034231`, `evaluate --model-dir <scratch>\shipped --data <copy of PR A's data with the new regression.tsv>
+--set regression`, the only set read): **524 of 524 with the cue priors, 520 of 524 for the model alone**; the five new
+rows are right both ways (`analyzer-test` 16 of 16 with and without the priors; a prior fired on 5 of the 16 rows and
+changed none). The four rows the model alone gets wrong are unchanged from the PR A baseline (all `listening` and
+`data-row`).
+
+**Gate of the data.**
+
+- `check-data`: **exit 0, 0 findings**, including the generalization novelty rules N1 to N3 against the final train and
+  dev data, `seen_in_training` of every regression row recomputed (25 seen, 499 unseen; the five new rows unseen) and
+  the manifest. Informational only: the word-cluster removals were audited against the evaluation files before this
+  change (`evaluationListingSha256` `f5e5f6ee...c0` then, `156fa76c...d5` now, because `dev.tsv` and `regression.tsv`
+  grew); the corpus cache needed for `cluster --audit` is not available in this worktree, so the audit was not re-run.
+  The table was induced before and independently of these rows and uses no labels.
+- **External leakage**: `check-data --eval-sets <scratch>\eval-sets` over the locally cached evaluation sets
+  (WikipediaHomographData train 14,487 and eval 1,615 sentences, heteronym-bench 566 items; 16,668 sentences, 16,383
+  distinct keys): **exit 0, 0 exact matches and 0 near duplicates** in all four data files. Rows sharing at least one
+  word 5-gram with these sets: train 364 of 20,269, dev 53 of 3,293, holdout-natural 23 of 1,167, holdout-independent 3
+  of 1,972 (10 fourth-round rows among them). The other 21 sets of the full check are not cached, so
+  `leakage-report.tsv` (all 24 sets, before this round) was not regenerated; the data README says so.
+
+**Order of the steps.** As fixed: one top-up round after the filters (of the two allowed), then the blind review of
+all filter survivors, then the review's refill path (one further top-up and a second review instance on the new rows
+only) for the one reading that the review left under 90 percent of its quota.
+
+## PR B: candidate log, development set and regression overlay only (2026-11-21)
+
+Sets read for every model in this entry: the development set (trainer level and end to end) and the regression overlay
+(524 rows) only. **No generalization set and no holdout (natural or independent) was read for any candidate**:
+`evaluate` was run only as `--set dev --set regression` or `--set regression`, from a script that refuses any other
+set; never `--gate`, `--seeds`, `--write`, `--check` or `--ablation`, and neither `build.ps1` nor a trainer test with
+`Committed` in its name was run. Every model is in a scratch folder outside the repository
+(`C:\work\sp-clusters-scratch\pr-b\`, one folder per model, named by the candidate number, or by the prune
+threshold and seed); the committed `heteronyms.bin` and `training.json` are unchanged.
+
+**Settings.** Feature set 2, model format 2, trainer version 2, the committed settings (seed 1, 22 hash bits, scale 64,
+natural weight 3, at most 12 epochs, the temperature grid), keyed order, the 512-class table, curated layer on; only the
+prune threshold varies (the size knob of the procedure entry). Data: the committed data plus the synthetic-v4 rows
+(entry "PR B: synthetic-v4 data round"; `dataSha256` `84e71e20...990e`), except candidate 0 (the Phase 4 smoke
+candidate, trained before the merge on the data of PR A: 3,235 development rows, 519 regression rows).
+
+**Candidates at seed 1.** Trainer level: the kept epoch's development natural rows (of 1,301) and all used development
+rows (of 3,034 for candidate 0, 3,092 after the merge). End to end: the development set through the analyzer (of 3,235
+for candidate 0, 3,293 after the merge; the shipped model has 3,083 of 3,235). Regression rows by origin: `listening` 7,
+`analyzer-test` 16 (11 for candidate 0), `golden-pipeline` 37, `golden-sentences` 61, `golden-readings` 382,
+`data-row` 21. Size: `heteronyms.bin` bytes (Deflate).
+
+Development set, size and image:
+
+| Model | Prune | Epochs | Dev natural | Dev all | Dev end to end | Bytes | Image |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| candidate 0 | 2 | 2 | 1,263 | 2,907 | 3,105 | 734,185 | `3bb84f76` |
+| candidate 1 | 2 | 12 | 1,268 | 2,973 | 3,171 | 771,491 | `cdc31683` |
+| prune 28 | 28 | 2 | 1,268 | 2,953 | 3,151 | 671,964 | `7ddbc366` |
+| prune 32 | 32 | 2 | 1,269 | 2,953 | 3,151 | 660,287 | `1f83c5d0` |
+| candidate 2 (prune 40) | 40 | 2 | **1,269** | 2,954 | 3,152 | **618,493** | `4ac85243` |
+| prune 48 | 48 | 2 | 1,267 | 2,955 | 3,153 | 569,415 | `2446dcec` |
+
+Regression overlay by origin, and the number of weights:
+
+| Model | Regression | Listening | Analyzer | Pipeline | Sentences | Readings | Data rows | Weights |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| candidate 0 | 510/519 | 5 | 9/11 | 35 | 60 | 380 | 21 | 187,774 |
+| candidate 1 | 520/524 | 5 | 16 | 36 | 60 | 382 | 21 | 216,943 |
+| prune 28 | 516/524 | 6 | 14 | 34 | 61 | 380 | 21 | 160,034 |
+| prune 32 | 517/524 | 6 | 14 | 35 | 61 | 380 | 21 | 154,872 |
+| candidate 2 (prune 40) | 516/524 | 6 | 14 | 35 | 61 | 379 | 21 | 134,104 |
+| prune 48 | 517/524 | 6 | 14 | 35 | 61 | 380 | 21 | 108,365 |
+
+Trainer level only (not evaluated end to end), the rest of the prune grid: prune 3, 4, 5, 6, 8, 12, 16 and 24 all keep
+12 epochs with 1,268 development natural rows (2,972 or 2,973 all) and 767,999 down to 740,121 bytes (215,284 down to
+203,563 weights); prune 64 keeps 1 epoch with 1,263 (2,954), 21,858 weights and 407,987 bytes. From prune 28 on, epoch 2
+scores at least as many development natural rows as any later epoch, so the selection (ties to the smaller model) keeps
+it.
+
+Regression rows wrong at seed 1:
+
+- Candidate 0: `reg-0002`, `-0004`, `-0013`, `-0014`, `-0050`, `-0051`, `-0115`, `-0162`, `-0166` (Phase 4 report).
+- Candidate 1: `reg-0004` (L03 *muscle tear*, `tear.rip` read as `tear.drop`), `reg-0006` (L05 *The tape wound onto the
+  spool*, `wind.coil` as `wound.injury`), `reg-0050` (*I read every night before bed*, `read.present` as `read.past`),
+  `reg-0088` (*He had a tear in his eye as he began to tear the letter*, the first *tear*, `tear.drop` as `tear.rip`).
+- Candidate 2 (prune 40): `reg-0004`, `reg-0013` (*He caught a large bass in the lake*, `bass.fish` as `bass.music`),
+  `reg-0014` (*He drew the bow and shot an arrow*, `bow.weapon` as `bow.bend`), `reg-0024` (*... but he will read it
+  tomorrow*, `read.present` as `read.past`), `reg-0050`, `reg-0162` (*The actors take a bow at the end*, `bow.bend` as
+  `bow.weapon`), `reg-0166` (*Celtic music uses fiddles and flutes*, `celtic.culture` as `celtic.team`), `reg-0339`
+  (*The church honors Jesus every Sunday*, `jesus.english` as `jesus.spanish`).
+- Prune 28: as candidate 2 with `reg-0055` (*The bass swam deep in the lake*) and without `reg-0339`; prune 32:
+  `reg-0004`, `-0013`, `-0014`, `-0050`, `-0055`, `-0162`, `-0166`; prune 48: `reg-0004`, `-0013`, `-0014`, `-0024`,
+  `-0050`, `-0166`, `-0339`.
+- The new rows `reg-0520` to `reg-0524` (L07 to L11) are right for every candidate after the merge.
+
+**The prune threshold by the development rule.** Over the grid 2, 3, 4, 5, 6, 8, 12, 16, 24, 28, 32, 40, 48 and 64 the
+highest number of development natural rows is 1,269 (prune 32 and 40); the tie goes to the smaller model: **prune 40**,
+candidate 2, 618,493 bytes (section 1, weights: 404,440 bytes raw, 266,688 deflated alone; section 2, word classes:
+410,109 raw, 348,452 deflated alone). The winning margin over prune 2 is one development natural row, within the seed
+noise; prune 2 (candidate 1, epoch 12) is 20 rows better end to end on the development set (3,171 against 3,151 to 3,153
+for the epoch-2 models) and 4 rows better on the regression overlay, but it is 771,491 bytes, over the 0.70 MB of the
+freeze checklist. The development rule decides; the difference is recorded here.
+
+**Seed diagnostics** (regression overlay only; trainer-level development figures from the `train` output):
+
+Development set, size and image:
+
+| Prune | Seed | Epochs | Dev natural | Dev all | Bytes | Image |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 40 | 1 | 2 | 1,269 | 2,954 | 618,493 | `4ac85243` |
+| 40 | 2 | 7 | 1,264 | 2,975 | 707,218 | `83d1a0eb` |
+| 40 | 3 | 2 | 1,271 | 2,967 | 623,121 | `ce314339` |
+| 40 | 4 | 6 | 1,274 | 2,986 | 703,996 | `404769eb` |
+| 40 | 5 | 3 | 1,263 | 2,957 | 659,495 | `8b6f6c8f` |
+| 2 | 1 | 12 | 1,268 | 2,973 | 771,491 | `cdc31683` |
+| 2 | 2 | 3 | 1,264 | 2,971 | 770,607 | `ba272cb1` |
+| 2 | 3 | 2 | 1,272 | 2,967 | 758,080 | `eabed8eb` |
+| 2 | 4 | 7 | 1,274 | 2,983 | 786,760 | `efda05a3` |
+| 2 | 5 | 8 | 1,265 | 2,969 | 783,592 | `1d6583f3` |
+
+Regression overlay by origin:
+
+| Prune | Seed | Regression | Listening | Analyzer | Pipeline | Sentences | Readings |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 40 | 1 | 516 | 6 | 14 | 35 | 61 | 379 |
+| 40 | 2 | 518 | 6 | 15 | 36 | 59 | 381 |
+| 40 | 3 | 518 | 6 | 15 | 34 | 61 | 381 |
+| 40 | 4 | 518 | 5 | 16 | 34 | 60 | 382 |
+| 40 | 5 | 519 | 5 | 15 | 35 | 61 | 382 |
+| 2 | 1 | 520 | 5 | 16 | 36 | 60 | 382 |
+| 2 | 2 | 517 | 6 | 15 | 35 | 59 | 381 |
+| 2 | 3 | 518 | 6 | 15 | 34 | 61 | 381 |
+| 2 | 4 | 519 | 5 | 16 | 35 | 60 | 382 |
+| 2 | 5 | 519 | 5 | 16 | 35 | 60 | 382 |
+
+Regression rows wrong:
+
+- prune 40, seed 1: 0004, 0013, 0014, 0024, 0050, 0162, 0166, 0339
+- prune 40, seed 2: 0004, 0013, 0050, 0088, 0111, 0162
+- prune 40, seed 3: 0004, 0013, 0026, 0050, 0055, 0339
+- prune 40, seed 4: 0001, 0004, 0024, 0034, 0050, 0115
+- prune 40, seed 5: 0004, 0006, 0014, 0034, 0050
+- prune 2, seed 1: 0004, 0006, 0050, 0088
+- prune 2, seed 2: 0004, 0013, 0050, 0055, 0088, 0111, 0162
+- prune 2, seed 3: 0004, 0013, 0026, 0050, 0055, 0339
+- prune 2, seed 4: 0001, 0004, 0024, 0050, 0115
+- prune 2, seed 5: 0004, 0006, 0034, 0050, 0111
+
+The `data-row` origin is 21 of 21 for every model. Over seeds 1 to 5 at prune 40: regression mean 517.8 (516 to 519),
+development natural 1,268.2 (1,263 to 1,274). Rows wrong on 2 or more of the 5 seeds at prune 40: `reg-0004` and
+`reg-0050` (5 of 5), `reg-0013` (3), `reg-0014`, `reg-0024`, `reg-0034`, `reg-0162` and `reg-0339` (2 each).
+
+**Freeze checklist** (readiness, not binding): not met. `listening`, `analyzer-test` and the golden origins are not 100
+percent at seed 1 for any candidate, and `reg-0004` (L03 *tear*) and `reg-0050` (*I read every night before bed*) are
+wrong on every seed at both prune thresholds. Candidate 2 is 618,493 bytes (within 0.70 MB); its development set end to
+end is 3,152 of 3,293 (3,105 of the 3,235 rows that the shipped model's 3,083 refers to; candidate 1 3,126).
+
+**Diagnosis of the two persistent rows** (training data only, no evaluation set): in `train.tsv` and `dev.tsv` the
+target *tear* ends the sentence in 16 `tear.drop` rows and 1 `tear.rip` row, and *muscle* occurs in 2 `tear.rip` rows;
+L03 has a body-part noun modifier before a sentence-final *tear* ("a deep muscle tear."), a construction the contrastive
+rows ("a tear in his calf") do not cover. For *I read every night before bed*, the blind review dropped five
+`read.present` rows with only a habitual adverbial as `unsure` (the tense is not fixed), so the habitual first-person
+present without another tense cue is barely in the data. Both point to data, not to a defect.
+
+**Defect checks (no defect found, no code changed).** The word-class lookup agrees between training and the analyzer
+(end-to-end parity: 3,290 compared, 0 mismatched); the table covers 95.5 percent of the word tokens of the development
+sentences (a rough regular-expression count); the class features, the curated features (the clause rule, the
+auxiliary-before rule) and the primary-hint salt were read against the procedure entry and match it. A compact encoding
+of the word-class section was estimated (9-bit packed class indexes save about 7.5 KB; Rice-coded hash gaps a further
+19 KB): not enough to bring prune 2 under 0.70 MB, and not made.
+
+**Diagnostic without word classes** (prune 40, `--clusters none`; not a decision input): epoch 4, dev
+natural 1,263 and all 2,948, dev end to end 3,146, regression 517 (wrong `reg-0004`, `-0006`, `-0013`, `-0050`, `-0088`,
+`-0166`, `-0339`), 122,901 weights, 253,934 bytes, image `7c3e8784`.
+
+## PR B: procedure amendment before the read (targeted supplement and prune selection) (2026-11-21)
+
+Written by the orchestrator before the pre-registered read, after the candidate log above. Sets read before this entry:
+the development set and the regression overlay only; no generalization or holdout figure of any PR B model has been
+seen. The pre-registered criterion (2026-11-20) and its read-discipline amendment (2026-11-21) are unchanged; this entry
+amends only the pre-read knobs of the entry "PR B: procedure fixed before any training with word classes", which may
+change freely before the read because nothing has been read.
+
+**Why.** No candidate meets the freeze checklist. Two guarded rows (`reg-0004`, L03 *a deep muscle tear*; `reg-0050`,
+*I read every night before bed*) are wrong on all 5 seeds, and the diagnosis on training data only (candidate log)
+points to data gaps among the round's own lemmas: a body-part noun before a clause-final *tear* is almost absent for
+`tear.rip`, and the habitual present of *read* without another tense cue does not survive the blind review. The
+development rule picks prune 40 by one development natural row, within the seed noise, while the guarded origins vary
+with the prune threshold (`bow`, `celtic` and `jesus` rows outside the round's lemmas).
+
+**Amendment 1: one targeted supplement round.** Through the data-round procedure unchanged (the committed writer prompt
+with a generic first line naming only reading ids, counts and a quota-line text; new `claude-sonnet-5.5` writer
+instances; the same mechanical filters, including the near-repeat check against `regression.tsv` and the listening
+sentences and the generalization novelty rules; a blind review by new `gpt-6.1-sol` instances on the new rows only; a
+disagreement or `unsure` drops the row; the round-1 development rule). It is numbered as the next top-up round of each
+part. It is limited to the round's ten lemmas and to readings whose guarded rows fail on development or regression
+diagnosis, each with a balancing contrast reading, about 60 rows: `tear.rip` (a body-part noun or modifier right
+before the target, the target ending its clause), `tear.drop` (the same frame, balancing), `read.present` (the habitual
+present fixed by another present-tense verb or a present time frame in the same sentence), `read.past` (the habitual
+past fixed the same way, balancing), `wind.coil` with *wound* (with a particle or preposition: up, onto, around,
+round, into, tight), `wound.injury` (balancing), `bass.fish` (fishing, lakes, rivers, catching, cooking) and
+`bass.music` (balancing). The quota-line texts are written from the training-data diagnosis, never from a regression
+or generalization sentence. The rule "at most 2 top-up rounds" of the procedure entry is lifted for this one round only.
+
+**Amendment 2: the prune threshold by the guarded regression rows.** The prune threshold is chosen, at seed 1 and after
+the supplement, as the one with the most regression rows of the guarded origins (`listening`, `analyzer-test` and every
+`golden-*` origin) right, among the thresholds whose model A is at most 700,000 bytes; ties go to the most development
+natural rows, then to the smaller model. The development rule of the procedure entry remains reported. This uses the
+regression overlay for iteration, as the read discipline allows; the generalization set and the holdouts stay unread.
+
+**Unchanged.** Hash bits, scale, natural weight, epochs, seed, the feature templates, the fingerprint width, the
+512-class table, the criterion, the guards and the failure path.
+
+## PR B: targeted supplement (amendment 1) (2026-11-21)
+
+Written after the supplement was merged and before any candidate was trained on its rows. Sets read for this entry:
+nobody read a generalization or holdout sentence; the filter script reads the overlays and both holdouts and prints
+only rule names, counts and stage row ids. No model was trained or evaluated for this entry.
+
+**Writers** (amendment 1 of the entry "PR B: procedure amendment before the read"; new `claude-sonnet-5.5`
+`general-purpose` instances, the committed prompt of each part verbatim with only the staging folder substituted and a
+generic first line naming reading ids, row counts and a quota-line text written from the training-data diagnosis of
+the candidate log, never from a regression or generalization sentence), dispatched by the orchestrator about
+2026-11-21 12:46:40 UTC, finished about 12:50 UTC (the writers' notes give 12:47 to 12:55):
+
+- Part 0, numbered top-up round 3 (stage `writers\part-0-top-up-3.tsv`, 48 rows):
+  - `tear.rip` 12: "noun: a body-part noun or modifier right before the target (a muscle, hamstring, rotator cuff,
+    ligament, cartilage, skin, retinal ... tear), with the target ending its clause or the sentence; vary the body
+    parts and the frames widely";
+  - `tear.drop` 6: "noun: the same frame for a teardrop (a modifier right before the target, the target ending its
+    clause or the sentence), with crying, emotion or a face nearby, balancing the tear.rip rows";
+  - `read.present` 12: "the habitual present, fixed by another present-tense verb or a present time frame in the same
+    sentence (nowadays, these days, still, each night ... and another verb in the present tense); vary subjects,
+    including I, we and you";
+  - `read.past` 6: "the habitual past, fixed the same way by another past-tense verb or a past time frame in the same
+    sentence (back then, as a child, in those years, used to ... and another verb in the past tense), balancing the
+    read.present rows";
+  - `wind.coil` 8: "past tense or participle of wind with a particle or preposition right after the target: wound up,
+    onto, around, round, into, tight, back, along";
+  - `wound.injury` 4: "noun or verb of injury in frames that also fit the coiling sense (a wound on, around, along
+    something), balancing the wind.coil rows".
+- Part 1, numbered top-up round 2 (stage `writers\part-1-top-up-2.tsv`, 12 rows):
+  - `bass.fish` 8: "the fish: fishing, lakes, rivers and ponds, catching, landing, releasing, swimming and cooking
+    bass, with the target as subject or object and in short plain sentences";
+  - `bass.music` 4: "the low sound or instrument in the same kinds of plain frames (the target as subject or object of
+    an everyday verb), balancing the bass.fish rows".
+
+**Mechanical filters** (`filter_v4.py` on the two new files only, so against the merged train and dev data of the main
+round; every rule of the entry "PR B: synthetic-v4 data round", including the near-repeat checks against the
+regression overlay and the listening sentences, the generalization novelty rules N2 and N3 and the (reading, template)
+pairs of train and dev): 60 written, **0 dropped**.
+
+**Rule for this supplement only** (its quota lines were written after the regression diagnosis): a row is dropped when
+one of its construction trigrams around the target (the generalization rule N3: words -2..0, -1..+1 or 0..+2) equals
+one of a `regression.tsv` row of its lemma group. **6 dropped**: `syn4-0-t3-19` (`read.present`) and `syn4-0-t3-31`
+(`read.past`), trigram "i _ the" (as `reg-0005`, `reg-0051`, `reg-0504`); `syn4-0-t3-39` (`wind.coil`), "the tape _"
+and "tape _ onto" (as `reg-0006`); `syn4-1-t2-4` (`bass.fish`), `syn4-1-t2-10` and `syn4-1-t2-11` (`bass.music`),
+"_ in the" (as `reg-0013`). The merge script recomputes the rule and checks that it drops exactly these six.
+
+**Blind review round 3** (a new `gpt-6.1-sol` `general-purpose` instance, the committed review prompt verbatim; about
+12:52 to 12:55 UTC; the earlier review folders moved aside to `review-round-1\` and `review-round-2\` with their inputs
+in `review-round-1-inputs\` and `review-round-2-inputs\`; inputs `review-blind.tsv` and `review-labels.tsv` at the stage
+root, files in `review\`): the 54 remaining rows, **54 agree**, 0 disagreements, 0 `unsure`. Judgments SHA-256
+`31d06086d03525c1a58bbd2e5d4e41f896675eb1e755af047050d6f62eeb21e3` (frozen before the labels were opened; the merge
+script checks it). Recorded as round 3 in `data/text-en/audit/review-synthetic-v4.tsv` (522 lines: 516 `keep`, 6
+`drop`).
+
+**Development rows.** The round-1 rule applied to the supplement's own rows per reading (templates in the order of
+`SHA-1("text-en-split-v1|syn|<reading_id>|<template>")` to dev until `round(0.12 x rows)` are in dev, never splitting a
+(reading, template) pair; no pair already in train or dev). Dev: `syn4-0-t3-7` (`tear.rip`), `-18` (`tear.drop`),
+`-24` (`read.present`), `-33` (`read.past`), `-40` (`wind.coil`) and `syn4-1-t2-3` (`bass.fish`).
+
+| Reading | Written | Regression trigram rule | Review dropped | Kept | Train | Dev |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `tear.rip` | 12 | 0 | 0 | 12 | 11 | 1 |
+| `tear.drop` | 6 | 0 | 0 | 6 | 5 | 1 |
+| `read.present` | 12 | 1 | 0 | 11 | 10 | 1 |
+| `read.past` | 6 | 1 | 0 | 5 | 4 | 1 |
+| `wind.coil` | 8 | 1 | 0 | 7 | 6 | 1 |
+| `wound.injury` | 4 | 0 | 0 | 4 | 4 | 0 |
+| `bass.fish` | 8 | 1 | 0 | 7 | 6 | 1 |
+| `bass.music` | 4 | 2 | 0 | 2 | 2 | 0 |
+| **Total** | **60** | **6** | **0** | **54** | **48** | **6** |
+
+**Merge** (`merge_supp.py`, scratch; the same checks as `merge_v4.py`): `train.tsv` 20,269 to **20,317** rows and
+`dev.tsv` 3,293 to **3,299** (appended after the main round's rows, ids in the order part, round, number);
+`synthetic-provenance.tsv` 15,460 to 15,514. The `synthetic-v4` source now has 516 rows (452 train, 64 dev).
+`gaps-v4.tsv` regenerated from `check-data --counts` (8 readings changed; still 13 readings one row short of 40);
+`MANIFEST.tsv` regenerated; the data README, `audit/audit-summary.md`, the prompts README and both prompt records
+completed (the prompt text is unchanged).
+
+- SHA-256: `train.tsv` `1eed0dd91918df1f40a6eb5b5f1289844e524a0d4db843fe3c4694da297cebe0`, `dev.tsv`
+  `200031813a5740c83d685c812246d020044e694b7fea9076b5493bb275351388`, `synthetic-provenance.tsv`
+  `4319fa6b423ae39c6b99c39dcd927c9ca69bb1a199ae9fb69b8c5664d8b53284`, `audit/review-synthetic-v4.tsv`
+  `dfdd61a0683397f941500530a79b1fa7f64f24c37e0bd8befb663fe2ca1477dd`; `regression.tsv` and `generalization.tsv`
+  unchanged.
+
+**Gate of the data.**
+
+- `check-data`: **exit 0, 0 findings**, including the generalization novelty rules N1 to N3 against the final train and
+  dev data and `seen_in_training` of every regression row recomputed (25 seen, 499 unseen, unchanged). Informational
+  only, as before: the evaluation listing hash of the word-cluster audit changed again (`cb03a58f...4d37` now) because
+  `dev.tsv` grew; `cluster --audit` needs the corpus cache, which is not in this worktree.
+- **External leakage** (`check-data --eval-sets <scratch>\eval-sets`, the same three cached sets): **exit 0, 0 exact
+  matches and 0 near duplicates** in all four data files. Rows sharing a word 5-gram: train 365 of 20,317 (one
+  supplement row), dev 53 of 3,299, holdout-natural 23 of 1,167, holdout-independent 3 of 1,972. `leakage-report.tsv`
+  not regenerated (as in the main round).
+
+## PR B: candidate log after the supplement and the prune threshold by amendment 2 (2026-11-21)
+
+Continues the entry "PR B: candidate log, development set and regression overlay only" on the data with the targeted
+supplement (entry "PR B: targeted supplement (amendment 1)"; `dataSha256` `774b6a27...93c1`). Sets read for every model
+in this entry: the development set (trainer level and end to end) and the regression overlay (524 rows) only. **No
+generalization set and no holdout (natural or independent) was read for any candidate**: `evaluate` was run only as
+`--set dev --set regression` (or `--set regression` for the seed diagnostics) from the same guarded script; never
+`--gate`, `--seeds`, `--write`, `--check` or `--ablation`, and neither `build.ps1` nor a trainer test with `Committed`
+in its name was run. Models in scratch folders `supp-pNN` and `supp-p32-sK`; the committed `heteronyms.bin` and
+`training.json` are unchanged.
+
+**Settings.** As in the earlier candidate log (feature set 2, model format 2, trainer version 2, seed 1, 22 hash bits,
+scale 64, natural weight 3, at most 12 epochs, the temperature grid, keyed order, the 512-class table, curated layer
+on); only the prune threshold varies.
+
+**Prune grid at seed 1** (amendment 2). Development natural rows of 1,301 and all used rows of 3,098 at the trainer
+level; end to end of 3,299 (in brackets: the 64 fourth-round development rows). Regression rows by origin: `listening`
+7, `analyzer-test` 16, `golden-pipeline` 37, `golden-sentences` 61, `golden-readings` 382, `data-row` 21; "Guarded" is
+the sum of the first five (503 rows). Every model keeps epoch 2.
+
+Development set, size and image:
+
+| Prune | Dev natural | Dev all | Dev end to end | Weights | Bytes | Image |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 2 | 1,269 | 2,971 | 3,169 (52) | 198,707 | 757,345 | `60723c2e` |
+| 16 | 1,270 | 2,973 | 3,171 (53) | 178,052 | 710,451 | `51d68ffc` |
+| 20 | 1,270 | 2,973 | 3,171 (53) | 172,537 | 699,087 | `b907e097` |
+| 24 | 1,271 | 2,972 | 3,170 (53) | 166,277 | 684,839 | `a0d57628` |
+| 26 | 1,271 | 2,974 | 3,172 (54) | 163,069 | 677,963 | `6b788537` |
+| 28 | 1,271 | 2,973 | 3,171 (54) | 160,143 | 672,229 | `f0980e40` |
+| 30 | 1,271 | 2,972 | 3,170 (54) | 157,861 | 667,074 | `15ff5b03` |
+| **32** | **1,271** | 2,973 | 3,171 (54) | 154,403 | **659,333** | `a65f0c29` |
+| 36 | 1,271 | 2,971 | 3,169 (54) | 144,225 | 639,045 | `5d867ae9` |
+| 40 | 1,271 | 2,975 | 3,173 (55) | 132,247 | 615,655 | `91f641c0` |
+| 44 | 1,270 | 2,971 | 3,169 (53) | 121,346 | 594,705 | `c824ddc7` |
+| 48 | 1,270 | 2,973 | 3,171 (53) | 109,409 | 571,115 | `305fddd9` |
+| 56 | 1,269 | 2,967 | 3,165 (53) | 78,921 | 514,775 | `94be0dde` |
+| 64 | 1,267 | 2,964 | 3,162 (54) | 34,135 | 435,886 | `ec0589d2` |
+
+Regression overlay by origin:
+
+| Prune | Regression | Guarded | Listening | Analyzer | Pipeline | Sentences | Readings | Data rows |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+| 16 | 517 | 496 | 7 | 14 | 35 | 60 | 380 | 21 |
+| 20 | 517 | 496 | 7 | 14 | 35 | 60 | 380 | 21 |
+| 24 | 517 | 496 | 7 | 14 | 35 | 60 | 380 | 21 |
+| 26 | 517 | 496 | 7 | 14 | 35 | 60 | 380 | 21 |
+| 28 | 518 | 497 | 7 | 14 | 35 | 60 | 381 | 21 |
+| 30 | 519 | 498 | 7 | 14 | 36 | 60 | 381 | 21 |
+| **32** | **520** | **499** | 7 | 14 | 36 | 61 | 381 | 21 |
+| 36 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+| 40 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+| 44 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+| 48 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+| 56 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+| 64 | 518 | 497 | 7 | 14 | 35 | 61 | 380 | 21 |
+
+Guarded rows wrong:
+
+- prune 2: 0013, 0014, 0050, 0055, 0162, 0166
+- prune 16: 0013, 0014, 0050, 0055, 0088, 0162, 0166
+- prune 20: 0013, 0014, 0050, 0055, 0088, 0162, 0166
+- prune 24: 0013, 0014, 0050, 0055, 0088, 0162, 0166
+- prune 26: 0013, 0014, 0050, 0055, 0088, 0162, 0166
+- prune 28: 0013, 0014, 0050, 0055, 0088, 0166
+- prune 30: 0013, 0014, 0050, 0088, 0166
+- prune **32**: 0013, 0014, 0050, 0166
+- prune 36: 0013, 0014, 0050, 0055, 0166, 0339
+- prune 40: 0013, 0014, 0050, 0055, 0166, 0339
+- prune 44: 0013, 0014, 0050, 0055, 0166, 0339
+- prune 48: 0013, 0014, 0050, 0055, 0166, 0339
+- prune 56: 0013, 0014, 0050, 0055, 0166, 0339
+- prune 64: 0013, 0014, 0050, 0055, 0157, 0339
+
+The `data-row` origin is 21 of 21 for every model, so every wrong row is a guarded row. Prune 16 (710,451 bytes) and 20
+(699,087 bytes) bracket the 700,000-byte limit. The supplement changed the guarded rows that failed on every seed
+before it: `reg-0004` (L03 *a deep muscle tear*) is right for every model of this grid and `listening` is 7 of 7;
+`reg-0050` (*I read every night before bed*) is still wrong everywhere.
+
+**The prune threshold by amendment 2: 32.** Among the thresholds whose model is at most 700,000 bytes (20 to 64), prune
+32 has the most guarded rows right, 499 of 503 (the next best, prune 30, 498), so no tie rule is needed: 659,333 bytes
+(section 1, weights: 464,583 bytes raw, 306,476 deflated alone; section 2, word classes: 410,109 raw, 348,446 deflated
+alone), image `a65f0c29574dfe3bca5a1bbac94fd5e196630242fd4bd295405a597bf4932d44`, development end to end 3,171 of 3,299
+(3,117 of the 3,235 rows that the shipped model's 3,083 refers to). Wrong at seed 1: `reg-0013` (*He caught a large bass
+in the lake*, `analyzer-test`), `reg-0014` (*He drew the bow and shot an arrow*, `analyzer-test`), `reg-0050`
+(`golden-pipeline`) and `reg-0166` (*Celtic music uses fiddles and flutes*, `golden-readings`).
+
+**The development rule, reported** (the procedure entry's rule, not the decision): the most development natural rows
+over the grid is 1,271 (prune 24, 26, 28, 30, 32, 36 and 40); the tie goes to the smaller model: **prune 40** (615,655
+bytes, guarded 497 of 503). The two rules differ by two guarded rows (`reg-0055`, `reg-0339` wrong at prune 40, right at
+32, with `reg-0055` the more frequent failure over seeds, see below) and by no development natural row.
+
+**Seed diagnostics at prune 32** (regression overlay only; trainer-level development figures from the `train` output):
+
+Development set, size and image:
+
+| Seed | Epochs | Dev natural | Dev all | Bytes | Image |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | 2 | 1,271 | 2,973 | 659,333 | `a65f0c29` |
+| 2 | 8 | 1,263 | 2,975 | 735,671 | `61eb6d9a` |
+| 3 | 7 | 1,269 | 2,985 | 736,287 | `ee96913d` |
+| 4 | 8 | 1,267 | 2,983 | 738,848 | `15a9ca6b` |
+| 5 | 4 | 1,266 | 2,980 | 708,518 | `8fab25f2` |
+
+Regression overlay by origin:
+
+| Seed | Regression | Guarded | Listening | Analyzer | Pipeline | Sentences | Readings |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 520 | 499 | 7 | 14 | 36 | 61 | 381 |
+| 2 | 517 | 496 | 7 | 15 | 35 | 58 | 381 |
+| 3 | 518 | 497 | 7 | 15 | 34 | 60 | 381 |
+| 4 | 521 | 500 | 7 | 16 | 36 | 61 | 380 |
+| 5 | 520 | 499 | 7 | 15 | 34 | 61 | 382 |
+
+Rows wrong:
+
+- seed 1: 0013, 0014, 0050, 0166
+- seed 2: 0013, 0050, 0055, 0059, 0088, 0111, 0162
+- seed 3: 0013, 0024, 0050, 0055, 0107, 0162
+- seed 4: 0050, 0162, 0458
+- seed 5: 0014, 0034, 0050, 0055
+
+Over seeds 1 to 5: regression mean 519.2 (517 to 521), development natural mean 1,267.2 (1,263 to 1,271); `listening` 7
+of 7 on every seed. Guarded rows wrong on 2 or more seeds: `reg-0050` (5 of 5), `reg-0013`, `reg-0055` (*The bass swam
+deep in the lake*) and `reg-0162` (*The actors take a bow at the end*) 3 each, `reg-0014` 2; every other guarded row is
+right on at least 4 of the 5 seeds. Seeds 2 to 5 keep later epochs and are over 700,000 bytes; only model A at seed 1 is
+the model that would ship.
+
+**Freeze checklist** (readiness, not binding): **not met**. At seed 1 `analyzer-test` is 14 of 16, `golden-pipeline` 36
+of 37 and `golden-readings` 381 of 382 (`listening` and `golden-sentences` complete); `reg-0050`, `reg-0013`,
+`reg-0055` and `reg-0162` are right on fewer than 4 of the 5 seeds. Size: 659,333 bytes, within 0.70 MB. Development end
+to end: 3,171 of 3,299 (3,117 of 3,235 against the shipped 3,083).
+
+**Default changed.** `TrainingSettings.Default.PruneThreshold` 2 to 32 (with its remarks and the training-record
+design text). `train --model-dir <scratch>\freeze-check` with no option reproduces image `a65f0c29...2d44` (the same
+file bytes as `supp-p32`). The pinned fixture image of the trainer tests is unchanged by the new default (656 of 656
+trainer tests pass with `FullyQualifiedName!~Committed`).
+
+## PR B: freeze (2026-11-21)
+
+Written before the pre-registered read. Sets read before this entry: the development set and the regression overlay
+only (entries "PR B: synthetic-v4 data round", "PR B: candidate log", "PR B: targeted supplement (amendment 1)" and "PR
+B: candidate log after the supplement and the prune threshold by amendment 2"); no generalization or holdout figure of
+any PR B model has been seen, and there was no accidental early read.
+
+**Frozen state.** A local WIP commit (never pushed as is) of everything in the working tree except
+`src/DemaConsulting.Speech.Text.En/Resources/heteronyms.bin`,
+`tools/DemaConsulting.Speech.Text.En.Trainer/training.json` and `docs/evaluation/text-en/*` (all three still the shipped
+PR A state). The commit holds this entry; its SHA and its `git write-tree` hash are recorded in the paragraph "Commit
+references of the freeze" below, appended by a follow-up local commit that changes only this log, so the code and the
+data of the read are exactly the WIP commit's tree.
+
+**Data** (SHA-256):
+
+- `data/text-en/train.tsv` `1eed0dd91918df1f40a6eb5b5f1289844e524a0d4db843fe3c4694da297cebe0` (20,317 rows)
+- `data/text-en/dev.tsv` `200031813a5740c83d685c812246d020044e694b7fea9076b5493bb275351388` (3,299 rows)
+- `data/text-en/word-clusters.tsv` `17e94d11a69627513a92679370432697d452011b6ffb3168ecc35f5643d5007b` (60,000 words,
+  512 classes)
+- `data/text-en/readings.tsv` `b8f7bbc3394322f53b76ef5107138535a9c8775b39c6030a744b0a203d63da8e`
+- `data/text-en/forms.tsv` `7deefce9c61c8bc236a0acbac0f9a4ec5e3235dee9b872fea7a423b86987ea48`
+- for reference: `regression.tsv` `877bdf03bfaf543a8d37754197712f01a70320212fc91f10735e1013738bde39` (524 rows) and
+  `generalization.tsv` `b2b33140fefbe408198477ff92cc6c5666e4af360890019c97ecb9dd9902937e` (unchanged); the training
+  record's `dataSha256` `774b6a27df26e6be91b86a671b0360bf863204920d5941aa9958e2a2d46793c1` and `featuresSha256`
+  `b8a5d573b3c72bb8f1e8d878ff8d4421800e3303be2bcd6f51ef1bb93ea85b94`
+
+**Settings** (`TrainingSettings.Default` at the freeze): seed 1, 22 hash bits, scale 64, **prune threshold 32** (by
+amendment 2; the development rule would give 40), natural weight 3, at most 12 epochs, temperature grid of 1,000 steps
+of 1/20, keyed order, word classes `table`, curated layer on; feature set 2, model format 2, trainer version 2, 16-bit
+lookup fingerprint. Evaluation: seeds 1 to 5, 10,000 resamples, bootstrap seed 7, 95 percent.
+
+**Model A at seed 1**: image SHA-256 `a65f0c29574dfe3bca5a1bbac94fd5e196630242fd4bd295405a597bf4932d44`, 2 epochs,
+154,403 weights, 659,333 bytes (874,788 uncompressed); development natural 1,271 of 1,301, all 2,973 of 3,098, end to
+end 3,171 of 3,299; regression 520 of 524. `train --model-dir <scratch>` with no option reproduces it. The read's A at
+seed 1 must have this image hash.
+
+**Freeze checklist** (readiness, not binding): **not met**. At seed 1 `reg-0013`, `reg-0014` (`analyzer-test`),
+`reg-0050` (`golden-pipeline`) and `reg-0166` (`golden-readings`) are wrong; over seeds 1 to 5 `reg-0050` is wrong on
+all 5 and `reg-0013`, `reg-0055` and `reg-0162` on 3. `listening` is 7 of 7 on every seed. Size within 0.70 MB
+(659,333 bytes). Development end to end 3,117 of the shipped model's 3,235 rows against its 3,083 (not a gate). The read
+is taken anyway, as the procedure fixes.
+
+**The read** (next, once, from the WIP commit's tree): `evaluate --ablation --ablation-dir
+C:\work\sp-clusters-scratch\pr-b\read-1`.
+
+**Commit references of the freeze** (appended by a follow-up local commit that changes only this log): WIP commit
+`dded64974b57716aa9a23d8dcdfb7ca8a719d1ca`, `git write-tree` hash (its tree)
+`9585af89bd628fe56691a404b3bae65dc583352b`, parent `dfb90c9` (C2). Neither commit is pushed.
+
+## PR B: the pre-registered read (read 1) (2026-11-21)
+
+Written immediately after the read, before anything else was done. The read was run once, at HEAD `f97a0ad` (the
+freeze's follow-up commit; code and data exactly tree `9585af89bd628fe56691a404b3bae65dc583352b` of the WIP commit
+`dded649`), with a clean working tree and a current Release build, from `C:\work\sp-clusters-b`:
+`dotnet run --no-build -c Release --project tools/DemaConsulting.Speech.Text.En.Trainer -- evaluate --ablation
+--ablation-dir C:\work\sp-clusters-scratch\pr-b\read-1`. It started 2026-11-21T08:24:56-05:00, took 55 seconds and
+exited 1 (fail). The ablation folder did not exist before the run. The console output (92 lines, SHA-256
+`ef2b11db1eb7b315d640d681823035c3892d0f49341eb1c0e14fd1e847691303`) is kept outside the repository as
+`C:\work\sp-clusters-scratch\pr-b\read-1-console.txt`. Only the aggregate figures that the command prints were seen;
+no per-row or per-reading generalization detail was looked at, and `generalization.tsv` was not opened. No holdout was
+read (no `--gate`, `--write` or `--check`).
+
+**Image hash check.** Model A at seed 1 (`clusters-on-curated-on-seed-1`) has image SHA-256
+`a65f0c29574dfe3bca5a1bbac94fd5e196630242fd4bd295405a597bf4932d44`, 154,403 weights, 659,333 bytes: **equal to the
+frozen hash**. The A images of seeds 2 to 5 (`61eb6d9a…`, `ee96913d…`, `15a9ca6b…`, `8fab25f2…`) also equal those of
+the seed diagnostics before the freeze.
+
+**Primary endpoint** (generalization set, 242 rows, end to end; B is clusters off with the curated layer on, seed 1):
+
+| Measure | Value |
+| --- | --- |
+| A (clusters on, curated on, seed 1) | 179 of 242 (73.97 %) |
+| B (clusters off, curated on, seed 1) | 186 of 242 (76.86 %) |
+| Delta A minus B | **-289 basis points** (-7 rows) |
+| 95 % family-clustered interval (64 families, 10,000 resamples, seed 7) | **[-661, +79] basis points** |
+
+| Seed | A | B | Delta (rows) | Delta (basis points) |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 179 | 186 | -7 | -289 |
+| 2 | 187 | 179 | +8 | +331 |
+| 3 | 184 | 178 | +6 | +248 |
+| 4 | 184 | 177 | +7 | +289 |
+| 5 | 179 | 182 | -3 | -124 |
+| Mean | | | +2.2 (sum +11) | **+91** |
+
+**Criterion.**
+
+| Condition | Required | Read 1 | Met |
+| --- | --- | --- | --- |
+| Delta | at least +300 basis points | -289 basis points | **no** |
+| Lower bound of the 95 % interval | above 0 | -661 basis points | **no** |
+| Mean delta over seeds 1 to 5 | above 0 | +91 basis points | yes |
+| Guard: generalization A | at least 177 of 242 | 179 of 242 | yes |
+
+**Verdict: FAIL** (the evaluator prints `CRITERION: FAIL` and exits 1). The delta and the interval conditions fail; the
+seed mean and the generalization guard hold.
+
+**Subsets** (A minus B at seed 1, family-clustered 95 % intervals):
+
+| Subset | Rows | Families | A | B | Delta | Interval |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `novel-vocabulary` | 135 | 51 | 100 | 104 | -296 bp | [-709, +78] bp |
+| `novel-construction` | 107 | 39 | 79 | 82 | -280 bp | [-988, +330] bp |
+| `cue_unsolvable=yes` | 80 | 51 | 61 | 61 | 0 bp | [-380, +366] bp |
+| `cue_unsolvable=no` (printed, not pre-registered) | 162 | 64 | 118 | 125 | -432 bp | [-983, +65] bp |
+
+**2 by 2 ablation at seed 1** (clusters {off, on} by curated layer {off, on}; all four cells trained and evaluated in
+this run). Image hashes: on/on `a65f0c29…`, on/off `75ecc873…`, off/on `8999933d…`, off/off `08340753…`.
+
+| Set | on/on (A) | on/off | off/on (B) | off/off |
+| --- | ---: | ---: | ---: | ---: |
+| Generalization, all (242) | 179 | 182 | 186 | 183 |
+| Generalization, `novel-vocabulary` (135) | 100 | 99 | 104 | 102 |
+| Generalization, `novel-construction` (107) | 79 | 83 | 82 | 81 |
+| Generalization, `cue_unsolvable=yes` (80) | 61 | 63 | 61 | 61 |
+| Generalization, `cue_unsolvable=no` (162) | 118 | 119 | 125 | 122 |
+| Regression, all (524) | 520 | 515 | 520 | 516 |
+| Regression, seen (25) | 25 | 24 | 25 | 25 |
+| Regression, unseen (499) | 495 | 491 | 495 | 491 |
+| Development, trainer natural (1,301) | 1,271 | 1,268 | 1,267 | 1,264 |
+| Development, trainer all (3,098) | 2,973 | 2,954 | 2,969 | 2,958 |
+| Development, end to end (3,299) | 3,171 | 3,152 | 3,167 | 3,156 |
+
+Main effect of clusters (mean over the curated levels) and the interaction (on,on) minus (on,off) minus (off,on) plus
+(off,off); intervals are family-clustered on the generalization set and row-clustered on the regression overlay (the
+development figures are printed without intervals):
+
+| Set | Main effect of clusters | Interval | Interaction | Interval |
+| --- | ---: | --- | ---: | --- |
+| Generalization, all | -165 bp | [-525, +169] bp | -248 bp | [-631, +125] bp |
+| Generalization, `novel-vocabulary` | -259 bp | [-620, +73] bp | -74 bp | [-543, +441] bp |
+| Generalization, `novel-construction` | -47 bp | [-758, +586] bp | -467 bp | [-1,100, 0] bp |
+| Generalization, `cue_unsolvable=yes` | +125 bp | [-122, +390] bp | -250 bp | [-800, +233] bp |
+| Generalization, `cue_unsolvable=no` | -309 bp | [-847, +182] bp | -247 bp | [-753, +208] bp |
+| Regression, all | -10 bp | [-105, +95] bp | +19 bp | [-115, +153] bp |
+| Regression, seen | -200 bp | [-600, 0] bp | +400 bp | [0, +1,200] bp |
+| Regression, unseen | 0 bp | [-100, +110] bp | 0 bp | [-140, +140] bp |
+| Development, trainer natural | +31 bp | | 0 bp | |
+| Development, trainer all | 0 bp | | +26 bp | |
+| Development, end to end | 0 bp | | +24 bp | |
+
+**Next.** The criterion failed, so the binding failure path of the entry "PR B: procedure fixed before any training
+with word classes" applies: no tuning on the generalization set or a holdout, diagnosis on the development set and the
+regression overlay only, and at most one further frozen candidate after an entry "PR B: second pre-registration" (read
+2). The failure path was not started with this entry. No candidate model or record is committed, and nothing is pushed.
+
+## PR B: failure-path diagnosis after read 1 (development set and regression overlay only) (2026-11-21)
+
+Written after read 1 and before any second pre-registration. This entry is a diagnosis only: it freezes nothing, commits
+no model, record or setting, and takes no read. Sets read for this entry: the development set (trainer level and end to
+end) and the regression overlay (524 rows) only. No generalization set or holdout was evaluated for any model. The only
+generalization information used is the aggregate read-1 figures already logged above. No `evaluate` was run with
+`--set generalization`, `--set holdout-*`, `--gate`, `--seeds`, `--write`, `--check` or `--ablation`. Neither
+`build.ps1` nor a trainer test with `Committed` in its name was run.
+
+The work used a diagnostic program outside the repository (`C:\work\sp-clusters-scratch\pr-b\diag\`). It is linked
+against the trainer and library binaries of the frozen tree (copied, unchanged), and the only overlay it loads is the
+regression overlay. It does two things:
+
+- It retrains with the trainer's own `AveragedPerceptronTrainer`, scores every epoch with the trainer's own decision
+  rule, and builds the image with the trainer's own writer. With the frozen settings it reproduces the image hashes of
+  model A at seeds 1 to 5 (`a65f0c29…`, `61eb6d9a…`, `ee96913d…`, `15a9ca6b…`, `8fab25f2…`) byte for byte.
+- It breaks a candidate's score down by template and by channel. The channels are the label salt, the role salt and
+  the primary part-of-speech (hint) salt. A copy of the feature extractor records the template of each feature, and
+  for every row explained it was checked to emit exactly the runtime extractor's hashes.
+
+A second small program, linked against the PR A binaries, lists the regression rows that the feature-set-1 models of
+the entry "PR B: order-only baseline" get wrong. It does so with and without the cue priors, on a copy of PR A's data
+that has the current `regression.tsv`. Margins below are integer score differences at scale 64: gold minus the
+strongest other candidate.
+
+**Wrong guarded rows of model A at seed 1, by root cause.**
+
+- **`reg-0050`** (*I read every night before bed*, `read.present` read as `read.past`, `golden-pipeline`): a modeling
+  and data outcome, not a defect.
+  - **How often it is wrong.**
+    - Feature-set-2 models: on every model of PR B, and on every epoch of every model inspected. That covers all 12
+      epochs of seeds 1 to 5 at prune 32 and at prune 52, and all 12 epochs at seed 1 at prune 40, 48, 56, 60 and 64:
+      0 of 180 epoch snapshots are right.
+    - The read-1 models: all four cells of the 2 by 2 at seed 1, and both A and B at seeds 2 to 5.
+    - The PR B trainer on PR A's data, before any synthetic-v4 row, with clusters on and curated on, clusters off, and
+      both off: wrong on all 5 seeds each.
+    - Feature set 1 (the order-only baseline models): wrong in 9 of 10 models, with the cue priors and without them.
+      The only exception is the shipped model (positional order, seed 1). So this row has been right only for the
+      shipped seed and order, never as a stable property of the method.
+  - **Why.** The sentence has no tense cue except the habitual adverbial *every night*. In `train.tsv`, *read* with no
+    auxiliary, modal, *to* or negation in the three words before it is `read.past` 116 times and `read.present` 68
+    times (plus 20 sentence-initial imperatives). A pronoun right before it is 28 past and 23 present. *every* or *each*
+    before a word of time occurs in 6 present and 2 past rows. The blind review of the data round drops a row whose only
+    tense cue is a habitual adverbial as `unsure`: 5 such `read.present` rows were dropped in round 1. The amendment-1
+    supplement's habitual rows fix the tense with another present-tense verb.
+  - **Margins.** A: −5,824. B (clusters off): −1,552. Clusters on with the curated layer off: −3,600. Both off: −3,492.
+  - **Contributions in A.** Feature-set-1 templates give −3,009. Those are mostly frame features: no modal within three
+    words, no punctuation before, position 1, a pronoun at −1 and a preposition at +3. Feature-set-2 templates give
+    −2,815:
+    - the bag of classes (the broad 6-bit noun class of *night* and *bed*): −726;
+    - the classes of the words at −2 to +2: −702;
+    - the shared neighbor classes: −631;
+    - the class next to the target with its tag: −504;
+    - the target form with its tag: −252.
+  - **Curated layer and hint salt.** No curated feature fires on the sentence. The hint channel contributes exactly 0,
+    because both readings of *read* have the primary tag `VERB`, so a hint-salted feature adds the same weight to both.
+- **`reg-0013`** (*He caught a large bass in the lake*, `bass.fish` read as `bass.music`, `analyzer-test`) and
+  **`reg-0166`** (*Celtic music uses fiddles and flutes*, `celtic.culture` read as `celtic.team`, `golden-readings`):
+  rare lemmas not yet learned at the epoch the selection keeps. The prune threshold is not the cause.
+  - **The epoch choice.** The selection keeps epoch 2 because it is the strict maximum of natural development rows:
+    1,271, against 1,264 to 1,268 later. That is a difference of 3 rows, within the seed noise. It is not a tie. These
+    lemmas have few natural development rows.
+  - **Later epochs fix both rows.** At seed 1 and prune 32, `reg-0013` is right from epoch 8 and `reg-0166` from epoch
+    10. At prune 2 and epoch 2 both are also wrong (entry "candidate log after the supplement").
+  - **`reg-0013`.** Margin −832. The largest pulls toward music are *the* at +2 (word, function word and its word
+    classes, −332 each) and a 6-bit class in the bag (−412). The hint channel is 0, because both readings are
+    `NOUN`.
+  - **`reg-0166`.** Margin −3,547. The label and role channels give −3,890 and −2,210. They come from the
+    position and shape features (sentence-initial, position 0, no punctuation before, the shapes of the neighbors),
+    which the training data ties to the team name. The hint channel (`ADJ` against `PROPN`) gives +2,553 in
+    favor of the gold reading, so the primary part-of-speech salt helps this row rather than causing the error.
+- **`reg-0014`** (*He drew the bow and shot an arrow*, `bow.weapon` read as `bow.bend`, `analyzer-test`): the word
+  classes at epoch 2. The margin is −1,608. Feature-set-1 templates favor the gold reading by +2,628, and feature-set-2
+  templates oppose it by −4,236:
+  - the classes of *the* at −1, word and shared, −322 each;
+  - the 10-bit verb class of *drew* and *shot* in the bag, −392 twice.
+
+  The row is right from epoch 4 at seed 1. The hint channel is 0 (both `NOUN`).
+- **Other guarded rows that flicker across seeds.** `reg-0055` (*The bass swam deep in the lake*), `reg-0162` (*The
+  actors take a bow at the end*), `reg-0339` (*jesus*), `reg-0024`, `reg-0088`, `reg-0111` and `reg-0458` change with
+  the seed and the epoch. No epoch and prune combination keeps them all right.
+
+**Defects.** None was found. The checks:
+
+- The image is reproduced bit for bit, and the extractor copy emits exactly the runtime hashes.
+- The curated past-time feature fires and is learned (`reg-0520`, *Last night, I read it*: +382 for `read.past`).
+- The hint salt cancels exactly when two candidates share their primary tag (`reg-0013`, `-0014` and `-0050`: 0).
+- The training update of a shared hint bucket nets to zero in that case (the same bucket gets +1 and −1).
+- End-to-end parity holds: 0 mismatched rows, as logged.
+
+The natural-row epoch rule and its tie to the earlier epoch work as specified. They are a modeling choice that
+disfavors lemmas with few natural development rows, not a bug.
+
+**Candidates** (each a single change to the frozen settings; data, features and every other setting unchanged). The
+diagnostic program trained them into `C:\work\sp-clusters-scratch\pr-b\fp-NN-sK\`:
+
+- **`fp-00`**: the frozen A (reference, reproduced).
+- **`fp-01`**: the epoch chosen by all development rows instead of the natural ones (ties to the earlier epoch). The
+  prune threshold is chosen by the amendment-2 rule over 40, 48, 52, 56, 60 and 64, which gives 52. Prune 40 and 48
+  exceed 700,000 bytes at seed 1 (728,993 and 705,384).
+- **`fp-02`**: no early stopping (always 12 epochs) at the same prune threshold, 52.
+
+Development figures are at seed 1. The trainer-level figures are of 1,301 natural and 3,098 used rows, and end to end
+of 3,299 rows. Regression is of 524 rows.
+
+| Candidate | Prune | Epoch | Dev natural | Dev all | Dev end to end | Bytes | Image |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `fp-00` | 32 | 2 | 1,271 | 2,973 | 3,171 | 659,333 | `a65f0c29` |
+| `fp-01` | 52 | 12 | 1,266 | 2,987 | 3,185 | 687,723 | `86c7112d` |
+| `fp-02` | 52 | 12 | 1,266 | 2,987 | 3,185 | 687,723 | `86c7112d` |
+
+Regression at seed 1, by origin (`listening` 7, `analyzer-test` 16, `golden-pipeline` 37, `golden-sentences` 61,
+`golden-readings` 382, `data-row` 21):
+
+| Candidate | Regression | Listening | Analyzer | Pipeline | Sentences | Readings | Data rows | Guarded wrong |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `fp-00` | 520 | 7 | 14 | 36 | 61 | 381 | 21 | 0013, 0014, 0050, 0166 |
+| `fp-01` | 521 | 7 | 16 | 35 | 60 | 382 | 21 | 0024, 0050, 0088 |
+| `fp-02` | 521 | 7 | 16 | 35 | 60 | 382 | 21 | 0024, 0050, 0088 |
+
+At seed 1, `fp-01` and `fp-02` are the same model, because epoch 12 has the most development rows. Seeds 1 to 5
+(regression only; `L/A/P/S/R` = listening, analyzer, pipeline, sentences, readings):
+
+| Candidate | Seed | Epoch | Regression | L/A/P/S/R | Bytes | Guarded wrong |
+| --- | ---: | ---: | ---: | --- | ---: | --- |
+| `fp-00` | 1 | 2 | 520 | 7/14/36/61/381 | 659,333 | 0013, 0014, 0050, 0166 |
+| `fp-00` | 2 | 8 | 517 | 7/15/35/58/381 | 735,671 | 0013, 0050, 0055, 0059, 0088, 0111, 0162 |
+| `fp-00` | 3 | 7 | 518 | 7/15/34/60/381 | 736,287 | 0013, 0024, 0050, 0055, 0107, 0162 |
+| `fp-00` | 4 | 8 | 521 | 7/16/36/61/380 | 738,848 | 0050, 0162, 0458 |
+| `fp-00` | 5 | 4 | 520 | 7/15/34/61/382 | 708,518 | 0014, 0034, 0050, 0055 |
+| `fp-01` | 1 | 12 | 521 | 7/16/35/60/382 | 687,723 | 0024, 0050, 0088 |
+| `fp-01` | 2 | 6 | 517 | 7/15/34/59/381 | 651,464 | 0013, 0034, 0050, 0055, 0088, 0111, 0162 |
+| `fp-01` | 3 | 6 | 520 | 7/14/35/61/382 | 657,222 | 0013, 0014, 0050, 0055 |
+| `fp-01` | 4 | 12 | 522 | 7/16/36/61/381 | 687,651 | 0050, 0458 |
+| `fp-01` | 5 | 5 | 521 | 7/15/35/61/382 | 634,102 | 0014, 0050, 0055 |
+| `fp-02` | 2 | 12 | 516 | 7/15/34/58/381 | 687,384 | 0013, 0034, 0050, 0055, 0059, 0088, 0111, 0162 |
+| `fp-02` | 3 | 12 | 518 | 7/14/34/60/382 | 693,204 | 0013, 0014, 0024, 0050, 0055, 0107 |
+| `fp-02` | 5 | 12 | 519 | 7/14/35/61/381 | 689,074 | 0013, 0014, 0050, 0055, 0458 |
+
+`fp-02` at seeds 1 and 4 is the same model as `fp-01`. Guarded rows wrong on 2 or more of the 5 seeds:
+
+- `fp-00`: `reg-0050` 5, `reg-0013`, `-0055` and `-0162` 3 each, `reg-0014` 2.
+- `fp-01`: `reg-0050` 5, `reg-0055` 3, `reg-0013`, `-0014` and `-0088` 2 each.
+- `fp-02`: `reg-0050` 5, `reg-0013` and `-0055` 3 each, `reg-0014`, `-0024`, `-0088` and `-0458` 2 each.
+
+Regression means over seeds 1 to 5: 519.2, 520.2 and 519.2. The data-row origin is 21 of 21 throughout.
+
+**The orchestrator's bar for read 2 is not met by any candidate.** The bar requires every guarded row right at seed 1
+and on at least 4 of 5 seeds, at most 700,000 bytes. Selecting the epoch on all development rows, or not stopping early,
+fixes the three rare-lemma rows that A gets wrong at seed 1 and improves the development set end to end by 14 rows. But
+it does not reach `reg-0050`, and it trades in `reg-0024` and `reg-0088`. Across seeds, several rare-lemma rows still
+fail on 2 or 3 of 5.
+
+For comparison, the feature-set-1 method of the shipped model would not meet this bar either: positional order, seeds 1
+to 5, with the cue priors. `reg-0050`, `reg-0004` and `reg-0006` are each wrong on 4 of the 5 seeds.
+
+`reg-0050` needs either data (read is a round lemma) or an owner decision. `reg-0014` and `reg-0162` (*bow*), `reg-0166`
+(*celtic*) and `reg-0339` (*jesus*) are outside the round's lemmas, so the data-round procedure cannot reach them. No
+data was written, nothing was frozen, and read 2 was not taken. The diagnostic programs, logs and models are in
+`C:\work\sp-clusters-scratch\pr-b\` (`diag\`, `diag-pra\`, `fp-*`); nothing of them is in the repository.
+
+## PR B: result — criterion not met at read 1; stopped without read 2 (2026-11-21)
+
+Written after the failure-path diagnosis, as the last PR B entry. Sets read for this entry: none. No model was trained
+or evaluated for it, and the generalization set and the holdouts were not read again.
+
+**Result: the pre-registered criterion is not met. PR B stops, and its result is incomplete.**
+
+- **Read 1** (the only read; entry "PR B: the pre-registered read (read 1)"): A 179 of 242, B 186 of 242. The
+  difference A minus B is −289 basis points (−7 rows), with the 95 % family-clustered interval [−661, +79] basis
+  points. The mean difference over seeds 1 to 5 is +91 basis points, and generalization A is 179, at least 177. The
+  difference and the lower bound fail the criterion; the seed mean and the generalization guard hold.
+- **Guards.** Model A at seed 1 (image `a65f0c29…`, the frozen model) gets four guarded regression rows wrong:
+  `reg-0013` and `reg-0014` (`analyzer-test`), `reg-0050` (`golden-pipeline`) and `reg-0166` (`golden-readings`). As
+  shipped, it would fail the analyzer tests and the goldens that these rows come from. The natural holdout gate was not
+  evaluated, because the read failed first.
+
+**Read 2 was not taken.** The failure path allows one further frozen candidate after an entry "PR B: second
+pre-registration". The orchestrator's bar for that candidate was every guarded regression row right at seed 1 and on at
+least 4 of the 5 seeds, with the model at most 700,000 bytes, judged on the development set and the regression overlay
+only. The diagnosis (entry above) found no defect and no candidate that meets the bar. `reg-0050` (*I read every night
+before bed*) is never right for feature set 2: 0 of 180 epoch snapshots, on every PR B model and seed. Read 2 would
+have spent the generalization set on a candidate that could not ship.
+
+**State of this branch.** Two commits before this log: C1 (the keyed row-visiting order as an experiment option; the
+committed `training.json` only gains `"rowOrder": "positional"`, and the image stays
+`73de5a3f74e34b9373d165e4bedd603988e5d1d81bab36fb6c3ab6444f603df0`) and C2 (the PR B procedure and the synthetic-v4
+prompts). The shipped PR A model and its four cue priors stay in place: `heteronyms.bin`, `training.json`'s inputs and
+result, `HeteronymClassifier` and `ReadingInventory` are those of PR A. Nothing of feature set 2, model format 2, the
+synthetic-v4 data or the prune default 32 is on this branch.
+
+**Where the attempt is kept** (not in the repository, never pushed):
+
+- the local branch `wip/text-en-cluster-features-attempt-1` at `c609af6` (the freeze `dded649`, its follow-up `f97a0ad`,
+  the read-1 log `bdfb1de` and the diagnosis `c609af6`);
+- `C:\work\sp-clusters-scratch\pr-b\failed-attempt\`: the patches `0034231..c609af6` and a README;
+- the stage `C:\work\sp-clusters-b-stage\` (writers, reviews), and the scratch models in
+  `C:\work\sp-clusters-scratch\pr-b\` (frozen A in `supp-p32\`, the read-1 models in `read-1\`, `fp-01` in
+  `fp-01-s1\` to `fp-01-s5\`).
+
+The repository files that the attempt changed live on that local branch only. They are the 115 files, other than this
+log, that differ between this branch and `c609af6`. `heteronyms.bin` and `training.json` are not among them; the frozen
+model A is kept in the scratch folder only.
+
+- **Data** (12, in `data/text-en/`): the synthetic-v4 rows of `train.tsv`, `dev.tsv` and `synthetic-provenance.tsv`;
+  the `regression.tsv` rows `reg-0520` to `reg-0524`; the added `audit/review-synthetic-v4.tsv`;
+  `audit/audit-summary.md`, `gaps-v4.tsv`, `MANIFEST.tsv` and `README.md`; and the completed records in
+  `prompts/README.md`, `prompts/generation-synthetic-v4.md` and `prompts/review-synthetic-v4.md`.
+- **Runtime code** (9, in `src/DemaConsulting.Speech.Text.En/HeteronymSubsystem/`): `FeatureHashing.cs`,
+  `HeteronymClassifier.cs`, `HeteronymContext.cs`, `HeteronymFeatureExtractor.cs`, `ModelBinaryFormat.cs`,
+  `ReadingInventory.cs`, `SparsePerceptronModel.cs`, `SparsePerceptronModelWriter.cs` and the added
+  `WordClusterMap.cs`.
+- **Trainer code** (11, in `tools/DemaConsulting.Speech.Text.En.Trainer/`): `TrainingDataSubsystem/TextEnDataSet.cs`
+  (the `synthetic-v4` source) and, in `TrainingSubsystem/`, `AveragedPerceptronTrainer.cs`, `EvaluateCommand.cs`,
+  `EvaluationOverlay.cs`, `EvaluationRecord.cs`, `HeteronymEvaluator.cs`, `ModelSelection.cs`, `TrainCommand.cs`,
+  `TrainingCorpus.cs`, `TrainingRecord.cs` (the prune default 32) and the added `ClusterAblation.cs`.
+- **Tests** (21): in `test/DemaConsulting.Speech.Text.En.Tests/`, `Fakes/HeteronymFixtureModel.cs`,
+  `SpeechTextEnTests.cs`, `TestData/heteronym-feature-vectors.tsv` and, in `HeteronymSubsystem/`,
+  `HeteronymClassifierTests.cs`, `HeteronymFeatureExtractorTests.cs`, `HeteronymSubsystemTests.cs`,
+  `ReadingInventoryTests.cs`, `SparsePerceptronModelTests.cs` and the added `WordClusterMapTests.cs`; in
+  `test/DemaConsulting.Speech.Text.En.Trainer.Tests/`, `Fakes/TrainingFixture.cs`, `TrainingSubsystemTests.cs`,
+  `TrainingDataSubsystem/SchemaCheckerTests.cs` and, in `TrainingSubsystem/`, `AveragedPerceptronTrainerTests.cs`,
+  `EvaluateCommandTests.cs`, `EvaluationRecordTests.cs`, `HeteronymEvaluatorTests.cs`, `ModelSelectionTests.cs`,
+  `TrainCommandTests.cs`, `TrainingCorpusTests.cs`, `TrainingRecordTests.cs` and the added `ClusterAblationTests.cs`.
+- **Documents** (62): `requirements.yaml` and `.reviewmark.yaml`; `definition.yaml`, `introduction.md` and
+  `speech-text-en.md` in both `docs/design/` and `docs/verification/`, and `docs/reqstream/speech-text-en.yaml`; the
+  design, requirement and verification documents of the heteronym subsystem and its units `heteronym-classifier`,
+  `heteronym-feature-extractor`, `reading-inventory` and `sparse-perceptron-model`; the same three documents of the
+  training subsystem and its units `averaged-perceptron-trainer`, `evaluate-command`, `evaluation-overlay`,
+  `evaluation-record`, `heteronym-evaluator`, `model-selection`, `train-command`, `training-corpus`, `training-record`
+  and the added `cluster-ablation`; the design documents of the training-data subsystem and its units
+  `license-checker` and `text-en-data-set`; and the requirement and verification documents of `schema-checker`.
+
+**The generalization set has been read once** (read 1) for the comparison of word classes against no word classes. The
+criterion's discipline applies to any future attempt: a data or setting change after a read voids that read's result,
+so a new attempt needs a new pre-registration entry. That entry states the change, its development and regression
+basis, and that the set has been read once; its read is read 2, and both reads are reported.
+
+**Open questions for the owner.**
+
+1. **The guard definition.** Should the guarded origins judge the one shipped seed, as the analyzer tests and goldens
+   do today, or a seed-stable property (right on at least 4 of the 5 seeds)? The shipped feature-set-1 method fails the
+   seed-stable form too: `reg-0050`, `reg-0004` and `reg-0006` are each wrong on 4 of its 5 seeds.
+2. **The `reg-0050` golden.** *I read every night before bed* has no tense cue besides the habitual adverbial, and the
+   blind review drops such rows as `unsure`. Is the present reading the only acceptable one, or is the sentence
+   ambiguous? The failure path does not allow editing or demoting a golden without the owner.
+3. **A retry.** Whether to try again with the epoch chosen on all development rows (as `fp-01`) and targeted data: the
+   habitual present of *read*, and the rare lemmas outside the round's ten (*bow*, *celtic*, *jesus*). It would go
+   under a new pre-registration, as stated above.
