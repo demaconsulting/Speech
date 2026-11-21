@@ -1,11 +1,18 @@
-package Speech {
+package Speech_AudioResampler {
+    private import SoftwareItemMetadata::*;
+
     part def AudioResampler {
         doc /* Down-mixes and windowed-sinc resamples floating-point audio. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/AudioResampler.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs */
-        comment designRef /* Design: docs/design/speech/audio-subsystem/audio-resampler.md */
-        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem/audio-resampler.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/audio-resampler.yaml */
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech/AudioSubsystem/AudioResampler.cs");
+            testFiles = ("test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs");
+            designFiles = ("docs/design/speech/audio-subsystem/audio-resampler.md");
+            verificationFiles = ("docs/verification/speech/audio-subsystem/audio-resampler.md");
+            requirementFiles = ("docs/reqstream/speech/audio-subsystem/audio-resampler.yaml");
+        }
+
+        // Produces down-mixed, resampled audio as new AudioClip values.
+        dependency AudioResampler to Speech_AudioClip::AudioClip;
     }
 }

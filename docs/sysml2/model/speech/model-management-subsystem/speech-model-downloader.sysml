@@ -1,22 +1,60 @@
-package Speech {
-    part def SpeechModelDownloader {
-        doc /* Queued (one-at-a-time) fetch-verify-install orchestration for a model download:
-             * uses an injected IModelDownloadClient to fetch each file to a staging directory,
-             * verifies each file's SHA-256 checksum, and hands a fully-verified staging
-             * directory to SpeechModelStore for atomic swap - a corrupted, partial, or
-             * checksum-mismatched download is never marked installed. An optional
-             * SpeechModelDownloaderOptions.Mirror (a DownloadMirror) redirects every file's
-             * effective request URI beneath a single internal mirror, resolved by an internal
-             * ResolveEffectiveUri helper, with the mirror's authentication applied only to
-             * requests sent to it. A download/install failure beyond ChecksumMismatch is
-             * further classified by an internal ClassifyFailure helper into HttpError,
-             * NetworkBlocked, IoFailure, or the generic Failed fallback, while a genuine
-             * caller cancellation always propagates unchanged as OperationCanceledException. */
+package Speech_SpeechModelDownloader {
+    private import SoftwareItemMetadata::*;
+    private import Speech_DownloadMirror::*;
+    private import Speech_HttpModelDownloadClient::*;
+    private import Speech_IModelDownloadClient::*;
+    private import Speech_ISpeechDiagnostics::*;
+    private import Speech_NullSpeechDiagnostics::*;
+    private import Speech_SpeechDiagnosticLevel::*;
+    private import Speech_SpeechModelContract::*;
+    private import Speech_SpeechModelDownloadDescriptor::*;
+    private import Speech_SpeechModelDownloadFile::*;
+    private import Speech_SpeechModelDownloadProgress::*;
+    private import Speech_SpeechModelDownloaderOptions::*;
+    private import Speech_SpeechModelStore::*;
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloader.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelDownloaderTests.cs */
-        comment designRef /* Design: docs/design/speech/model-management-subsystem/speech-model-downloader.md */
-        comment verificationRef /* Verification: docs/verification/speech/model-management-subsystem/speech-model-downloader.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/model-management-subsystem/speech-model-downloader.yaml */
+    enum def SpeechModelDownloadOutcome {
+        enum Installed;
+        enum ChecksumMismatch;
+        enum Failed;
+        enum NetworkBlocked;
+        enum HttpError;
+        enum IoFailure;
+    }
+
+    part def SpeechModelDownloader {
+        doc /* Queued (one-at-a-time) fetch-verify-install orchestration for a model download: uses an injected
+             * IModelDownloadClient to fetch each file to a staging directory, verifies each file's SHA-256 checksum,
+             * and hands a fully-verified staging directory to SpeechModelStore for atomic swap - a corrupted,
+             * partial, or checksum-mismatched download is never marked installed. An optional
+             * SpeechModelDownloaderOptions.Mirror (a DownloadMirror) redirects every file's effective request URI
+             * beneath a single internal mirror, resolved by an internal ResolveEffectiveUri helper, with the mirror's
+             * authentication applied only to requests sent to it. A download/install failure beyond ChecksumMismatch
+             * is further classified by an internal ClassifyFailure helper into HttpError, NetworkBlocked, IoFailure,
+             * or the generic Failed fallback, while a genuine caller cancellation always propagates unchanged as
+             * OperationCanceledException. */
+
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloader.cs");
+            testFiles = ("test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelDownloaderTests.cs");
+            designFiles = ("docs/design/speech/model-management-subsystem/speech-model-downloader.md");
+            verificationFiles = ("docs/verification/speech/model-management-subsystem/speech-model-downloader.md");
+            requirementFiles = ("docs/reqstream/speech/model-management-subsystem/speech-model-downloader.yaml");
+        }
+
+        // Fetches files through the download client, verifies them, and installs them atomically in the
+        // store.
+        dependency SpeechModelDownloader to DownloadMirror;
+        dependency SpeechModelDownloader to HttpModelDownloadClient;
+        dependency SpeechModelDownloader to IModelDownloadClient;
+        dependency SpeechModelDownloader to ISpeechDiagnostics;
+        dependency SpeechModelDownloader to NullSpeechDiagnostics;
+        dependency SpeechModelDownloader to SpeechDiagnosticLevel;
+        dependency SpeechModelDownloader to SpeechModelContract;
+        dependency SpeechModelDownloader to SpeechModelDownloadDescriptor;
+        dependency SpeechModelDownloader to SpeechModelDownloadFile;
+        dependency SpeechModelDownloader to SpeechModelDownloadProgress;
+        dependency SpeechModelDownloader to SpeechModelDownloaderOptions;
+        dependency SpeechModelDownloader to SpeechModelStore;
     }
 }

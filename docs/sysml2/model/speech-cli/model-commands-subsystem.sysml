@@ -1,14 +1,28 @@
-package SpeechCli {
-    part def ModelCommandsSubsystem {
-        doc /* The five model-management subcommands (list-models, model-info, download,
-             * uninstall, clean) and the two reference-voice subcommands (list-voices, voices),
-             * plus the CLI-owned catalog seam
-             * (ICliModelCatalog/SpeechModelCatalogAdapter/CliModelCatalogFactory) they all
-             * share over the library's SpeechModelCatalog/SpeechModelStore. */
+package SpeechCli_ModelCommandsSubsystem {
+    private import SoftwareItemMetadata::*;
+    private import SpeechCli_CleanCommand::*;
+    private import SpeechCli_CliModelCatalogFactory::*;
+    private import SpeechCli_DownloadCommand::*;
+    private import SpeechCli_DownloadProgressReporter::*;
+    private import SpeechCli_ICliModelCatalog::*;
+    private import SpeechCli_ListModelsCommand::*;
+    private import SpeechCli_ListVoicesCommand::*;
+    private import SpeechCli_ModelInfoCommand::*;
+    private import SpeechCli_SpeechModelCatalogAdapter::*;
+    private import SpeechCli_UninstallCommand::*;
+    private import SpeechCli_VoicesCommand::*;
 
-        comment designRef /* Design: docs/design/speech-cli/model-commands-subsystem.md */
-        comment verificationRef /* Verification: docs/verification/speech-cli/model-commands-subsystem.md */
-        comment reqRef /* Requirements: docs/reqstream/speech-cli/model-commands-subsystem.yaml */
+    part def ModelCommandsSubsystem {
+        doc /* The five model-management subcommands (list-models, model-info, download, uninstall, clean) and the two
+             * reference-voice subcommands (list-voices, voices), plus the CLI-owned catalog seam
+             * (ICliModelCatalog/SpeechModelCatalogAdapter/CliModelCatalogFactory) they all share over the library's
+             * SpeechModelCatalog/SpeechModelStore. */
+
+        metadata info : SoftwareInfo {
+            designFiles = ("docs/design/speech-cli/model-commands-subsystem.md");
+            verificationFiles = ("docs/verification/speech-cli/model-commands-subsystem.md");
+            requirementFiles = ("docs/reqstream/speech-cli/model-commands-subsystem.yaml");
+        }
 
         part iCliModelCatalog : ICliModelCatalog;
         part speechModelCatalogAdapter : SpeechModelCatalogAdapter;

@@ -1,11 +1,19 @@
-package Speech {
-    part def IAudioPlaybackDeviceProbe {
-        doc /* Contract for enumerating available audio playback devices, independent of any real
-             * hardware or native runtime. */
+package Speech_IAudioPlaybackDeviceProbe {
+    private import SoftwareItemMetadata::*;
+    private import Speech_AudioDeviceDescription::*;
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/IAudioPlaybackDeviceProbe.cs */
-        comment designRef /* Design: docs/design/speech/audio-subsystem/i-audio-playback-device-probe.md */
-        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem/i-audio-playback-device-probe.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/i-audio-playback-device-probe.yaml */
+    part def IAudioPlaybackDeviceProbe {
+        doc /* Contract for enumerating available audio playback devices, independent of any real hardware or native
+             * runtime. */
+
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech/AudioSubsystem/IAudioPlaybackDeviceProbe.cs");
+            designFiles = ("docs/design/speech/audio-subsystem/i-audio-playback-device-probe.md");
+            verificationFiles = ("docs/verification/speech/audio-subsystem/i-audio-playback-device-probe.md");
+            requirementFiles = ("docs/reqstream/speech/audio-subsystem/i-audio-playback-device-probe.yaml");
+        }
+
+        // Reports the available playback devices as device descriptions.
+        dependency IAudioPlaybackDeviceProbe to AudioDeviceDescription;
     }
 }

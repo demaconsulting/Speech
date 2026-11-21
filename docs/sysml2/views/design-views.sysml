@@ -1,269 +1,358 @@
-// Views rendered into docs/design/generated/ for the Design document.
-// Reopens the Speech package so each 'expose' statement can reference
-// its target part def directly. Per SysML2Tools syntax, 'expose' is only valid
-// inside a named 'view' usage (not a 'view def' definition), and it - not
-// 'render' - is what scopes the rendered diagram content.
-package Speech {
-    view SoftwareStructureView {
-        expose Speech;
-        expose SpeechDemo;
-        expose SpeechCli;
-        expose SpeechSherpa;
-        expose SpeechOnnx;
-        expose SpeechOnnxKokoro;
-        expose SpeechOnnxPiper;
-        expose SpeechOnnxChatterboxTurbo;
-        expose SpeechOnnxNemotronStt;
-        expose SpeechTextEn;
-        expose SpeechPhonemesEn;
+// Views rendered into docs/design/generated/ and embedded in the Design document.
+// The repository contains several systems (one per package or tool), so the overview is a general view that
+// exposes each system and subsystem part def by name (not every unit, which would be unreadable) plus the OTS
+// items the systems use, with documentation filtered out. Every unit appears in its system or subsystem view
+// below, and its dependencies are consumed with 'sysml2tools query dependencies' rather than a diagram.
+// Per SysML2Tools syntax, 'expose' is only valid inside a named 'view' usage (not a 'view def' definition),
+// and it - not the view definition - is what scopes the rendered diagram content.
+// View names are a flat namespace (render writes {ViewName}.svg), so the subsystem views of the sibling
+// systems carry a short system prefix (Sherpa, Kokoro, Piper, ChatterboxTurbo, Nemotron, TextEn, PhonemesEn,
+// PhonemesEnTools, Proofreader) to keep same-named subsystems distinct; the core Speech system and the
+// SpeechDemo, SpeechCli and SpeechOnnx systems, whose subsystem names are unique, are unprefixed.
+package SpeechDesignViews {
+    private import StandardViewDefinitions::*;
+
+    view SoftwareStructureView : GeneralView {
+        expose Speech::SpeechSystem;
+        expose Speech_Diagnostics::Diagnostics;
+        expose Speech_AudioSubsystem::AudioSubsystem;
+        expose Speech_PortAudio::PortAudio;
+        expose Speech_ModelManagementSubsystem::ModelManagementSubsystem;
+        expose Speech_RecognitionSubsystem::RecognitionSubsystem;
+        expose Speech_SynthesisSubsystem::SynthesisSubsystem;
+        expose SpeechDemo::SpeechDemoSystem;
+        expose SpeechDemo_ShellSubsystem::ShellSubsystem;
+        expose SpeechDemo_DeviceSelectionSubsystem::DeviceSelectionSubsystem;
+        expose SpeechDemo_ModelCatalogSubsystem::ModelCatalogSubsystem;
+        expose SpeechDemo_ModelSettingsSubsystem::ModelSettingsSubsystem;
+        expose SpeechDemo_SynthesisPanelSubsystem::SynthesisPanelSubsystem;
+        expose SpeechDemo_RecognitionPanelSubsystem::RecognitionPanelSubsystem;
+        expose SpeechCli::SpeechCliSystem;
+        expose SpeechCli_ModelCommandsSubsystem::ModelCommandsSubsystem;
+        expose SpeechCli_DeviceCommandsSubsystem::DeviceCommandsSubsystem;
+        expose SpeechCli_SynthesisCommandSubsystem::SynthesisCommandSubsystem;
+        expose SpeechCli_RecognitionCommandSubsystem::RecognitionCommandSubsystem;
+        expose SpeechCli_ConversationCommandSubsystem::ConversationCommandSubsystem;
+        expose SpeechSherpa::SpeechSherpaSystem;
+        expose SpeechSherpa_ModelManagementSubsystem::ModelManagementSubsystem;
+        expose SpeechSherpa_RecognitionSubsystem::RecognitionSubsystem;
+        expose SpeechSherpa_SynthesisSubsystem::SynthesisSubsystem;
+        expose SpeechOnnx::SpeechOnnxSystem;
+        expose SpeechOnnx_OnnxRuntimeSubsystem::OnnxRuntimeSubsystem;
+        expose SpeechOnnxKokoro::SpeechOnnxKokoroSystem;
+        expose SpeechOnnxKokoro_ModelManagementSubsystem::ModelManagementSubsystem;
+        expose SpeechOnnxKokoro_SynthesisSubsystem::SynthesisSubsystem;
+        expose SpeechOnnxPiper::SpeechOnnxPiperSystem;
+        expose SpeechOnnxPiper_ModelManagementSubsystem::ModelManagementSubsystem;
+        expose SpeechOnnxPiper_SynthesisSubsystem::SynthesisSubsystem;
+        expose SpeechOnnxChatterboxTurbo::SpeechOnnxChatterboxTurboSystem;
+        expose SpeechOnnxChatterboxTurbo_ModelManagementSubsystem::ModelManagementSubsystem;
+        expose SpeechOnnxChatterboxTurbo_SynthesisSubsystem::SynthesisSubsystem;
+        expose SpeechOnnxNemotronStt::SpeechOnnxNemotronSttSystem;
+        expose SpeechOnnxNemotronStt_ModelManagementSubsystem::ModelManagementSubsystem;
+        expose SpeechOnnxNemotronStt_RecognitionSubsystem::RecognitionSubsystem;
+        expose SpeechTextEn::SpeechTextEnSystem;
+        expose SpeechTextEn_AnalysisSubsystem::AnalysisSubsystem;
+        expose SpeechTextEn_NormalizationSubsystem::NormalizationSubsystem;
+        expose SpeechTextEn_HeteronymSubsystem::HeteronymSubsystem;
+        expose SpeechTextEn_TrainingDataSubsystem::TrainingDataSubsystem;
+        expose SpeechTextEn_TrainingSubsystem::TrainingSubsystem;
+        expose SpeechTextEn_ExternalEvaluationSubsystem::ExternalEvaluationSubsystem;
+        expose SpeechTextEn_ClusteringSubsystem::ClusteringSubsystem;
+        expose SpeechPhonemesEn::SpeechPhonemesEnSystem;
+        expose SpeechPhonemesEn_LexiconSubsystem::LexiconSubsystem;
+        expose SpeechPhonemesEn_LetterToSoundSubsystem::LetterToSoundSubsystem;
+        expose SpeechPhonemesEn_PhonemizerSubsystem::PhonemizerSubsystem;
+        expose SpeechPhonemesEn_RenderingSubsystem::RenderingSubsystem;
+        expose SpeechPhonemesEnTools::SpeechPhonemesEnToolsSystem;
+        expose SpeechPhonemesEnTools_LexiconSubsystem::LexiconSubsystem;
+        expose SpeechPhonemesEnTools_LetterToSoundSubsystem::LetterToSoundSubsystem;
+        expose SpeechPhonemesEnTools_MorphologySubsystem::MorphologySubsystem;
+        expose SpeechPhonemesEnTools_PhonemizerSubsystem::PhonemizerSubsystem;
+        expose SpeechPhonemesEnTools_ReadingSubsystem::ReadingSubsystem;
+        expose SpeechPhonemesEnTools_RenderingSubsystem::RenderingSubsystem;
+        expose SpeechProofreader::SpeechProofreaderSystem;
+        expose SpeechProofreader_DiagnosticsSubsystem::DiagnosticsSubsystem;
+        expose SpeechProofreader_PlaybackSubsystem::PlaybackSubsystem;
+        expose SpeechProofreader_SessionSubsystem::SessionSubsystem;
+        expose SpeechProofreader_SettingsSubsystem::SettingsSubsystem;
+        expose SpeechProofreader_SynthesisSubsystem::SynthesisSubsystem;
+        expose SpeechProofreader_TextSubsystem::TextSubsystem;
+        expose ModelDownloader::ModelDownloaderSystem;
+        expose KokoroOnnxBenchmark::KokoroOnnxBenchmarkSystem;
+        expose OtsDependencies::PortAudioSharp2;
+        expose OtsDependencies::SystemNumericsTensors;
+        expose OtsDependencies::MicrosoftMlOnnxRuntime;
+        expose OtsDependencies::TestResults;
+        expose OtsDependencies::PartOfSpeech;
+        expose OtsDependencies::Avalonia;
+        expose OtsDependencies::CommunityToolkitMvvm;
+        expose OtsDependencies::SherpaOnnx;
+        expose OtsDependencies::SharpCompress;
+        filter not (@SysML::Documentation);
     }
 
     view SpeechView {
-        expose SpeechSystem;
+        expose Speech::SpeechSystem;
     }
 
     view DiagnosticsView {
-        expose Diagnostics;
+        expose Speech_Diagnostics::Diagnostics;
     }
 
     view AudioSubsystemView {
-        expose AudioSubsystem;
+        expose Speech_AudioSubsystem::AudioSubsystem;
     }
 
     view PortAudioView {
-        expose PortAudio;
+        expose Speech_PortAudio::PortAudio;
     }
 
     view ModelManagementSubsystemView {
-        expose ModelManagementSubsystem;
+        expose Speech_ModelManagementSubsystem::ModelManagementSubsystem;
     }
 
     view RecognitionSubsystemView {
-        expose RecognitionSubsystem;
+        expose Speech_RecognitionSubsystem::RecognitionSubsystem;
     }
 
     view SynthesisSubsystemView {
-        expose SynthesisSubsystem;
+        expose Speech_SynthesisSubsystem::SynthesisSubsystem;
     }
-}
 
-// SpeechDemo views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly, exactly as the Speech views above do.
-package SpeechDemo {
     view SpeechDemoView {
-        expose SpeechDemoSystem;
+        expose SpeechDemo::SpeechDemoSystem;
     }
 
     view ShellSubsystemView {
-        expose ShellSubsystem;
+        expose SpeechDemo_ShellSubsystem::ShellSubsystem;
     }
 
     view DeviceSelectionSubsystemView {
-        expose DeviceSelectionSubsystem;
+        expose SpeechDemo_DeviceSelectionSubsystem::DeviceSelectionSubsystem;
     }
 
     view ModelCatalogSubsystemView {
-        expose ModelCatalogSubsystem;
+        expose SpeechDemo_ModelCatalogSubsystem::ModelCatalogSubsystem;
     }
 
     view ModelSettingsSubsystemView {
-        expose ModelSettingsSubsystem;
+        expose SpeechDemo_ModelSettingsSubsystem::ModelSettingsSubsystem;
     }
 
     view SynthesisPanelSubsystemView {
-        expose SynthesisPanelSubsystem;
+        expose SpeechDemo_SynthesisPanelSubsystem::SynthesisPanelSubsystem;
     }
 
     view RecognitionPanelSubsystemView {
-        expose RecognitionPanelSubsystem;
+        expose SpeechDemo_RecognitionPanelSubsystem::RecognitionPanelSubsystem;
     }
-}
 
-// SpeechCli views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly, exactly as the Speech views above do.
-package SpeechCli {
     view SpeechCliView {
-        expose SpeechCliSystem;
+        expose SpeechCli::SpeechCliSystem;
     }
 
     view ModelCommandsSubsystemView {
-        expose ModelCommandsSubsystem;
+        expose SpeechCli_ModelCommandsSubsystem::ModelCommandsSubsystem;
     }
 
     view DeviceCommandsSubsystemView {
-        expose DeviceCommandsSubsystem;
+        expose SpeechCli_DeviceCommandsSubsystem::DeviceCommandsSubsystem;
     }
 
     view SynthesisCommandSubsystemView {
-        expose SynthesisCommandSubsystem;
+        expose SpeechCli_SynthesisCommandSubsystem::SynthesisCommandSubsystem;
     }
 
     view RecognitionCommandSubsystemView {
-        expose RecognitionCommandSubsystem;
+        expose SpeechCli_RecognitionCommandSubsystem::RecognitionCommandSubsystem;
     }
 
     view ConversationCommandSubsystemView {
-        expose ConversationCommandSubsystem;
+        expose SpeechCli_ConversationCommandSubsystem::ConversationCommandSubsystem;
     }
-}
 
-// SpeechSherpa views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly, exactly as the Speech views above do. The subsystem views carry
-// a 'Sherpa' prefix because rendered SVG filenames are keyed by bare view name, so reusing the
-// Speech subsystem view names would overwrite the Speech package's own diagrams.
-package SpeechSherpa {
     view SpeechSherpaView {
-        expose SpeechSherpaSystem;
+        expose SpeechSherpa::SpeechSherpaSystem;
     }
 
     view SherpaModelManagementSubsystemView {
-        expose ModelManagementSubsystem;
+        expose SpeechSherpa_ModelManagementSubsystem::ModelManagementSubsystem;
     }
 
     view SherpaRecognitionSubsystemView {
-        expose RecognitionSubsystem;
+        expose SpeechSherpa_RecognitionSubsystem::RecognitionSubsystem;
     }
 
     view SherpaSynthesisSubsystemView {
-        expose SynthesisSubsystem;
+        expose SpeechSherpa_SynthesisSubsystem::SynthesisSubsystem;
     }
-}
 
-// SpeechOnnx views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly, exactly as the Speech views above do.
-package SpeechOnnx {
     view SpeechOnnxView {
-        expose SpeechOnnxSystem;
+        expose SpeechOnnx::SpeechOnnxSystem;
     }
 
     view OnnxRuntimeSubsystemView {
-        expose OnnxRuntimeSubsystem;
+        expose SpeechOnnx_OnnxRuntimeSubsystem::OnnxRuntimeSubsystem;
     }
-}
 
-// SpeechOnnxKokoro views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly, exactly as the Speech views above do. The subsystem views carry
-// a 'Kokoro' prefix because rendered SVG filenames are keyed by bare view name, so reusing the
-// Speech/SpeechSherpa subsystem view names would overwrite their own diagrams.
-package SpeechOnnxKokoro {
     view SpeechOnnxKokoroView {
-        expose SpeechOnnxKokoroSystem;
+        expose SpeechOnnxKokoro::SpeechOnnxKokoroSystem;
     }
 
     view KokoroModelManagementSubsystemView {
-        expose ModelManagementSubsystem;
+        expose SpeechOnnxKokoro_ModelManagementSubsystem::ModelManagementSubsystem;
     }
 
     view KokoroSynthesisSubsystemView {
-        expose SynthesisSubsystem;
+        expose SpeechOnnxKokoro_SynthesisSubsystem::SynthesisSubsystem;
     }
-}
 
-// SpeechOnnxPiper views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly. The subsystem views carry a 'Piper' prefix because rendered SVG
-// filenames are keyed by bare view name.
-package SpeechOnnxPiper {
     view SpeechOnnxPiperView {
-        expose SpeechOnnxPiperSystem;
+        expose SpeechOnnxPiper::SpeechOnnxPiperSystem;
     }
 
     view PiperModelManagementSubsystemView {
-        expose ModelManagementSubsystem;
+        expose SpeechOnnxPiper_ModelManagementSubsystem::ModelManagementSubsystem;
     }
 
     view PiperSynthesisSubsystemView {
-        expose SynthesisSubsystem;
+        expose SpeechOnnxPiper_SynthesisSubsystem::SynthesisSubsystem;
     }
-}
 
-// SpeechOnnxChatterboxTurbo views. Declared in their own package so each 'expose' statement can
-// reference its target part def directly. The subsystem views carry a 'ChatterboxTurbo' prefix
-// because rendered SVG filenames are keyed by bare view name.
-package SpeechOnnxChatterboxTurbo {
     view SpeechOnnxChatterboxTurboView {
-        expose SpeechOnnxChatterboxTurboSystem;
+        expose SpeechOnnxChatterboxTurbo::SpeechOnnxChatterboxTurboSystem;
     }
 
     view ChatterboxTurboModelManagementSubsystemView {
-        expose ModelManagementSubsystem;
+        expose SpeechOnnxChatterboxTurbo_ModelManagementSubsystem::ModelManagementSubsystem;
     }
 
     view ChatterboxTurboSynthesisSubsystemView {
-        expose SynthesisSubsystem;
+        expose SpeechOnnxChatterboxTurbo_SynthesisSubsystem::SynthesisSubsystem;
     }
-}
-// SpeechOnnxNemotronStt views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly, exactly as the Speech views above do. The subsystem views carry
-// a 'Nemotron' prefix because rendered SVG filenames are keyed by bare view name, so reusing the
-// Speech/SpeechSherpa subsystem view names would overwrite their own diagrams.
-package SpeechOnnxNemotronStt {
+
     view SpeechOnnxNemotronSttView {
-        expose SpeechOnnxNemotronSttSystem;
+        expose SpeechOnnxNemotronStt::SpeechOnnxNemotronSttSystem;
     }
 
     view NemotronModelManagementSubsystemView {
-        expose ModelManagementSubsystem;
+        expose SpeechOnnxNemotronStt_ModelManagementSubsystem::ModelManagementSubsystem;
     }
 
     view NemotronRecognitionSubsystemView {
-        expose RecognitionSubsystem;
+        expose SpeechOnnxNemotronStt_RecognitionSubsystem::RecognitionSubsystem;
     }
-}
 
-// SpeechTextEn views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly. The subsystem view carries a 'TextEn' prefix because rendered SVG
-// filenames are keyed by bare view name, so a generic name could overwrite another package's diagram.
-package SpeechTextEn {
     view SpeechTextEnView {
-        expose SpeechTextEnSystem;
+        expose SpeechTextEn::SpeechTextEnSystem;
     }
 
     view TextEnAnalysisSubsystemView {
-        expose AnalysisSubsystem;
+        expose SpeechTextEn_AnalysisSubsystem::AnalysisSubsystem;
     }
 
     view TextEnNormalizationSubsystemView {
-        expose NormalizationSubsystem;
+        expose SpeechTextEn_NormalizationSubsystem::NormalizationSubsystem;
     }
 
     view TextEnHeteronymSubsystemView {
-        expose HeteronymSubsystem;
+        expose SpeechTextEn_HeteronymSubsystem::HeteronymSubsystem;
     }
 
     view TextEnTrainingDataSubsystemView {
-        expose TrainingDataSubsystem;
+        expose SpeechTextEn_TrainingDataSubsystem::TrainingDataSubsystem;
     }
 
     view TextEnTrainingSubsystemView {
-        expose TrainingSubsystem;
+        expose SpeechTextEn_TrainingSubsystem::TrainingSubsystem;
     }
 
     view TextEnExternalEvaluationSubsystemView {
-        expose ExternalEvaluationSubsystem;
+        expose SpeechTextEn_ExternalEvaluationSubsystem::ExternalEvaluationSubsystem;
     }
-}
 
-// SpeechPhonemesEn views. Declared in their own package so each 'expose' statement can reference
-// its target part def directly. The subsystem views carry a 'PhonemesEn' prefix because rendered SVG
-// filenames are keyed by bare view name, so a generic name could overwrite another package's diagram.
-package SpeechPhonemesEn {
     view SpeechPhonemesEnView {
-        expose SpeechPhonemesEnSystem;
+        expose SpeechPhonemesEn::SpeechPhonemesEnSystem;
     }
 
     view PhonemesEnLexiconSubsystemView {
-        expose LexiconSubsystem;
+        expose SpeechPhonemesEn_LexiconSubsystem::LexiconSubsystem;
     }
 
     view PhonemesEnLetterToSoundSubsystemView {
-        expose LetterToSoundSubsystem;
+        expose SpeechPhonemesEn_LetterToSoundSubsystem::LetterToSoundSubsystem;
     }
 
     view PhonemesEnPhonemizerSubsystemView {
-        expose PhonemizerSubsystem;
+        expose SpeechPhonemesEn_PhonemizerSubsystem::PhonemizerSubsystem;
     }
 
     view PhonemesEnRenderingSubsystemView {
-        expose RenderingSubsystem;
+        expose SpeechPhonemesEn_RenderingSubsystem::RenderingSubsystem;
+    }
+
+    view SpeechPhonemesEnToolsView {
+        expose SpeechPhonemesEnTools::SpeechPhonemesEnToolsSystem;
+    }
+
+    view PhonemesEnToolsLexiconSubsystemView {
+        expose SpeechPhonemesEnTools_LexiconSubsystem::LexiconSubsystem;
+    }
+
+    view PhonemesEnToolsLetterToSoundSubsystemView {
+        expose SpeechPhonemesEnTools_LetterToSoundSubsystem::LetterToSoundSubsystem;
+    }
+
+    view PhonemesEnToolsMorphologySubsystemView {
+        expose SpeechPhonemesEnTools_MorphologySubsystem::MorphologySubsystem;
+    }
+
+    view PhonemesEnToolsPhonemizerSubsystemView {
+        expose SpeechPhonemesEnTools_PhonemizerSubsystem::PhonemizerSubsystem;
+    }
+
+    view PhonemesEnToolsReadingSubsystemView {
+        expose SpeechPhonemesEnTools_ReadingSubsystem::ReadingSubsystem;
+    }
+
+    view PhonemesEnToolsRenderingSubsystemView {
+        expose SpeechPhonemesEnTools_RenderingSubsystem::RenderingSubsystem;
+    }
+
+    view SpeechProofreaderView {
+        expose SpeechProofreader::SpeechProofreaderSystem;
+    }
+
+    view ProofreaderDiagnosticsSubsystemView {
+        expose SpeechProofreader_DiagnosticsSubsystem::DiagnosticsSubsystem;
+    }
+
+    view ProofreaderPlaybackSubsystemView {
+        expose SpeechProofreader_PlaybackSubsystem::PlaybackSubsystem;
+    }
+
+    view ProofreaderSessionSubsystemView {
+        expose SpeechProofreader_SessionSubsystem::SessionSubsystem;
+    }
+
+    view ProofreaderSettingsSubsystemView {
+        expose SpeechProofreader_SettingsSubsystem::SettingsSubsystem;
+    }
+
+    view ProofreaderSynthesisSubsystemView {
+        expose SpeechProofreader_SynthesisSubsystem::SynthesisSubsystem;
+    }
+
+    view ProofreaderTextSubsystemView {
+        expose SpeechProofreader_TextSubsystem::TextSubsystem;
+    }
+
+    view ModelDownloaderView {
+        expose ModelDownloader::ModelDownloaderSystem;
+    }
+
+    view KokoroOnnxBenchmarkView {
+        expose KokoroOnnxBenchmark::KokoroOnnxBenchmarkSystem;
     }
 }

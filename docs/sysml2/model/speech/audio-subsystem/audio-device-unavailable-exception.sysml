@@ -1,12 +1,16 @@
-package Speech {
-    part def AudioDeviceUnavailableException {
-        doc /* Exception thrown when an operational member of an unavailable audio device or probe
-             * is invoked despite IsAvailable reporting false. */
+package Speech_AudioDeviceUnavailableException {
+    private import SoftwareItemMetadata::*;
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceUnavailableException.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs */
-        comment designRef /* Design: docs/design/speech/audio-subsystem/audio-device-unavailable-exception.md */
-        comment verificationRef /* Verification: docs/verification/speech/audio-subsystem/audio-device-unavailable-exception.md */
-        comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem/audio-device-unavailable-exception.yaml */
+    part def AudioDeviceUnavailableException {
+        doc /* Exception thrown when an operational member of an unavailable audio device or probe is invoked despite
+             * IsAvailable reporting false. */
+
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceUnavailableException.cs");
+            testFiles = ("test/DemaConsulting.Speech.Tests/AudioSubsystem/UnavailableAudioDeviceTests.cs");
+            designFiles = ("docs/design/speech/audio-subsystem/audio-device-unavailable-exception.md");
+            verificationFiles = ("docs/verification/speech/audio-subsystem/audio-device-unavailable-exception.md");
+            requirementFiles = ("docs/reqstream/speech/audio-subsystem/audio-device-unavailable-exception.yaml");
+        }
     }
 }

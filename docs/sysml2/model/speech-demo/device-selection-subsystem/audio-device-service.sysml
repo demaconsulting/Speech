@@ -1,12 +1,25 @@
-package SpeechDemo {
-    part def AudioDeviceService {
-        doc /* Real enumeration seam implementation, delegating to the library's
-             * AudioDeviceFactory capture and playback probes. */
+package SpeechDemo_AudioDeviceService {
+    private import SoftwareItemMetadata::*;
+    private import SpeechDemo_IAudioDeviceService::*;
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/AudioDeviceService.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/AudioDeviceServiceTests.cs */
-        comment designRef /* Design: docs/design/speech-demo/device-selection-subsystem/audio-device-service.md */
-        comment verificationRef /* Verification: docs/verification/speech-demo/device-selection-subsystem/audio-device-service.md */
-        comment reqRef /* Requirements: docs/reqstream/speech-demo/device-selection-subsystem/audio-device-service.yaml */
+    part def AudioDeviceService {
+        doc /* Real enumeration seam implementation, delegating to the library's AudioDeviceFactory capture and
+             * playback probes. */
+
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/AudioDeviceService.cs");
+            testFiles = ("test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/AudioDeviceServiceTests.cs");
+            designFiles = ("docs/design/speech-demo/device-selection-subsystem/audio-device-service.md");
+            verificationFiles = ("docs/verification/speech-demo/device-selection-subsystem/audio-device-service.md");
+            requirementFiles = ("docs/reqstream/speech-demo/device-selection-subsystem/audio-device-service.yaml");
+        }
+
+        // Implements the device seam by delegating listing and device creation to AudioDeviceFactory.
+        dependency AudioDeviceService to IAudioDeviceService;
+        dependency AudioDeviceService to Speech_AudioDeviceDescription::AudioDeviceDescription;
+        dependency AudioDeviceService to Speech_AudioDeviceFactory::AudioDeviceFactory;
+        dependency AudioDeviceService to Speech_AudioDeviceSelection::AudioDeviceSelection;
+        dependency AudioDeviceService to Speech_IAudioCaptureDevice::IAudioCaptureDevice;
+        dependency AudioDeviceService to Speech_IAudioPlaybackDevice::IAudioPlaybackDevice;
     }
 }

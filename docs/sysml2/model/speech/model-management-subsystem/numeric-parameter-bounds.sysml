@@ -1,11 +1,22 @@
-package Speech {
-    part def NumericParameterBounds {
-        doc /* Supporting value bundling the minimum, maximum, step and default of a NumericParameter so
-             * its constructor stays small; NumericParameter still validates and exposes the four values. */
+package Speech_NumericParameterBounds {
+    private import SoftwareItemMetadata::*;
+    private import ScalarValues::*;
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/NumericParameterBounds.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/NumericParameterTests.cs */
-        comment designRef /* Design: docs/design/speech/model-management-subsystem/speech-model-parameters.md (documented as a supporting type) */
-                comment verificationRef /* Verification: docs/verification/speech/model-management-subsystem/speech-model-parameters.md (verified within the SpeechModelParameters unit doc; no dedicated doc) */
-                comment reqRef /* Requirements: docs/reqstream/speech/model-management-subsystem/speech-model-parameters.yaml (requirements held in the SpeechModelParameters unit file; no dedicated file) */    }
+    part def NumericParameterBounds {
+        doc /* Supporting value bundling the minimum, maximum, step and default of a NumericParameter so its
+             * constructor stays small; NumericParameter still validates and exposes the four values. */
+
+        metadata info : SoftwareInfo {
+            sourceFiles = ("src/DemaConsulting.Speech/ModelManagementSubsystem/NumericParameterBounds.cs");
+            testFiles = ("test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/NumericParameterTests.cs");
+            designFiles = ("docs/design/speech/model-management-subsystem/speech-model-parameters.md");
+            verificationFiles = ("docs/verification/speech/model-management-subsystem/speech-model-parameters.md");
+            requirementFiles = ("docs/reqstream/speech/model-management-subsystem/speech-model-parameters.yaml");
+        }
+
+        attribute minimum : Real;
+        attribute maximum : Real;
+        attribute step : Real;
+        attribute 'default' : Real;
+    }
 }
