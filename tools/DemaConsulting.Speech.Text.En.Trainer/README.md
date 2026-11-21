@@ -98,13 +98,14 @@ Options:
 
 - `--data <dir>`, `--model-dir <dir>`: as for `train`
 - `--model <file>`: evaluate this model file instead of the one in the model folder
-- `--set <name>`: `dev`, `holdout-natural`, `holdout-independent` or `all` (repeatable; default `dev`)
+- `--set <name>`: `dev`, `holdout-natural`, `holdout-independent` or `all` (repeatable; default `dev`); `regression`
+  and `generalization` evaluate the evaluation overlays (not part of `all`) with and without the curated cue priors
 - `--gate`: evaluate `holdout-natural` and decide the quality gate (at least 93.0% pooled accuracy and a 95% interval
   lower bound of the improvement above zero); exit `0` for a pass and `1` for a failure. Together with `--check` (or
   `--write`) the exit code is `0` only when the gate passes and the record is current
 - `--seeds`: retrain with each evaluation seed and report the holdout accuracy of each
 - `--write`, `--check`, `--record-dir <dir>`: write or verify the deterministic evaluation record (default folder
-  `docs/evaluation/text-en`)
+  `docs/evaluation/text-en`); the record includes the overlays whose files exist, after the data sets
 
 Exit codes: `0` done or gate passed, `1` gate failed or record stale, `2` usage, I/O or data error.
 
@@ -114,6 +115,14 @@ instead of guessing when a harvested row has no source document.
 
 Reading a holdout set is the one irreversible act of model development: a set that has guided a choice no longer
 measures anything. The tool says so when it reads one, and `RUN-LOG.md` counts the runs of the gate.
+
+**Overlays.** An overlay (`regression.tsv` or `generalization.tsv`) is reported like a set and then by slice (all
+rows; seen and unseen rows and each origin of the regression overlay; each kind, cue-solvable class and family of the
+generalization set) with the accuracy with the cue priors and of the model alone, each with a clustered 95% interval
+(a generalization row resamples with its family), the paired cue effect and the rows on which a cue acts. The
+model-only reading is computed by the evaluation with the classifier's own scoring and no prior; the classifier and the
+model are not changed. A generalization row marked `cue_unsolvable=yes` on which the adjective, past-time or a context
+cue test fires, or whose reading the priors change, is a data error (exit `2`) that names the row and the cue.
 
 ## evaluate-external
 

@@ -44,6 +44,16 @@ without one stops the evaluation instead of counting as its own cluster.
 - `per-reading.tsv`: accuracy by reading, lowest first
 - `confidence.tsv`: accuracy by the confidence the analyzer reports
 - `seeds.tsv`: holdout accuracy of models trained with five seeds and the same settings, with mean, minimum and maximum
+- `overlay-rows.tsv`: every row of the two evaluation overlays (see below) with its labeled reading, the reading of the
+  shipped model with its cue priors, the reading of the model alone and whether a cue prior acted on the row
+- `curated-ablation.tsv`: per overlay slice, the accuracy with the cue priors and of the model alone, each with its
+  clustered 95 percent interval, the paired cue effect with its interval, and the rows on which a cue acted and whose
+  reading it changed
+
+`summary.tsv`, `by-source.tsv`, `per-reading.tsv` and `confidence.tsv` list the overlays `generalization` and
+`regression` after the three data sets, so the lines of the data sets are the same with or without the overlays; the
+`source` of an overlay row is its stratum (for example `regression/listening/unseen` or
+`generalization/novel-vocabulary/cue-unsolvable`).
 
 ## Headline Results
 
@@ -104,6 +114,79 @@ State these with every figure from this record:
    neighboring setting is a little better on all development rows. The rule was applied as written.
 6. **Coverage.** The model decides 395 readings of 207 words of US English, one sentence at a time. A heteronym that is
    not in the inventory gets no reading, and the model does not read beyond the sentence.
+
+## Evaluation Overlays
+
+Two sets beside the data files measure what the flagged sentences and unseen words and constructions get (see the data
+README, "Evaluation Overlays"): the **regression overlay** (`regression.tsv`: owner-flagged sentences, analyzer and
+golden test targets and selected training and development rows, each marked as seen or unseen in training) and the
+**generalization set** (`generalization.tsv`: 242 rows written blind by another model family, frozen before any model
+output on it existed, and checked new against the training and development data). They are not part of the gate.
+
+Each overlay is measured twice with the same shipped model on the same path:
+
+- **with the cue priors**: the analyzer's reading, as for the data sets;
+- **model only**: the reading the model's own weights choose for the same features without the four hand-written cue
+  priors (adjective, noun-form, past-time and context cues). This is computed by the evaluation with the classifier's
+  own scoring; the classifier and the model are unchanged.
+
+Intervals are 95 percent percentile intervals of the clustered bootstrap (10,000 resamples, seed 7). A generalization
+row resamples with its family (the cue or template family it was written from), a regression row alone. The cue effect
+is the paired difference of the two accuracies. Every generalization row marked `cue_unsolvable=yes` is verified: none
+of the adjective, past-time or context cue tests may fire on it and both readings must agree; otherwise the evaluation
+stops with a data error.
+
+### Baseline of the Shipped Model (PR A)
+
+Measured on 2026-11-21 with the shipped model (image SHA-256 `73de5a3f...3df0`, no word clusters) by
+`evaluate --set regression --set generalization`, once, after the generalization set was frozen and its one defect fix
+(the flag of `gen-0060`) was made; the figures are the ones of `curated-ablation.tsv`. This is the PR A baseline of the
+pre-registered criterion below. Percentages with their 95 percent intervals in brackets; the cue effect is the shipped
+accuracy minus the model-only accuracy, in points.
+
+**Generalization set** (242 rows; intervals clustered by family):
+
+| Slice | Rows | Families | Correct | With cues | Model only | Cue effect | Cues |
+| --- | ---: | ---: | ---: | --- | --- | --- | ---: |
+| all | 242 | 64 | 177 / 178 | 73.14 [67.05, 79.10] | 73.55 [67.51, 79.34] | -0.41 [-1.29, 0.00] | 13, 1 |
+| `novel-vocabulary` | 135 | 51 | 100 / 100 | 74.07 [65.22, 82.17] | 74.07 [65.22, 82.17] | 0.00 [0.00, 0.00] | 8, 0 |
+| `novel-construction` | 107 | 39 | 77 / 78 | 71.96 [63.71, 80.00] | 72.90 [64.56, 81.00] | -0.93 [-3.30, 0.00] | 5, 1 |
+| cue-unsolvable | 80 | 51 | 65 / 65 | 81.25 [71.79, 89.87] | 81.25 [71.79, 89.87] | 0.00 [0.00, 0.00] | 0, 0 |
+| cue-solvable | 162 | 64 | 112 / 113 | 69.14 [61.44, 76.47] | 69.75 [62.33, 76.82] | -0.62 [-2.01, 0.00] | 13, 1 |
+
+"Correct" is with cues / model only; "Cues" is the rows a cue prior acts on, then the rows whose reading it changes.
+The own-part-of-speech baseline gets 157 of 242 (64.88 percent); the shipped model's improvement over it is +8.26
+points [0.00, +16.53] over 64 families. Parity: 242 compared, none mismatched.
+The one row whose reading a cue prior changes is `gen-0060` (*Beneath the pulley, the cord wound.*): the noun-form
+cue turns the model's right `wind.coil` into `wound.injury`. The weakest readings are `tear.rip` (0 of 9), `bass.fish`
+and `bass.music` (4 of 9 each) and `bow.weapon` and `content.satisfied` (5 of 9 each); the full list is
+`per-reading.tsv`. The pre-registered guard of PR B is this shipped figure: 177 of 242 (73.14 percent).
+
+**Regression overlay** (519 rows; each row its own cluster):
+
+| Slice | Rows | Correct | With cues | Model only | Cue effect | Cues |
+| --- | ---: | ---: | --- | --- | --- | ---: |
+| all | 519 | 519 / 515 | 100.00 [100.00, 100.00] | 99.23 [98.46, 99.81] | +0.77 [+0.19, +1.54] | 37, 4 |
+| seen in training | 25 | 25 / 24 | 100.00 [100.00, 100.00] | 96.00 [88.00, 100.00] | +4.00 [0.00, +12.00] | 18, 1 |
+| unseen | 494 | 494 / 491 | 100.00 [100.00, 100.00] | 99.39 [98.58, 100.00] | +0.61 [0.00, +1.42] | 19, 3 |
+| `listening` | 7 | 7 / 4 | 100.00 [100.00, 100.00] | 57.14 [14.29, 85.71] | +42.86 [+14.29, +85.71] | 6, 3 |
+| `data-row` | 21 | 21 / 20 | 100.00 [100.00, 100.00] | 95.24 [85.71, 100.00] | +4.76 [0.00, +14.29] | 20, 1 |
+| `analyzer-test` | 11 | 11 / 11 | 100.00 [100.00, 100.00] | 100.00 [100.00, 100.00] | 0.00 [0.00, 0.00] | 2, 0 |
+| `golden-pipeline` | 37 | 37 / 37 | 100.00 [100.00, 100.00] | 100.00 [100.00, 100.00] | 0.00 [0.00, 0.00] | 2, 0 |
+| `golden-readings` | 382 | 382 / 382 | 100.00 [100.00, 100.00] | 100.00 [100.00, 100.00] | 0.00 [0.00, 0.00] | 4, 0 |
+| `golden-sentences` | 61 | 61 / 61 | 100.00 [100.00, 100.00] | 100.00 [100.00, 100.00] | 0.00 [0.00, 0.00] | 3, 0 |
+
+The own-part-of-speech baseline gets 471 of 519 (90.75 percent; improvement +9.25 [+6.74, +11.75]); parity 519
+compared, none mismatched. The four rows the cue priors change are three owner-flagged listening sentences
+(`minute.tiny`, `wound.injury` and `tear.rip`, the sentences the priors were written for) and one `read.past` data row;
+the model alone gets each of them wrong.
+
+**Reading the baseline.** The cue priors were written for the flagged sentences and fix exactly those; on the blind
+generalization set they act on 13 rows and change one, for the worse. The rows the curated cues cannot solve score
+higher (81.25 percent) than the others (69.14 percent), so that subset is not harder for the model alone. The
+generalization accuracy of the shipped model (73.14 percent) is far below its holdout accuracy (96.23 percent): new cue
+words and constructions are where the model is weak, which is what the word-cluster features of PR B are meant to
+address.
 
 ## Pre-Registered Criterion for Word Clusters
 

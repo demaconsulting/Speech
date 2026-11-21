@@ -240,6 +240,7 @@ input-files:
   - docs/design/speech-text-en/training-subsystem/train-command.md
   - docs/design/speech-text-en/training-subsystem/heteronym-evaluator.md
   - docs/design/speech-text-en/training-subsystem/evaluation-record.md
+  - docs/design/speech-text-en/training-subsystem/evaluation-overlay.md
   - docs/design/speech-text-en/training-subsystem/evaluate-command.md
   - docs/design/speech-text-en/external-evaluation-subsystem.md
   - docs/design/speech-text-en/external-evaluation-subsystem/external-source-cache.md

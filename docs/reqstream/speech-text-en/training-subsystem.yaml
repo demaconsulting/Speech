@@ -11,8 +11,8 @@
 # source and mathematics (DeterministicRandom, DeterministicMath), the learner (AveragedPerceptronTrainer), the
 # choice of the epoch count and the calibration temperature and the model image (ModelSelection), the training
 # record (TrainingRecord), the train command (TrainCommand), the evaluator (HeteronymEvaluator), the evaluation
-# record (EvaluationRecord) and the evaluate command (EvaluateCommand). Each requirement states one observable
-# behavior.
+# record (EvaluationRecord), the loader of the evaluation overlays (EvaluationOverlay) and the evaluate command
+# (EvaluateCommand). Each requirement states one observable behavior.
 #
 # Unit-level content lives in per-unit files under
 # docs/reqstream/speech-text-en/training-subsystem/. Covered by
@@ -174,4 +174,35 @@ sections:
               - TrainingSubsystem_Evaluate_FixtureSets_ComputesAccuracyBaselinesAndCoverage
               - TrainingSubsystem_Evaluate_Gate_ExitCodeFollowsThresholds
               - TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord
+              - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
+
+          - id: SpeechTextEn-Training-OverlayReport
+            title: >-
+              The TrainingSubsystem shall evaluate, on request and in the evaluation record, the regression
+              overlay and the generalization set end to end through the analyzer with the model under test, and
+              shall report for each overlay and each of its slices (all rows; seen and unseen rows and each
+              origin of the regression overlay; each kind, family and cue-solvable class of the generalization
+              set) the accuracy with the curated cue priors and of the model alone without them, with clustered
+              intervals of both and of their paired difference (a generalization row resampling with its family,
+              a regression row alone), the rows on which a cue prior acts and the rows whose reading it changes;
+              shall stop with a data error that names every generalization row marked cue_unsolvable=yes that is
+              not one runtime token, on which the adjective, past-time or a context cue test fires, or whose
+              reading a cue prior changes; and shall append the overlays to the record after the data sets, with
+              a per-row file and a per-slice file, so every earlier line of the record stays byte-identical.
+            justification: |
+              The overlays measure whether the cue priors and later features help on flagged and on unseen
+              sentences; the model-only decision uses the classifier's own scoring and changes neither the
+              classifier nor the model, so the comparison measures only the priors. Clustering by family keeps
+              rows written from one idea from counting as independent evidence. A row wrongly marked as out of
+              reach of the cues would distort the very subset the pre-registered criterion reports, so it is a
+              data error. Appending keeps the gate evidence of the record unchanged.
+            children:
+              - SpeechTextEn-Training-EvaluationOverlay-Rows
+              - SpeechTextEn-Training-EvaluationOverlay-Refusal
+              - SpeechTextEn-Training-HeteronymEvaluator-OverlayCuedAndModelOnly
+              - SpeechTextEn-Training-HeteronymEvaluator-CueUnsolvableCheck
+              - SpeechTextEn-Training-EvaluateCommand-OverlaySets
+              - SpeechTextEn-Training-EvaluationRecord-OverlayFiles
+            tests:
+              - TrainingSubsystem_Evaluate_Overlays_ReportedWithAndWithoutCuesAndAppendedToRecord
               - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate

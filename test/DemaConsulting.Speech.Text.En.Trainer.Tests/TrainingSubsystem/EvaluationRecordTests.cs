@@ -127,6 +127,72 @@ public sealed class EvaluationRecordTests : IDisposable
             seeds);
     }
 
+    /// <summary>Proves the overlays are appended after the data sets, leaving every line of the data sets unchanged, and are listed per row and per slice with and without the cue priors.</summary>
+    [Fact]
+    public void EvaluationRecord_Render_Overlays_AppendedWithRowsAndCuratedAblation()
+    {
+        // Arrange: a generalization overlay of two rows in one family; the cue priors fix one row
+        var shipped = new SetEvaluation(
+            "generalization",
+            2,
+            2,
+            0,
+            2,
+            2,
+            1,
+            1,
+            1,
+            [new GroupTally("generalization/novel-vocabulary/cue-solvable", 2, 2, 1)],
+            [new GroupTally("lead.noun", 2, 2, 1)],
+            [new GroupTally("<0.600", 0, 0, 0), new GroupTally("0.600-0.899", 1, 1, 0), new GroupTally(">=0.900", 1, 1, 0), new GroupTally("none", 0, 0, 0)],
+            new BootstrapInterval(1, 5000, 5000, 5000, true),
+            new ParityCounts(2, 0, 0),
+            new BootstrapInterval(1, 10000, 10000, 10000, true));
+        OverlayRow Row(string id) => new(
+            new LabeledRow(id, "lead.noun", "The lead pipe.", 4, 8, "generalization/novel-vocabulary/cue-solvable"),
+            "family:lead:metal",
+            "lead:metal",
+            "novel-vocabulary",
+            "-",
+            false,
+            ["all", "family:lead:metal"]);
+        var overlay = new OverlayEvaluation(
+            shipped,
+            [new OverlayRowOutcome(Row("gen-0001"), "lead.noun", "lead.noun", false), new OverlayRowOutcome(Row("gen-0002"), "lead.noun", "lead.verb", true)],
+            [new OverlaySlice("all", 2, 2, new BootstrapInterval(1, 10000, 10000, 10000, true), 1, new BootstrapInterval(1, 5000, 5000, 5000, true), new BootstrapInterval(1, 5000, 5000, 5000, true), 1, 1)],
+            0);
+        var report = Sample with { Sets = [.. Sample.Sets, shipped], Overlays = [overlay] };
+
+        // Act
+        var plain = EvaluationRecord.Render(Sample);
+        var files = EvaluationRecord.Render(report);
+
+        // Assert: the data-set lines are a byte-identical prefix and the overlay lines follow
+        foreach (var name in new[] { EvaluationRecord.SummaryFile, EvaluationRecord.BySourceFile, EvaluationRecord.ByReadingFile, EvaluationRecord.ConfidenceFile })
+        {
+            Assert.StartsWith(plain[name], files[name], StringComparison.Ordinal);
+            Assert.StartsWith("generalization\t", files[name][plain[name].Length..], StringComparison.Ordinal);
+        }
+
+        Assert.Equal(plain[EvaluationRecord.GateFile], files[EvaluationRecord.GateFile]);
+        Assert.Equal(plain[EvaluationRecord.SeedsFile], files[EvaluationRecord.SeedsFile]);
+
+        // Assert: the per-row and the per-slice files
+        Assert.Equal(
+            "set\tid\tgroup\tkind\tseen_in_training\tcue_unsolvable\tgold\tshipped\tmodel_only\tcue_fired\n"
+            + "generalization\tgen-0001\tlead:metal\tnovel-vocabulary\t-\tno\tlead.noun\tlead.noun\tlead.noun\tno\n"
+            + "generalization\tgen-0002\tlead:metal\tnovel-vocabulary\t-\tno\tlead.noun\tlead.noun\tlead.verb\tyes\n",
+            files[EvaluationRecord.OverlayRowsFile]);
+        var ablation = files[EvaluationRecord.CuratedAblationFile].Split('\n');
+        Assert.StartsWith("set\tslice\trows\tclusters\tshipped_correct\tshipped_bp", ablation[0], StringComparison.Ordinal);
+        Assert.Equal("generalization\tall\t2\t1\t2\t10000\t10000\t10000\t1\t5000\t5000\t5000\t5000\t5000\t5000\t1\t1", ablation[1]);
+        Assert.Equal(string.Empty, ablation[2]);
+
+        // Assert: without overlays both files have their header only
+        Assert.Single(plain[EvaluationRecord.OverlayRowsFile].Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Single(plain[EvaluationRecord.CuratedAblationFile].Split('\n', StringSplitOptions.RemoveEmptyEntries));
+    }
+
     /// <summary>Proves rendering is deterministic, in ordinal file-name order, with line feeds only.</summary>
     [Fact]
     public void EvaluationRecord_Render_IsDeterministicWithLineFeedsOnly()

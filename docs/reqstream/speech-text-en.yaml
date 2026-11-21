@@ -546,6 +546,33 @@ sections:
           - TrainingSubsystem_Evaluate_WriteThenCheck_MatchesAndDetectsEditedRecord
           - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
 
+      - id: SpeechTextEn-Training-OverlayEvaluation
+        title: >-
+          The evaluation command shall report the reading accuracy of the heteronym model with and without the
+          hand-written cue priors, with clustered confidence intervals of both and of their difference, on a
+          regression overlay of owner-flagged sentences and golden targets, each marked as seen or unseen in
+          training, and on a generalization set written blind, which the data check proves new against the
+          training and development data, by origin and seen or unseen rows of the overlay and by family, kind and
+          whether the curated cues can solve a row of the generalization set, resampling the generalization rows
+          by family; it shall treat a generalization row marked as not solvable by the curated cues on which a
+          curated cue can act as a data error, and shall add these results to the evaluation record without
+          changing its earlier lines.
+        tags: [system]
+        justification: |
+          The cue priors were written for single flagged sentences, and later features (word classes) are only
+          worth keeping when they help on sentences the model has never seen. Measuring the shipped model with
+          and without its cue priors, on the flagged sentences and on a set written blind, shows how much the
+          priors do and where the model alone fails; this is the baseline that the pre-registered criterion
+          for word classes is judged against. The rows of a family share one cue or template idea, so they are
+          resampled together and the interval is not overstated. A row that claims the curated cues cannot
+          solve it, but on which a cue acts, would misstate that subset, so it stops the evaluation rather than
+          count. The new results are appended so the record of the gate stays exactly as it was.
+        children:
+          - SpeechTextEn-Training-OverlayReport
+        tests:
+          - TrainingSubsystem_Evaluate_Overlays_ReportedWithAndWithoutCuesAndAppendedToRecord
+          - TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate
+
       - id: SpeechTextEn-Training-WordClasses
         title: >-
           The repository shall provide a command that induces a table of hierarchical word classes only from a

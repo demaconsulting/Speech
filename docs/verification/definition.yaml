@@ -237,6 +237,7 @@ input-files:
   - docs/verification/speech-text-en/training-subsystem/train-command.md
   - docs/verification/speech-text-en/training-subsystem/heteronym-evaluator.md
   - docs/verification/speech-text-en/training-subsystem/evaluation-record.md
+  - docs/verification/speech-text-en/training-subsystem/evaluation-overlay.md
   - docs/verification/speech-text-en/training-subsystem/evaluate-command.md
   - docs/verification/speech-text-en/external-evaluation-subsystem.md
   - docs/verification/speech-text-en/external-evaluation-subsystem/external-source-cache.md

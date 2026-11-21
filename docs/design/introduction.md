@@ -258,7 +258,9 @@ Speech, not a subsystem of it, and the library must never depend on it:
   the library's own internals (through `InternalsVisibleTo`): the `TrainingCorpus` loader, the `DeterministicRandom` and
   `DeterministicMath` helpers, the `AveragedPerceptronTrainer`, the `ModelSelection` of the epoch and temperature, the
   `TrainingRecord` of the settings and results, the `TrainCommand` entry, the `HeteronymEvaluator` with the quality
-  gate, the `EvaluationRecord` files and the `EvaluateCommand` entry (with the `Program.cs` glue)
+  gate and the overlay evaluation with and without the curated cue priors, the `EvaluationOverlay` loader of the
+  regression overlay and the generalization set, the `EvaluationRecord` files and the `EvaluateCommand` entry (with the
+  `Program.cs` glue)
 - **ExternalEvaluationSubsystem (Subsystem of SpeechTextEn)** — The non-shipped `evaluate-external` command of the same
   `DemaConsulting.Speech.Text.En.Trainer` tool, which measures the embedded heteronym model on external,
   evaluation-only datasets (Google WikipediaHomographData and heteronym-bench) fetched at evaluation time from pinned
@@ -1020,8 +1022,9 @@ tools/DemaConsulting.Speech.Text.En.Trainer/
 │   ├── ModelSelection.cs                                  — Development-set epoch and temperature choices and the model images (with TrainedModel and EpochScore)
 │   ├── TrainingRecord.cs                                  — Training and evaluation settings, inputs, result and the training.json form (with TrainingSettings, EvaluationSettings, TrainingInputs and TrainingResult)
 │   ├── TrainCommand.cs                                    — Command line entry of train and train --check
-│   ├── HeteronymEvaluator.cs                              — End-to-end evaluation, baselines, strata, clustered bootstrap, gate and parity (with its result records)
-│   ├── EvaluationRecord.cs                                — Six deterministic tab-separated evaluation record files (with EvaluationReport)
+│   ├── HeteronymEvaluator.cs                              — End-to-end evaluation, baselines, strata, clustered bootstrap, gate, parity and the overlay evaluation with and without the cue priors (with its result records)
+│   ├── EvaluationOverlay.cs                               — Loader of the regression overlay and the generalization set with strata, slices and clusters (with OverlayRow)
+│   ├── EvaluationRecord.cs                                — Eight deterministic tab-separated evaluation record files (with EvaluationReport)
 │   └── EvaluateCommand.cs                                 — Command line entry of evaluate
 └── ExternalEvaluationSubsystem/
     ├── ExternalSourceCache.cs                             — Pins, pinned fetch into the cache and verified reading of cached files (with PinnedFile, ExternalSourcePin, ExternalSourcePins and the default download)
@@ -1056,7 +1059,7 @@ data/text-en/
 
 docs/evaluation/text-en/
 ├── README.md                                              — Method, headline results and the limits of the evidence (hand-written, reviewed data)
-├── summary.tsv, gate.tsv, by-source.tsv, per-reading.tsv, confidence.tsv, seeds.tsv — Deterministic evaluation record written by evaluate --write and verified by evaluate --check (reviewed data)
+├── summary.tsv, gate.tsv, by-source.tsv, per-reading.tsv, confidence.tsv, seeds.tsv, overlay-rows.tsv, curated-ablation.tsv — Deterministic evaluation record written by evaluate --write and verified by evaluate --check (reviewed data)
 └── external/
     ├── README.md                                          — Method, results and the limits of the external evidence (hand-written, reviewed data)
     └── sources.tsv, conversion.tsv, summary.tsv, by-source.tsv, per-reading.tsv, confidence.tsv, seeds.tsv — Deterministic external evaluation record written by evaluate-external --write and verified by evaluate-external --check (reviewed data)

@@ -59,6 +59,10 @@ stated there.
   and baselines of the fixture; the gate exits 0 for a threshold below the accuracy of the model and 1 for one above it;
   a written record passes `evaluate --check` and an edited record file makes it exit 1 naming that file; the committed
   model passes the gate and the committed record is what `evaluate --check` reproduces.
+- **Overlay report** (`Training-OverlayReport`): the overlays of the fixture are reported by slice with and without
+  the cue priors; the record lists them after the data sets and checks as current; the committed record, with the
+  committed overlays, is what `evaluate --check` reproduces, which requires every committed cue-unsolvable row to pass
+  its verification.
 
 ### Test Scenarios
 
@@ -134,20 +138,32 @@ is edited to a gate threshold of 95.0% and then of 98.0%, so `evaluate --gate` e
 `evaluate --write --record-dir` writes the record files and `evaluate --check` exits 0; after one record file is
 overwritten, the check exits 1 and names that file.
 
+#### Evaluation overlays
+
+**Test**: `TrainingSubsystem_Evaluate_Overlays_ReportedWithAndWithoutCuesAndAppendedToRecord`
+
+The fixture gets a regression overlay of two rows and a generalization set of two rows. `evaluate --set regression --set
+generalization` exits 0 and prints the slices (for example `regression slice unseen: 1 rows` and `generalization slice
+cue_unsolvable:yes: 1 rows`) with the model-only figures; `evaluate --write` then writes a record whose summary lists
+the sets `dev`, `holdout-independent`, `holdout-natural`, `generalization` and `regression` in that order, whose overlay
+rows file has the header and the four rows, and which `evaluate --check` finds current.
+
 #### Committed model and record
 
 **Tests**: `TrainingSubsystem_TrainCheck_CommittedModelAndRecord_AreCurrent`,
 `TrainingSubsystem_Evaluate_CommittedModelAndData_PassesGate`
 
-These tests run the real commands over the repository itself and are skipped only when the root is not found.
-`train --check` retrains from the committed data with the recorded settings and exits 0 only when the committed model
-file, the training record and the hashes are what retraining produces. `evaluate --gate --check` evaluates the
-committed model through the analyzer that embeds it and exits 0 only when the accuracy on the natural holdout is at
-least 93.0%, the lower bound of the 95% interval of the improvement over the own-part-of-speech baseline is above zero,
-and every committed evaluation record file is identical, byte for byte. The tests verify consistency and the gate, not
-the correctness of the labels, and they do not show that the result is the same on another operating system (the CI
-matrix does). The headline figures are those of the committed record, with the limits stated there.
+These tests run the real commands over the repository itself and are skipped only when the root is not found. `train
+--check` retrains from the committed data with the recorded settings and exits 0 only when the committed model file, the
+training record and the hashes are what retraining produces. `evaluate --gate --check` evaluates the committed model
+through the analyzer that embeds it and exits 0 only when the accuracy on the natural holdout is at least 93.0%, the
+lower bound of the 95% interval of the improvement over the own-part-of-speech baseline is above zero, and every
+committed evaluation record file is identical, byte for byte; the record includes the two committed overlays, so the
+check also proves that no committed generalization row marked `cue_unsolvable=yes` is one a curated cue acts on. The
+tests verify consistency and the gate, not the correctness of the labels, and they do not show that the result is the
+same on another operating system (the CI matrix does). The headline figures are those of the committed record, with the
+limits stated there.
 
 See also *SpeechTextEn System Verification* and the unit documents `training-corpus.md`, `deterministic-random.md`,
 `deterministic-math.md`, `averaged-perceptron-trainer.md`, `model-selection.md`, `training-record.md`,
-`train-command.md`, `heteronym-evaluator.md`, `evaluation-record.md` and `evaluate-command.md`.
+`train-command.md`, `heteronym-evaluator.md`, `evaluation-record.md`, `evaluation-overlay.md` and `evaluate-command.md`.

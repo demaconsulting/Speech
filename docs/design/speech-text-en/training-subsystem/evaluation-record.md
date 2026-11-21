@@ -6,10 +6,12 @@ reviewable evidence of what the model measured and whether the quality gate pass
 
 **Data Model**: `EvaluationReport` (an internal sealed record) holds the SHA-256 of the uncompressed image of the
 evaluated model, the `EvaluationSettings` (with the gate threshold), the evaluated `SetEvaluation`s in reporting order
-and the `SeedResult`s of the multi-seed study (empty when it was not run). `EvaluationRecord` is an internal static
-class, stateless and thread-safe, with the six file names as constants.
+and the `SeedResult`s of the multi-seed study (empty when it was not run), and the `OverlayEvaluation`s of the
+evaluation overlays (none when no overlay was evaluated; their shipped evaluations are also among the sets, after the
+data sets). `EvaluationRecord` is an internal static class, stateless and thread-safe, with the eight file names as
+constants.
 
-**The files.** All six have a header row, a fixed column order, LF line ends, no byte order mark and a final newline.
+**The files.** All eight have a header row, a fixed column order, LF line ends, no byte order mark and a final newline.
 Every number is an integer or an integer ratio in basis points (hundredths of a percent) rounded half away from zero;
 no floating-point value is ever formatted into a file, and there is no time stamp, host name or duration, so the files
 are identical on every platform and rerun.
@@ -26,14 +28,24 @@ are identical on every platform and rerun.
 - `confidence.tsv`: the same by confidence bucket
 - `seeds.tsv`: one row per seed of the study (the natural and the independent rows, the rows correct and the accuracy),
   then the mean (rounded half up with integers), the minimum and the maximum of the accuracies
+- `overlay-rows.tsv`: one row per overlay row: the set, the id, the group (origin or family), the kind, the
+  seen-in-training mark, the cue-unsolvable mark (`-` where it does not apply), the labeled, shipped and model-only
+  readings (`none` for no reading) and whether a cue fired
+- `curated-ablation.tsv`: one row per overlay slice: the rows and clusters, the shipped correct count, accuracy and
+  interval, the same for the model alone, the paired cue effect with its interval, and the rows on which a cue fired and
+  whose reading changed
+
+**Appending (decision).** The overlays come after the data sets in every shared file, and the gate and seeds files do
+not list them, so adding the overlays to a record leaves every earlier line byte-identical; the two overlay files have
+their header only when no overlay was evaluated.
 
 **Why tab-separated text and not Markdown.** The repository's formatters reflow Markdown tables, which would change the
 bytes of a committed record and break the byte comparison; plain tab-separated files are left alone.
 
 **Key Methods**:
 
-- **Render(report)**: the content of the six files by name, in ordinal name order
-- **Write(report, directory)**: creates the folder when needed and writes the six files as UTF-8 without a byte order
+- **Render(report)**: the content of the eight files by name, in ordinal name order
+- **Write(report, directory)**: creates the folder when needed and writes the eight files as UTF-8 without a byte order
   mark
 - **Compare(report, directory)**: renders and compares each file with the one in the folder byte for byte, and returns
   the names of the files that are missing or differ, in ordinal order; an empty list means the record is current
@@ -44,7 +56,8 @@ bytes of a committed record and break the byte comparison; plain tab-separated f
 for instance) propagate as `IOException` or `UnauthorizedAccessException` and are reported by the command as an I/O
 error. A missing or different file is a result of `Compare`, not an error.
 
-**Dependencies**: `HeteronymEvaluator` (the result types, `RoundBasisPoints` and `DecideGate`), `EvaluationSettings`
+**Dependencies**: `HeteronymEvaluator` (the result types, `RoundBasisPoints` and `DecideGate`), `EvaluationOverlay`
+(the row type), `EvaluationSettings`
 (from `TrainingRecord`) and the framework.
 
 **Callers**: `EvaluateCommand`, `ExternalEvaluationRecord` (which reuses the group renderers, the row writer and the

@@ -171,7 +171,7 @@ public sealed class EvaluateCommandTests
         Assert.Contains("pooled accuracy 97.50%", output);
         Assert.Contains("GATE RUN on holdout-natural", output);
         Assert.Contains("GATE: PASS", output);
-        Assert.Equal(6, Directory.GetFiles(recordDirectory).Length);
+        Assert.Equal(8, Directory.GetFiles(recordDirectory).Length);
     }
 
     /// <summary>Proves the gate and the check together exit zero only when the gate passes and the record is current, and print both results.</summary>
@@ -259,7 +259,7 @@ public sealed class EvaluateCommandTests
 
         // Assert
         Assert.Equal(0, write.ExitCode);
-        Assert.Equal(6, written);
+        Assert.Equal(8, written);
         Assert.Equal(0, fresh.ExitCode);
         Assert.Contains("OK", fresh.Output);
         Assert.Equal(1, stale.ExitCode);
@@ -267,6 +267,105 @@ public sealed class EvaluateCommandTests
         Assert.Contains("STALE: gate.tsv", stale.Output);
     }
 
+    /// <summary>Proves the overlays are evaluated on request with and without the cue priors, by slice, with the cue-unsolvable rows verified, and read no holdout.</summary>
+    [Fact]
+    public void EvaluateCommand_Run_OverlaySets_ReportedWithAndWithoutCues()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        WriteOverlays(fixture);
+
+        // Act
+        var (exitCode, output, _) = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--set", "regression", "--set", "generalization");
+
+        // Assert
+        Assert.Equal(0, exitCode);
+        Assert.DoesNotContain("HOLDOUT", output);
+        Assert.Contains("set regression: 2 rows", output);
+        Assert.Contains("set generalization: 3 rows", output);
+        Assert.Contains("regression slice all: 2 rows, 2 clusters; with cues 2/2 100.00%", output);
+        Assert.Contains("model only 2/2 100.00%", output);
+        Assert.Contains("generalization slice all: 3 rows, 2 clusters; with cues 3/3 100.00%", output);
+        Assert.Contains("cue effect 0.00% [0.00%, 0.00%]; cue fired 0, changed 0", output);
+        Assert.Contains("cue-unsolvable check: 1 rows", output);
+        Assert.Contains("generalization slice kind:novel-vocabulary", output);
+    }
+
+    /// <summary>Proves a missing overlay file asked for by name and a row marked cue_unsolvable=yes that a cue test fires on are data errors, and an overlay without rows is skipped.</summary>
+    [Fact]
+    public void EvaluateCommand_Run_OverlayMissingViolatedOrEmpty_ExitsTwoOrSkips()
+    {
+        // Arrange
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        var missing = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--set", "regression");
+        fixture.WriteGeneralization();
+        var empty = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--set", "generalization");
+        fixture.WriteGeneralization(("gen-0001", "lead.verb", "Yesterday we lead the team.", "novel-construction", "lead:past", "yes"));
+
+        // Act
+        var violated = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--set", "generalization");
+
+        // Assert
+        Assert.Equal(2, missing.ExitCode);
+        Assert.Contains("regression.tsv", missing.Error);
+        Assert.Equal(0, empty.ExitCode);
+        Assert.Contains("overlay generalization: the file has no rows; not evaluated", empty.Output);
+        Assert.Equal(2, violated.ExitCode);
+        Assert.Contains("gen-0001 (past-time cue)", violated.Error);
+    }
+
+    /// <summary>Proves the record appends the overlays after the data sets, so every earlier line stays byte-identical, and the record with overlays checks as current.</summary>
+    [Fact]
+    public void EvaluateCommand_Run_WriteWithOverlays_AppendsAfterTheDataSets()
+    {
+        // Arrange: a record without overlays, then one with them
+        using var fixture = new TrainingFixture("ADV", "ADV");
+        var modelDirectory = CommandHarness.TrainFixtureModel(fixture);
+        var before = Path.Combine(fixture.BaseDirectory, "before");
+        var after = Path.Combine(fixture.BaseDirectory, "after");
+        var plain = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", before);
+        WriteOverlays(fixture);
+
+        // Act
+        var write = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--write", "--record-dir", after);
+        var check = CommandHarness.Evaluate(fixture, "--model-dir", modelDirectory, "--check", "--record-dir", after);
+
+        // Assert
+        Assert.Equal(0, plain.ExitCode);
+        Assert.Contains("overlay regression: regression.tsv is not in the data folder; not evaluated", plain.Output);
+        Assert.Equal(0, write.ExitCode);
+        Assert.Equal(0, check.ExitCode);
+        foreach (var name in new[] { EvaluationRecord.SummaryFile, EvaluationRecord.BySourceFile, EvaluationRecord.ByReadingFile, EvaluationRecord.ConfidenceFile })
+        {
+            var old = File.ReadAllText(Path.Combine(before, name));
+            var appended = File.ReadAllText(Path.Combine(after, name));
+            Assert.StartsWith(old, appended, StringComparison.Ordinal);
+            Assert.StartsWith("generalization\t", appended[old.Length..], StringComparison.Ordinal);
+            Assert.Contains("\nregression\t", appended[old.Length..], StringComparison.Ordinal);
+        }
+
+        Assert.Equal(File.ReadAllText(Path.Combine(before, EvaluationRecord.GateFile)), File.ReadAllText(Path.Combine(after, EvaluationRecord.GateFile)));
+        Assert.Equal(6, File.ReadAllLines(Path.Combine(after, EvaluationRecord.OverlayRowsFile)).Length);
+        Assert.Contains("regression\tall\t2\t2\t2\t10000", File.ReadAllText(Path.Combine(after, EvaluationRecord.CuratedAblationFile)));
+    }
+
+    /// <summary>
+    ///     Writes a regression overlay of two rows and a generalization set of three rows in two families, all of the
+    ///     fixture's clear patterns.
+    /// </summary>
+    /// <param name="fixture">The fixture.</param>
+    private static void WriteOverlays(TrainingFixture fixture)
+    {
+        fixture.WriteRegression(
+            ("reg-0001", "lead.verb", "They will lead the team today.", "listening", "yes"),
+            ("reg-0002", "lead.noun", "The lead box was very heavy.", "data-row", "no"));
+        fixture.WriteGeneralization(
+            ("gen-0001", "lead.verb", "Please lead the hike now.", "novel-construction", "lead:request", "yes"),
+            ("gen-0002", "lead.verb", "Please lead the tour now.", "novel-construction", "lead:request", "no"),
+            ("gen-0003", "lead.noun", "A lead ball fell down.", "novel-vocabulary", "lead:metal", "no"));
+    }
     /// <summary>
     ///     Sets the gate threshold in the record of a model folder.
     /// </summary>

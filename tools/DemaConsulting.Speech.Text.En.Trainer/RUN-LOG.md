@@ -507,3 +507,47 @@ the row stays in the set. No accuracy figure of the generalization set had been 
 rows; it now has 80 `cue_unsolvable=yes` rows (54 `novel-vocabulary`, 26 `novel-construction`) over all 13 targets, and
 the shape quotas still hold. The fix is also recorded in the prompt's record (`data/text-en/prompts/generalization.md`)
 and the data README; `MANIFEST.tsv` was regenerated.
+
+## Word-cluster subsystem (PR A): baseline of the shipped model on the overlays (2026-11-21)
+
+**Run.** With the overlay evaluation committed in `0f12855` ("Text.En: overlay evaluation with and without the curated
+cue priors") and the generalization set as fixed in `10ac6ad` (the `gen-0060` flag), `evaluate --set regression --set
+generalization` was run once with the shipped model (image SHA-256 `73de5a3f...3df0`, no word clusters), exit 0; the
+cue-unsolvable check passed on all 80 marked rows. Then `evaluate --write` wrote the record: the data-set lines of
+`summary.tsv`, `by-source.tsv`, `per-reading.tsv` and `confidence.tsv` are byte-identical and the overlays are
+appended after them (`git diff` shows only added lines: 2, 12, 411 and 8), `gate.tsv` and `seeds.tsv` are unchanged,
+and `overlay-rows.tsv` and `curated-ablation.tsv` are new. `evaluate --check --gate` then passed with the same figures
+(dev 3,083 of 3,235; natural holdout 1,123 of 1,167, 96.23 percent, +5.57 [+3.16, +8.15]; independent holdout 1,882 of
+1,972) and the record current. These holdout reads repeat the decision for the same model; they are not gate runs and
+nothing was chosen from them.
+
+**Generalization set** (242 rows, 64 families; 95 percent intervals clustered by family; with the cue priors against
+the model alone; cue effect in points; rows a cue prior acts on / rows whose reading it changes):
+
+- all: 177 against 178 of 242, 73.14 [67.05, 79.10] against 73.55 [67.51, 79.34]; cue effect -0.41 [-1.29, 0.00];
+  13 / 1.
+- `novel-vocabulary` (135 rows, 51 families): 100 against 100, 74.07 [65.22, 82.17] both; 0.00 [0.00, 0.00]; 8 / 0.
+- `novel-construction` (107 rows, 39 families): 77 against 78, 71.96 [63.71, 80.00] against 72.90 [64.56, 81.00];
+  -0.93 [-3.30, 0.00]; 5 / 1.
+- `cue_unsolvable=yes` (80 rows, 51 families): 65 against 65, 81.25 [71.79, 89.87] both; 0.00 [0.00, 0.00]; 0 / 0.
+- `cue_unsolvable=no` (162 rows, 64 families): 112 against 113, 69.14 [61.44, 76.47] against 69.75 [62.33, 76.82];
+  -0.62 [-2.01, 0.00]; 13 / 1.
+- Own-part-of-speech baseline 157 of 242 (64.88 percent); improvement +8.26 [0.00, +16.53] over 64 families. Parity
+  242 compared, 0 mismatched, 0 suppressed. The one changed row is `gen-0060`: the noun-form cue turns the model's
+  right `wind.coil` into `wound.injury`. Weakest readings: `tear.rip` 0 of 9, `bass.fish` and `bass.music` 4 of 9,
+  `bow.weapon` and `content.satisfied` 5 of 9.
+- The PR B guard "generalization accuracy at least the PR A baseline of the shipped model" is therefore 177 of 242
+  (73.14 percent).
+
+**Regression overlay** (519 rows, each its own cluster): identical to the first run logged above: all 519 against 515
+(100.00 [100.00, 100.00] against 99.23 [98.46, 99.81]; +0.77 [+0.19, +1.54]; 37 / 4); seen 25 against 24 (96.00
+[88.00, 100.00]; +4.00 [0.00, +12.00]; 18 / 1); unseen 494 against 491 (99.39 [98.58, 100.00]; +0.61 [0.00, +1.42];
+19 / 3); by origin `listening` 7 against 4 (57.14 [14.29, 85.71]; +42.86 [+14.29, +85.71]; 6 / 3), `data-row` 21
+against 20 (95.24 [85.71, 100.00]; +4.76 [0.00, +14.29]; 20 / 1), `analyzer-test` 11 and 11 (2 / 0),
+`golden-pipeline` 37 and 37 (2 / 0), `golden-readings` 382 and 382 (4 / 0), `golden-sentences` 61 and 61 (3 / 0).
+Own-part-of-speech baseline 471 of 519; parity 519 compared, 0 mismatched. The four changed rows are the listening
+sentences of `minute.tiny`, `wound.injury` and `tear.rip` and the data row of `read.past`; the model alone gets each
+wrong.
+
+These are the PR A baseline cells of the pre-registered 2 by 2 ablation (clusters off, curated cues on and off). No
+model, classifier or cue was changed, and the generalization set was not changed after this read.

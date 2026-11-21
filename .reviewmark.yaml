@@ -4172,6 +4172,21 @@ reviews:
       - "docs/verification/speech-text-en/training-subsystem/evaluation-record.md"
       - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluationRecord.cs"
       - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluationRecordTests.cs"
+  # SpeechTextEn-TrainingSubsystem-EvaluationOverlay Review (one per unit)
+  - id: SpeechTextEn-TrainingSubsystem-EvaluationOverlay
+    title: >-
+      Review that SpeechTextEn TrainingSubsystem EvaluationOverlay Implementation is Correct
+    context:
+      - "docs/design/speech-text-en.md"
+      - "docs/design/speech-text-en/training-subsystem.md"
+      - "docs/reqstream/speech-text-en.yaml"
+      - "docs/reqstream/speech-text-en/training-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-text-en/training-subsystem/evaluation-overlay.yaml"
+      - "docs/design/speech-text-en/training-subsystem/evaluation-overlay.md"
+      - "docs/verification/speech-text-en/training-subsystem/evaluation-overlay.md"
+      - "tools/DemaConsulting.Speech.Text.En.Trainer/TrainingSubsystem/EvaluationOverlay.cs"
+      - "test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluationOverlayTests.cs"
 
   # SpeechTextEn-TrainingSubsystem-EvaluateCommand Review (one per unit)
   - id: SpeechTextEn-TrainingSubsystem-EvaluateCommand

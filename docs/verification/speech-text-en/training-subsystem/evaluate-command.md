@@ -32,11 +32,19 @@ unit tests: they are the subsystem test `TrainingSubsystem_Evaluate_CommittedMod
   worst reading (`lead.verb`, 20 of 21).
 - **Gate exit codes**: `--gate` exits 1 with `BELOW` and `GATE: FAIL` for a threshold of 99.0%, and exits 1 with
   `NOT above zero` and `GATE: FAIL` for a model equal to its baseline even though a threshold of 0.1% is met; with
-  `--write` it decides on the natural holdout (`GATE: PASS` at 96.0%) and writes the six record files; with `--check`
+  `--write` it decides on the natural holdout (`GATE: PASS` at 96.0%) and writes the eight record files; with `--check`
   it exits 0 only when the gate passes and the record is current, and exits 1, printing both results, when the gate
   fails or the record is stale.
-- **Record write and check**: `--write` writes the six record files and `--check` then exits 0, and exits 1 with a
+- **Record write and check**: `--write` writes the eight record files and `--check` then exits 0, and exits 1 with a
   `STALE:` line for each file that was appended to or deleted; `--seeds` prints a line for each evaluation seed.
+- **Overlay sets**: `--set regression --set generalization` exits 0 without a holdout line and prints both overlays
+  (2 and 3 rows), the cue-unsolvable check line and each slice with the figures with and without the cue priors (all
+  correct, cue effect 0.00% with the interval [0.00%, 0.00%], no cue fired and none changed); a requested overlay
+  whose file is missing exits 2 naming the file, an overlay with its header only is named and skipped with exit 0, and
+  a cue-unsolvable row with a past-time word exits 2 naming the row and the cue; a record written after the overlays
+  are added keeps the earlier record's summary, source, reading and confidence files as a byte-identical prefix
+  followed by the `generalization` and `regression` lines, an identical gate file, the overlay rows file with its header
+  and five rows, and checks as current; the record without overlays names the overlay files it left out.
 
 #### Test Scenarios
 
@@ -77,5 +85,17 @@ current record and pass with a stale record exit 1.
 **Tests**: `EvaluateCommand_Run_WriteThenCheck_MatchesAndDetectsEditedRecord`,
 `EvaluateCommand_Run_Seeds_ReportsEachSeed`
 
-Six files are written; the check passes; after the summary file is appended to and the gate file deleted the check
+Eight files are written; the check passes; after the summary file is appended to and the gate file deleted the check
 exits 1 naming both. `--seeds` prints `seed <n>: natural` for every evaluation seed of the record.
+
+##### Overlay sets
+
+**Tests**: `EvaluateCommand_Run_OverlaySets_ReportedWithAndWithoutCues`,
+`EvaluateCommand_Run_OverlayMissingViolatedOrEmpty_ExitsTwoOrSkips`,
+`EvaluateCommand_Run_WriteWithOverlays_AppendsAfterTheDataSets`
+
+The fixture gets a regression overlay of two rows and a generalization set of three rows in two families, all of the
+trained patterns, and the output lines listed in the acceptance criteria are checked. The second test runs the
+command without a regression file, with a header-only generalization set and with a generalization set whose only row
+is marked `cue_unsolvable=yes` and holds *yesterday*. The third test writes a record before and after the overlays are
+written and compares the files.

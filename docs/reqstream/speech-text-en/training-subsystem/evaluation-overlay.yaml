@@ -1,0 +1,48 @@
+---
+# Software Unit Requirements for EvaluationOverlay
+#
+# These requirements describe the design-level behavior of the EvaluationOverlay unit, the loader of the two
+# evaluation overlays of the Text.En data (the regression overlay and the blind generalization set) as rows the
+# evaluator can score, decomposing the parent SpeechTextEn TrainingSubsystem requirements. Each requirement states
+# one observable behavior.
+#
+# Covered by test/DemaConsulting.Speech.Text.En.Trainer.Tests/TrainingSubsystem/EvaluationOverlayTests.cs.
+
+sections:
+  - title: SpeechTextEn Requirements
+    sections:
+      - title: TrainingSubsystem Requirements
+        sections:
+          - title: EvaluationOverlay Requirements
+            requirements:
+              - id: SpeechTextEn-Training-EvaluationOverlay-Rows
+                title: >-
+                  The EvaluationOverlay class shall load the rows of the regression overlay and of the
+                  generalization set in file order, each with its id, reading, sentence and target offsets, a
+                  source that names its stratum (the overlay, the origin or kind, and seen or unseen or
+                  cue-solvable or cue-unsolvable), its bootstrap cluster (its family for a generalization row,
+                  itself for a regression row) and its report slices (all rows; seen or unseen and its origin;
+                  its kind, cue-solvable class and family), shall load a file with its header only as no rows,
+                  and shall name the overlays and their files in ordinal order.
+                justification: |
+                  The evaluator tallies rows by source, so carrying the stratum as the source gives the
+                  overlay's strata without a second tally. The pre-registered criterion of the word-cluster
+                  work resamples the generalization set by family, and the slices are the subsets it reports.
+                tests:
+                  - EvaluationOverlay_Load_Regression_RowsCarryStrataSlicesAndRowClusters
+                  - EvaluationOverlay_Load_Generalization_RowsCarryStrataSlicesAndFamilyClusters
+                  - EvaluationOverlay_Load_HeaderOnly_HasNoRows
+                  - EvaluationOverlay_Names_MapToFilesInOrdinalOrder
+
+              - id: SpeechTextEn-Training-EvaluationOverlay-Refusal
+                title: >-
+                  The EvaluationOverlay class shall refuse, with a data error that names the file or the row, a
+                  missing overlay file, a file with a format or header defect, an offset that is not an integer
+                  and a target span that is not inside its sentence, and shall refuse a set name that is not an
+                  overlay.
+                justification: |
+                  A malformed overlay must not be measured as if it were valid; the data check reports every
+                  defect, and the evaluation only has to stop on the first and point to it.
+                tests:
+                  - EvaluationOverlay_Load_MissingOrMalformed_ThrowsInvalidDataException
+                  - EvaluationOverlay_Names_MapToFilesInOrdinalOrder

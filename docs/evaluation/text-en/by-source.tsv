@@ -43,3 +43,15 @@ holdout-natural	harvest-tech-deverbal-llm	1	1	10000	0
 holdout-natural	harvest-tech-steps	19	17	8947	18
 holdout-natural	harvest-tech-steps-llm	1	1	10000	1
 holdout-natural	harvest-tech-terms	11	11	10000	11
+generalization	generalization/novel-construction/cue-solvable	81	56	6914	51
+generalization	generalization/novel-construction/cue-unsolvable	26	21	8077	16
+generalization	generalization/novel-vocabulary/cue-solvable	81	56	6914	53
+generalization	generalization/novel-vocabulary/cue-unsolvable	54	44	8148	37
+regression	regression/analyzer-test/unseen	11	11	10000	9
+regression	regression/data-row/seen	19	19	10000	16
+regression	regression/data-row/unseen	2	2	10000	2
+regression	regression/golden-pipeline/unseen	37	37	10000	31
+regression	regression/golden-readings/seen	6	6	10000	6
+regression	regression/golden-readings/unseen	376	376	10000	349
+regression	regression/golden-sentences/unseen	61	61	10000	53
+regression	regression/listening/unseen	7	7	10000	5
