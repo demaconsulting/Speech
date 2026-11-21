@@ -97,4 +97,18 @@ public sealed class NemotronVocabularyTests
             File.Delete(path);
         }
     }
+
+    /// <summary>Proves only tokens beginning with the word-boundary marker start a word.</summary>
+    [Fact]
+    public void NemotronVocabulary_StartsWord_Tokens_DetectsWordBoundaryMarker()
+    {
+        // Arrange: a word-start piece, a continuation piece, a marker token, and the blank
+        var vocabulary = new NemotronVocabulary(["<unk>", "\u2581hel", "lo", "<en-US>", "<blank>"]);
+
+        // Act: classify every id plus ids outside the vocabulary
+        var starts = Enumerable.Range(-1, 7).Select(vocabulary.StartsWord).ToList();
+
+        // Assert: only "\u2581hel" (id 1) starts a word
+        Assert.Equal([false, false, true, false, false, false, false], starts);
+    }
 }

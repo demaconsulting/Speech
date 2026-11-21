@@ -6,39 +6,49 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 
 /// <summary>
 ///     The streaming <see cref="IRecognitionBackend"/> for the Nemotron ONNX model: runs incoming
-///     audio through the leading-silence limiter, dither, log-mel feature extraction, the
-///     cache-aware encoder (in 56-frame chunks with a 9-frame pre-encode context), and the RNN-T
-///     greedy decoder, and reports provisional and final text.
+///     audio through the silence-run limiter, dither, log-mel feature extraction, the cache-aware
+///     encoder (in 56-frame chunks with a 9-frame pre-encode context), and the RNN-T greedy
+///     decoder, and reports provisional and final text.
 /// </summary>
 /// <remarks>
 ///     <b>Flow</b>: <see cref="AcceptSamples"/> only buffers - samples pass through
-///     <see cref="SilenceRunLimiter"/>, then <see cref="DitherNoise"/>, then
-///     <see cref="NemotronFeatureExtractor"/>; <see cref="TryDecode"/> runs every complete chunk
-///     through the encoder and decoder and reports the utterance text so far as a provisional
-///     result whenever it changes. Nothing here is thread-safe, matching the backend contract.
+///     <see cref="SilenceRunLimiter"/> one limiter frame at a time, then <see cref="DitherNoise"/>,
+///     then <see cref="NemotronFeatureExtractor"/>; <see cref="TryDecode"/> runs every complete
+///     chunk through the encoder and decodes its output frames one by one, reporting the
+///     utterance text so far as a provisional result whenever it changes. Nothing here is
+///     thread-safe, matching the backend contract.
 ///     <para>
-///     <b>Endpointing</b>: an utterance is finalized (a final result is reported, the text
-///     cleared) when either (1) the input has been quiet for <see cref="NemotronEngineOptions.EndpointQuietMs"/>
-///     after speech - measured on the <i>input</i> clock using the limiter's quiet-run length,
-///     because the limiter itself removes most of a long quiet run so the chunk clock stalls - in
-///     which case the remaining buffered audio is padded and decoded first and the model state is
-///     reset for a clean next utterance, or (2) <see cref="NemotronEngineOptions.EndpointEmptyChunks"/>
-///     consecutive chunks emit no token after text exists (the fallback for steady noise that never
-///     reads as quiet), in which case the model state is kept so decoding continues seamlessly.
+///     <b>Endpointing</b> (decode clock): every decoded encoder frame is reported to a
+///     <see cref="NemotronEndpointDetector"/> - a token marks speech, a blank frame lengthens the
+///     trailing silence by the frame's input duration (80 ms for the real model). Quiet audio the
+///     limiter removed is credited to the detector at the feature-frame position where it was
+///     removed, so a pause counts its full input duration in the right order relative to the
+///     tokens around it. When a rule fires the utterance text is reported as final and cleared;
+///     the encoder caches, decoder state and feature stream are deliberately <i>kept</i>, so
+///     speech that resumes is decoded with its full left context and no word is lost or replayed.
+///     The maximum-length rule splits only between words: the last (possibly incomplete) word is
+///     carried into the next utterance. Silence alone never produces a result.
 ///     </para>
 ///     <para>
-///     <b>Flush</b> (<see cref="TryFlush"/>): feeds the limiter's partial frame, applies the
-///     feature extractor's right reflect pad, zero-pads the final partial chunk, decodes it plus
-///     <see cref="NemotronEngineOptions.FlushTailChunks"/> all-zero chunks, and finalizes the text.
+///     <b>Silence padding</b>: a chunk is only ever completed with <i>real silence features</i> -
+///     dithered digital silence run through the feature extractor - never with all-zero log-mel
+///     rows, which the model hears as loud sound and answers with invented words. Padding happens
+///     when a quiet run reaches the limiter's cap after speech (no more audio arrives, so the
+///     pending partial chunk would otherwise wait) and at flush. Padding frames never advance the
+///     endpoint clocks.
+///     </para>
+///     <para>
+///     <b>Flush</b> (<see cref="TryFlush"/>): decodes pending chunks, feeds the limiter's partial
+///     frame, completes the partial chunk with silence plus <see cref="NemotronEngineOptions.FlushTailChunks"/>
+///     whole chunks of silence (so the encoder's look-ahead releases the last words), decodes
+///     them, and returns every final of the flushed audio joined into one. <see cref="Reset"/>
+///     restores the complete start-of-stream state.
 ///     </para>
 /// </remarks>
 internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
 {
     /// <summary>Frames in one encoder input: pre-encode context plus the new chunk.</summary>
     private const int EncoderFrames = NemotronEngineOptions.PreEncodeFrames + NemotronEngineOptions.ChunkFrames;
-
-    /// <summary>The slice length (100 ms at 16 kHz) in which input is checked for endpoints.</summary>
-    private const int SliceSamples = 1600;
 
     /// <summary>The encoder.</summary>
     private readonly INemotronEncoder _encoder;
@@ -52,7 +62,7 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <summary>The constants in use.</summary>
     private readonly NemotronEngineOptions _options;
 
-    /// <summary>The leading-silence limiter.</summary>
+    /// <summary>The silence-run limiter.</summary>
     private readonly SilenceRunLimiter _limiter;
 
     /// <summary>The dither source.</summary>
@@ -61,12 +71,14 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <summary>The feature extractor.</summary>
     private readonly NemotronFeatureExtractor _extractor = new();
 
-    /// <summary>The limiter output for the current call.</summary>
+    /// <summary>The decode-clock endpoint detector.</summary>
+    private readonly NemotronEndpointDetector _detector;
+
+    /// <summary>The limiter output for the current slice.</summary>
     private readonly List<float> _limited = [];
 
-    /// <summary>Audio received after an endpoint was requested, awaiting that endpoint's processing.</summary>
-    private readonly List<float> _held = [];
-
+    /// <summary>One hop of silence, re-dithered for every padding hop.</summary>
+    private readonly float[] _silence = new float[NemotronFeatureExtractor.HopLength];
 
     /// <summary>The encoder input: pre-encode context rows followed by the chunk rows.</summary>
     private readonly float[] _chunkInput = new float[EncoderFrames * NemotronFeatureExtractor.MelBands];
@@ -80,8 +92,14 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <summary>Results waiting to be returned.</summary>
     private readonly Queue<SpeechRecognitionResult> _results = new();
 
-    /// <summary>The input-clock quiet duration, in samples, that triggers endpointing.</summary>
-    private readonly long _endpointQuietSamples;
+    /// <summary>Quiet input removed by the limiter, by the feature-frame position it was removed at, oldest first.</summary>
+    private readonly List<DroppedSilence> _droppedSilence = [];
+
+    /// <summary>The feature-frame ranges made of synthetic padding, oldest first.</summary>
+    private readonly List<PaddingRange> _paddingRanges = [];
+
+    /// <summary>The number of input samples the limiter analyzes at a time (one limiter frame).</summary>
+    private readonly int _sliceSamples;
 
     /// <summary>The quiet-run length (the limiter's quiet cap) after which a partial chunk is padded.</summary>
     private readonly long _padAfterQuietSamples;
@@ -89,20 +107,17 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <summary>The text last reported as a provisional result.</summary>
     private string _lastReported = string.Empty;
 
-    /// <summary>Whether speech (or any token) has been seen since the last model reset.</summary>
-    private bool _dirty;
+    /// <summary>The number of feature frames handed to the encoder since the last reset (the absolute index of the next chunk).</summary>
+    private long _framesDequeued;
 
-    /// <summary>Whether any audio has reached the feature extractor since the last model reset.</summary>
-    private bool _audioSinceReset;
+    /// <summary>Whether the last entry of <see cref="_paddingRanges"/> is still open (padding is the latest audio fed).</summary>
+    private bool _paddingOpen;
 
-    /// <summary>Whether an input-clock endpoint is waiting to be processed.</summary>
-    private bool _endpointRequested;
+    /// <summary>Whether loud audio has been seen since the last reset (padding is never applied to leading silence).</summary>
+    private bool _speechSeen;
 
-    /// <summary>The count of consecutive token-free chunks since text last changed.</summary>
-    private int _emptyChunks;
-
-    /// <summary>The number of chunks decoded since the last model reset.</summary>
-    private int _chunksDecoded;
+    /// <summary>Whether real audio reached the feature extractor since the last flush tail (or reset).</summary>
+    private bool _realAudioSinceTail;
 
     /// <summary>Whether <see cref="Dispose"/> has run.</summary>
     private bool _disposed;
@@ -114,6 +129,11 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <param name="decoder">The greedy decoder; ownership transfers to this instance.</param>
     /// <param name="vocabulary">The vocabulary.</param>
     /// <param name="options">The constants, or <see langword="null"/> for the documented defaults.</param>
+    /// <exception cref="ArgumentNullException">Thrown when a collaborator is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown when <see cref="NemotronEngineOptions.FlushTailChunks"/> is negative, an endpoint
+    ///     rule is negative, or the dither amplitude is invalid.
+    /// </exception>
     public OnnxNemotronRecognitionEngine(
         INemotronEncoder encoder,
         NemotronRnntGreedyDecoder decoder,
@@ -124,100 +144,44 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         ArgumentNullException.ThrowIfNull(decoder);
         ArgumentNullException.ThrowIfNull(vocabulary);
 
+        // Validate the configuration before taking any collaborator into use
+        _options = options ?? new NemotronEngineOptions();
+        if (_options.FlushTailChunks < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                _options.FlushTailChunks,
+                "The number of flush tail chunks must not be negative.");
+        }
+
+        _detector = new NemotronEndpointDetector(_options.Endpoint, NemotronFeatureExtractor.SampleRate);
+        _dither = new DitherNoise(_options.DitherAmplitude, _options.DitherSeed);
+
         _encoder = encoder;
         _decoder = decoder;
         _vocabulary = vocabulary;
-        _options = options ?? new NemotronEngineOptions();
         _limiter = new SilenceRunLimiter(_options.Limiter);
         var limiterOptions = _options.Limiter ?? new SilenceRunLimiterOptions();
+        _sliceSamples = limiterOptions.FrameSamples;
         _padAfterQuietSamples = (long)limiterOptions.MaxQuietFrames * limiterOptions.FrameSamples;
-        _dither = new DitherNoise(_options.DitherAmplitude, _options.DitherSeed);
-        _endpointQuietSamples = (long)_options.EndpointQuietMs * NemotronFeatureExtractor.SampleRate / 1000;
     }
 
     /// <summary>Gets the model's required input sample rate, in hertz.</summary>
     public static int SampleRate => NemotronFeatureExtractor.SampleRate;
 
+    /// <summary>Gets the absolute feature-frame index of the next frame the extractor will emit.</summary>
+    private long FeaturePosition => _framesDequeued + _extractor.FrameCount;
+
     /// <inheritdoc/>
     public void AcceptSamples(ReadOnlySpan<float> monoSamples)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (monoSamples.IsEmpty)
-        {
-            return;
-        }
 
-        if (_endpointRequested)
+        // Feed one limiter frame at a time: each slice is then either passed or dropped as a
+        // whole, so removed quiet audio is recorded exactly between the audio before and after it
+        for (var offset = 0; offset < monoSamples.Length; offset += _sliceSamples)
         {
-            _held.AddRange(monoSamples);
-            return;
-        }
-
-        AcceptSlices(monoSamples);
-    }
-
-    /// <summary>
-    ///     Feeds <paramref name="samples"/> in short slices so a quiet run inside one large block is
-    ///     still seen by the endpoint check. Audio after a slice that requests an endpoint is held
-    ///     until the endpoint has been processed, so it starts the next utterance.
-    /// </summary>
-    private void AcceptSlices(ReadOnlySpan<float> samples)
-    {
-        var offset = 0;
-        while (offset < samples.Length)
-        {
-            var count = Math.Min(SliceSamples, samples.Length - offset);
-            AcceptSlice(samples.Slice(offset, count));
-            offset += count;
-            if (_endpointRequested)
-            {
-                _held.AddRange(samples[offset..]);
-                return;
-            }
-        }
-    }
-
-    /// <summary>Limits, buffers, and checks the endpoint and padding conditions for one slice.</summary>
-    private void AcceptSlice(ReadOnlySpan<float> slice)
-    {
-        var loudBefore = _limiter.LoudSamples;
-        _limited.Clear();
-        _limiter.Process(slice, _limited);
-        FeedExtractor();
-
-        if (_limiter.LoudSamples > loudBefore)
-        {
-            _dirty = true;
-        }
-
-        if (_dirty && _limiter.QuietRunSamples >= _endpointQuietSamples)
-        {
-            _endpointRequested = true;
-        }
-        else if (_dirty && _limiter.QuietRunSamples >= _padAfterQuietSamples)
-        {
-            PadPartialChunk();
-        }
-    }
-
-    /// <summary>
-    ///     Completes a partly filled chunk with silence. Once the limiter starts dropping a quiet
-    ///     run no further audio arrives, so the last words would otherwise wait in the incomplete
-    ///     chunk until the endpoint; the silence stands in for the dropped quiet audio.
-    /// </summary>
-    private void PadPartialChunk()
-    {
-        if (_extractor.FrameCount == 0 || _extractor.FrameCount >= NemotronEngineOptions.ChunkFrames)
-        {
-            return;
-        }
-
-        var silence = new float[NemotronFeatureExtractor.HopLength];
-        while (_extractor.FrameCount < NemotronEngineOptions.ChunkFrames)
-        {
-            Array.Clear(silence);
-            _dither.Apply(silence);
-            _extractor.Accept(silence);
+            AcceptSlice(monoSamples.Slice(offset, Math.Min(_sliceSamples, monoSamples.Length - offset)));
         }
     }
 
@@ -239,16 +203,33 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Finish any pending endpoint and replay audio held behind it before flushing the tail.
+        // Decode what is complete, then feed the limiter's partial frame
         Pump();
+        var droppedBefore = _limiter.DroppedSamples;
         _limited.Clear();
         _limiter.Flush(_limited);
-        FeedExtractor();
-        Pump();
-        FinishUtterance();
+        FeedAudio();
+        RecordDroppedSilence(_limiter.DroppedSamples - droppedBefore);
+
+        // Complete the partial chunk and add the tail chunks with silence features, once per
+        // stretch of real audio, so the encoder's look-ahead releases the last words
+        if (_realAudioSinceTail)
+        {
+            AppendSilenceTail();
+            _realAudioSinceTail = false;
+        }
+
+        while (_extractor.FrameCount >= NemotronEngineOptions.ChunkFrames)
+        {
+            DecodeChunk();
+        }
+
+        // Whatever text remains is final; the next audio starts a new segment
+        CreditDroppedSilence(_framesDequeued);
+        FinalizeUtterance();
 
         // Earlier provisional results are superseded; the final results are joined so text
-        // finalized by an endpoint inside the flushed audio is not lost.
+        // finalized by an endpoint inside the flushed audio is not lost
         var finals = new List<string>();
         while (_results.TryDequeue(out var queued))
         {
@@ -267,11 +248,23 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // Session reset: everything returns to the start-of-stream state, including the model
         _limiter.Reset();
         _dither.Reset();
         _results.Clear();
-        _held.Clear();
-        ResetModelState();
+        _encoder.Reset();
+        _decoder.Reset();
+        _extractor.Reset();
+        _detector.Reset();
+        Array.Clear(_preEncode);
+        _tokens.Clear();
+        _droppedSilence.Clear();
+        _paddingRanges.Clear();
+        _paddingOpen = false;
+        _lastReported = string.Empty;
+        _framesDequeued = 0;
+        _speechSeen = false;
+        _realAudioSinceTail = false;
     }
 
     /// <inheritdoc/>
@@ -287,117 +280,286 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         _encoder.Dispose();
     }
 
-    /// <summary>Dithers the limiter's output and hands it to the feature extractor.</summary>
-    private void FeedExtractor()
+    /// <summary>Limits and buffers one slice (at most one limiter frame) and pads a partial chunk after a capped quiet run.</summary>
+    /// <param name="slice">The input samples.</param>
+    private void AcceptSlice(ReadOnlySpan<float> slice)
+    {
+        // Pass the slice through the limiter; what passes goes to the extractor, what is
+        // dropped is recorded at the current feature position
+        var loudBefore = _limiter.LoudSamples;
+        var droppedBefore = _limiter.DroppedSamples;
+        _limited.Clear();
+        _limiter.Process(slice, _limited);
+        FeedAudio();
+        RecordDroppedSilence(_limiter.DroppedSamples - droppedBefore);
+
+        if (_limiter.LoudSamples > loudBefore)
+        {
+            _speechSeen = true;
+        }
+
+        // Once the limiter drops a quiet run no further audio arrives, so complete the partial
+        // chunk with silence now rather than leaving the last words waiting in it
+        if (_speechSeen && _limiter.QuietRunSamples >= _padAfterQuietSamples)
+        {
+            PadPartialChunk();
+        }
+    }
+
+    /// <summary>Dithers the limiter's output and hands it to the feature extractor as real audio.</summary>
+    private void FeedAudio()
     {
         if (_limited.Count == 0)
         {
             return;
         }
 
+        EndPadding();
         var span = CollectionsMarshal.AsSpan(_limited);
         _dither.Apply(span);
         _extractor.Accept(span);
-        _audioSinceReset = true;
+        _realAudioSinceTail = true;
     }
 
-    /// <summary>Decodes every complete chunk, reports changed text, and handles a pending endpoint.</summary>
-    private void Pump()
+    /// <summary>Records quiet input the limiter removed, at the current feature position.</summary>
+    /// <param name="samples">The number of removed samples (zero records nothing).</param>
+    private void RecordDroppedSilence(long samples)
     {
-        while (_extractor.FrameCount >= NemotronEngineOptions.ChunkFrames)
-        {
-            DecodeChunk(NemotronEngineOptions.ChunkFrames);
-            if (_emptyChunks >= _options.EndpointEmptyChunks && _tokens.Count > 0)
-            {
-                ReportProvisional();
-                ReportFinalKeepingState();
-            }
-        }
-
-        ReportProvisional();
-
-        if (_endpointRequested)
-        {
-            FinishUtterance();
-            ReplayHeldAudio();
-        }
-    }
-
-    /// <summary>Feeds audio held back by an endpoint, then decodes it (it may request another endpoint).</summary>
-    private void ReplayHeldAudio()
-    {
-        if (_held.Count == 0)
+        if (samples <= 0)
         {
             return;
         }
 
-        var held = _held.ToArray();
-        _held.Clear();
-        AcceptSlices(held);
-        Pump();
+        // Consecutive removals at one position (nothing fed between them) are merged
+        var position = FeaturePosition;
+        if (_droppedSilence.Count > 0 && _droppedSilence[^1].Position == position)
+        {
+            _droppedSilence[^1] = _droppedSilence[^1] with { Samples = _droppedSilence[^1].Samples + samples };
+        }
+        else
+        {
+            _droppedSilence.Add(new DroppedSilence(position, samples));
+        }
     }
 
     /// <summary>
-    ///     Decodes the audio still buffered (zero-padded to whole chunks plus the tail chunks),
-    ///     reports the final text, and resets the model state for the next utterance.
+    ///     Credits to the endpoint detector the removed quiet audio recorded at or before
+    ///     <paramref name="position"/> (every feature frame before it has been decoded), checking
+    ///     the endpoint rules after each credit.
     /// </summary>
-    private void FinishUtterance()
+    /// <param name="position">The absolute feature-frame index decoding has reached.</param>
+    private void CreditDroppedSilence(long position)
     {
-        if (_audioSinceReset)
+        while (_droppedSilence.Count > 0 && _droppedSilence[0].Position <= position)
         {
-            _extractor.Flush();
-            while (_extractor.FrameCount >= NemotronEngineOptions.ChunkFrames)
-            {
-                DecodeChunk(NemotronEngineOptions.ChunkFrames);
-            }
+            _detector.AdvanceSilence(_droppedSilence[0].Samples);
+            _droppedSilence.RemoveAt(0);
+            CheckEndpoint();
+        }
+    }
 
-            if (_extractor.FrameCount > 0)
-            {
-                DecodeChunk(_extractor.FrameCount);
-            }
-
-            if (_chunksDecoded > 0)
-            {
-                for (var i = 0; i < _options.FlushTailChunks; i++)
-                {
-                    DecodeChunk(0);
-                }
-            }
+    /// <summary>
+    ///     Completes a partly filled chunk with silence features. The silence stands in for the
+    ///     quiet audio the limiter drops, which is credited to the endpoint clocks separately.
+    /// </summary>
+    private void PadPartialChunk()
+    {
+        var remainder = _extractor.FrameCount % NemotronEngineOptions.ChunkFrames;
+        if (remainder == 0)
+        {
+            return;
         }
 
-        ReportFinalKeepingState();
-        ResetModelState();
+        AppendSilenceUntil(_extractor.FrameCount - remainder + NemotronEngineOptions.ChunkFrames);
     }
 
     /// <summary>
-    ///     Runs one encoder chunk made of <paramref name="realFrames"/> queued feature frames
-    ///     zero-padded to the full chunk length, then decodes its output.
+    ///     Completes the partial chunk and appends <see cref="NemotronEngineOptions.FlushTailChunks"/>
+    ///     whole chunks, all as silence features.
     /// </summary>
-    private void DecodeChunk(int realFrames)
+    private void AppendSilenceTail()
+    {
+        var pending = _extractor.FrameCount;
+        var whole = (pending + NemotronEngineOptions.ChunkFrames - 1) / NemotronEngineOptions.ChunkFrames;
+        AppendSilenceUntil((whole + _options.FlushTailChunks) * NemotronEngineOptions.ChunkFrames);
+    }
+
+    /// <summary>
+    ///     Feeds dithered digital silence straight into the feature extractor (bypassing the
+    ///     limiter) until <paramref name="targetFrames"/> frames are queued, marking it as padding.
+    /// </summary>
+    /// <param name="targetFrames">The queued frame count to reach.</param>
+    private void AppendSilenceUntil(int targetFrames)
+    {
+        if (_extractor.FrameCount >= targetFrames)
+        {
+            return;
+        }
+
+        BeginPadding();
+        while (_extractor.FrameCount < targetFrames)
+        {
+            Array.Clear(_silence);
+            _dither.Apply(_silence);
+            _extractor.Accept(_silence);
+        }
+    }
+
+    /// <summary>Opens a padding range at the current feature position, unless one is already open.</summary>
+    private void BeginPadding()
+    {
+        if (!_paddingOpen)
+        {
+            _paddingRanges.Add(new PaddingRange(FeaturePosition, long.MaxValue));
+            _paddingOpen = true;
+        }
+    }
+
+    /// <summary>Closes the open padding range at the current feature position, because real audio follows.</summary>
+    private void EndPadding()
+    {
+        if (!_paddingOpen)
+        {
+            return;
+        }
+
+        _paddingOpen = false;
+        var position = FeaturePosition;
+        if (_paddingRanges[^1].Start >= position)
+        {
+            _paddingRanges.RemoveAt(_paddingRanges.Count - 1);
+        }
+        else
+        {
+            _paddingRanges[^1] = _paddingRanges[^1] with { End = position };
+        }
+    }
+
+    /// <summary>Determines whether the feature frame at <paramref name="position"/> is padding, forgetting ranges already passed.</summary>
+    /// <param name="position">The absolute feature-frame index; calls must not go backwards.</param>
+    /// <returns><see langword="true"/> when the frame lies in a padding range.</returns>
+    private bool IsPadding(long position)
+    {
+        while (_paddingRanges.Count > 0 && _paddingRanges[0].End <= position)
+        {
+            _paddingRanges.RemoveAt(0);
+        }
+
+        return _paddingRanges.Count > 0 && _paddingRanges[0].Start <= position;
+    }
+
+    /// <summary>Decodes every complete chunk, credits removed silence, checks the endpoint, and reports changed text.</summary>
+    private void Pump()
+    {
+        while (_extractor.FrameCount >= NemotronEngineOptions.ChunkFrames)
+        {
+            DecodeChunk();
+        }
+
+        CreditDroppedSilence(_framesDequeued);
+        ReportProvisional();
+    }
+
+    /// <summary>
+    ///     Runs the next queued chunk through the encoder and decodes its output frames one at a
+    ///     time, keeping the endpoint detector in step with the stream.
+    /// </summary>
+    private void DecodeChunk()
     {
         const int mels = NemotronFeatureExtractor.MelBands;
         const int preFloats = NemotronEngineOptions.PreEncodeFrames * mels;
         const int chunkFloats = NemotronEngineOptions.ChunkFrames * mels;
 
+        // Assemble the encoder input: the carried pre-encode rows, then the chunk's rows
         _preEncode.CopyTo(_chunkInput, 0);
         var chunk = _chunkInput.AsSpan(preFloats, chunkFloats);
-        _extractor.Dequeue(realFrames, chunk);
-        chunk[(realFrames * mels)..].Clear();
+        _extractor.Dequeue(NemotronEngineOptions.ChunkFrames, chunk);
         chunk[(chunkFloats - preFloats)..].CopyTo(_preEncode);
+        var chunkStart = _framesDequeued;
+        _framesDequeued += NemotronEngineOptions.ChunkFrames;
 
         var output = _encoder.Encode(_chunkInput, EncoderFrames, out var outputFrames);
-        var emitted = _decoder.Decode(output, outputFrames, _encoder.HiddenSize, _tokens);
-        _chunksDecoded++;
+        if (outputFrames > 0)
+        {
+            // Each output frame stands for an equal share of the chunk's input duration
+            var hidden = _encoder.HiddenSize;
+            var frameSamples = (long)NemotronEngineOptions.ChunkFrames * NemotronFeatureExtractor.HopLength / outputFrames;
+            for (var k = 0; k < outputFrames; k++)
+            {
+                // Removed silence recorded before this frame's features comes first
+                var featureStart = chunkStart + ((long)k * NemotronEngineOptions.ChunkFrames / outputFrames);
+                CreditDroppedSilence(featureStart);
 
-        if (emitted > 0)
-        {
-            _emptyChunks = 0;
-            _dirty = true;
+                // Decode the frame and tell the detector whether it held speech
+                var emitted = _decoder.Decode(output.Slice(k * hidden, hidden), 1, hidden, _tokens) > 0;
+                if (IsPadding(featureStart))
+                {
+                    _detector.AdvancePaddingFrame(emitted);
+                }
+                else
+                {
+                    _detector.AdvanceFrame(frameSamples, emitted);
+                }
+
+                CheckEndpoint();
+            }
         }
-        else if (_tokens.Count > 0)
+
+        // Silence removed right at the chunk end belongs before the next chunk's speech
+        CreditDroppedSilence(_framesDequeued);
+    }
+
+    /// <summary>Applies the endpoint detector's decision to the utterance in progress.</summary>
+    private void CheckEndpoint()
+    {
+        var reason = _detector.Check();
+        if (reason == NemotronEndpointReason.None)
         {
-            _emptyChunks++;
+            return;
         }
+
+        if (_tokens.Count == 0)
+        {
+            // Silence alone never produces a result; just start a new segment
+            _detector.Reset();
+            return;
+        }
+
+        if (reason == NemotronEndpointReason.MaxUtteranceLength)
+        {
+            SplitAtLastWord();
+            return;
+        }
+
+        ReportProvisional();
+        FinalizeUtterance();
+    }
+
+    /// <summary>
+    ///     Ends an over-long utterance between words: the tokens before the last word start are
+    ///     reported as final and the last (possibly still growing) word is carried into the next
+    ///     utterance, so no word is cut in two or lost.
+    /// </summary>
+    private void SplitAtLastWord()
+    {
+        var split = _tokens.FindLastIndex(_vocabulary.StartsWord);
+        if (split > 0)
+        {
+            ReportFinal(_tokens.GetRange(0, split));
+            _tokens.RemoveRange(0, split);
+            _lastReported = string.Empty;
+        }
+
+        _detector.Reset(carriesSpeech: true);
+    }
+
+    /// <summary>Reports the whole utterance as final (when it has text), clears it, and starts a new segment; the model state is kept.</summary>
+    private void FinalizeUtterance()
+    {
+        ReportFinal(_tokens);
+        _tokens.Clear();
+        _lastReported = string.Empty;
+        _detector.Reset();
     }
 
     /// <summary>Queues a provisional result when the utterance text has changed.</summary>
@@ -416,33 +578,24 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         }
     }
 
-    /// <summary>Queues the utterance text as a final result (when non-empty) and clears it, keeping the model state.</summary>
-    private void ReportFinalKeepingState()
+    /// <summary>Queues the text of <paramref name="tokens"/> as a final result when it is not empty.</summary>
+    /// <param name="tokens">The token ids to finalize.</param>
+    private void ReportFinal(IReadOnlyList<int> tokens)
     {
-        var text = _tokens.Count == 0 ? string.Empty : _vocabulary.Detokenize(_tokens);
+        var text = tokens.Count == 0 ? string.Empty : _vocabulary.Detokenize(tokens);
         if (text.Length > 0)
         {
             _results.Enqueue(new SpeechRecognitionResult(text, IsFinal: true));
         }
-
-        _tokens.Clear();
-        _lastReported = string.Empty;
-        _emptyChunks = 0;
     }
 
-    /// <summary>Returns the encoder, decoder, extractor, and utterance bookkeeping to the start-of-stream state (the limiter is untouched).</summary>
-    private void ResetModelState()
-    {
-        _encoder.Reset();
-        _decoder.Reset();
-        _extractor.Reset();
-        Array.Clear(_preEncode);
-        _tokens.Clear();
-        _lastReported = string.Empty;
-        _dirty = false;
-        _audioSinceReset = false;
-        _endpointRequested = false;
-        _emptyChunks = 0;
-        _chunksDecoded = 0;
-    }
+    /// <summary>Quiet input removed by the limiter: <paramref name="Samples"/> input samples removed just before feature frame <paramref name="Position"/>.</summary>
+    /// <param name="Position">The absolute feature-frame index the removal precedes.</param>
+    /// <param name="Samples">The number of removed input samples.</param>
+    private readonly record struct DroppedSilence(long Position, long Samples);
+
+    /// <summary>A run of padding feature frames, <paramref name="Start"/> inclusive to <paramref name="End"/> exclusive.</summary>
+    /// <param name="Start">The absolute index of the first padding frame.</param>
+    /// <param name="End">The absolute index after the last padding frame (<see cref="long.MaxValue"/> while open).</param>
+    private readonly record struct PaddingRange(long Start, long End);
 }

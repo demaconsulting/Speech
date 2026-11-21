@@ -104,6 +104,22 @@ internal sealed partial class NemotronVocabulary
     }
 
     /// <summary>
+    ///     Determines whether a token begins a new word (its text starts with the SentencePiece
+    ///     word-boundary marker U+2581).
+    /// </summary>
+    /// <remarks>
+    ///     Lets the recognition engine split a long utterance only between words: the tokens
+    ///     before a word-starting token can be finalized while the word it starts, which may still
+    ///     be growing, is carried into the next utterance.
+    /// </remarks>
+    /// <param name="tokenId">The token id; an id outside the vocabulary is not a word start.</param>
+    /// <returns><see langword="true"/> when the token exists and starts a word.</returns>
+    public bool StartsWord(int tokenId) =>
+        (uint)tokenId < (uint)_tokens.Length &&
+        _tokens[tokenId].Length > 0 &&
+        _tokens[tokenId][0] == WordBoundaryMarker;
+
+    /// <summary>
     ///     Converts decoded token ids to plain text: concatenates the token strings, turns the
     ///     SentencePiece word-boundary marker into a space, removes locale marker tokens such as
     ///     <c>&lt;en-US&gt;</c>, collapses runs of whitespace, and trims the result.

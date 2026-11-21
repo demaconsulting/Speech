@@ -83,7 +83,7 @@ public sealed class NemotronRnntGreedyDecoderTests
         // Blank (index 2) leads by 2.0, less than the 3.0 penalty, so token 1 wins.
         var logits = new[] { 0.0f, 5.0f, 7.0f };
 
-        Assert.Equal(1, NemotronRnntNetwork.SelectToken(logits, 2));
+        Assert.Equal(1, NemotronRnntNetwork.SelectToken(logits, 2, NemotronRnntNetwork.DefaultBlankPenalty));
     }
 
     /// <summary>Proves blank still wins when it leads by more than the penalty.</summary>
@@ -92,7 +92,7 @@ public sealed class NemotronRnntGreedyDecoderTests
     {
         var logits = new[] { 0.0f, 5.0f, 9.0f };
 
-        Assert.Equal(2, NemotronRnntNetwork.SelectToken(logits, 2));
+        Assert.Equal(2, NemotronRnntNetwork.SelectToken(logits, 2, NemotronRnntNetwork.DefaultBlankPenalty));
     }
 
     /// <summary>Proves the penalty applies only to the blank id.</summary>
@@ -101,7 +101,7 @@ public sealed class NemotronRnntGreedyDecoderTests
     {
         var logits = new[] { 4.0f, 1.0f, -2.0f };
 
-        Assert.Equal(0, NemotronRnntNetwork.SelectToken(logits, 2));
+        Assert.Equal(0, NemotronRnntNetwork.SelectToken(logits, 2, NemotronRnntNetwork.DefaultBlankPenalty));
     }
 
     /// <summary>Proves null arguments are rejected.</summary>
