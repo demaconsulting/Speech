@@ -95,13 +95,16 @@ A snapshot of the pinned bodies reads back in ordinal order; one without a book 
 ##### Cancellation
 
 **Tests**: `ClusterCorpusCache_Fetch_CallerCanceledDuringRequest_PropagatesWithoutRetry`,
+`ClusterCorpusCache_Fetch_CallerCanceledDuringBodyRead_StopsWithoutWritingFile`,
 `ClusterCorpusCache_Fetch_CallerCanceledDuringBackoff_StopsBeforeNextRequest`,
 `ClusterCorpusCache_Fetch_DefaultPauseCanceled_EndsAtOnce`,
 `ClusterCorpusCache_Fetch_TimeoutWithoutCallerCancellation_Retries`
 
 A fetcher that cancels the caller's token and throws `TaskCanceledException` makes `Fetch` throw
-`OperationCanceledException` after one call with no recorded pause. A fetcher that always fails with HTTP 503 and a
-sleeper that cancels the token make `Fetch` throw `OperationCanceledException` after one call and the single pause of
-5 s. With no injected sleeper and the token canceled 50 ms after a failed request, `Fetch` throws
+`OperationCanceledException` after one call with no recorded pause. A response body that sends one byte, then cancels
+the caller and stalls in its next read until that read is canceled (its non-cancelable `Read` throws), makes `Fetch`
+throw `OperationCanceledException` after one call, with no pause and no body file. A fetcher that always fails with HTTP
+503 and a sleeper that cancels the token make `Fetch` throw `OperationCanceledException` after one call and the single
+pause of 5 s. With no injected sleeper and the token canceled 50 ms after a failed request, `Fetch` throws
 `OperationCanceledException` after one call in less than the 5-second backoff. A `TaskCanceledException` on the first
 call with an uncanceled token gives the pauses 5 s, 2 s and 2 s, three calls and a pinned book.

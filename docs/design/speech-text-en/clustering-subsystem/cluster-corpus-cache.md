@@ -45,11 +45,14 @@ Every file is written to a `.partial` sibling and renamed, so a reader never see
 - **Download (private)**: refuses a URL that is not HTTPS on an allowed mirror; pauses for the delay before every
   request except the first of the run; on HTTP 403 or 429 throws `IOException` (the run stops); on HTTP 404 rethrows
   (the book fails); a redirect refused by the fetcher (`InvalidDataException`) is not retried and fails the book; on any
-  other failure retries after 5, 15 and 45 seconds and then throws `IOException`; reads at most 64 MiB. A cancellation
-  by the caller is never retried: an `OperationCanceledException` (such as the `TaskCanceledException` of a canceled
-  HTTP request) is rethrown at once when the caller's token is canceled, and every pause checks the token before and
-  after it, so a cancellation during a backoff stops the run before the next request. A `TaskCanceledException` while
-  the caller's token is not canceled (the HTTP client's own timeout) is a transient failure and is retried
+  other failure retries after 5, 15 and 45 seconds and then throws `IOException`; reads at most 64 MiB. The response
+  body is read chunk by chunk through the cancelable read path with the token checked between chunks, and the file is
+  written only after the whole body was read. A cancellation by the caller is never retried: an
+  `OperationCanceledException` (such as the `TaskCanceledException` of a canceled HTTP request) is rethrown at once when
+  the caller's token is canceled, and every pause checks the token before and after it, so a cancellation during a
+  backoff stops the run before the next request, and one during a slow body read ends that read at once. A
+  `TaskCanceledException` while the caller's token is not canceled (the HTTP client's own timeout) is a transient
+  failure and is retried
 - **CheckBody(source)** and **ReadBodies(sources)**: verify each used book's cached body against its pin, without the
   network, and return the bodies in ordinal id order
 - **ReadBodiesFromSnapshot(sources, path)**: reads the members of a snapshot with `CorpusSnapshot.Read` and returns each

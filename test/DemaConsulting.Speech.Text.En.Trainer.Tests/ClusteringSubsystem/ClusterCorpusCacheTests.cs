@@ -200,6 +200,28 @@ public sealed class ClusterCorpusCacheTests
         Assert.Equal([TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)], fixture.Sleeps);
     }
 
+    /// <summary>Proves a cancellation while a response body is being read ends the read at once: no retry, no pause and no file.</summary>
+    [Fact]
+    public void ClusterCorpusCache_Fetch_CallerCanceledDuringBodyRead_StopsWithoutWritingFile()
+    {
+        // Arrange: the body sends one chunk, then stalls until the caller cancels during the next read
+        using var fixture = new ClusteringFixture();
+        fixture.WriteSources((101, "used", null, null));
+        using var cancellation = new CancellationTokenSource();
+        var calls = 0;
+        Stream Stalling(Uri uri, CancellationToken token)
+        {
+            calls++;
+            return new StallingBodyStream(cancellation);
+        }
+
+        // Act / Assert
+        Assert.ThrowsAny<OperationCanceledException>(() => CacheOf(fixture, Stalling).Fetch(Sources(fixture), TextWriter.Null, cancellation.Token));
+        Assert.Equal(1, calls);
+        Assert.Empty(fixture.Sleeps);
+        Assert.False(File.Exists(Path.Combine(fixture.CacheDirectory, "bodies", "gutenberg-101.txt")));
+    }
+
     /// <summary>Proves a cancellation raised by the fetcher for a canceled caller propagates at once: no retry, no pause and no IOException.</summary>
     [Fact]
     public void ClusterCorpusCache_Fetch_CallerCanceledDuringRequest_PropagatesWithoutRetry()
@@ -488,5 +510,68 @@ public sealed class ClusterCorpusCacheTests
             UserAgents.Add(request.Headers.UserAgent.ToString());
             return Task.FromResult(answer(request));
         }
+    }
+
+    /// <summary>
+    ///     A fake response body that returns one chunk, then cancels the caller and stalls until the read is canceled.
+    /// </summary>
+    /// <remarks>
+    ///     Only the cancelable read path can end the stall; a read that ignores the token would never return.
+    /// </remarks>
+    /// <param name="caller">The caller's cancellation source, canceled on the second read.</param>
+    private sealed class StallingBodyStream(CancellationTokenSource caller) : Stream
+    {
+        /// <summary>The number of reads so far.</summary>
+        private int _reads;
+
+        /// <inheritdoc />
+        public override bool CanRead => true;
+
+        /// <inheritdoc />
+        public override bool CanSeek => false;
+
+        /// <inheritdoc />
+        public override bool CanWrite => false;
+
+        /// <inheritdoc />
+        public override long Length => throw new NotSupportedException();
+
+        /// <inheritdoc />
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        /// <inheritdoc />
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (++_reads == 1)
+            {
+                buffer.Span[0] = (byte)'x';
+                return 1;
+            }
+
+            await caller.CancelAsync();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        /// <inheritdoc />
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException("the body must be read through the cancelable path");
+
+        /// <inheritdoc />
+        public override void Flush()
+        {
+        }
+
+        /// <inheritdoc />
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        /// <inheritdoc />
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        /// <inheritdoc />
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

@@ -96,8 +96,9 @@ sections:
               - id: SpeechTextEn-Clustering-ClusterCorpusCache-Cancellation
                 title: >-
                   The ClusterCorpusCache unit shall let a cancellation by the caller propagate as
-                  OperationCanceledException as soon as it is seen, during a request or before or after a pause,
-                  without retrying the request or reporting it as a failed download, and shall still retry a canceled
+                  OperationCanceledException as soon as it is seen, during a request, while a response body is being
+                  read or before or after a pause, without retrying the request, writing a partial file or reporting
+                  it as a failed download, and shall still retry a canceled
                   request whose caller did not cancel (the HTTP client's timeout).
                 justification: |
                   A canceled run must stop promptly and say that it was canceled; retrying it would hold the run for
@@ -105,6 +106,7 @@ sections:
                   is a transient failure like any other.
                 tests:
                   - ClusterCorpusCache_Fetch_CallerCanceledDuringRequest_PropagatesWithoutRetry
+                  - ClusterCorpusCache_Fetch_CallerCanceledDuringBodyRead_StopsWithoutWritingFile
                   - ClusterCorpusCache_Fetch_CallerCanceledDuringBackoff_StopsBeforeNextRequest
                   - ClusterCorpusCache_Fetch_DefaultPauseCanceled_EndsAtOnce
                   - ClusterCorpusCache_Fetch_TimeoutWithoutCallerCancellation_Retries

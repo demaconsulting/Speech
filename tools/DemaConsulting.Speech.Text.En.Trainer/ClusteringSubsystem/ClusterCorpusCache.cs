@@ -652,7 +652,7 @@ internal sealed class ClusterCorpusCache
             try
             {
                 using var stream = _fetcher(url, cancellationToken);
-                WriteAtomically(path, ReadLimited(stream, url));
+                WriteAtomically(path, ReadLimited(stream, url, cancellationToken));
                 return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -714,16 +714,29 @@ internal sealed class ClusterCorpusCache
     /// <summary>
     ///     Reads a response completely, refusing one larger than <see cref="MaximumDownloadBytes"/>.
     /// </summary>
+    /// <remarks>
+    ///     Every chunk is read through the cancelable read path and the token is checked between chunks, so a caller's
+    ///     cancellation ends a slow or large body promptly instead of waiting for the stream or the client timeout. The
+    ///     file is written only after the whole body was read.
+    /// </remarks>
     /// <param name="stream">The response stream.</param>
     /// <param name="url">The URL, for the message.</param>
+    /// <param name="cancellationToken">The caller's cancellation token.</param>
     /// <returns>The bytes.</returns>
-    private static byte[] ReadLimited(Stream stream, Uri url)
+    /// <exception cref="OperationCanceledException">The caller canceled while the body was being read.</exception>
+    private static byte[] ReadLimited(Stream stream, Uri url, CancellationToken cancellationToken)
     {
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
-        int read;
-        while ((read = stream.Read(chunk, 0, chunk.Length)) > 0)
+        while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var read = stream.ReadAsync(chunk.AsMemory(), cancellationToken).AsTask().GetAwaiter().GetResult();
+            if (read == 0)
+            {
+                break;
+            }
+
             buffer.Write(chunk, 0, read);
             if (buffer.Length > MaximumDownloadBytes)
             {
