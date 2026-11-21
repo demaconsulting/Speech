@@ -272,15 +272,31 @@ public sealed class CorpusCacheTests
     [Fact]
     public void CorpusCache_Fetch_DefaultPauseCanceled_EndsAtOnce()
     {
-        // Arrange: every request fails transiently, and the caller cancels shortly after the backoff starts
+        // Arrange: every request fails transiently, and the caller cancels shortly after the backoff starts; the
+        // cancellation comes from a dedicated thread, not a thread-pool timer, so a busy test host cannot delay it
         using var fixture = new CorpusFixture();
         fixture.WriteSources((101, "used", null, null));
         using var cancellation = new CancellationTokenSource();
         var calls = 0;
         Stream Failing(Uri uri, CancellationToken token)
         {
-            calls++;
-            cancellation.CancelAfter(TimeSpan.FromMilliseconds(50));
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                new Thread(() =>
+                {
+                    SpinWait.SpinUntil(static () => false, 50);
+                    try
+                    {
+                        cancellation.Cancel();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // The test already ended
+                    }
+                })
+                { IsBackground = true }.Start();
+            }
+
             throw new IOException("connection reset");
         }
 

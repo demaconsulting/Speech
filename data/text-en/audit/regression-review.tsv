@@ -512,3 +512,4 @@ fork-2	1	read.present	read.past	false	medium	reject	present candidate 1 (the own
 fork-3	1	read.past	read.past	true	high	fork	past candidate 1, confirmed; the sentence of reg-0525 (pipeline golden e11)
 fork-4	1	read.present	read.present	true	high	unused	present candidate 3; present candidate 2 (fork-5) was confirmed first
 fork-5	1	read.present	read.present	true	high	fork	present candidate 2, confirmed; the new sentence of reg-0050 (pipeline golden e05)
+reg-0532	2	nominate.adj	nominate.adj	true	high	replace	the round-1 sentence 'The senator nominate awaited the vote.' (readings-golden.tsv:265) is ungrammatical (pull request review); replaced in the readings golden and the overlay by 'The nominate subspecies lives farther north than the others.', judged blind in round 2

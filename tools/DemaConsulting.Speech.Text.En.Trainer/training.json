@@ -37,7 +37,7 @@
       },
       {
         "set": "regression",
-        "minAccuracyBasisPoints": 9603
+        "minAccuracyBasisPoints": 9601
       }
     ]
   },

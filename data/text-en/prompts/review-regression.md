@@ -37,6 +37,11 @@ candidate because `confine` is not a listed form). The SHA-256 of the frozen jud
 `audit/regression-review.tsv`, and the entry "Cleanup after PR B: the blind screen and the forks" of the trainer's
 `RUN-LOG.md` records the run. The chosen forks were judged in this round, so no second round was needed.
 
+**Round 2** (2026-11-21, after pull request review): one row, the replacement sentence of `reg-0532` (*The nominate
+subspecies lives farther north than the others.*), staged and judged with this prompt by a sub-agent that named itself
+Claude Opus 4.5: 1 agreement. The SHA-256 of the frozen judgments is
+`ac26a830cba0f8eaf101ea1c394eebbeb2f4cd3f93e8d862dc70073976bd107f`.
+
 ## Prompt text
 
 ```text

@@ -766,7 +766,7 @@ regression	reg-0527	golden-readings	-	no	-	axe.tool	axis.plural	axis.plural	no
 regression	reg-0528	golden-readings	-	no	-	bass.music	bass.fish	bass.fish	no
 regression	reg-0530	golden-readings	-	no	-	life.plural	live.verb	live.verb	no
 regression	reg-0531	golden-readings	-	no	-	moderate.adj-noun	moderate.verb	moderate.verb	no
-regression	reg-0532	golden-readings	-	no	-	nominate.adj	nominate.verb	nominate.verb	no
+regression	reg-0532	golden-readings	-	no	-	nominate.adj	nominate.adj	nominate.adj	no
 regression	reg-0533	golden-readings	-	no	-	reading.town	reading.act	reading.act	no
 regression	reg-0534	golden-readings	-	no	-	recount.narrate	recount.again	recount.again	no
 regression	reg-0535	golden-readings	-	no	-	sewer.seamstress	sewer.drain	sewer.drain	no

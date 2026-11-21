@@ -104,6 +104,7 @@ A fetcher that cancels the caller's token and throws `TaskCanceledException` mak
 the caller and stalls in its next read until that read is canceled (its non-cancelable `Read` throws), makes `Fetch`
 throw `OperationCanceledException` after one call, with no pause and no body file. A fetcher that always fails with HTTP
 503 and a sleeper that cancels the token make `Fetch` throw `OperationCanceledException` after one call and the single
-pause of 5 s. With no injected sleeper and the token canceled 50 ms after a failed request, `Fetch` throws
-`OperationCanceledException` after one call in less than the 5-second backoff. A `TaskCanceledException` on the first
-call with an uncanceled token gives the pauses 5 s, 2 s and 2 s, three calls and a pinned book.
+pause of 5 s. With no injected sleeper and the token canceled 50 ms after a failed request (by a dedicated thread, so a
+busy thread pool cannot delay the cancellation), `Fetch` throws `OperationCanceledException` after one call in less than
+the 5-second backoff. A `TaskCanceledException` on the first call with an uncanceled token gives the pauses 5 s, 2 s and
+2 s, three calls and a pinned book.

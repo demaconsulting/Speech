@@ -22,7 +22,7 @@ the tagger for free (source: the Text.En evaluation record, [REF-3]).
 
   | Gate set | Rows | Model | 95 percent interval | Threshold |
   | --- | ---: | ---: | --- | ---: |
-  | Regression overlay (goldens, analyzer tests, listening flags) | 529 | 98.11% | 96.98% to 99.24% | 96.03% |
+  | Regression overlay (goldens, analyzer tests, listening flags) | 529 | 98.30% | 97.16% to 99.24% | 96.01% |
   | Natural holdout | 1,167 | 96.23% | 94.32% to 97.98% | 95.20% |
   | Independent holdout | 1,972 | 95.44% | 94.47% to 96.30% | 94.83% |
   | Generalization set | 242 | 73.14% | 67.05% to 79.10% | 69.02% |
@@ -54,7 +54,7 @@ Two further sets measure the flagged sentences and unseen words and construction
 and nothing is trained on either:
 
 - **The regression overlay** (529 sentences: listening flags, analyzer and golden test targets, the readings-golden
-  sentences the model gets wrong, and selected training and development rows) is read correctly in 519 cases with the
+  sentences the model gets wrong, and selected training and development rows) is read correctly in 520 cases with the
   cue priors. Its golden *I read every night before bed.* allowed both readings, so it was split into a present and a
   past sentence; the model reads the present one, *Nowadays I read every night before bed.*, as past.
 - **The generalization set** (242 sentences written blind by another model family around cue words and constructions
@@ -105,5 +105,5 @@ the blinded listening packs is still pending (source: the Phonemes.En gate summa
   words, depending on the ending.
 - **Unknown words.** The trained letter-to-sound model has a phoneme error rate of 11.59 percent on held-out
   dictionary words, against 25.53 percent for a rules baseline.
-- **Readings golden.** The real analyzer chooses the intended reading in 385 of the 395 sentences of the readings
-  golden; the 10 misses are pinned as forced readings rather than hidden.
+- **Readings golden.** The real analyzer chooses the intended reading in 386 of the 395 sentences of the readings
+  golden; the 9 misses are pinned as forced readings rather than hidden.

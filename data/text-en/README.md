@@ -211,7 +211,7 @@ model has to keep getting right. Every row refers to where it comes from (`origi
 | `analyzer-test` | 11 | 0 | the analyzer tests that assert a reading with the embedded model (`<Name>Tests.cs:<line>`) |
 | `golden-pipeline` | 38 | 0 | the heteronym targets of the Piper pipeline golden sentences (the Kokoro golden has the same sentences), labeled from the reviewed expected phonemes (`piper-pipeline-golden.tsv:<id>`) |
 | `golden-sentences` | 61 | 0 | the heteronym targets of the sentence golden whose expected phonemes match the reviewed readings golden of exactly one candidate, plus six inflected forms labeled from their phonemes and sentence (`sentences-golden.tsv:<id>`) |
-| `golden-readings` | 391 | 6 | the end-to-end rows of the readings golden, one per reading, and 9 of its 10 `forced` rows (the shipped model's misses, so the suite is not selected only for its correct answers; `readings-golden.tsv:<line>`); 3 rows are already in the overlay as listening or analyzer rows |
+| `golden-readings` | 391 | 6 | the end-to-end rows of the readings golden, one per reading, and the 9 rows that were `forced` (the shipped model's misses, so the suite is not selected only for its correct answers; the ungrammatical one, `nominate.adj`, got a new sentence that the model reads right; `readings-golden.tsv:<line>`); 3 rows are already in the overlay as listening or analyzer rows |
 | `data-row` | 21 | 19 | training and development rows of the flagged constructions: `wound.injury` with *knife*, *stab* or *bullet*; `tear.rip` with a word of the body or a material; `minute.tiny` after a degree adverb; `read.past` with a past-time phrase (`train.tsv:<id>` or `dev.tsv:<id>`) |
 
 `seen_in_training` is `yes` exactly when the row refers to a training row, its sentence key equals a training sentence or
@@ -237,7 +237,10 @@ natural in the present and in the past), so it was forked into *Nowadays I read 
 owner's present example *I read every night before bed, and I still do.* was judged past and not used. The forced row
 *The doctor will confine her to bed.* was `unsure` only because `forms.tsv` lists `confines` and not `confine`; it cannot
 be scored without an inventory change and was not added (`reg-0529` is unused). `reg-0520` to `reg-0524` are unused as
-well (a failed attempt used them; see the trainer's `RUN-LOG.md`).
+well (a failed attempt used them; see the trainer's `RUN-LOG.md`). After pull request review, the forced row
+*The senator nominate awaited the vote.* (`reg-0532`, ungrammatical) was replaced in the readings golden and the overlay
+by *The nominate subspecies lives farther north than the others.*, which a second blind round confirmed as
+`nominate.adj` (round 2 of the record).
 
 ### Generalization set (written blind)
 

@@ -157,8 +157,8 @@ These tests run the real commands over the repository itself and are skipped onl
 `train --check` retrains from the committed data with the recorded settings and exits 0 only when the committed model
 file, the training record and the hashes are what retraining produces. `evaluate --gate --check` evaluates the committed
 model through the analyzer that embeds it and exits 0 only when each of the four gate sets reaches its recorded
-threshold (regression overlay 96.03%, natural holdout 95.20%, independent holdout 94.83%, generalization set 69.02%) and
-every committed evaluation record file, the gate rows and the empty flip report included, is identical, byte for byte;
+threshold (regression overlay 96.01%, natural holdout 95.20%, independent holdout 94.83%, generalization set 69.02%) and
+every committed evaluation record file, the gate rows and the flip report included, is identical, byte for byte;
 the record includes the two committed overlays, so the check also proves that no committed generalization row marked
 `cue_unsolvable=yes` is one a curated cue acts on. The tests verify consistency and the gate, not the correctness of the
 labels, and they do not show that the result is the same on another operating system (the CI matrix does). The headline

@@ -71,14 +71,15 @@ seed 7) is reported and does not decide.
 
 | Gate set | Rows | Clusters | Correct | Accuracy | 95 % interval | Threshold | Pass |
 | --- | ---: | ---: | ---: | ---: | --- | ---: | --- |
-| `regression` | 529 | 529 | 519 | 98.11% | 96.98% to 99.24% | 96.03% | yes |
+| `regression` | 529 | 529 | 520 | 98.30% | 97.16% to 99.24% | 96.01% | yes |
 | `holdout-natural` | 1,167 | 266 | 1,123 | 96.23% | 94.32% to 97.98% | 95.20% | yes |
 | `holdout-independent` | 1,972 | 1,972 | 1,882 | 95.44% | 94.47% to 96.30% | 94.83% | yes |
 | `generalization` | 242 | 64 | 177 | 73.14% | 67.05% to 79.10% | 69.02% | yes |
 
 The `regression` set is the regression overlay: goldens, analyzer tests, listening flags and selected data rows.
-**Verdict: pass.** The flip report is empty: this record is the first one of the statistical gate, so the previous
-readings are the current ones.
+**Verdict: pass.** The model is the one of the first record of the statistical gate, so the flip report lists only
+`reg-0532` as `fixed`: its ungrammatical readings-golden sentence was replaced after review by one the model reads
+right.
 
 ### How the Thresholds Were Derived
 
@@ -92,16 +93,17 @@ rule was fixed in `RUN-LOG.md` before the seed study ran, and the study was run 
 
 | Gate set | Seeds 1 to 5 (correct) | Mean | Sample SD | Threshold |
 | --- | --- | ---: | ---: | ---: |
-| `regression` (529) | 519, 518, 517, 518, 509 | 516.2 | 4.09 | 9,603 bp |
+| `regression` (529) | 520, 519, 518, 519, 509 | 517.0 | 4.53 | 9,601 bp |
 | `holdout-natural` (1,167) | 1,123, 1,114, 1,129, 1,132, 1,129 | 1,125.4 | 7.16 | 9,520 bp |
 | `holdout-independent` (1,972) | 1,882, 1,912, 1,914, 1,905, 1,886 | 1,899.8 | 14.87 | 9,483 bp |
 | `generalization` (242) | 177, 182, 182, 182, 169 | 178.4 | 5.68 | 6,902 bp |
 
 The thresholds live in `EvaluationSettings.Default` of the trainer and in `training.json`; `train --check` fails when
-the two differ. The regression overlay is not selected only for the shipped model's correct answers: it holds the 9
-`forced` rows of the readings golden (the shipped model's misses) and the present fork of the ambiguous golden, which
-the shipped model reads wrong. Re-deriving the thresholds is a deliberate recipe change: run `evaluate --seeds` once,
-log it before anything else, and update the code and the record.
+the two differ. The regression overlay is not selected only for the shipped model's correct answers: it holds 8 `forced`
+rows of the readings golden (the shipped model's misses) and the present fork of the ambiguous golden, which the shipped
+model reads wrong. The regression counts are those after the ungrammatical `nominate.adj` sentence of `reg-0532` was
+replaced; before that the seed study gave 9,603 basis points (see `RUN-LOG.md`). Re-deriving the thresholds is a
+deliberate recipe change: run `evaluate --seeds` once, log it before anything else, and update the code and the record.
 
 ### Flip Report
 
@@ -182,9 +184,9 @@ Two sets beside the data files measure what the flagged sentences and unseen wor
 README, "Evaluation Overlays"): the **regression overlay** (`regression.tsv`: owner-flagged sentences, analyzer and
 golden test targets and selected training and development rows, each marked as seen or unseen in training) and the
 **generalization set** (`generalization.tsv`: 242 rows written blind by another model family, frozen before any model
-output on it existed, and checked new against the training and development data). Both are gate sets of the
-statistical gate (see "Quality Gate"). The regression overlay has 529 rows since the cleanup after PR B: the ambiguous
-golden *I read every night before bed.* was forked into a present and a past sentence, and 9 forced readings-golden rows
+output on it existed, and checked new against the training and development data). Both are gate sets of the statistical
+gate (see "Quality Gate"). The regression overlay has 529 rows since the cleanup after PR B: the ambiguous golden *I
+read every night before bed.* was forked into a present and a past sentence, and 9 formerly forced readings-golden rows
 were added.
 
 Each overlay is measured twice with the same shipped model on the same path:

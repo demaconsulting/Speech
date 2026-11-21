@@ -2213,3 +2213,22 @@ the committed pipeline. The model and the cue priors are unchanged.
 in the entries above are now `27e5898` (C1, was `ffecb8e`), `73caf39` (C2, was `dfb90c9`) and `82d2bd3` (the PR B log,
 was `2bef559`). The cleanup's own commits follow them on the branch `feat/text-en-stat-gate-cleanup`. The SHA-256 of the
 two fourth-round prompts are unchanged by the rebase (the files were not edited).
+
+## Cleanup after PR B: an ungrammatical golden replaced after review (2026-11-21)
+
+The pull request review found the forced readings-golden sentence *The senator nominate awaited the vote.*
+(`readings-golden.tsv:265`, overlay row `reg-0532`, `nominate.adj`) ungrammatical: it is no valid adjective use of
+*nominate*. The first screen had agreed with its label. By the rule of item 4 of the first cleanup entry, the sentence
+is replaced, not edited around: *The nominate subspecies lives farther north than the others.* A second blind round with
+the same prompt (one row, a sub-agent that named itself Claude Opus 4.5) agreed with `nominate.adj` at high confidence;
+frozen judgments SHA-256 `ac26a830cba0f8eaf101ea1c394eebbeb2f4cd3f93e8d862dc70073976bd107f`.
+`regenerate-goldens --readings` now marks the row `e2e`: the shipped model reads the new sentence right, so 9
+readings-golden rows are forced.
+
+The shipped model is unchanged, so the evaluation record keeps its previous column, and the flip report lists `reg-0532`
+as `fixed` (the row's sentence changed, not the model). The regression overlay is now 520 of 529 (98.30 percent). The
+seed study above counted the old sentence. The evaluation record reruns the same aggregate seed study on every `--write`
+and `--check` (`seeds.tsv`), and with the new sentence the regression counts of seeds 1 to 5 are 520, 519, 518, 519 and
+509 (mean 517.0, sample SD 4.53), which give 9,601 basis points by the rule (508 of 529). The threshold is set to that
+value, so the recorded threshold stays the rule applied to the committed data; the other three sets are unchanged. No
+per-row result of seeds 2 to 5 was printed or opened. The gate passes on every set.

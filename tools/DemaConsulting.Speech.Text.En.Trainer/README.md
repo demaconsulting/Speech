@@ -133,7 +133,7 @@ clearly worse model fails:
 | `generalization` | 242 | 69.02% | 73.14% |
 | `holdout-independent` | 1,972 | 94.83% | 95.44% |
 | `holdout-natural` | 1,167 | 95.20% | 96.23% |
-| `regression` | 529 | 96.03% | 98.11% |
+| `regression` | 529 | 96.01% | 98.30% |
 
 To change the recipe or the data: run `evaluate --gate --model <candidate>` and review every `broken` flip of a
 `listening` or golden row; to re-derive the thresholds after a deliberate recipe change, run `evaluate --seeds` once,

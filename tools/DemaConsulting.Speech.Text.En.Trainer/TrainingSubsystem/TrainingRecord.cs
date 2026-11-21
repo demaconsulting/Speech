@@ -185,7 +185,7 @@ internal sealed record EvaluationSettings(
             new GateThreshold("generalization", 6902),
             new GateThreshold("holdout-independent", 9483),
             new GateThreshold("holdout-natural", 9520),
-            new GateThreshold("regression", 9603),
+            new GateThreshold("regression", 9601),
         ]);
 
     /// <summary>

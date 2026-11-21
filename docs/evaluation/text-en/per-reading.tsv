@@ -984,7 +984,6 @@ regression	associate.verb	1	0	0	0
 regression	axe.tool	1	0	0	1
 regression	life.plural	1	0	0	0
 regression	moderate.adj-noun	1	0	0	0
-regression	nominate.adj	1	0	0	0
 regression	reading.town	1	0	0	0
 regression	recount.narrate	1	0	0	0
 regression	sewer.seamstress	1	0	0	0
@@ -1247,6 +1246,7 @@ regression	mouth.noun	2	2	10000	2
 regression	mouth.verb	2	2	10000	2
 regression	nestle.company	1	1	10000	1
 regression	nestle.snuggle	1	1	10000	1
+regression	nominate.adj	1	1	10000	1
 regression	nominate.verb	1	1	10000	1
 regression	number.noun	2	2	10000	2
 regression	number.numb	1	1	10000	0

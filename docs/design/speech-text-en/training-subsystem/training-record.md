@@ -20,7 +20,7 @@ this unit is where both are written down.
 - `EvaluationSettings`: `Seeds` (the seeds of the multi-seed study, 1 to 5 by default, including the committed seed),
   `Resamples` (10,000), `ConfidencePercent` (95), `BootstrapSeed` (7) and `GateThresholds`, one `GateThreshold` (a gate
   set and its least accuracy in basis points) per gate set in ordinal order: generalization 6,902, holdout-independent
-  9,483, holdout-natural 9,520 and regression 9,603. `EvaluationSettings.Default` is the statistical gate's definition;
+  9,483, holdout-natural 9,520 and regression 9,601. `EvaluationSettings.Default` is the statistical gate's definition;
   each threshold is the floor of the mean minus two sample standard deviations of the current recipe's correct counts at
   the seeds 1 to 5 (`HeteronymEvaluator.DeriveGateThreshold`, the trainer's `RUN-LOG.md`). `Validate` requires at least
   one threshold, known gate sets once each in ordinal order and thresholds of 1 to 10,000; `SameValues` compares two
