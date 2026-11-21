@@ -551,3 +551,145 @@ wrong.
 
 These are the PR A baseline cells of the pre-registered 2 by 2 ablation (clusters off, curated cues on and off). No
 model, classifier or cue was changed, and the generalization set was not changed after this read.
+
+## Word-cluster subsystem (PR A): corpus pins and leakage audit (2026-11-21)
+
+Written after the corpus was pinned and audited and **before the vocabulary preflight was run**. No cluster table, model
+or evaluation output existed. Sets read for this entry: none (the audit compares sentence text only; no model reads
+them).
+
+**Pins (`data/text-en/cluster-sources.tsv`, 336 rows, SHA-256 `749286ba...a8c0`).**
+
+- *Core*: the 269 Project Gutenberg books of the PartOfSpeech corpora (`data/open/sources.tsv`: 175,
+  `data/silver/sources.tsv`: 94, read at PartOfSpeech `faae816`), each with its recorded US public-domain basis copied
+  verbatim. The development and natural-holdout books were recomputed from `harvest-provenance.tsv` (the source document
+  of every `dev.tsv` and `holdout-natural.tsv` row): 26 development books (`excluded-dev`) and 19 natural-holdout books
+  (`excluded-holdout`), the 45 books of the plan, disjoint, all among the 269. **224 core books are used.** The
+  independent holdout has no harvest provenance and derives from no book. The RDF metadata of every used core book was
+  fetched and re-checked: the rights statement of all 224 is "Public domain in the USA.", so no core book was dropped.
+- *Domain*: the 67 candidates of the plan (anatomy and first aid 18, textiles and sewing 14, sport 16, music 15, clocks
+  4), each checked with the rules R1 to R8 from its RDF and body. Publication-year evidence: `marc906` or `marc260` when
+  the RDF has it (7 of the accepted books), otherwise the latest year printed in the first 200 body lines (arabic or
+  roman numerals); in that case the `year` column is `-` and the basis states the evidence. **56 accepted** (anatomy 16,
+  textiles 10, sport 14, music 13, clocks 3); **11 rejected** with the reason recorded and no pin:
+  - `rejected-license` (8): R3, no publication year found: 6129 (*Healthful Sports for Boys*), 20776 (*Encyclopedia of
+    Needlework*), 59425 (*The Seaman's Medical Instructor*), 65987 (*Strength and How to Obtain It*); R7, a year from
+    1930 to 2099 in the first 200 body lines: 15147 (*Beeton's Book of Needlework*, a 1986 facsimile edition), 17571
+    (*Piano tuning*, a 1975 Dover republication), 40540 (*The Complete Opera Book*, an introduction naming 1997), 25731
+    (*Ancient Egyptian and Greek Looms*: the year is "B.C. 2000", a false positive of the mechanical rule, applied as
+    specified);
+  - `rejected-content` (3): R6, a body under 50,000 bytes: 57273 (45,451) and 69222 (42,267); 17576 (*A
+    Rudimentary Treatise on Clocks, Watches and Bells*): no plain-text file on the mirror (TeX and PDF only).
+  - No candidate failed R1, R2, R4 (no creator died after 1929), R5 (no government creator or printer) or R8 (no
+    duplicate edition of a core or another selected book; the three volumes of *General Anatomy* and of the
+    history of British boxing are separate volumes).
+- **280 books are used** (224 core, 56 domain). No US-government source and no CC0 training sentence is in the corpus.
+
+**Fetch.** `cluster --fetch --write-pins --delay-ms 2000` from `https://gutenberg.pglaf.org` only (never the main web
+site): 582 requests (the text and RDF of the 291 books then listed as used, sequential, at least 2 seconds apart) in
+51 minutes 54 seconds; one 404 (17576). The rejected domain books were then set to their rejected status with `-` pins.
+A second `cluster --fetch --delay-ms 2000` reported all 280 used books `cached` against their pins with 0 requests. The
+raw downloads were deleted from the cache afterwards (the normalized bodies, 150 MB, and the RDF files are kept in the
+git-ignored `data/text-en/external/cluster-corpus/`).
+
+**Content-level leakage audit.** `cluster --audit --write --threads 28` (exit 0, 7.9 seconds wall clock: tokenization of
+31,363,332 tokens in 3.0 seconds, audit in 3.5 seconds) compared every corpus sentence with all 7,135 evaluation
+sentences (`dev.tsv` 3,235, `holdout-natural.tsv` 1,167, `holdout-independent.tsv` 1,972, `regression.tsv` 519,
+`generalization.tsv` 242). Removed corpus sentences / matched evaluation sentences / books, per file and rule:
+
+| Evaluation file | exact | near | contains |
+| --- | --- | --- | --- |
+| `dev.tsv` | 1 / 1 / 1 | 0 / 0 / 0 | 1 / 1 / 1 |
+| `holdout-natural.tsv` | 1 / 1 / 1 | 0 / 0 / 0 | 1 / 1 / 1 |
+| `holdout-independent.tsv` | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| `regression.tsv` | 1 / 1 / 1 | 0 / 0 / 0 | 1 / 1 / 1 |
+| `generalization.tsv` | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+
+6 sentences were removed from 5 books (`cluster-removals.tsv`, SHA-256 `84794fd8...e77b`). All six were checked by hand
+against the evaluation sentence and the corpus paragraph: two sentences of *Jude the Obscure* (153) that a development
+row and a natural-holdout row repeat through community-collection quotations of Hardy; a short holdout sentence ("If so,
+what does it mean?") inside a sentence of *Dracula* (345); a Bible quotation of a development row in *Gleanings by the
+Way* (38644); "Water is a compound of hydrogen and oxygen." of a regression row in *The Gospel of Evolution* (36270); a
+regression data row's sentence in *The Rise of the Dutch Republic* (4823). Each removal is a genuine repetition or
+quotation; none of the generalization set or the independent holdout occurs in the corpus.
+
+**Next, fixed before running it.** The vocabulary preflight follows the rule pre-registered above ("Vocabulary preflight
+rule"): minimum count 5; the smallest of 30,000, 40,000, 50,000, 60,000 and 75,000 that contains every nominated cue
+word with a count of at least 5, capped at 75,000; the fixed nominated list; the generalization set is not read.
+
+## Word-cluster subsystem (PR A): vocabulary preflight, induction and re-induction check (2026-11-21)
+
+**Vocabulary preflight** (run after the entry above, by the pre-registered rule): `cluster --preflight --min-count 5
+--threads 28` (exit 0, 12.3 seconds). The corpus after the removals has 31,363,141 tokens, 222,326 eligible types and
+66,794 words with a count of at least 5. Token coverage: 30,000 words 97.99 percent, 40,000 98.56, 50,000 98.89,
+60,000 99.11, 75,000 99.22. Nominated words (count, rank):
+
+Each item gives the word, its count and its rank; all words of an item enter the cut at 30,000 unless stated.
+
+- muscle 1,790 (1,401), muscles 3,613 (681), ligament 407 (5,235), ligaments 470 (4,683), tendon 403 (5,275), tendons
+  479 (4,612), cartilage 362 (5,722), cuff 325 (6,196), groin 85 (15,122);
+- **hamstring 7 (rank 53,818): in the cut from 60,000, the word that sets the size**;
+- fabric 491 (4,498), cloth 2,182 (1,120), canvas 401 (5,289), sail 901 (2,707), seam 802 (2,987), sleeve 674 (3,490),
+  lining 466 (4,721), wear 1,335 (1,889);
+- gash 42 (22,527), gashes 13 (40,219; from 50,000), laceration 88 (14,813), lacerations 12 (41,986; from 50,000),
+  sprain 41 (22,949), bruise 99 (13,759), stab 55 (19,509), knife 1,689 (1,490), bullet 419 (5,123), sinew 25 (29,612);
+- calf 603 (3,841), thigh 643 (3,633), shin 71 (16,908), bandage 545 (4,143);
+- garment 341 (5,995), linen 1,133 (2,197), silk 1,852 (1,346), satin 357 (5,796), tarpaulin 21 (32,373; from 40,000),
+  curtain 530 (4,239), paper 3,608 (683);
+- clock 1,106 (2,233), watch 2,735 (898), spool 30 (27,008), reel 137 (11,242), bobbin 264 (7,197), coil 218 (8,241);
+- fiddle 234 (7,855), cello 33 (25,488), viola 174 (9,607), drum 347 (5,906);
+- trout 1,027 (2,384), perch 365 (5,691), pike 200 (8,741), angler 276 (6,968), rod 790 (3,030);
+- microscopic 105 (13,281), infinitesimal 51 (20,298), hour 8,137 (324), second 9,537 (275);
+- the 29 degree adverbs and the five added ones: counts 44 (astonishingly) to 81,575 (so), ranks 48 (so) to 21,886
+  (astonishingly);
+- yesterday 1,532 (1,638), ago 3,643 (675), previously 1,462 (1,716), formerly 1,306 (1,921), earlier 1,258 (1,988),
+  beforehand 384 (5,479);
+- too rare (count below 5): meniscus 4, rotator 1, acl 0, labrum 4, denim 1.
+
+Every nominated word with a count of at least 5 is in the cut at 60,000 and not at 50,000 (hamstring), so by the rule
+**the vocabulary size is 60,000**. The five modern words (meniscus, rotator, acl, labrum, denim) are "too rare" in
+pre-1930 text, as the plan expected; they do not move the size. The generalization set was not read.
+
+**Induction.** `cluster --write --clusters 512 --max-words 60000 --min-count 5 --threads 28` (exit 0; i7-13850HX, 28
+logical processors): tokenization 3.1 seconds, audit 4.3 seconds (removals current), counting 4.0 seconds (60,000 words,
+3,141,914 bigram types), induction 1 minute 10.7 seconds (the first progress line, after 1,000 words, estimated 3
+minutes 6 seconds left), table, snapshot and record about 1 second; **total 1 minute 23.2 seconds** (1 minute 25.3
+seconds wall clock with the process start).
+
+- Corpus: **280 books** (224 core, 56 domain), 468,898 paragraphs, 1,340,479 sentences, **31,363,141 tokens** (after
+  removing 6 sentences of 191 tokens), 222,326 types.
+- Table `data/text-en/word-clusters.tsv`: **60,000 words**, 512 distinct paths (path length 3 to 17 bits; cluster sizes
+  1 to 1,936, median 25), **1,410,769 bytes**, SHA-256
+  `aaa3fe0c024bb666cc6b92ec489da997e5e51b20ab21da01b83a6288d28cca38`; token coverage 99.11 percent. **Shared lookup
+  hashes: 0** (no word was dropped by the drop-all rule), ineligible words: 0.
+- Record `data/text-en/clustering.json`: tokenizer version `0.1.0-beta.5`, sources `749286ba...a8c0`, removals
+  `84794fd8...e77b`, evaluation listing `f5e5f6ee...bcc0`.
+- Snapshot `cluster-corpus.tar` (in the git-ignored cache, not committed): **153,272,320 bytes**, 282 files (the 280
+  normalized bodies, `cluster-sources.tsv` and `NOTICE.txt`), SHA-256
+  `cdefcfa2eff5fb4594b068588302454df3061d9f5234009b4db0af937f0670ca`.
+
+**Manual re-induction check and determinism** (the one-time `cluster --check` evidence of PR A; both runs from the cache
+with the settings of the committed record):
+
+| `cluster --check` | Tokenize | Audit | Count | Induce | Total | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| `--threads 1` | 5.4 s | 13.9 s | 6.4 s | 5 min 52.9 s | **6 min 19.4 s** | all current |
+| `--threads 28` | 3.1 s | 3.9 s | 5.2 s | 1 min 20.2 s | **1 min 33.6 s** | all current |
+
+Both reproduced the committed table byte for byte (SHA-256 `aaa3fe0c...cca38`), the record byte for byte and the
+snapshot SHA-256 `cdefcfa2...70ca`: **one thread and 28 threads give identical output**. The single-thread run took far
+less than the 3-hour limit of the plan, so no reduced configuration was needed. The arithmetic has no platform-dependent
+part (integer counts, the trainer's own logarithm, basic operations in a fixed order); the golden tests of the subsystem
+compare Windows, Linux and macOS in CI.
+
+**Snapshot publication (documented only; not published).** The proposal for the owner: attach the archive as a release
+asset of `demaconsulting/Speech` named `text-en-cluster-corpus-cdefcfa2.tar`, then put its URL in `snapshotUrl` of
+`clustering.json` (a later `cluster --check` keeps the URL while the snapshot hash matches). Anyone can then verify the
+archive by its SHA-256 and re-run `cluster --check --from-snapshot <file>` without the mirror. The archive holds only
+US public-domain texts with the Project Gutenberg header, footer and every paragraph naming Project Gutenberg removed,
+and a `NOTICE.txt`. Where to host it remains an open question for the owner.
+
+**Offline gate.** `check-data` now verifies on every run that `clustering.json` matches the committed
+`cluster-sources.tsv`, `cluster-removals.tsv` and `word-clusters.tsv` (SHA-256), the tokenizer version of the build,
+the book, word and path counts, and that no used book is a development or natural-holdout document. Nothing in the
+classifier, its features, `heteronyms.bin`, `training.json` or the cue priors was changed; PR B consumes the table.
