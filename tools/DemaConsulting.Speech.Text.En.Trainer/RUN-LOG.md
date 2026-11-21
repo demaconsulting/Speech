@@ -810,3 +810,26 @@ family-clustered interval, the seed-mean rule, the 2 by 2 ablation and the guard
   same model A and must reproduce the logged figures; it informs no decision, and any difference is a defect.
 - **Accidental early read.** If a candidate's generalization figure is ever seen before the read, the event is logged
   here with the model and the figure, and disclosed with PR B's result.
+
+## Word-cluster subsystem (PR A): commit references after the rebase onto main (2026-11-21)
+
+The branch was rebased onto `main` (the base PR was squash-merged as `cc03fca`, whose tree equals the old base
+`6be4450`), and two commit pairs were folded so that every commit passes the checks. The tree after the rebase is
+byte-identical to the validated tree. Commit ids named in the entries above map as follows:
+
+- `abae8f2` is now `136f2045cabf3e36ff112d7582634ba656ebab36` (Text.En: prompt of the blind generalization set);
+- `2869a472fb2a3b638190394a71b2f8ba4f210316` is now `ae439189000de1297e321facecc75a2554b54412` (Text.En: blind
+  generalization set, frozen);
+- `10ac6ad` is now `b1e2a143f0fde7def91c2ee4af310bf526765f39` (Text.En: generalization gen-0060 is not
+  cue-unsolvable);
+- `0f12855`, together with its record in the next commit, is now `a87692a39e04a72b6ce43df8a566816f9311fae3`
+  (Text.En: overlay evaluation with and without the curated cue priors, and the baseline).
+
+Commit ids may change again if the branch is squash-merged, so the frozen content is also pinned by SHA-256:
+
+- the writer prompt as committed before the writing: `c558809c7a4afd1ce533bda04563709e14979124aceea48339747e75995e9cef`;
+- `generalization.tsv` at the freeze: `ce27cae8ff559d8ce6fbbd195b5afb3403c7853e2e408dd794d41f9d307ed16a`;
+- `generalization.tsv` after the `gen-0060` flag fix (current, as in `MANIFEST.tsv`):
+  `b2b33140fefbe408198477ff92cc6c5666e4af360890019c97ecb9dd9902937e`;
+- `audit/generalization-review.tsv` (unchanged since the freeze):
+  `ccd81a2be89e326477ff8cb4fa0837c10bb444e3b85ce8159d26515879c434c3`.
