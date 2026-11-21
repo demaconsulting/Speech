@@ -1467,10 +1467,11 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Locates a binary test fixture shared with <c>DemaConsulting.Speech.Tests</c> by
-    ///     walking up from this test assembly's own output directory to the repository root
-    ///     (identified by <c>Speech.slnx</c>), avoiding a duplicate binary fixture or a
-    ///     cross-project content-copy <c>.csproj</c> item just for one integration test.
+    ///     Locates a speech recording of the segregated STT data folder (<c>data/stt-en/</c>,
+    ///     attribution in <c>data/stt-en/ATTRIBUTION.md</c>) by walking up from this test
+    ///     assembly's own output directory to the repository root (identified by
+    ///     <c>Speech.slnx</c>), avoiding a duplicate binary fixture or a content-copy
+    ///     <c>.csproj</c> item just for one integration test.
     /// </summary>
     private static string FindRepositoryTestFixturePath(string fixtureFileName)
     {
@@ -1481,7 +1482,7 @@ public class IntegrationTests
         }
 
         Assert.NotNull(directory);
-        return Path.Join(directory.FullName, "test", "DemaConsulting.Speech.Tests", "TestData", fixtureFileName);
+        return Path.Join(directory.FullName, "data", "stt-en", fixtureFileName);
     }
 
     /// <summary>

@@ -17,9 +17,9 @@ namespace DemaConsulting.Speech.Sherpa.Tests.RecognitionSubsystem;
 ///     coverage gap - nothing proved the real, shipped models actually transcribe real speech
 ///     with acceptable accuracy. This class closes that gap using
 ///     a real, CC0-licensed spoken-word recitation of Tennyson's public-domain poem "Crossing the
-///     Bar" (<c>TestData/crossing-the-bar-16k-mono.wav</c>; full attribution and license in
-///     <c>TestData/NOTICE.md</c>), scored against the poem's own published text using Word Error
-///     Rate (<see cref="WordErrorRateCalculator"/>).
+///     Bar" (<c>TestData/crossing-the-bar-16k-mono.wav</c>, linked from <c>data/stt-en/</c>; full
+///     attribution and license in <c>data/stt-en/ATTRIBUTION.md</c>), scored against the poem's
+///     own published text using Word Error Rate (<see cref="WordErrorRateCalculator"/>).
 ///     <para>
 ///     As for all native-runtime-dependent code in this project: each test loads a real, already-installed
 ///     model and is skipped (not failed) when that model is not installed in this environment,
@@ -49,7 +49,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     /// <summary>
     ///     The ground-truth transcript of <c>TestData/crossing-the-bar-16k-mono.wav</c>: the full,
     ///     public-domain text of Alfred, Lord Tennyson's 1889 poem "Crossing the Bar", exactly as
-    ///     recited in the recording. See <c>TestData/NOTICE.md</c> for the recording's license and
+    ///     recited in the recording. See <c>data/stt-en/ATTRIBUTION.md</c> for the recording's license and
     ///     attribution.
     /// </summary>
     internal const string GroundTruthTranscript = """
@@ -111,7 +111,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     /// <exception cref="InvalidDataException">
     ///     Thrown when the file is not a RIFF/WAVE container, is not 16-bit PCM, or is not
     ///     single-channel - this test's fixture is committed as exactly that format (see
-    ///     <c>TestData/NOTICE.md</c>), so any mismatch indicates the fixture itself was corrupted
+    ///     <c>data/stt-en/ATTRIBUTION.md</c>), so any mismatch indicates the fixture itself was corrupted
     ///     or replaced with an incompatible file, not a normal runtime condition to recover from.
     /// </exception>
     internal static float[] ReadMonoPcm16Wav(string path)

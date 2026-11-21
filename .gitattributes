@@ -11,3 +11,10 @@
 
 # The Text.En training data is verified by SHA-256 (data/text-en/MANIFEST.tsv): always LF, never converted.
 data/text-en/** text eol=lf
+
+# The STT evaluation data is verified by SHA-256 (data/stt-en/MANIFEST.tsv): the recordings are binary, never
+# converted or diffed as text, and the manifest and notes are always LF.
+data/stt-en/**/*.flac binary
+data/stt-en/**/*.wav binary
+data/stt-en/*.tsv text eol=lf
+data/stt-en/*.md text eol=lf
