@@ -83,6 +83,15 @@
     <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttEvaluationGates.cs" Link="Linked\SttEvaluationGates.cs" />
   </ItemGroup>
 
+  <!-- Real-Model System Tests.
+       The system tests decode several minutes of audio with the real, installed model. They are
+       compiled for net10.0 only: the engine logic is covered on every target framework by the
+       fake-based unit tests, and repeating the real-model decoding once per framework would only
+       multiply the CI time. -->
+  <ItemGroup>
+    <Compile Remove="SpeechOnnxNemotronSttTests.cs" Condition="'$(TargetFramework)' != 'net10.0'" />
+  </ItemGroup>
+
   <!-- Test Data Files.
        The segregated STT evaluation data (license-tracked in data/stt-en/ATTRIBUTION.md, pinned by
        data/stt-en/MANIFEST.tsv) is copied beside the test assembly under TestData/stt-en. -->
