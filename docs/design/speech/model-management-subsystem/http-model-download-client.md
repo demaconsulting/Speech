@@ -55,6 +55,25 @@ to every request this instance issues.
   `SpeechModelDownloader`'s URI rewriting) and ask it to fetch an unrelated address.
 - **Dispose()**: Disposes the internally created `HttpClient` only when this instance created it; a
   caller-supplied `HttpClient` remains the caller's to dispose.
+- **DownloadFromOffsetAsync(sourceUri, destination, offset, progress, cancellationToken)** *(internal)*: The
+  resume path `SpeechModelDownloader` uses when its client is this concrete type, kept internal so the public
+  `IModelDownloadClient` signature is never widened. The destination must be writable and seekable and is
+  expected to already hold the first `offset` bytes. With `offset` zero it truncates the destination and calls
+  `DownloadAsync`. Otherwise it sends the same `GET` with `Range: bytes={offset}-` (mirror authentication applied
+  by the same `ApplyMirrorAuthentication` rule) and handles the answer:
+  - `206 Partial Content` whose `Content-Range` starts at `offset`: seeks to `offset` and appends the body. Progress
+    starts at `BytesTransferred = offset` and reports `TotalBytes` as the `Content-Range` complete length (or
+    `offset` plus `Content-Length` when the length is `*`).
+  - Any other success status (a server that ignores `Range` answers `200 OK`): truncates the destination and
+    writes the full body.
+  - `416 Range Not Satisfiable`, or a `206` for any other start: the held bytes cannot be trusted to line up, so
+    the destination is truncated and `DownloadAsync` runs once more without `Range`. There is no further retry.
+  - Any other status: `EnsureSuccessStatusCode()` throws `HttpRequestException`, as for `DownloadAsync`.
+
+  The resumed bytes are not verified here: the caller verifies the complete file's SHA-256, so stale or
+  mismatched held bytes are caught there. On failure or cancellation the bytes already written stay in the
+  destination, which is what lets a later call resume. Both download methods stream the body through one private
+  `CopyBodyAsync` helper, which reports an initial sample and one per chunk.
 
 **Requirement mapping**: the unit requirements describe only the observable wire behavior (exact
 bytes and progress, failure on non-2xx, which requests carry which `Authorization` header, nothing on
@@ -67,9 +86,11 @@ shape (see its design) when the concrete client is in use.
 **Error Handling**: Throws `HttpRequestException` (via `EnsureSuccessStatusCode()`) for a
 non-success response, so a non-2xx response never results in an error page's body being silently
 written to `destination`. Propagates `OperationCanceledException` when `cancellationToken` is
-canceled mid-transfer.
+canceled mid-transfer. `DownloadFromOffsetAsync` additionally throws `ArgumentOutOfRangeException` for a negative
+offset and `ArgumentException` for a destination that is not writable and seekable.
 
 **Dependencies**: `System.Net.Http.HttpClient`, `IModelDownloadClient` (implements it),
 `SpeechModelDownloadProgress`, `DownloadMirror`.
 
-**Callers**: `SpeechModelDownloader`, as its default `IModelDownloadClient` when none is injected.
+**Callers**: `SpeechModelDownloader`, as its default `IModelDownloadClient` when none is injected; its internal
+`DownloadFromOffsetAsync` is called only by `SpeechModelDownloader`'s resumable fetch.

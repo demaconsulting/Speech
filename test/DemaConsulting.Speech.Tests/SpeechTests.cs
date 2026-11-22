@@ -264,6 +264,98 @@ public class SpeechTests
     }
 
     /// <summary>
+    ///     Proves that the system downloads a model published as a bundle end to end: the catalog fetches the single
+    ///     pinned zip, the model's install hook extracts and verifies every vendor file against the bundle's
+    ///     <c>model.json</c> and the compiled pins, and the installed model holds exactly the vendor files plus the
+    ///     bundle's license folder, with no zip left behind.
+    /// </summary>
+    [Fact]
+    public async Task Speech_DownloadBundledModel_InstallsVerifiedFiles()
+    {
+        // Arrange: a scratch store, a bundled model, and a fake client serving its zip
+        var testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        try
+        {
+            var store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = testRoot });
+            var zip = ModelBundleTestZips.BuildZip(ModelBundleTestZips.BundleEntries());
+            var bundle = ModelBundleTestZips.BundleFor(zip);
+            var model = new FakeCatalogModel(
+                "system-bundled-model",
+                SpeechModelBundle.CreateDescriptor([bundle]),
+                (staging, token) => SpeechModelBundle.InstallAsync([bundle], staging, token));
+            using var catalog = new SpeechModelCatalog([model], store, new FixedPayloadModelDownloadClient(zip));
+
+            // Act
+            var result = await catalog.DownloadAsync("system-bundled-model", cancellationToken: TestContext.Current.CancellationToken);
+
+            // Assert: installed with verified vendor files and the bundle's license folder
+            Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+            var current = store.GetCurrentDirectory("system-bundled-model");
+            Assert.Equal(
+                [
+                    "licenses/test-model-v1.0-int8-b1/LICENSE",
+                    "licenses/test-model-v1.0-int8-b1/NOTICE",
+                    "licenses/test-model-v1.0-int8-b1/README.txt",
+                    "licenses/test-model-v1.0-int8-b1/model.json",
+                    "onnx/model.onnx",
+                    "voices/af.bin",
+                ],
+                ModelBundleTestZips.ListFiles(current));
+            foreach (var (path, content) in ModelBundleTestZips.VendorFiles)
+            {
+                Assert.Equal(content, await File.ReadAllBytesAsync(Path.Join(current, path), TestContext.Current.CancellationToken));
+            }
+        }
+        finally
+        {
+            TryDeleteDirectory(testRoot);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that the system resumes an interrupted model download: a transfer that loses its connection part-way
+    ///     installs nothing, and the next download asks the server only for the remaining bytes and installs the
+    ///     verified model.
+    /// </summary>
+    [Fact]
+    public async Task Speech_DownloadInterruptedModel_ResumesOnRetry()
+    {
+        // Arrange: a scratch store and an in-memory server whose first response drops after 256 bytes
+        var testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        try
+        {
+            var store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = testRoot });
+            var payload = Enumerable.Range(0, 2048).Select(value => (byte)(value * 7)).ToArray();
+            var descriptor = new SpeechModelDownloadDescriptor(
+            [
+                new SpeechModelDownloadFile(new Uri("https://example.test/model.bin"), Convert.ToHexStringLower(SHA256.HashData(payload)), "model.bin")
+            ]);
+            var handler = new FakeRangeHttpMessageHandler(payload) { FailAfterBytes = 256 };
+            using var httpClient = new HttpClient(handler);
+            using var client = new HttpModelDownloadClient(httpClient);
+            using var downloader = new SpeechModelDownloader(store, client);
+
+            // Act: the interrupted attempt, then the retry
+            var interrupted = await downloader.DownloadAsync("system-resume-model", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+            var resumed = await downloader.DownloadAsync("system-resume-model", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+            // Assert: only the retry installed, and it requested just the missing bytes
+            Assert.NotEqual(SpeechModelDownloadOutcome.Installed, interrupted.Outcome);
+            Assert.Equal(SpeechModelDownloadOutcome.Installed, resumed.Outcome);
+            Assert.Equal("bytes=256-", handler.ReceivedRanges[^1]?.ToString());
+            Assert.Equal(
+                payload,
+                await File.ReadAllBytesAsync(Path.Join(store.GetCurrentDirectory("system-resume-model"), "model.bin"), TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            TryDeleteDirectory(testRoot);
+        }
+    }
+
+    /// <summary>
     ///     Proves that the system composes the full streaming recognition pipeline end to end:
     ///     <see cref="SpeechRecognizerFactory"/> loads a real engine over an installed model, an
     ///     <see cref="IRecognitionSession"/> is bound to an available capture device, a captured
@@ -615,10 +707,14 @@ public class SpeechTests
 
     /// <summary>
     ///     Minimal fake <see cref="ISpeechModel"/> used only by the system-level catalog
-    ///     integration test, so that test does not depend on the wider test project's
-    ///     <c>Fakes</c> helpers.
+    ///     integration tests, so those tests do not depend on the wider test project's
+    ///     <c>Fakes</c> helpers. An optional install hook stands in for a model's own
+    ///     <see cref="ISpeechModel.InstallAsync"/> override (for example a bundle install).
     /// </summary>
-    private sealed class FakeCatalogModel(string id, SpeechModelDownloadDescriptor downloadDescriptor) : IRecognitionModel
+    private sealed class FakeCatalogModel(
+        string id,
+        SpeechModelDownloadDescriptor downloadDescriptor,
+        Func<string, CancellationToken, Task>? installHook = null) : IRecognitionModel
     {
         /// <inheritdoc/>
         public string Id => id;
@@ -637,6 +733,10 @@ public class SpeechTests
 
         /// <inheritdoc/>
         public SpeechModelDownloadDescriptor DownloadDescriptor => downloadDescriptor;
+
+        /// <inheritdoc/>
+        public Task InstallAsync(string stagedFilesDirectory, CancellationToken cancellationToken = default) =>
+            installHook?.Invoke(stagedFilesDirectory, cancellationToken) ?? Task.CompletedTask;
 
         /// <inheritdoc/>
         AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);

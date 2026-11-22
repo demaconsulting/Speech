@@ -235,3 +235,17 @@ leaves a `current.replaced-*` directory behind and asserts cleanup removes it wh
 
 A canceled token throws `OperationCanceledException` before the cleanup starts and the leftover
 staging directory is left in place.
+
+##### Partial Directory: Location, Kept By Cleanup, Removed By Uninstall
+
+**Test**: `SpeechModelStore_GetPartialDirectory_ReturnsPartialUnderModelDirectory`
+
+**Test**: `SpeechModelStore_CleanUpLeftovers_KeepsPartials`
+
+**Test**: `SpeechModelStore_Uninstall_RemovesPartials`
+
+**Test**: `SpeechModelStore_DeletePartialDirectory_RemovesPartialsAndToleratesAbsence`
+
+The partial directory is `.partial` directly under the model directory and is not created by the query; leftover
+cleanup removes a staging directory but keeps a partial file; uninstall removes `.partial/`; deleting it twice
+does not throw.

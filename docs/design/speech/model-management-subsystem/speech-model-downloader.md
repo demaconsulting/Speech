@@ -118,6 +118,31 @@ underlying exception, populated for every non-`Installed` outcome.
   install hook (used for the manifest's `TotalSizeBytes`), and `VerifyChecksumAsync(path, expected)` hashes
   the staged file with SHA-256 and compares it to the declared checksum case-insensitively (the hash is
   rendered as lower-case hex and the comparison ignores case, so an upper-case declared checksum matches).
+- **FetchFileAsync / FetchResumableAsync** *(private)*: Fetch one declared file to its staged path. When the client
+  is the concrete `HttpModelDownloadClient` (the default, and the same `_client is HttpModelDownloadClient`
+  precedent the timeout classification below uses), the file is fetched in a resumable way:
+  1. Open `{model}/.partial/{sha256-lower}.part` (`SpeechModelStore.GetPartialDirectory`) with
+     `FileMode.OpenOrCreate` and `FileShare.None`, and seek to its end. Naming the file by the expected checksum
+     means a changed pin never resumes stale bytes.
+  2. When the partial file is not empty, report an `Info` diagnostic, `Resuming '{file}' of model '{id}' at N
+     bytes.`
+  3. Call `HttpModelDownloadClient.DownloadFromOffsetAsync` with that offset (a `Range` request; see its design).
+  4. `File.Move` the completed file into the staged path (a same-volume rename, both being under the model's
+     directory), after which the existing SHA-256 verification runs. A file that fails verification is discarded
+     with the staging directory, so the next attempt starts clean.
+  5. On a transport failure or cancellation the partial file stays, which is what lets the next call resume.
+
+  Resume works across calls only; there is no automatic retry within one call. Any other (host-supplied)
+  `IModelDownloadClient` keeps the original behavior: the file is written straight to the staged path with
+  `FileMode.Create`, and an interrupted transfer starts over. After `CompleteInstall` succeeds the downloader
+  calls `SpeechModelStore.DeletePartialDirectory`, removing every partial file of the model (including any left
+  by an older pin).
+- **Bundled models**: no bundle-specific code exists here. A model distributed as a `SpeechModelBundle` declares
+  the bundle archives as its download files (one per bundle, staged under the bundle file name), so each archive is
+  fetched, resumed, mirror-resolved (`{mirror}/{model-id}/{bundle}.zip`) and SHA-256-verified exactly like any
+  other file, and the model's install hook (`SpeechModelBundle.InstallAsync`) extracts and verifies the contents.
+  A tampered archive is therefore `ChecksumMismatch`, and an extraction failure is the install-hook `Failed`
+  classification with nothing installed.
 
 **Error Handling**: Every `DownloadAsync` overload throws `ArgumentNullException` for a null
 descriptor or model, `ArgumentException` for a null, empty or invalid model id (validated through
@@ -141,7 +166,8 @@ permission denied, path too long); and `Failed` as the final generic fallback fo
 with the original exception always attached. Classification itself never throws - an unrecognized
 exception type simply falls through to `Failed`.
 
-`FetchFileAsync` wraps a `TaskCanceledException` thrown by the download client's `DownloadAsync`
+`FetchFileAsync` wraps a `TaskCanceledException` thrown by the download client's `DownloadAsync` (or, on the
+resumable path, `DownloadFromOffsetAsync`)
 call in a private `HttpFetchTimeoutException` only when all three guard conditions hold: the
 client is the concrete `HttpModelDownloadClient`, `cancellationToken` itself was not canceled, and
 the exception's `InnerException` is a `TimeoutException` - the documented shape .NET's `HttpClient`
@@ -179,10 +205,11 @@ normal (non-crashed) failure path always cleans up.
 
 **Requirement mapping**: the unit requirements state the observable behavior only (validation,
 serialization, verification and all-or-nothing install, mirror addressing and credentials, outcome
-classification, install-step handling, disposal); the two constructor overloads, the three
-`DownloadAsync` overloads, the internal `ResolveEffectiveUri`/`RelayProgress`/`ClassifyFailure`
-helpers, the SHA-256 algorithm choice, the `HttpFetchTimeoutException` wrapper, and the
-`SpeechModelStore` staging/`CompleteInstall` collaboration are design detail documented above.
+classification, install-step handling, disposal, bundle installs, resume and partial-file retention); the two
+constructor overloads, the three `DownloadAsync` overloads, the internal `ResolveEffectiveUri`/`RelayProgress`/
+`ClassifyFailure` helpers, the SHA-256 algorithm choice, the `HttpFetchTimeoutException` wrapper, the partial-file
+naming and the `SpeechModelStore` staging/`CompleteInstall`/partial-directory collaboration are design detail
+documented above.
 `SpeechModelDownloaderOptions` (a record with a single optional `Mirror`, default `null`) and
 `SpeechModelDownloadProgress` (a record of `FileIndex`, `FileCount`, `BytesTransferred`, `TotalBytes`
 with a computed `FractionComplete`) are declared alongside this unit and described in their own

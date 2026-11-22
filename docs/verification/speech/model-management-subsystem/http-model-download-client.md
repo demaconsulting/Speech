@@ -94,3 +94,38 @@ Verifies the mirror's secret is never sent to a URI that is not under the mirror
 **Test**: `HttpModelDownloadClient_DownloadAsync_MirrorBaseUriTrailingSlashMismatch_SendsAuthorizationHeader`
 
 Verifies the in-scope check is insensitive to a trailing slash on the configured base URI.
+
+##### Resume: Matching Partial Content Is Appended
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_PartialContent_Appends`
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_ZeroOffset_SendsNoRangeHeader`
+
+Uses the in-memory `FakeRangeHttpMessageHandler` (no network) behind a real `HttpModelDownloadClient`. A destination
+holding the first 10 bytes receives `Range: bytes=10-`, the `206` body is appended to give the exact file, and
+progress starts at 10 bytes with the complete length as total; a zero offset sends no `Range` header.
+
+##### Resume: Ignored, Refused Or Mismatched Range Falls Back To A Full Download
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_FullContent_Rewrites`
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_RangeNotSatisfiable_Restarts`
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_ContentRangeMismatch_Restarts`
+
+A `200` answer replaces stale held bytes with the full body in one request; a `416`, and a `206` starting at the
+wrong offset, are each followed by exactly one plain request without `Range`, and the destination ends up equal to
+the file.
+
+##### Resume: Error Answer Throws And Keeps Held Bytes
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_NotFound_ThrowsAndKeepsHeldBytes`
+
+A `404` answer to a resume request throws `HttpRequestException` with the status, and the 10 held bytes remain.
+
+##### Resume: Mirror Authentication Accompanies The Range Request
+
+**Test**: `HttpModelDownloadClient_DownloadFromOffsetAsync_MirrorUri_SendsAuthorizationWithRange`
+
+A resume request to a URI under a bearer-token mirror carries both the `Authorization: Bearer` header and the
+`Range` header.

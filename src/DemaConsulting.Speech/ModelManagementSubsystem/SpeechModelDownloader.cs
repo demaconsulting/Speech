@@ -22,6 +22,10 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     checksum-mismatched download is never handed to the store's install step, so a prior
 ///     successful install of the same model (if any) is left completely untouched and still
 ///     reports installed - a failed repair attempt never regresses an already-working model.
+///     When the download client is the concrete <see cref="HttpModelDownloadClient"/> (the default), each file is
+///     fetched into a resumable partial file kept in the store's <c>.partial/</c> directory, so a later call after a
+///     network failure or cancellation continues from the bytes already received; the partial files are removed once
+///     the model installs. A host-supplied client keeps the non-resumable behavior.
 /// </remarks>
 public sealed class SpeechModelDownloader : IDisposable
 {
@@ -422,6 +426,8 @@ public sealed class SpeechModelDownloader : IDisposable
 
                 var effectiveUri = ResolveEffectiveUri(file.Uri, _mirror, modelId, file.RelativeInstallPath);
                 await FetchFileAsync(
+                        modelId,
+                        file,
                         effectiveUri,
                         destinationPath,
                         fileIndex,
@@ -463,6 +469,9 @@ public sealed class SpeechModelDownloader : IDisposable
             // Hand off the fully verified (and, if applicable, installed) staging directory to
             // the store for the current/ replace.
             _store.CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes);
+
+            // Every file is installed, so any interrupted-download bytes kept for resuming are now redundant
+            _store.DeletePartialDirectory(modelId);
             return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -615,9 +624,28 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     Fetches one declared file through <see cref="_client"/>, translating its
     ///     single-file-relative progress reports into the caller's overall, multi-file view.
     /// </summary>
+    /// <remarks>
+    ///     When <see cref="_client"/> is the concrete <see cref="HttpModelDownloadClient"/> the file is fetched into a
+    ///     resumable partial file, <c>{model}/.partial/{sha256}.part</c> (see <see cref="SpeechModelStore.GetPartialDirectory"/>),
+    ///     continuing from whatever bytes an earlier, interrupted attempt left there (an <c>Info</c> diagnostic reports
+    ///     the resume offset), and the completed file is then moved to <paramref name="destinationPath"/>. The partial
+    ///     file is named by the file's expected SHA-256, so bytes from an earlier, differently pinned file are never
+    ///     resumed. It stays in place when the transfer fails or is canceled, which is what lets the next call resume.
+    ///     Any other, host-supplied <see cref="IModelDownloadClient"/> keeps the original behavior: the file is
+    ///     written straight to <paramref name="destinationPath"/> and an interrupted transfer starts over.
+    /// </remarks>
+    /// <param name="modelId">The model id the file belongs to (locates its partial directory).</param>
+    /// <param name="file">The declared file (its checksum names the partial file).</param>
+    /// <param name="effectiveUri">The URI to fetch from (mirror-resolved).</param>
+    /// <param name="destinationPath">The staged path the complete file must end up at.</param>
+    /// <param name="fileIndex">The file's position within the descriptor.</param>
+    /// <param name="fileCount">The number of files in the descriptor.</param>
+    /// <param name="progress">An optional progress sink.</param>
+    /// <param name="cancellationToken">A token that aborts the transfer.</param>
+    /// <returns>A task that completes when the file is at <paramref name="destinationPath"/>.</returns>
     /// <exception cref="HttpFetchTimeoutException">
     ///     Thrown when <see cref="_client"/> is the concrete <see cref="HttpModelDownloadClient"/>
-    ///     and its <c>DownloadAsync</c> call itself throws a <see cref="TaskCanceledException"/>
+    ///     and its download call itself throws a <see cref="TaskCanceledException"/>
     ///     not caused by <paramref name="cancellationToken"/> whose
     ///     <see cref="Exception.InnerException"/> is a <see cref="TimeoutException"/> - the
     ///     documented .NET <see cref="HttpClient"/> behavior that proves the cancellation
@@ -635,6 +663,8 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     genuinely signals a network-level timeout.
     /// </exception>
     private async Task FetchFileAsync(
+        string modelId,
+        SpeechModelDownloadFile file,
         Uri effectiveUri,
         string destinationPath,
         int fileIndex,
@@ -646,10 +676,17 @@ public sealed class SpeechModelDownloader : IDisposable
             ? null
             : new RelayProgress(progress, fileIndex, fileCount);
 
-        await using var destinationStream =
-            new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
         try
         {
+            if (_client is HttpModelDownloadClient httpClient)
+            {
+                await FetchResumableAsync(httpClient, modelId, file, effectiveUri, destinationPath, fileProgress, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            await using var destinationStream =
+                new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
             await _client.DownloadAsync(effectiveUri, destinationStream, fileProgress, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -670,6 +707,53 @@ public sealed class SpeechModelDownloader : IDisposable
             // the generic Failed classification instead).
             throw new HttpFetchTimeoutException(ex);
         }
+    }
+
+    /// <summary>
+    ///     Fetches one file through the concrete HTTP client into its resumable partial file, continuing any bytes an
+    ///     earlier attempt left there, then moves the completed file to its staged path.
+    /// </summary>
+    /// <param name="httpClient">The concrete HTTP client (<see cref="_client"/>).</param>
+    /// <param name="modelId">The model id the file belongs to.</param>
+    /// <param name="file">The declared file.</param>
+    /// <param name="effectiveUri">The URI to fetch from (mirror-resolved).</param>
+    /// <param name="destinationPath">The staged path the complete file must end up at.</param>
+    /// <param name="fileProgress">The per-file progress relay, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">A token that aborts the transfer.</param>
+    /// <returns>A task that completes when the file is at <paramref name="destinationPath"/>.</returns>
+    private async Task FetchResumableAsync(
+        HttpModelDownloadClient httpClient,
+        string modelId,
+        SpeechModelDownloadFile file,
+        Uri effectiveUri,
+        string destinationPath,
+        IProgress<SpeechModelDownloadProgress>? fileProgress,
+        CancellationToken cancellationToken)
+    {
+        // The partial file is keyed by the expected checksum, so a changed pin never resumes stale bytes
+        var partialDirectory = _store.GetPartialDirectory(modelId);
+        Directory.CreateDirectory(partialDirectory);
+        var partialPath = Path.Join(partialDirectory, file.Sha256Checksum.ToLowerInvariant() + ".part");
+
+        await using (var partialStream = new FileStream(partialPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
+        {
+            // Continue after whatever an earlier, interrupted attempt already wrote
+            var offset = partialStream.Seek(0, SeekOrigin.End);
+            if (offset > 0)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Info,
+                    "ModelManagementSubsystem",
+                    $"Resuming '{file.RelativeInstallPath}' of model '{modelId}' at {offset} bytes.");
+            }
+
+            await httpClient.DownloadFromOffsetAsync(effectiveUri, partialStream, offset, fileProgress, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        // Both paths are under the model's directory, so this is a same-volume rename; the caller then verifies the
+        // checksum, and a mismatching file is discarded with the staging directory so the next attempt starts clean
+        File.Move(partialPath, destinationPath);
     }
 
     /// <summary>

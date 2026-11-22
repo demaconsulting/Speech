@@ -38,7 +38,10 @@ exists so tests can exercise the caps with small limits:
 
 **Error Handling**: A null pack throws `ArgumentNullException` and a null or empty staging directory throws
 `ArgumentException`. All archive problems are `InvalidDataException` (which the downloader classifies as
-`Failed`, installing nothing): a file that is not a zip archive, an entry name containing a backslash,
+`Failed`, installing nothing). The zip-slip guard, the portable-name check and the resolved-path containment check
+are not implemented here: they are the shared `ZipEntryPathValidator` (see *ZipEntryPathValidator*), which
+`SpeechModelBundleInstaller` uses too, so the security-sensitive checks exist once. The rejected cases are: a file
+that is not a zip archive, an entry name containing a backslash,
 a colon, a leading slash, a NUL, or a `..` or `.` segment (rejected for every entry, even one the allow-list
 would otherwise ignore, because the name check runs before the allow-list), an entry (extracted or
  ignored) with a segment that is
@@ -55,6 +58,6 @@ it. Cancellation propagates as
 `OperationCanceledException`. Because the archive is checksum-verified the
 caps are a second line of protection rather than the first.
 
-**Dependencies**: `ReferenceVoicePack`, `System.IO.Compression`.
+**Dependencies**: `ReferenceVoicePack`, `ZipEntryPathValidator`, `System.IO.Compression`.
 
 **Callers**: `ReferenceVoiceLibrary.InstallPackAsync`, through the downloader's install-hook overload.

@@ -65,4 +65,11 @@ mid-download.
 
 **Callers**: `SpeechModelDownloaderOptions` (as its `Mirror` property);
 `SpeechModelDownloader.ResolveEffectiveUri` (reads `BaseUri`); `HttpModelDownloadClient.DownloadAsync`
-(reads `Credentials`/`BearerToken` to apply mirror authentication).
+and `HttpModelDownloadClient.DownloadFromOffsetAsync` (read `Credentials`/`BearerToken` to apply mirror
+authentication).
+
+**Bundled models on a mirror**: a model distributed as a `SpeechModelBundle` declares one download file per
+bundle archive, whose relative install path is the bundle file name, so the mirror serves it at
+`{BaseUri}/{model-id}/{bundle}.zip` (for example `{BaseUri}/kokoro-onnx-v1_0-en/kokoro-en-v1.0-int8-b1.zip`)
+rather than one path per vendor file. No mirror-specific code exists for this; it follows from the bundle's
+download file.

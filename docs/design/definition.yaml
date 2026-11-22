@@ -58,6 +58,9 @@ input-files:
   - docs/design/speech/model-management-subsystem/speech-model-downloader.md
   - docs/design/speech/model-management-subsystem/speech-model-downloader-options.md
   - docs/design/speech/model-management-subsystem/download-mirror.md
+  - docs/design/speech/model-management-subsystem/zip-entry-path-validator.md
+  - docs/design/speech/model-management-subsystem/speech-model-bundle.md
+  - docs/design/speech/model-management-subsystem/speech-model-bundle-installer.md
   - docs/design/speech/model-management-subsystem/speech-model-descriptor-enums.md
   - docs/design/speech/model-management-subsystem/speech-model-parameters.md
   - docs/design/speech/model-management-subsystem/speech-model-contract.md

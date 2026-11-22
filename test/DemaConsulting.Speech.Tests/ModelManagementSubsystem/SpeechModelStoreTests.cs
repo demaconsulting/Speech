@@ -981,6 +981,94 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a model's partial-download directory is the <c>.partial</c> folder directly under its model
+    ///     directory, beside (not inside) its installed and staging directories.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_GetPartialDirectory_ReturnsPartialUnderModelDirectory()
+    {
+        // Arrange
+        var store = NewStore();
+
+        // Act
+        var partial = store.GetPartialDirectory("model-a");
+
+        // Assert
+        Assert.Equal(Path.Join(store.GetModelDirectory("model-a"), ".partial"), partial);
+        Assert.False(Directory.Exists(partial));
+    }
+
+    /// <summary>
+    ///     Proves that the leftover cleanup run before every download keeps the partial-download directory, so the
+    ///     interrupted-download bytes it holds survive for the next attempt to resume.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CleanUpLeftovers_KeepsPartials()
+    {
+        // Arrange: a leftover staging directory and a partial download
+        var store = NewStore();
+        var (_, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "partial");
+        var partialFile = WritePartialFile(store, "model-a");
+
+        // Act
+        store.CleanUpLeftovers("model-a");
+
+        // Assert
+        Assert.False(Directory.Exists(stagingDirectory));
+        Assert.True(File.Exists(partialFile));
+    }
+
+    /// <summary>
+    ///     Proves that uninstalling a model also removes its partial-download directory.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_Uninstall_RemovesPartials()
+    {
+        // Arrange
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+        WritePartialFile(store, "model-a");
+
+        // Act
+        store.Uninstall("model-a");
+
+        // Assert
+        Assert.False(store.IsInstalled("model-a"));
+        Assert.False(Directory.Exists(store.GetPartialDirectory("model-a")));
+    }
+
+    /// <summary>
+    ///     Proves that deleting the partial-download directory removes it and is a harmless no-op when it is absent.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_DeletePartialDirectory_RemovesPartialsAndToleratesAbsence()
+    {
+        // Arrange
+        var store = NewStore();
+        WritePartialFile(store, "model-a");
+
+        // Act
+        store.DeletePartialDirectory("model-a");
+        store.DeletePartialDirectory("model-a");
+
+        // Assert
+        Assert.False(Directory.Exists(store.GetPartialDirectory("model-a")));
+    }
+
+    /// <summary>
+    ///     Writes a partial-download file into a model's partial directory and returns its path.
+    /// </summary>
+    private static string WritePartialFile(SpeechModelStore store, string modelId)
+    {
+        var partialDirectory = store.GetPartialDirectory(modelId);
+        Directory.CreateDirectory(partialDirectory);
+        var path = Path.Join(partialDirectory, new string('a', 64) + ".part");
+        File.WriteAllText(path, "first bytes");
+        return path;
+    }
+
+    /// <summary>
     ///     Constructs a store rooted at this test's scratch directory.
     /// </summary>
     private SpeechModelStore NewStore() =>

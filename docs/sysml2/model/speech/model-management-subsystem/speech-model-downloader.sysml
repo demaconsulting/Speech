@@ -32,7 +32,9 @@ package Speech_SpeechModelDownloader {
              * authentication applied only to requests sent to it. A download/install failure beyond ChecksumMismatch
              * is further classified by an internal ClassifyFailure helper into HttpError, NetworkBlocked, IoFailure,
              * or the generic Failed fallback, while a genuine caller cancellation always propagates unchanged as
-             * OperationCanceledException. */
+             * OperationCanceledException. With the built-in HttpModelDownloadClient each file is fetched into a
+             * resumable partial file in the store's .partial directory and continued with an HTTP Range request on the
+             * next call. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloader.cs");
@@ -42,8 +44,8 @@ package Speech_SpeechModelDownloader {
             requirementFiles = ("docs/reqstream/speech/model-management-subsystem/speech-model-downloader.yaml");
         }
 
-        // Fetches files through the download client, verifies them, and installs them atomically in the
-        // store.
+        // Fetches files through the download client (resuming through the concrete HTTP client's ranged download),
+        // verifies them, and installs them atomically in the store (keeping partial files in its partial directory).
         dependency SpeechModelDownloader to DownloadMirror;
         dependency SpeechModelDownloader to HttpModelDownloadClient;
         dependency SpeechModelDownloader to IModelDownloadClient;

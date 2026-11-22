@@ -1,0 +1,57 @@
+---
+# Software Unit Requirements for ZipEntryPathValidator
+#
+# Unit-level behavior of the internal ZipEntryPathValidator (the shared zip-slip and
+# name-portability guard used by every archive installer), decomposing the parent
+# ModelManagementSubsystem archive-safety requirements. Covered by
+# test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ZipEntryPathValidatorTests.cs.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ZipEntryPathValidator Requirements
+            requirements:
+              - id: Speech-Models-ZipEntryPathValidator-UnsafeNames
+                title: >-
+                  The ZipEntryPathValidator shall reject an archive entry name containing a parent or
+                  current-directory segment, a leading slash, a backslash, a colon or a NUL character.
+                justification: |
+                  Each of these lets an entry name resolve outside the extraction directory (zip-slip)
+                  on some platform.
+                tests:
+                  - ZipEntryPathValidator_SplitSafely_UnsafeName_ThrowsInvalidDataException
+
+              - id: Speech-Models-ZipEntryPathValidator-Segments
+                title: >-
+                  The ZipEntryPathValidator shall split a safe entry name into its non-empty path
+                  segments.
+                justification: |
+                  Installers map entries to destinations by segment, and a directory entry's trailing
+                  slash must not produce an empty segment.
+                tests:
+                  - ZipEntryPathValidator_SplitSafely_SafeName_ReturnsSegments
+
+              - id: Speech-Models-ZipEntryPathValidator-PortableNames
+                title: >-
+                  The ZipEntryPathValidator shall reject an entry name with a segment that is not valid
+                  on every platform: invalid or control characters, a trailing dot or space, or a
+                  reserved device name.
+                justification: |
+                  An archive that extracts on one platform must not fail, or write a different file,
+                  on another.
+                tests:
+                  - ZipEntryPathValidator_Validate_NonPortableSegment_ThrowsInvalidDataException
+
+              - id: Speech-Models-ZipEntryPathValidator-RootContainment
+                title: >-
+                  The ZipEntryPathValidator shall reject a destination that does not resolve strictly
+                  inside the extraction directory.
+                justification: |
+                  A final check on the resolved path protects against any name the other checks might
+                  miss, including a sibling directory that shares the extraction directory's name as a
+                  prefix.
+                tests:
+                  - ZipEntryPathValidator_ResolveUnderRoot_PathInsideRoot_ReturnsFullPath
+                  - ZipEntryPathValidator_ResolveUnderRoot_PathOutsideRoot_ThrowsInvalidDataException

@@ -18,7 +18,9 @@ installed content), `install-manifest.json` (a sidecar record of `TotalSizeBytes
 `InstalledAtUtc`, written only after a successful swap), and `.tmp/{operationId}/` (scratch
 staging space, never read as installed content). A nested `internal` `InstallManifest` record
 (`TotalSizeBytes`, `InstalledAtUtc`) is the manifest's serialized shape. A superseded `current/` is renamed
-to `current.replaced-{operationId}` and best-effort deleted after the replacement.
+to `current.replaced-{operationId}` and best-effort deleted after the replacement. A fourth sibling,
+`.partial/`, holds the `{sha256}.part` files of interrupted downloads so a later attempt can resume them; it is
+never read as installed content and survives leftover cleanup.
 
 **Key Methods**:
 
@@ -65,7 +67,14 @@ to `current.replaced-{operationId}` and best-effort deleted after the replacemen
   at the call site, observes the token only before the removal starts, and reports failures through the task.
 - **CleanUpLeftovers(modelId)**: Best-effort deletes leftover `current.replaced-*` and `.tmp/*`
   directories from a prior interrupted operation. **CleanUpLeftoversAsync(modelId, ct)** is its awaitable form
-  (thread pool, token observed before it starts). The downloader awaits it.
+  (thread pool, token observed before it starts). The downloader awaits it. It deliberately keeps `.partial/`:
+  the downloader runs it before every attempt, and the interrupted-download bytes there are what that attempt
+  resumes from.
+- **GetPartialDirectory(modelId)** *(internal)*: Returns `{RootPath}/{modelId}/.partial` (which may not exist),
+  where `SpeechModelDownloader` keeps resumable partial files.
+- **DeletePartialDirectory(modelId)** *(internal)*: Best-effort, recursive delete of `.partial/`; never throws
+  for a deletion failure. Called by `SpeechModelDownloader` after a successful install and by `Uninstall`, which
+  removes `.partial/` after its other work so a model's partial bytes never outlive it.
 
 **Error Handling**: `IsInstalled` and `CleanUpLeftovers` never throw for ordinary storage-state
 conditions (missing model, missing, malformed, or field-less `{}` manifest, leftover directory

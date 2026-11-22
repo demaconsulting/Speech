@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -50,6 +51,12 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     add non-trivial security-sensitive code to re-solve a risk .NET's handler already
 ///     mitigates. A mirror expected to redirect should instead be configured at its final,
 ///     non-redirecting URI.
+///     </para>
+///     <para>
+///     Besides the public <see cref="DownloadAsync"/>, the internal <c>DownloadFromOffsetAsync</c> continues an
+///     interrupted download with an HTTP <c>Range</c> request (falling back to a full download when the server ignores
+///     or refuses the range). <see cref="SpeechModelDownloader"/> uses it when its client is this concrete type, so
+///     resume never requires widening <see cref="IModelDownloadClient"/>.
 ///     </para>
 /// </remarks>
 public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
@@ -146,16 +153,144 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
-        var totalBytes = response.Content.Headers.ContentLength;
+        await CopyBodyAsync(response, destination, 0, response.Content.Headers.ContentLength, progress, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
+    /// <summary>
+    ///     Downloads a file into a seekable destination that may already hold its first
+    ///     <paramref name="offset"/> bytes from an interrupted earlier attempt, asking the server for only the
+    ///     remaining bytes (an HTTP <c>Range</c> request) and appending them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///     This is the resume path <see cref="SpeechModelDownloader"/> uses when its client is this concrete type; it
+    ///     is internal because <see cref="IModelDownloadClient"/>'s public signature is never widened. With
+    ///     <paramref name="offset"/> zero it is exactly <see cref="DownloadAsync"/> (after truncating the
+    ///     destination). Otherwise it sends <c>Range: bytes={offset}-</c>, with the same mirror authentication rule as
+    ///     <see cref="DownloadAsync"/>, and handles the response as follows:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item><description>
+    ///             <c>206 Partial Content</c> whose <c>Content-Range</c> starts at <paramref name="offset"/>: the body is
+    ///             appended after the existing bytes. Progress reports count the existing bytes, so
+    ///             <see cref="SpeechModelDownloadProgress.BytesTransferred"/> starts at <paramref name="offset"/> and
+    ///             <see cref="SpeechModelDownloadProgress.TotalBytes"/> is the <c>Content-Range</c> complete length.
+    ///         </description></item>
+    ///         <item><description>
+    ///             Any other success status (typically <c>200 OK</c>, a server that ignores <c>Range</c>): the
+    ///             destination is truncated and the full body written.
+    ///         </description></item>
+    ///         <item><description>
+    ///             <c>416 Range Not Satisfiable</c>, or a <c>206</c> whose range does not start at
+    ///             <paramref name="offset"/>: the existing bytes cannot be trusted to line up, so the destination is
+    ///             truncated and the file downloaded once more from the start without <c>Range</c>. There is no further
+    ///             retry.
+    ///         </description></item>
+    ///         <item><description>
+    ///             Any other status: <see cref="HttpResponseMessage.EnsureSuccessStatusCode"/> throws, exactly as for
+    ///             <see cref="DownloadAsync"/>.
+    ///         </description></item>
+    ///     </list>
+    ///     <para>
+    ///     The resumed bytes are not verified here; the caller verifies the whole file's SHA-256 afterwards, so a
+    ///     server that served mismatched bytes is caught there. On failure or cancellation the bytes already written
+    ///     stay in <paramref name="destination"/>, which is what lets a later call resume.
+    ///     </para>
+    /// </remarks>
+    /// <param name="sourceUri">The file's URI.</param>
+    /// <param name="destination">
+    ///     A writable, seekable stream holding the bytes already received (its length is expected to equal
+    ///     <paramref name="offset"/>). Not disposed by this method.
+    /// </param>
+    /// <param name="offset">The number of bytes already received; zero for a fresh download. Must not be negative.</param>
+    /// <param name="progress">An optional progress sink.</param>
+    /// <param name="cancellationToken">A token that aborts the transfer after the current chunk.</param>
+    /// <returns>A task that completes when the destination holds the whole file.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sourceUri"/> or <paramref name="destination"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="destination"/> is not writable and seekable.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="offset"/> is negative.</exception>
+    /// <exception cref="HttpRequestException">Thrown for a non-success response or a transport failure.</exception>
+    internal async Task DownloadFromOffsetAsync(
+        Uri sourceUri,
+        Stream destination,
+        long offset,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sourceUri);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        if (!destination.CanSeek || !destination.CanWrite)
+        {
+            throw new ArgumentException("The destination must be writable and seekable to resume a download.", nameof(destination));
+        }
+
+        if (offset > 0)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, sourceUri);
+            ApplyMirrorAuthentication(request, sourceUri);
+            request.Headers.Range = new RangeHeaderValue(offset, null);
+
+            using var response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+
+            // 206 for exactly the requested range: append the remaining bytes after the ones already held
+            var contentRange = response.Content.Headers.ContentRange;
+            if (response.StatusCode == HttpStatusCode.PartialContent && contentRange is { HasRange: true } && contentRange.From == offset)
+            {
+                var totalBytes = contentRange.Length ?? offset + response.Content.Headers.ContentLength;
+                destination.Seek(offset, SeekOrigin.Begin);
+                await CopyBodyAsync(response, destination, offset, totalBytes, progress, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            // Any other success except a mismatched 206 is a full body (the server ignored Range): rewrite from zero
+            if (response.StatusCode != HttpStatusCode.RequestedRangeNotSatisfiable && response.StatusCode != HttpStatusCode.PartialContent)
+            {
+                response.EnsureSuccessStatusCode();
+                destination.SetLength(0);
+                destination.Seek(0, SeekOrigin.Begin);
+                await CopyBodyAsync(response, destination, 0, response.Content.Headers.ContentLength, progress, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            // 416, or a 206 for some other range: the held bytes cannot be trusted, so fall through and restart once
+        }
+
+        destination.SetLength(0);
+        destination.Seek(0, SeekOrigin.Begin);
+        await DownloadAsync(sourceUri, destination, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Streams a response body to the destination in chunks, reporting progress after each chunk.
+    /// </summary>
+    /// <param name="response">The response whose body is copied.</param>
+    /// <param name="destination">The stream written at its current position.</param>
+    /// <param name="initialBytes">The bytes the destination already held for this file (counted in progress).</param>
+    /// <param name="totalBytes">The file's total size when known; otherwise <see langword="null"/>.</param>
+    /// <param name="progress">An optional progress sink.</param>
+    /// <param name="cancellationToken">A token observed between chunks.</param>
+    /// <returns>A task that completes when the whole body is written.</returns>
+    private static async Task CopyBodyAsync(
+        HttpResponseMessage response,
+        Stream destination,
+        long initialBytes,
+        long? totalBytes,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         await using var responseStream = await response.Content
             .ReadAsStreamAsync(cancellationToken)
             .ConfigureAwait(false);
 
         var buffer = new byte[BufferSize];
-        long bytesTransferred = 0;
+        var bytesTransferred = initialBytes;
 
-        // Report an initial 0-byte progress sample immediately, so a caller wiring up a progress
+        // Report an initial progress sample immediately, so a caller wiring up a progress
         // bar sees the file's total size (when known) even before the first chunk arrives.
         progress?.Report(new SpeechModelDownloadProgress(0, 1, bytesTransferred, totalBytes));
 

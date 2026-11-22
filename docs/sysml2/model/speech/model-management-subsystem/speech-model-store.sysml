@@ -7,7 +7,8 @@ package Speech_SpeechModelStore {
         doc /* Per-user speech model storage under a resolved root directory, providing atomic install/repair via a
              * current/ + install-manifest.json + .tmp/{guid} swap that never touches current/ until a verified
              * replacement is fully staged, honest installed-state queries, leftover-tmp cleanup (including the empty
-             * .tmp root after an install), and uninstall (with awaitable UninstallAsync/CleanUpLeftoversAsync forms). */
+             * .tmp root after an install), and uninstall (with awaitable UninstallAsync/CleanUpLeftoversAsync forms). A .partial directory per model keeps
+             * interrupted-download bytes between attempts; cleanup keeps it, and uninstall and a completed install remove it. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelStore.cs");

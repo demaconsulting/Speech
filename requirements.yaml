@@ -61,6 +61,9 @@ includes:
   - docs/reqstream/speech/model-management-subsystem/speech-model-download-progress.yaml
   - docs/reqstream/speech/model-management-subsystem/i-model-download-client.yaml
   - docs/reqstream/speech/model-management-subsystem/http-model-download-client.yaml
+  - docs/reqstream/speech/model-management-subsystem/zip-entry-path-validator.yaml
+  - docs/reqstream/speech/model-management-subsystem/speech-model-bundle.yaml
+  - docs/reqstream/speech/model-management-subsystem/speech-model-bundle-installer.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-descriptor-enums.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-parameters.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-contract.yaml

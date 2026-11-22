@@ -48,7 +48,9 @@ SpeechPhonemesEn English phonemizer library system and its constituent software 
   catalog/contract seam: typed tunable-parameter descriptors, the common per-model contract
   and its role-marker interfaces (the extension point concrete models implement), and catalog
   enumeration of the host-registered known-model list alongside install state; the optional
-  download-mirror redirect (`DownloadMirror`); and the reference-voice pack, its installer and
+  download-mirror redirect (`DownloadMirror`); model bundles (`SpeechModelBundle`) that install
+  a model's unmodified vendor files from one pinned zip with per-file verification, and resumable
+  downloads; and the reference-voice pack, its installer and
   the `ReferenceVoiceLibrary` that lists user-folder and installed-pack voices
 - **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: the public async
   Engine/Session recognizer contract and result types, the composition root (`LoadAsync`/
@@ -574,6 +576,9 @@ src/DemaConsulting.Speech/
     ├── IModelDownloadClient.cs                — Mockable seam for fetching one file's bytes
     ├── HttpModelDownloadClient.cs             — Real HttpClient-backed download implementation
     ├── SpeechModelDownloader.cs               — Queued fetch-verify-install orchestration
+    ├── ZipEntryPathValidator.cs               — Shared zip-slip and portable-name guard
+    ├── SpeechModelBundle.cs                   — Pinned zip bundle of a model's vendor files
+    ├── SpeechModelBundleInstaller.cs          — Bundle extraction and per-file verification
     ├── SpeechModelRole.cs                     — Recognition/Synthesis model role enum
     ├── SpeechModelState.cs                    — Model install lifecycle state enum
     ├── SpeechModelAudioTagSupport.cs          — Declared inline audio-tag support shape enum
