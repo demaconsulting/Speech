@@ -189,10 +189,12 @@ sherpa-onnx GitHub releases, and the optional reference-voice pack comes from it
 **Interrupted downloads resume.** If a download is interrupted (a dropped connection, a timeout, or the
 process being stopped), the bytes received so far are kept in a `.partial` folder inside the model's folder in
 the store (next to `current/`). The next `DownloadAsync` call (or `speech-cli download`) for the same model
-continues from those bytes when the server supports ranged requests, as the GitHub release does, and reports a
-"Resuming" diagnostic. Resuming happens across calls; a single call does not retry on its own. The `.partial` folder is
-removed after a successful install and when the model is uninstalled. Resuming applies to the built-in
-`HttpModelDownloadClient`; a host-supplied `IModelDownloadClient` downloads each file from the start.
+continues from those bytes when the server supports ranged requests, as the GitHub release does. The library
+reports the resume offset as an `Info` diagnostic to the host's `ISpeechDiagnostics` sink; `speech-cli download`
+shows a resumed download as progress that starts from the share already received rather than from 0%. Resuming
+happens across calls; a single call does not retry on its own. The `.partial` folder is removed after a successful
+install and when the model is uninstalled. Resuming applies to the built-in `HttpModelDownloadClient`; a
+host-supplied `IModelDownloadClient` downloads each file from the start.
 
 **Disk space during install.** While a bundle is being installed, the zip and the extracted files exist
 side by side, so the install needs about twice the model's size (for example about 1.6 GB for the Nemotron

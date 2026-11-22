@@ -1550,6 +1550,41 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a partial file named for a different checksum (bytes left by an older pin) is never resumed:
+    ///     the download sends no <c>Range</c>, reports no resume, and installs the verified file.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_PartialFileForOtherChecksum_IsNotResumed()
+    {
+        // Arrange: a partial file of wrong bytes named for another checksum
+        var payload = Enumerable.Range(0, 300).Select(value => (byte)value).ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetPartialDirectory("model-a"));
+        await File.WriteAllBytesAsync(
+            Path.Join(store.GetPartialDirectory("model-a"), new string('0', 64) + ".part"),
+            new byte[120],
+            TestContext.Current.CancellationToken);
+        var handler = new FakeRangeHttpMessageHandler(payload);
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        using var downloader = new SpeechModelDownloader(store, client, diagnostics);
+
+        // Act
+        var result = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert: one whole-file request, no resume reported, the exact file installed
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Null(Assert.Single(handler.ReceivedRanges));
+        Assert.Equal(payload, await File.ReadAllBytesAsync(Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken));
+        diagnostics.DidNotReceive().Report(
+            SpeechDiagnosticLevel.Info,
+            Arg.Any<string>(),
+            Arg.Is<string>(message => message.Contains("Resuming", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
     ///     Proves that a successful install removes the partial-download directory, including partial files of other
     ///     pins left by earlier attempts.
     /// </summary>

@@ -474,14 +474,16 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-ResumableFetch
                 title: >-
                   The model downloader shall, when using the built-in HTTP download client, continue a
-                  file from the bytes an earlier interrupted attempt received, report the resume
-                  offset as an informational diagnostic, and still verify the whole file's checksum.
+                  file from the bytes an earlier interrupted attempt received for the same expected
+                  checksum, report the resume offset as an informational diagnostic, and still verify
+                  the whole file's checksum.
                 justification: |
                   Resuming across calls lets a user re-run an interrupted download of a large model
                   without losing progress, while the checksum still guards the resumed bytes.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry
                   - SpeechModelDownloader_DownloadAsync_ServerIgnoresRange_RestartsAndInstalls
+                  - SpeechModelDownloader_DownloadAsync_PartialFileForOtherChecksum_IsNotResumed
 
               - id: Speech-Models-SpeechModelDownloader-PartialRetention
                 title: >-

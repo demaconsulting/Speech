@@ -125,8 +125,8 @@ The Kokoro, Nemotron and default Chatterbox Turbo models are redistributed, unmo
 [`models` release][link-models-release]. Each bundle carries the model's own `LICENSE`, a `NOTICE` with the required
 attribution and a `README.txt` describing its origin, and is installed with the model. The models keep their own
 licenses: Kokoro is Apache-2.0, the Nemotron weights are OpenMDW-1.1 (its ONNX conversion MIT), and Chatterbox Turbo is
-MIT (Copyright (c) 2025 Resemble AI). The Piper voice is not hosted there and still downloads from the sherpa-onnx
-release.
+MIT (Copyright (c) 2025 Resemble AI). The Piper voice is not hosted there, pending a decision by the project owner,
+and still downloads from the sherpa-onnx release.
 
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 

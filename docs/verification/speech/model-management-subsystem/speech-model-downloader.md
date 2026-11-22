@@ -398,6 +398,13 @@ With a 120-byte partial file present and a server that ignores `Range`, the sing
 A partial file of wrong bytes is resumed, the completed file fails verification (`ChecksumMismatch`) and the
 partial file is gone; the next call downloads the whole file without `Range` and installs.
 
+##### Resume: Partial File For Another Checksum Is Not Resumed
+
+**Test**: `SpeechModelDownloader_DownloadAsync_PartialFileForOtherChecksum_IsNotResumed`
+
+A 120-byte partial file named for a different checksum (an older pin) is present; the download sends a single
+request without `Range`, reports no `Info` resume diagnostic, and installs the exact file.
+
 ##### Resume: Successful Install Removes Partials
 
 **Test**: `SpeechModelDownloader_DownloadAsync_SuccessfulInstall_RemovesPartials`
