@@ -27,7 +27,7 @@ public sealed partial class BundleDefinitionsTests
               "quant": "int8",
               "bundleRevision": 1,
               "date": "DATE",
-              "modelIds": [ "MODELID" ],
+              "modelIds": [ "MODEL_ID_TOKEN" ],
               "upstream": { "repository": "https://example.invalid/fixture", "revision": "main" },
               "licenses": [ { "name": "MIT", "url": "https://opensource.org/license/mit", "appliesTo": "all", "textFile": "TEXTFILE" } ],
               "attribution": "Fixture.",
@@ -314,7 +314,7 @@ public sealed partial class BundleDefinitionsTests
                 .Replace("NAME", name, StringComparison.Ordinal)
                 .Replace("DATE", date, StringComparison.Ordinal)
                 .Replace("TEXTFILE", JsonEncodedText.Encode(textFile).ToString(), StringComparison.Ordinal)
-                .Replace("MODELID", JsonEncodedText.Encode(modelId).ToString(), StringComparison.Ordinal));
+                .Replace("MODEL_ID_TOKEN", JsonEncodedText.Encode(modelId).ToString(), StringComparison.Ordinal));
         return path;
     }
 
