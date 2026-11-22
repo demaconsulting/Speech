@@ -1,6 +1,7 @@
 package Speech_ReferenceVoicePackInstaller {
     private import SoftwareItemMetadata::*;
     private import Speech_ReferenceVoicePack::*;
+    private import Speech_ZipEntryPathValidator::*;
 
     enum def EntryKind {
         enum Other;
@@ -23,5 +24,8 @@ package Speech_ReferenceVoicePackInstaller {
 
         // Safely extracts the files that the voice pack descriptor lists.
         dependency ReferenceVoicePackInstaller to ReferenceVoicePack;
+
+        // Delegates the zip-slip, portable-name and root-containment checks to the shared guard.
+        dependency ReferenceVoicePackInstaller to ZipEntryPathValidator;
     }
 }

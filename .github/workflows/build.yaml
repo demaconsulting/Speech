@@ -223,13 +223,17 @@ jobs:
 
       # === DOWNLOAD REAL SPEECH MODELS ===
       # Several tests (SherpaOnnxRecognitionEngineTests, SherpaOnnxRecognitionEngineAccuracyTests,
-      # and the real-model tests of DemaConsulting.Speech.Onnx.NemotronStt.Tests) deliberately skip
+      # OnnxKokoroSynthesisEngineTests and the real-model tests of
+      # DemaConsulting.Speech.Onnx.NemotronStt.Tests) deliberately skip
       # rather than fail when their real, production model is not installed in this environment,
       # since a multi-hundred-megabyte model download is outside the scope of an ordinary unit test
       # run. Downloading them here (once per OS, cached across runs) into the default per-user
       # store the tests read lets those tests genuinely execute in CI instead of skipping, so the
       # requirements they back can be satisfied with real test evidence. A failed download fails
-      # the job (the downloader exits 1), so the tests can never silently skip in CI.
+      # the job (the downloader exits 1), so the tests can never silently skip in CI. The ONNX Kokoro
+      # and Nemotron models download their bundles from the project's models release
+      # (https://github.com/demaconsulting/Speech/releases/tag/models), so a cache miss proves on every OS
+      # that the published bundles install.
 
       # Environment.SpecialFolder.LocalApplicationData resolves differently per OS as of .NET 8
       # (see https://learn.microsoft.com/dotnet/core/compatibility/core-libraries/8.0/getfolderpath-unix):
@@ -248,6 +252,7 @@ jobs:
         run: |
           echo "path=$env:LOCALAPPDATA\DemaConsulting.Speech\Models" >> $env:GITHUB_OUTPUT
           echo "onnx-stt-path=$env:LOCALAPPDATA\DemaConsulting.Speech\Models\nemotron-3.5-asr-streaming-0.6b-onnx-int4" >> $env:GITHUB_OUTPUT
+          echo "onnx-tts-path=$env:LOCALAPPDATA\DemaConsulting.Speech\Models\kokoro-onnx-v1_0-en" >> $env:GITHUB_OUTPUT
 
       - name: Determine speech model cache path (macOS)
         id: model-cache-path-macos
@@ -256,6 +261,7 @@ jobs:
         run: |
           echo "path=$HOME/Library/Application Support/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
           echo "onnx-stt-path=$HOME/Library/Application Support/DemaConsulting.Speech/Models/nemotron-3.5-asr-streaming-0.6b-onnx-int4" >> "$GITHUB_OUTPUT"
+          echo "onnx-tts-path=$HOME/Library/Application Support/DemaConsulting.Speech/Models/kokoro-onnx-v1_0-en" >> "$GITHUB_OUTPUT"
 
       - name: Determine speech model cache path (Linux)
         id: model-cache-path-linux
@@ -264,6 +270,7 @@ jobs:
         run: |
           echo "path=$HOME/.local/share/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
           echo "onnx-stt-path=$HOME/.local/share/DemaConsulting.Speech/Models/nemotron-3.5-asr-streaming-0.6b-onnx-int4" >> "$GITHUB_OUTPUT"
+          echo "onnx-tts-path=$HOME/.local/share/DemaConsulting.Speech/Models/kokoro-onnx-v1_0-en" >> "$GITHUB_OUTPUT"
 
       # actions/cache reports a "path does not exist" validation error at save-time if this
       # directory was never created (e.g. a genuine first-ever run before any model is
@@ -291,8 +298,8 @@ jobs:
       # The ONNX Nemotron speech-to-text model (about 790 MB) has its own cache entry, restored
       # into its own folder of the same store after the store cache above. Keeping it separate
       # leaves the key of the store cache (and so its already-saved Sherpa models) unchanged, and
-      # lets that cache be dropped on its own when the Sherpa models are retired. Bump the -v
-      # suffix when the model's pinned files change.
+      # lets that cache be dropped on its own when the Sherpa models are retired. The key carries the
+      # name of the bundle the model installs from, so a new bundle revision (-bN) invalidates the cache.
       - name: Cache Nemotron ONNX speech model
         uses: actions/cache@v6
         with:
@@ -300,7 +307,18 @@ jobs:
             ${{ steps.model-cache-path-windows.outputs.onnx-stt-path ||
             steps.model-cache-path-macos.outputs.onnx-stt-path ||
             steps.model-cache-path-linux.outputs.onnx-stt-path }}
-          key: speech-models-${{ matrix.os }}-nemotron-3.5-asr-streaming-0.6b-onnx-int4-v1
+          key: speech-models-${{ matrix.os }}-nemotron-3.5-asr-streaming-0.6b-onnx-int4-nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1
+
+      # The ONNX Kokoro synthesis model (about 108 MB) has its own cache entry in its own folder of the
+      # same store, for the same reasons; its key also carries the name of its bundle.
+      - name: Cache Kokoro ONNX speech model
+        uses: actions/cache@v6
+        with:
+          path: >-
+            ${{ steps.model-cache-path-windows.outputs.onnx-tts-path ||
+            steps.model-cache-path-macos.outputs.onnx-tts-path ||
+            steps.model-cache-path-linux.outputs.onnx-tts-path }}
+          key: speech-models-${{ matrix.os }}-kokoro-onnx-v1_0-en-kokoro-en-v1.0-int8-b1
 
       - name: Download real speech models
         run: >
@@ -313,6 +331,7 @@ jobs:
           nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25
           vits-piper-en_US-libritts_r-medium
           nemotron-3.5-asr-streaming-0.6b-onnx-int4
+          kokoro-onnx-v1_0-en
 
       - name: Test
         run: >

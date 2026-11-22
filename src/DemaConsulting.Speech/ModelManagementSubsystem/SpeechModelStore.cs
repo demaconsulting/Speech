@@ -23,6 +23,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     The store holds no locks: it assumes a single writer (install or uninstall) per model id at a
 ///     time. <see cref="SpeechModelDownloader"/> provides that serialization per model id; a host that
 ///     calls <see cref="Uninstall"/> directly must not run it concurrently with an install of the same model.
+///     A fourth sibling, <c>{root}/{model-id}/.partial/</c>, keeps the bytes of interrupted downloads between attempts
+///     so a later attempt can resume them; it is never read as installed content.
 /// </remarks>
 public sealed class SpeechModelStore
 {
@@ -37,6 +39,12 @@ public sealed class SpeechModelStore
 
     /// <summary>The prefix given to a renamed-away former <c>current/</c> directory pending best-effort cleanup.</summary>
     private const string ReplacedDirectoryPrefix = "current.replaced-";
+
+    /// <summary>
+    ///     The name of the directory, within a model's directory, that keeps the bytes of interrupted downloads so a
+    ///     later attempt can resume them.
+    /// </summary>
+    private const string PartialDirectoryName = ".partial";
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelStore"/> class.
@@ -85,6 +93,30 @@ public sealed class SpeechModelStore
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
     public string GetCurrentDirectory(string modelId) =>
         Path.Join(GetModelDirectory(modelId), CurrentDirectoryName);
+
+    /// <summary>
+    ///     Gets the directory that keeps a model's partially downloaded files between download attempts.
+    /// </summary>
+    /// <remarks>
+    ///     <c>{root}/{model-id}/.partial/</c> lives beside, never inside, the staging and installed directories: it
+    ///     must survive an abandoned staging directory and the leftover cleanup that runs before every attempt (see
+    ///     <see cref="CleanUpLeftovers"/>), because keeping it is what lets the next attempt resume. It is never read
+    ///     as installed content. <see cref="SpeechModelDownloader"/> removes it after a successful install, and
+    ///     <see cref="Uninstall"/> removes it best-effort.
+    /// </remarks>
+    /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <returns>The absolute path to the model's <c>.partial/</c> directory. The directory itself may not exist.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
+    internal string GetPartialDirectory(string modelId) =>
+        Path.Join(GetModelDirectory(modelId), PartialDirectoryName);
+
+    /// <summary>
+    ///     Best-effort deletes a model's <c>.partial/</c> directory, once the files it held are no longer needed.
+    /// </summary>
+    /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
+    /// <remarks>Never throws for a deletion failure; a directory that cannot be removed is left for a later call.</remarks>
+    internal void DeletePartialDirectory(string modelId) => TryDeleteDirectoryRecursively(GetPartialDirectory(modelId));
 
     /// <summary>
     ///     Determines whether a model is currently installed and ready to use.
@@ -268,7 +300,8 @@ public sealed class SpeechModelStore
     internal static void AbandonStaging(string stagingDirectory) => TryDeleteDirectoryRecursively(stagingDirectory);
 
     /// <summary>
-    ///     Removes a model's install manifest, installed content, and any superseded <c>current.replaced-*</c> directories.
+    ///     Removes a model's install manifest, installed content, any superseded <c>current.replaced-*</c> directories,
+    ///     and (best-effort) its <c>.partial/</c> directory of interrupted-download bytes.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
@@ -337,6 +370,9 @@ public sealed class SpeechModelStore
                 // Best-effort: superseded directories that cannot be listed are left for CleanUpLeftovers
             }
         }
+
+        // An uninstalled model needs no resumable bytes; remove them best-effort so they do not hold disk space
+        DeletePartialDirectory(modelId);
     }
 
     /// <summary>
@@ -397,7 +433,9 @@ public sealed class SpeechModelStore
     ///     Never throws for a deletion that still fails (e.g. an open file handle) - the leftover
     ///     directory is simply left in place for a future call to retry, per this store's
     ///     non-blocking cleanup policy. Safe to call at any time, including when nothing is left
-    ///     to clean up.
+    ///     to clean up. The <c>.partial/</c> directory (see <see cref="GetPartialDirectory"/>) is deliberately kept:
+    ///     the downloader runs this cleanup before every attempt, and the interrupted-download bytes it holds are what
+    ///     lets that attempt resume.
     /// </remarks>
     public void CleanUpLeftovers(string modelId)
     {

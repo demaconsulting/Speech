@@ -121,6 +121,13 @@ embed third-party data, such as the English front end, carry their own `PACKAGE-
 `THIRD-PARTY-NOTICES.md`, and every downloaded model has its own license, which it reports through the API. The Piper
 voice is licensed CC BY 4.0 and requires attribution of the LibriTTS-R corpus and the Piper project.
 
+The Kokoro, Nemotron and default Chatterbox Turbo models are redistributed, unmodified, as zip bundles on the project's
+[`models` release][link-models-release]. Each bundle carries the model's own `LICENSE`, a `NOTICE` with the required
+attribution and a `README.txt` describing its origin, and is installed with the model. The models keep their own
+licenses: Kokoro is Apache-2.0, the Nemotron weights are OpenMDW-1.1 (its ONNX conversion MIT), and Chatterbox Turbo is
+MIT (Copyright (c) 2025 Resemble AI). The Piper voice is not hosted there, pending a decision by the project owner,
+and still downloads from the sherpa-onnx release.
+
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 
 ## Support
@@ -150,6 +157,7 @@ By contributing to this project, you agree that your contributions will be licen
 [link-continuous-compliance]: https://github.com/demaconsulting/ContinuousCompliance
 [link-contributing]: https://github.com/demaconsulting/Speech/blob/main/CONTRIBUTING.md
 [link-releases]: https://github.com/demaconsulting/Speech/releases
+[link-models-release]: https://github.com/demaconsulting/Speech/releases/tag/models
 [link-user-guide]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md
 [link-technical-overview]: https://github.com/demaconsulting/Speech/blob/main/docs/technical_overview/introduction.md
 [link-design]: https://github.com/demaconsulting/Speech/blob/main/docs/design/introduction.md

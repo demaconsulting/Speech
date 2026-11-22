@@ -100,3 +100,50 @@ sections:
                   final, non-redirecting address.
                 tests:
                   - HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest
+
+              - id: Speech-Models-HttpModelDownloadClient-RangeResume
+                title: >-
+                  The HTTP model download client shall, when resuming a file of which it already holds
+                  the first bytes, request only the remaining bytes and append them when the server
+                  answers with exactly that range, reporting progress that counts the bytes already
+                  held.
+                justification: |
+                  Large model files (hundreds of megabytes) are often interrupted on slow or unstable
+                  links; requesting only the missing bytes lets a retry finish instead of starting over.
+                tests:
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_PartialContent_Appends
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_ZeroOffset_SendsNoRangeHeader
+
+              - id: Speech-Models-HttpModelDownloadClient-RangeFallback
+                title: >-
+                  The HTTP model download client shall replace the bytes it already holds with a full
+                  download when the server ignores the range request, refuses it, or answers with a
+                  different range, retrying the full download at most once.
+                justification: |
+                  Not every server or mirror supports ranged requests, and a refused or mismatched
+                  range means the held bytes cannot be trusted to line up; a single full download is
+                  always correct, and the caller's checksum verification still guards the result.
+                tests:
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_FullContent_Rewrites
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_RangeNotSatisfiable_Restarts
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_ContentRangeMismatch_Restarts
+
+              - id: Speech-Models-HttpModelDownloadClient-RangeFailureHandling
+                title: >-
+                  The HTTP model download client shall fail with an HTTP request error for a non-2xx
+                  answer to a resume request, keeping the bytes it already holds.
+                justification: |
+                  A resume request must surface errors exactly as a plain download does, and the held
+                  bytes must survive so a later attempt can still resume.
+                tests:
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_NotFound_ThrowsAndKeepsHeldBytes
+
+              - id: Speech-Models-HttpModelDownloadClient-RangeMirrorAuthentication
+                title: >-
+                  The HTTP model download client shall apply the configured mirror's authentication to
+                  a resume request sent to that mirror.
+                justification: |
+                  An authenticated mirror must accept the resume request just as it accepts the
+                  original download.
+                tests:
+                  - HttpModelDownloadClient_DownloadFromOffsetAsync_MirrorUri_SendsAuthorizationWithRange

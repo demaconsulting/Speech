@@ -48,7 +48,9 @@ SpeechPhonemesEn English phonemizer library system and its constituent software 
   catalog/contract seam: typed tunable-parameter descriptors, the common per-model contract
   and its role-marker interfaces (the extension point concrete models implement), and catalog
   enumeration of the host-registered known-model list alongside install state; the optional
-  download-mirror redirect (`DownloadMirror`); and the reference-voice pack, its installer and
+  download-mirror redirect (`DownloadMirror`); model bundles (`SpeechModelBundle`) that install
+  a model's unmodified vendor files from one pinned zip with per-file verification, and resumable
+  downloads; and the reference-voice pack, its installer and
   the `ReferenceVoiceLibrary` that lists user-folder and installed-pack voices
 - **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: the public async
   Engine/Session recognizer contract and result types, the composition root (`LoadAsync`/
@@ -574,6 +576,9 @@ src/DemaConsulting.Speech/
     ├── IModelDownloadClient.cs                — Mockable seam for fetching one file's bytes
     ├── HttpModelDownloadClient.cs             — Real HttpClient-backed download implementation
     ├── SpeechModelDownloader.cs               — Queued fetch-verify-install orchestration
+    ├── ZipEntryPathValidator.cs               — Shared zip-slip and portable-name guard
+    ├── SpeechModelBundle.cs                   — Pinned zip bundle of a model's vendor files
+    ├── SpeechModelBundleInstaller.cs          — Bundle extraction and per-file verification
     ├── SpeechModelRole.cs                     — Recognition/Synthesis model role enum
     ├── SpeechModelState.cs                    — Model install lifecycle state enum
     ├── SpeechModelAudioTagSupport.cs          — Declared inline audio-tag support shape enum
@@ -972,6 +977,29 @@ data/stt-en/                                               — README (rules, se
 docs/evaluation/nemotron-stt/                              — Recorded evaluation results, including the blank-penalty sweep
 ```
 
+The model bundling tool is a non-shipped, maintainer-only tool system (`ModelBundler`) that repackages the unmodified
+vendor files of the SpeechOnnxKokoro, SpeechOnnxNemotronStt and SpeechOnnxChatterboxTurbo packages into the bundles
+of the project's `models` release; its bundle zips are tool outputs under the git-ignored `artifacts/` folder:
+
+```text
+tools/ModelBundler/
+├── ModelBundler.csproj                                    — Non-packable net10.0 console project (DemaConsulting.Speech.ModelBundler)
+├── README.md                                              — Commands, source order, bundle layout and the publishing order
+├── bundles.json                                           — Bundle definitions: name parts, model ids, upstream, fixed date, licenses, attribution, NOTICE
+├── licenses/                                              — Committed license texts (Apache-2.0, MIT for Resemble AI and onnx-community, OpenMDW-1.1)
+├── Program.cs                                             — Entry point: the build, verify and upload commands
+├── CommandLineOptions.cs                                  — Command-line parsing
+├── BundleDefinitions.cs                                   — bundles.json loader and validation
+├── BundleCatalog.cs                                       — The packages' compiled bundle contents (through InternalsVisibleTo) and published zip pins
+├── VendorFileSource.cs                                    — Store, cache and download sources, each verified against its compiled pin
+├── StoredZipWriter.cs                                     — Deterministic stored-zip writer (with Crc32.cs)
+├── BundleMetadataWriter.cs                                — README.txt, LICENSE, NOTICE and model.json
+├── ReleaseNotesWriter.cs                                  — SHA256SUMS and release-notes.md
+├── BundleBuilder.cs                                       — Bundle build, set build and byte-for-byte verification
+└── ReleaseUploader.cs                                     — gh upload that never replaces an asset (with ProcessRunner.cs)
+test/DemaConsulting.Speech.ModelBundler.Tests/             — Tool tests (no network): determinism, golden digests, installation through SpeechModelBundle, sources and upload
+```
+
 The SpeechTextEn library's folder structure likewise mirrors its software structure:
 
 ```text
@@ -1173,6 +1201,12 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   `SpeechSttEvaluation`, like `ModelDownloader` and `SpeechPhonemesEnTools`: it has unit parts for its source
   files but no requirements or verification documents of its own, and its shared sources are covered by the
   `Evaluation/` tests of the SpeechOnnxNemotronStt test project.
+- **The model bundling tool is a non-shipped tool system, and its bundles are tool outputs.** `tools/ModelBundler` is
+  modeled as `ModelBundler`, like `ModelDownloader`: it has unit parts for its source files but no requirements, design
+  or verification documents of its own, and it is excluded from the review sets. It takes every vendor file, original
+  URL and SHA-256 pin from the packages' internal bundle contents, so the packages stay the single source of truth.
+  The bundle zips it writes, and their `SHA256SUMS` and release notes, are build outputs under `artifacts/` that are
+  published on the `models` release and never committed.
 - **Small enums and value types** (for example `TaggedTextSpanKind` and the
   ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
   of the unit that owns or consumes them rather than modeled as separate units.

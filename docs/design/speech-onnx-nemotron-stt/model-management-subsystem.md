@@ -14,7 +14,7 @@ following units:
   the Speech library's `SpeechModelCatalog`, registering this subsystem's one model in one call
 - **OnnxNemotronMultilingualRecognitionModel**: a real, concrete `IRecognitionModel` for the
   `onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4` export, declaring a `language`
-  `ChoiceParameter` and owning the eleven-file download descriptor
+  `ChoiceParameter` and owning the `models`-release bundle that carries the model's eleven files
 - **NemotronVocabulary**: loads `vocab.txt`, derives the language id and the blank id, tells
   whether a token starts a word, and detokenizes emitted token ids into text
 
@@ -23,7 +23,7 @@ following units:
 The subsystem exposes `SpeechModelCatalogNemotronSttExtensions` and
 `OnnxNemotronMultilingualRecognitionModel` as its public API (`NemotronVocabulary` is internal).
 It consumes the Speech library's `SpeechModelCatalog`, `ISpeechModel`, `IRecognitionModel`,
-`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the *Speech
+`SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, `SpeechModelBundle`, and parameter types from the *Speech
 ModelManagementSubsystem Design*, `AudioFormat` from Speech's AudioSubsystem, and the sibling
 SpeechOnnx system's `OnnxExecutionProviderSelector` (see *SpeechOnnx OnnxRuntimeSubsystem
 Design*). `OnnxNemotronMultilingualRecognitionModel`'s public `CreateBackend` implementation
@@ -52,10 +52,13 @@ own; it is documented inline here, as a subsystem unit.
 name, and `DisplayName`), `Role = Recognition`, `AudioTagSupport = None`, and a mono 16000 Hz audio
 format. It declares exactly one tunable parameter, a `language` `ChoiceParameter` with `en-US`
 (default) and `en-GB`; an unrecognized or missing selection degrades to `en-US`. Its
-`DownloadDescriptor` names eleven individual HTTPS files, each with an independently computed
-SHA-256 checksum and an install path equal to its file name, so each `.onnx.data` external-data
-file sits beside its `.onnx` under the identical base name as ONNX Runtime requires; no file needs
-post-download extraction, so the model needs no `InstallAsync` override. See
+`DownloadDescriptor` names one HTTPS file, the SHA-256-pinned
+`nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip` bundle on the project's `models` GitHub release
+(the public static `Bundles` list). The bundle carries eleven vendor files, each pinned with an
+independently computed SHA-256 checksum and installed at a path equal to its file name, so each
+`.onnx.data` external-data file sits beside its `.onnx` under the identical base name as ONNX Runtime
+requires; the model's `InstallAsync` override extracts and verifies them through Speech's
+`SpeechModelBundle.InstallAsync`. See
 `onnx-nemotron-multilingual-recognition-model.md` for the full detail, including the license note
 (OpenMDW-1.1) and the internal `CreateBackend` overload that takes explicit engine options.
 

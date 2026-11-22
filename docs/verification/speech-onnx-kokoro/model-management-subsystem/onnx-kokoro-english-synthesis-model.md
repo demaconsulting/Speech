@@ -4,8 +4,9 @@
 
 `OnnxKokoroEnglishSynthesisModel` is verified by automated unit tests in
 `test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModelTests.cs`,
-proving its declared catalog metadata, 30-file download descriptor shape, speaker-id resolution,
-and `CreateBackend` wiring - the latter against a tiny, hand-built ONNX test fixture
+proving its declared catalog metadata, its `models`-release bundle and the bundle's 30 pinned vendor files,
+the rejection of a bundle whose extracted files do not match their pins, speaker-id resolution, and
+`CreateBackend` wiring - the latter against a tiny, hand-built ONNX test fixture
 (`TestData/fake-kokoro-model.onnx`, whose single node forwards its `style` input straight through
 as the output) and synthetic per-voice style-vector files, never the real ~88 MiB production
 model/voices download. Each declared voice's expected speaker id is reproduced directly in the
@@ -25,10 +26,13 @@ clearly shows which declared order assumption broke.
 The model declares its stable `Id`/`DisplayName`/`Role = Synthesis`/`AudioTagSupport = None`, and
 `LicenseName = "Apache-2.0"` with its canonical `LicenseUrl`; its one voice `ChoiceParameter`
 declares exactly 29 options in the confirmed order with `"af_heart"` as the default; its
-`DownloadDescriptor` declares exactly 30 files (the ONNX model graph plus 29 voice style-vector
-files), each with a well-formed 64-character hexadecimal SHA-256 checksum and a unique relative
-install path, including `onnx/model_quantized.onnx` and a `voices/{voice}.bin` entry for every declared
-voice; `PreferredAudioFormat` reports mono 24000 Hz; the model's text analysis is one analyzer shared by all
+`DownloadDescriptor` declares exactly one file, the `kokoro-en-v1.0-int8-b1.zip` asset on the project's
+`models` release at its pinned SHA-256; the bundle's contents declare exactly 30 vendor files (the ONNX model
+graph plus 29 voice style-vector files), each with its original HTTPS `onnx-community` address, a well-formed
+64-character hexadecimal SHA-256 checksum and a unique relative install path, including
+`onnx/model_quantized.onnx` and a `voices/{voice}.bin` entry for every declared voice; `InstallAsync` throws
+`InvalidDataException` for a well-formed bundle whose extracted files do not match their pins;
+`PreferredAudioFormat` reports mono 24000 Hz; the model's text analysis is one analyzer shared by all
 instances whose
 reading annotations differ for the noun and the verb of `record`; `CreateBackend` throws `ArgumentException`
 for an empty installed directory; `ResolveSpeakerId` resolves every one of the 29 declared voices
@@ -54,13 +58,24 @@ styled audio is produced.
 
 **Test**: `OnnxKokoroEnglishSynthesisModel_VoiceParameter_Declares29VoicesWithDefault`
 
-##### The model declares the model graph and every voice file for download
+##### The model downloads its pinned bundle from the models release
 
-**Test**: `OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresModelGraphAndEveryVoiceFile`
+**Test**: `OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle`
 
-##### Every download file has an HTTPS address, a SHA-256 checksum, and a unique install path
+##### The bundle holds the model graph and every voice file
 
-**Test**: `OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_FilesHaveHttpsChecksumAndUniquePaths`
+**Test**: `OnnxKokoroEnglishSynthesisModel_BundleContents_DeclaresModelGraphAndEveryVoiceFile`
+
+##### Every vendor file has its HTTPS source, a SHA-256 pin, and a unique install path
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_BundleContents_PinsEveryVendorFile`
+
+##### Installing a bundle whose files do not match their pins fails
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws`
+
+The test stages a well-formed zip whose `model.json` declares every vendor file at its compiled pin but whose
+entries hold other bytes, and asserts that `InstallAsync` throws `InvalidDataException`.
 
 ##### PreferredAudioFormat reports the model's best-effort mono 24000 Hz hint
 

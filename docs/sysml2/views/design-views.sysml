@@ -79,6 +79,7 @@ package SpeechDesignViews {
         expose SpeechProofreader_SynthesisSubsystem::SynthesisSubsystem;
         expose SpeechProofreader_TextSubsystem::TextSubsystem;
         expose ModelDownloader::ModelDownloaderSystem;
+        expose ModelBundler::ModelBundlerSystem;
         expose KokoroOnnxBenchmark::KokoroOnnxBenchmarkSystem;
         expose SpeechSttEvaluation::SpeechSttEvaluationSystem;
         expose OtsDependencies::PortAudioSharp2;
@@ -355,6 +356,10 @@ package SpeechDesignViews {
 
     view ModelDownloaderView {
         expose ModelDownloader::ModelDownloaderSystem;
+    }
+
+    view ModelBundlerView {
+        expose ModelBundler::ModelBundlerSystem;
     }
 
     view KokoroOnnxBenchmarkView {

@@ -512,12 +512,12 @@ public sealed class OnnxKokoroSynthesisEngineTests
         "current");
 
     /// <summary>
-    ///     Whether the real, ~88 MiB production Kokoro model - all 30 declared download files,
+    ///     Whether the real, ~88 MiB production Kokoro model - all 30 vendor files of its bundle,
     ///     not merely a non-empty directory, since a partial/interrupted real install must still
     ///     skip rather than fail - is installed in this environment.
     /// </summary>
     private static bool IsRealModelInstalled => Directory.Exists(InstalledModelDirectory) &&
-        new ProductionKokoroModel().DownloadDescriptor.Files.All(
+        ProductionKokoroModel.Bundles.SelectMany(bundle => bundle.Contents.Files).All(
             file => File.Exists(Path.Join(InstalledModelDirectory, file.RelativeInstallPath)));
 
     /// <summary>

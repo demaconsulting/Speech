@@ -68,28 +68,49 @@ sections:
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadDescriptor
                 title: >-
-                  The OnnxKokoroEnglishSynthesisModel class shall declare 30 individual download
-                  files (the ONNX model graph and 29 voice style-vector files), each with its own
-                  relative install path, requiring no post-download archive extraction.
+                  The OnnxKokoroEnglishSynthesisModel class shall declare, as its only download,
+                  the SHA-256-pinned kokoro-en-v1.0-int8-b1 bundle on the project's models release.
                 justification: |
-                  SpeechModelDownloader depends only on the generic ISpeechModel download
-                  descriptor; this model must declare every individual file its engine
-                  construction needs, and since none of its files are archived, it needs no
-                  InstallAsync override.
+                  Hosting the unmodified files as one verified bundle on GitHub lets users behind
+                  a firewall that blocks Hugging Face install the model, and pinning the whole
+                  archive rejects a tampered or truncated download before anything is extracted.
                 tests:
-                  - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresModelGraphAndEveryVoiceFile
+                  - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-BundleContents
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall declare its bundle's contents as
+                  30 vendor files (the ONNX model graph and 29 voice style-vector files) at the
+                  relative install paths its engine construction reads.
+                justification: |
+                  The engine reads the graph and every declared voice from fixed paths; declaring
+                  exactly those files as the bundle contents keeps the installed layout unchanged,
+                  so an install made before bundles existed keeps working.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_BundleContents_DeclaresModelGraphAndEveryVoiceFile
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadIntegrity
                 title: >-
-                  The OnnxKokoroEnglishSynthesisModel class shall declare every download file
-                  with an HTTPS address, a well-formed SHA-256 checksum, and a unique relative
-                  install path.
+                  The OnnxKokoroEnglishSynthesisModel class shall pin every vendor file of its
+                  bundle with its original HTTPS source address, a well-formed SHA-256 checksum
+                  and a unique relative install path.
                 justification: |
-                  Checksum-verified HTTPS downloads protect a host against tampered or corrupted
-                  model files, and unique install paths prevent files overwriting each other.
+                  The per-file pins are the second, compiled-in proof that the extracted files are
+                  the unmodified upstream files, the source addresses record their provenance, and
+                  unique install paths prevent files overwriting each other.
                 tests:
-                  - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_FilesHaveHttpsChecksumAndUniquePaths
+                  - OnnxKokoroEnglishSynthesisModel_BundleContents_PinsEveryVendorFile
 
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-BundleInstall
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class's InstallAsync method shall extract the
+                  downloaded bundle and shall fail when an extracted file does not match its pin.
+                justification: |
+                  The downloader hands the staged archive to the model's install hook; failing on a
+                  mismatched file leaves the prior install untouched and never installs altered
+                  model files.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
                 title: >-
                   The OnnxKokoroEnglishSynthesisModel class's CreateBackend method shall

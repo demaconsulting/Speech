@@ -142,12 +142,12 @@ with the registration scenario above, this covers `SpeechOnnxNemotronStt-Models-
 
 ### Integration: the registered model is a real, downloadable recognition model
 
-**Tests**: `Metadata_IsDeclared`, `DownloadDescriptor_ListsElevenFiles`
+**Tests**: `Metadata_IsDeclared`, `OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle`
 
-Covers `SpeechOnnxNemotronStt-Models-RecognitionModel`. Verifies the registered model declares
-its catalog identity, audio format, and its license (`OpenMDW-1.1`, with the license URL
-`https://openmdw.ai/license/1-1/`), and lists all eleven files, each with a checksum and an HTTPS
-URI. See *SpeechOnnxNemotronStt ModelManagementSubsystem Verification*.
+Covers `SpeechOnnxNemotronStt-Models-RecognitionModel`. Verifies the registered model declares its catalog identity,
+audio format, and its license (`OpenMDW-1.1`, with the license URL `https://openmdw.ai/license/1-1/`), and downloads one
+pinned bundle from the project's `models` release over HTTPS, whose eleven files each carry a checksum and their
+original HTTPS URI. See *SpeechOnnxNemotronStt ModelManagementSubsystem Verification*.
 
 ### Integration: the host selects the recognition language
 

@@ -98,12 +98,15 @@ safety role.
 
 **Model install path:**
 
-1. **Input**: Speech's `SpeechModelDownloader` fetches and checksum-verifies every file this
-   model's `DownloadDescriptor` declares - the ONNX model graph and every voice's style-vector
-   file - directly into the staged directory, each at its own declared relative install path
-2. **Output**: Because every declared file is already directly usable with no extraction step,
-   this model needs no `InstallAsync` override (unlike SpeechSherpa's archive-based models); the
-   staged directory is promoted to the installed location unchanged
+1. **Input**: Speech's `SpeechModelDownloader` fetches and checksum-verifies the one bundle this
+   model's `DownloadDescriptor` declares - `kokoro-en-v1.0-int8-b1.zip` on the project's `models`
+   GitHub release - into the staged directory, resuming an interrupted transfer on the next attempt
+2. **Output**: The model's `InstallAsync` hands the staged zip to Speech's `SpeechModelBundle`, which
+   extracts the ONNX model graph and every voice's style-vector file to their relative install paths,
+   checks each against its compiled SHA-256 pin, keeps the bundle's license files under
+   `licenses/kokoro-en-v1.0-int8-b1/` and deletes the zip; the staged directory is then promoted to the
+   installed location. The installed layout is the same as before bundles existed, so an earlier install
+   keeps working
 
 **Backend construction path:**
 
@@ -175,9 +178,12 @@ safety role.
 - **No accelerated execution-provider package reference**: this library references only the base
   `Microsoft.ML.OnnxRuntime` package, matching the sibling SpeechOnnx package's convention; a
   consuming application supplies its own accelerated native runtime package for its own target RID
-- **Metadata and download descriptors only**: no model weights are bundled or redistributed; a
-  consumer fetches the ONNX graph and every voice style vector through Speech's download
-  machinery on their own explicit action, and the model visibly declares its own license
+- **Metadata and download descriptors only**: the package embeds no model weights; a consumer
+  fetches the ONNX graph and every voice style vector through Speech's download machinery on their
+  own explicit action, and the model visibly declares its own license. DEMA Consulting redistributes
+  the unmodified upstream files (Apache-2.0) as one bundle on the project's `models` GitHub release,
+  with the Apache-2.0 text, a `NOTICE`, a `README.txt` and a `model.json` recording each file's
+  original source
 - **Third-party data and notices**: the package embeds one data file that is not covered by the
   repository's MIT License: the Kokoro v1.0 tokenizer (from the Apache-2.0 licensed
   `onnx-community/Kokoro-82M-v1.0-ONNX` export). The pronunciation data (derived from the CMU

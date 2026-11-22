@@ -65,6 +65,8 @@ needs-review:
   - "!**/.venv/**"                # Exclude Python virtual environment
   - "!tools/KokoroOnnxBenchmark/**"  # Exclude dev-only benchmark spike (not part of the public surface)
   - "!tools/ModelDownloader/**"      # Exclude dev-only model downloader (not part of the public surface)
+  - "!tools/ModelBundler/**"         # Exclude the maintainer-only model bundling tool (not part of the public surface; modeled in SysML2)
+  - "!test/DemaConsulting.Speech.ModelBundler.Tests/**"  # Exclude the maintainer-only model bundling tool's tests
   - "!tools/DemaConsulting.Speech.Proofreader/**"       # Exclude dev-only TTS proofreading tool (not part of the public surface)
   - "!test/DemaConsulting.Speech.Proofreader.Tests/**"  # Exclude the dev-only proofreading tool's tests
   - "!data/text-en/external/**"      # Exclude local evaluation caches (never committed)
@@ -679,6 +681,53 @@ reviews:
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackInstallerTests.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ReferenceVoiceTestPacks.cs"
 
+  # Speech-ModelManagementSubsystem-ZipEntryPathValidator Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ZipEntryPathValidator
+    title: Review that Speech ModelManagementSubsystem ZipEntryPathValidator Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/zip-entry-path-validator.yaml"
+      - "docs/design/speech/model-management-subsystem/zip-entry-path-validator.md"
+      - "docs/verification/speech/model-management-subsystem/zip-entry-path-validator.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ZipEntryPathValidator.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ZipEntryPathValidatorTests.cs"
+
+  # Speech-ModelManagementSubsystem-SpeechModelBundle Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-SpeechModelBundle
+    title: Review that Speech ModelManagementSubsystem SpeechModelBundle Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/speech-model-bundle.yaml"
+      - "docs/design/speech/model-management-subsystem/speech-model-bundle.md"
+      - "docs/verification/speech/model-management-subsystem/speech-model-bundle.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelBundle.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelBundleTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ModelBundleTestZips.cs"
+
+  # Speech-ModelManagementSubsystem-SpeechModelBundleInstaller Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-SpeechModelBundleInstaller
+    title: Review that Speech ModelManagementSubsystem SpeechModelBundleInstaller Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/speech-model-bundle-installer.yaml"
+      - "docs/design/speech/model-management-subsystem/speech-model-bundle-installer.md"
+      - "docs/verification/speech/model-management-subsystem/speech-model-bundle-installer.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelBundleInstaller.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelBundleInstallerTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ModelBundleTestZips.cs"
+
   # Speech-ModelManagementSubsystem-SpeechModelStore Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelStore
     title: Review that Speech ModelManagementSubsystem SpeechModelStore Implementation is Correct
@@ -796,6 +845,7 @@ reviews:
       - "docs/verification/speech/model-management-subsystem/http-model-download-client.md"
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/HttpModelDownloadClient.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/HttpModelDownloadClientTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/FakeRangeHttpMessageHandler.cs"
 
   # Speech-ModelManagementSubsystem-SpeechModelDownloader Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelDownloader
@@ -811,6 +861,8 @@ reviews:
       - "docs/verification/speech/model-management-subsystem/speech-model-downloader.md"
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloader.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelDownloaderTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/FakeRangeHttpMessageHandler.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ModelBundleTestZips.cs"
 
   # Speech-ModelManagementSubsystem-SpeechModelDownloaderOptions Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelDownloaderOptions

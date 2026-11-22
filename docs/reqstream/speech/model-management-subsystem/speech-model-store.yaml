@@ -328,3 +328,27 @@ sections:
                   A concurrent operation's staging must never be disturbed.
                 tests:
                   - SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot
+
+              - id: Speech-Models-SpeechModelStore-PartialDirectory
+                title: >-
+                  The SpeechModelStore class shall provide each model a location for partially
+                  downloaded files, separate from its installed and scratch content, that leftover
+                  cleanup does not remove.
+                justification: |
+                  Leftover cleanup runs before every download attempt, so interrupted-download bytes
+                  must live where that cleanup leaves them for the attempt to resume.
+                tests:
+                  - SpeechModelStore_GetPartialDirectory_ReturnsPartialUnderModelDirectory
+                  - SpeechModelStore_CleanUpLeftovers_KeepsPartials
+
+              - id: Speech-Models-SpeechModelStore-PartialRemoval
+                title: >-
+                  The SpeechModelStore class shall remove a model's partially downloaded files when the
+                  model is uninstalled or when they are no longer needed, without failing when there
+                  are none.
+                justification: |
+                  Partial files of a large model can occupy hundreds of megabytes and must not outlive
+                  the model or a completed install.
+                tests:
+                  - SpeechModelStore_Uninstall_RemovesPartials
+                  - SpeechModelStore_DeletePartialDirectory_RemovesPartialsAndToleratesAbsence

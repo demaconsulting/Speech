@@ -1,0 +1,88 @@
+---
+# Software Unit Requirements for SpeechModelBundle
+#
+# Unit-level behavior of the public SpeechModelBundle declaration type (a model published as one
+# pinned archive that carries pinned vendor files), decomposing the parent ModelManagementSubsystem
+# bundle requirements. Covered by
+# test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelBundleTests.cs.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelBundle Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelBundle-ModelsReleaseLocation
+                title: >-
+                  The SpeechModelBundle class shall identify the location of the project's models
+                  release, under which every bundle the project publishes is found by file name.
+                justification: |
+                  Model packages declare their bundles on one long-lived, firewall-friendly release;
+                  a single, reviewed location keeps every declaration consistent.
+                tests:
+                  - SpeechModelBundle_ModelsReleaseBaseUri_IsProjectModelsRelease
+
+              - id: Speech-Models-SpeechModelBundle-Declaration
+                title: >-
+                  The SpeechModelBundle class shall describe a bundle by its HTTPS location, the
+                  checksum of the whole archive and the pinned vendor files it carries, and shall
+                  expose the archive as a single download named by the bundle file name.
+                justification: |
+                  The archive is fetched through the existing verified download path, so it must be a
+                  pinned, HTTPS-only download like any other file; the pinned vendor files are the
+                  second, compiled-in proof that the extracted files are unmodified.
+                tests:
+                  - SpeechModelBundle_Constructor_ValidArguments_ExposesNameFileNameAndDownloadFile
+                  - SpeechModelBundle_Constructor_NonHttpsOrQueryUri_ThrowsArgumentException
+                  - SpeechModelBundle_Constructor_InvalidChecksum_ThrowsArgumentException
+                  - SpeechModelBundle_Constructor_NullArgument_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelBundle-NamingRule
+                title: >-
+                  The SpeechModelBundle class shall reject a bundle file name that does not consist of
+                  lowercase model and release tokens, a quantization token (fp32, fp16, int8 or int4)
+                  and a bundle revision of the form bN, with the zip extension.
+                justification: |
+                  Published assets are never replaced, so every change needs a new, sortable name; a
+                  fixed rule keeps names unique, self-describing and safe as file and mirror names.
+                tests:
+                  - SpeechModelBundle_Constructor_FileNameFollowsNamingRule_IsAccepted
+                  - SpeechModelBundle_Constructor_FileNameBreaksNamingRule_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelBundle-ReservedContentsPaths
+                title: >-
+                  The SpeechModelBundle class shall reject vendor file paths that would collide with
+                  the bundle's license folder, metadata files or archive name, with each other
+                  (ignoring letter case), or that are not valid on every platform.
+                justification: |
+                  Vendor files, metadata copies and the staged archive share one directory, so a
+                  declaration that would make them overwrite each other must fail at construction,
+                  not during an install.
+                tests:
+                  - SpeechModelBundle_Constructor_ReservedOrCollidingContentsPath_ThrowsArgumentException
+                  - SpeechModelBundle_Constructor_ContentsPathWithColon_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelBundle-Descriptor
+                title: >-
+                  The SpeechModelBundle class shall produce a model's download description listing
+                  each of its bundle archives, and shall reject a bundle set that is empty, repeats a
+                  bundle name, or whose vendor paths or archive names collide across bundles.
+                justification: |
+                  A model split into component bundles installs them into one directory, so the set
+                  must be checked as a whole.
+                tests:
+                  - SpeechModelBundle_CreateDescriptor_TwoBundles_ListsEachZip
+                  - SpeechModelBundle_CreateDescriptor_CollidingBundles_ThrowsArgumentException
+                  - SpeechModelBundle_CreateDescriptor_NullOrEmptyBundles_Throws
+
+              - id: Speech-Models-SpeechModelBundle-MultiBundleInstall
+                title: >-
+                  The SpeechModelBundle class shall install every bundle of a model into one directory,
+                  keeping each bundle's metadata files in a license folder named after that bundle.
+                justification: |
+                  Component bundles carry their own license and notices, which must stay distinct and
+                  travel with the installed model.
+                tests:
+                  - SpeechModelBundle_InstallAsync_TwoBundles_InstallsBothWithSeparateLicenseFolders
+                  - SpeechModelBundle_InstallAsync_EmptyStagingDirectory_ThrowsArgumentException

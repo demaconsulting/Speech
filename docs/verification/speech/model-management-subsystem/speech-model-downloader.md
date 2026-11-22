@@ -340,3 +340,79 @@ is installed.
 ##### Download: Unmatched Exception Type Reports Failed
 
 **Test**: `SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed`
+
+##### Bundle: Valid Bundle Installs Vendor Files And Licenses
+
+**Test**: `SpeechModelDownloader_DownloadAsync_ValidBundle_InstallsVendorFilesAndLicenses`
+
+A synthetic bundle zip (from `Fakes/ModelBundleTestZips.cs`) served by the fake client and installed through the
+internal install-hook overload with `SpeechModelBundle.InstallAsync` leaves exactly the two vendor files and the
+four files of `licenses/test-model-v1.0-int8-b1/` in `current/`, with no zip.
+
+##### Bundle: Tampered Zip Reports ChecksumMismatch
+
+**Test**: `SpeechModelDownloader_DownloadAsync_BundleZipChecksumMismatch_ReportsChecksumMismatch`
+
+A zip with one changed byte fails its pin: the outcome is `ChecksumMismatch` and the install hook never runs.
+
+##### Bundle: Extraction Failure Installs Nothing And Keeps Earlier Content
+
+**Test**: `SpeechModelDownloader_DownloadAsync_BundleExtractionFails_LeavesNoCurrentAndKeepsPriorInstall`
+
+A correctly pinned zip holding a tampered vendor file reports `Failed` with `InvalidDataException`; for a fresh
+model no `current/` exists and no staging is left behind; for a repair over earlier content (manifest removed),
+`current/` still holds exactly the earlier file.
+
+##### Bundle: Mirror Path Is Model Id And Zip Name
+
+**Test**: `SpeechModelDownloader_ResolveEffectiveUri_Bundle_UsesModelIdAndZipName`
+
+A bundle's download file resolves to `{mirror}/{model-id}/{bundle}.zip`.
+
+##### Resume: Interrupted Transfer Resumes From The Partial File On Retry
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry`
+
+With a real `HttpModelDownloadClient` over the in-memory `FakeRangeHttpMessageHandler`, a first response that drops
+after 100 bytes leaves a 100-byte `.partial/{sha256}.part`; the retry sends `Range: bytes=100-`, reports exactly
+one `Info` diagnostic naming the file and the 100-byte offset, installs the exact file, and removes `.partial/`.
+
+##### Resume: Canceled Transfer Keeps The Partial File
+
+**Test**: `SpeechModelDownloader_DownloadAsync_CanceledMidTransfer_KeepsPartial`
+
+A response body that cancels the caller's token after 50 bytes propagates `OperationCanceledException` and leaves a
+50-byte partial file.
+
+##### Resume: Server Ignoring Range Restarts And Installs
+
+**Test**: `SpeechModelDownloader_DownloadAsync_ServerIgnoresRange_RestartsAndInstalls`
+
+With a 120-byte partial file present and a server that ignores `Range`, the single request carries
+`Range: bytes=120-`, the full `200` body replaces the partial bytes, and the model installs intact.
+
+##### Resume: Partial File Failing Its Checksum Is Discarded
+
+**Test**: `SpeechModelDownloader_DownloadAsync_ResumedFileFailsChecksum_DiscardsPartial`
+
+A partial file of wrong bytes is resumed, the completed file fails verification (`ChecksumMismatch`) and the
+partial file is gone; the next call downloads the whole file without `Range` and installs.
+
+##### Resume: Partial File For Another Checksum Is Not Resumed
+
+**Test**: `SpeechModelDownloader_DownloadAsync_PartialFileForOtherChecksum_IsNotResumed`
+
+A 120-byte partial file named for a different checksum (an older pin) is present; the download sends a single
+request without `Range`, reports no `Info` resume diagnostic, and installs the exact file.
+
+##### Resume: Successful Install Removes Partials
+
+**Test**: `SpeechModelDownloader_DownloadAsync_SuccessfulInstall_RemovesPartials`
+
+A stale partial file of another pin is removed together with `.partial/` once the model installs.
+
+##### Resume: Host-Supplied Client Creates No Partials
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HostSuppliedClient_CreatesNoPartials`
+
+A failing host-supplied `IModelDownloadClient` reports `IoFailure` and no `.partial/` directory is created.

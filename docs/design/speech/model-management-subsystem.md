@@ -49,6 +49,11 @@ It contains the following units:
   voice-cloning model (the first is ChatterboxTurbo) consumes it
 - **SpeechModelDownloadFile** / **SpeechModelDownloadDescriptor**: HTTPS-only URL(s) plus
   SHA-256 checksum descriptor types describing what a downloader fetches and verifies
+- **SpeechModelBundle** / **SpeechModelBundleInstaller** / **ZipEntryPathValidator**: the model-bundle
+  distribution path - the public declaration of a model published as one or more SHA-256-pinned zip bundles on the
+  project's `models` release (whose compiled per-file pins prove the extracted vendor files are unmodified), the
+  internal engine that extracts and verifies a staged bundle, and the internal zip-slip and name-portability guard
+  shared by every archive installer (the bundle installer and the reference-voice pack installer)
 - **SpeechModelDownloadProgress**: the `IProgress<T>`-compatible download-progress payload
 - **IModelDownloadClient** / **HttpModelDownloadClient**: the mockable HTTP-fetch seam and its
   real `HttpClient`-backed implementation
@@ -83,10 +88,12 @@ The subsystem exposes `SpeechModelStore`, `SpeechModelStoreOptions`, `SpeechMode
 `ChoiceParameterOption`, `BooleanParameter`, `ISpeechModel`, `IRecognitionModel`,
 `ISynthesisModel`, `SpeechModelDescriptor`, `SpeechModelCatalog`, `ReferenceVoicePack`,
 `ReferenceVoiceLibrary` (which also exposes the shared `ConsentNotice` text hosts show when listing voices),
-`ReferenceVoiceInfo` and `ReferenceVoiceSource` as its public API
-(`SpeechModelParameterDiagnostics` and `ReferenceVoicePackInstaller` are internal; the installer
+`ReferenceVoiceInfo`, `ReferenceVoiceSource` and `SpeechModelBundle` as its public API
+(`SpeechModelParameterDiagnostics`, `ReferenceVoicePackInstaller`, `SpeechModelBundleInstaller` and
+`ZipEntryPathValidator` are internal; the reference-voice installer
 extracts a downloaded pack archive and is driven by `ReferenceVoiceLibrary`, which obtains the archive
-through `SpeechModelDownloader` into the shared `SpeechModelStore` layout). Value types it returns are owned by these
+through `SpeechModelDownloader` into the shared `SpeechModelStore` layout, and the bundle installer is driven by
+`SpeechModelBundle.InstallAsync` from a bundled model's install hook). Value types it returns are owned by these
 units: `SpeechModelDownloadResult` by `SpeechModelDownloader`,
 `ChoiceParameterOption` by `ChoiceParameter` (in SpeechModelParameters), and
 `ReferenceVoiceInfo`/`ReferenceVoiceSource` by
@@ -143,6 +150,32 @@ TLS/certificate failure, a DNS/connection failure, or `HttpClient`'s own interna
 distinct from the caller's own cancellation, which always propagates unchanged as
 `OperationCanceledException`), `IoFailure` (a local disk/permission failure), or the final
 generic `Failed` fallback - so a host can react to *why* a download failed, not just that it did.
+
+When the client is the built-in `HttpModelDownloadClient`, each file is fetched in a resumable way: the bytes arrive
+in a `{root}/{model-id}/.partial/{sha256}.part` file that survives a failed or canceled attempt (and the leftover
+cleanup that precedes every attempt), the next attempt continues it with an HTTP `Range` request through the
+client's internal `DownloadFromOffsetAsync` (falling back to one full download when the server ignores or refuses
+the range), and the completed file is moved into staging before the usual SHA-256 verification. A partial file
+that fails verification is discarded with the staging directory, and `.partial/` is removed once the model
+installs or is uninstalled. Resume works across calls; there is no automatic retry within one call. The public
+`IModelDownloadClient` signature is unchanged, so a host-supplied client keeps whole-file downloads.
+
+#### Model bundles
+
+A model whose files are hosted on the project's `models` release declares one `SpeechModelBundle` per zip it
+needs (usually one; a model split into components, such as a language model and auxiliary networks, declares one
+per component). Its `DownloadDescriptor` is `SpeechModelBundle.CreateDescriptor(bundles)` - one pinned download
+file per zip, staged under the bundle file name, which also makes a mirror serve it at
+`{mirror}/{model-id}/{bundle}.zip` - and its `InstallAsync` hook is `SpeechModelBundle.InstallAsync(bundles,
+staged, ct)`. The downloader therefore fetches, resumes and verifies the zip like any other file (a tampered zip is
+`ChecksumMismatch`), then the hook runs `SpeechModelBundleInstaller` on each zip. The installer validates every
+entry name through `ZipEntryPathValidator` before writing anything, requires the entries to be exactly the
+`model.json` files plus the license material, copies each vendor file with a size cap while hashing it, and
+compares the hash with both `model.json` and the compiled per-file pin in `SpeechModelBundle.Contents`; the
+license, notice, readme and `model.json` go to `licenses/{bundle}/` and the zip is deleted. Any failure propagates
+to the downloader, which classifies it (`Failed` for invalid data) and discards the staging directory, so nothing
+reaches `current/` and a prior install stays intact. The installed vendor layout is the same one a per-file download
+produces, so existing installs keep working.
 
 `IModelDownloadClient` follows the library's seam pattern (as `IPortAudioApi`/`IPortAudioStream` do): a
 small library-owned interface with one real implementation (`HttpModelDownloadClient`, backed by
@@ -229,8 +262,12 @@ seam that lets `SpeechModelDownloader` be unit tested with no network
 default interface members (`Speech-Models-ContractHooks`); a mirror's credentials are applied by the
 `HttpModelDownloadClient` instance the downloader constructs for itself, which is why a downloader
 configured with a credentialed mirror refuses an injected client
-(`Speech-Models-MirrorAuthentication`); and the failure categories are produced by the downloader's
-`ClassifyFailure` helper (`Speech-Models-RicherFailureClassification`).
+(`Speech-Models-MirrorAuthentication`); the failure categories are produced by the downloader's
+`ClassifyFailure` helper (`Speech-Models-RicherFailureClassification`); bundle extraction and verification are
+`SpeechModelBundle`, `SpeechModelBundleInstaller` and `ZipEntryPathValidator` run as the model's install hook
+(`Speech-Models-BundleExtraction`, `Speech-Models-BundleVerification`); and resume is the downloader's
+`.partial/` file plus `HttpModelDownloadClient`'s internal ranged request (`Speech-Models-ResumableDownload`,
+`Speech-Models-PartialDownloadRetention`).
 
 #### Error handling
 

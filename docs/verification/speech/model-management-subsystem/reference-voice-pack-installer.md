@@ -4,7 +4,9 @@
 
 Unit-tested in `ReferenceVoicePackInstallerTests.cs` with small synthetic zip archives built in memory
 (a typical archive, zip-slip variants, an archive with no voices, and non-zip bytes) staged in a
-temporary directory. No network access and no real upstream archive are used.
+temporary directory. No network access and no real upstream archive are used. The entry-name checks are the
+shared `ZipEntryPathValidator` (verified on its own in *ZipEntryPathValidator Verification*); these tests are the
+regression net proving the installer's behavior did not change when the checks were moved into it.
 
 #### Test Environment
 

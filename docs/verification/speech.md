@@ -47,6 +47,10 @@ The system simulates the PortAudio runtime through an internal fake `IPortAudioA
 composition surface with controlled host-API and device catalogs while remaining deterministic
 on every CI runner.
 
+Model downloads are simulated without a network: a fake `IModelDownloadClient` serves fixed payloads (including a
+synthetic model bundle zip built in memory), and the resume scenario plugs an in-memory, range-aware
+`HttpMessageHandler` into the real `HttpModelDownloadClient`.
+
 ## Test Scenarios
 
 ### Integration: PortAudio Initialized Returns Real Devices
@@ -122,6 +126,26 @@ atomically installed and reported installed rather than left partial or corrupte
 Verifies `SpeechModelCatalog` end to end over a scratch store root, one known fake model, and a
 fake download client: `Enumerate()` reports the model's install state, and the state transitions
 to `SpeechModelState.Downloaded` once `DownloadAsync` verifies and atomically installs the model.
+
+### Integration: Bundled Model Installs Its Verified Vendor Files
+
+**Test**: `Speech_DownloadBundledModel_InstallsVerifiedFiles`
+
+Verifies `Speech-Models-BundleInstall` through `SpeechModelCatalog` over a scratch store root, a fake model whose
+download descriptor and install hook are those of one synthetic `SpeechModelBundle`, and a fake download client
+serving the bundle zip (built in memory). The zip is fetched and checked against its pin, the install hook extracts
+and verifies every vendor file against the bundle's `model.json` and the compiled pins, and the installed model
+holds exactly the vendor files with their exact bytes plus the bundle's `licenses/{name}/` folder, with no zip. The
+rejection paths (tampered zip, tampered or unpinned file, unsafe entry name) are verified at subsystem and unit
+level.
+
+### Integration: Interrupted Model Download Resumes on Retry
+
+**Test**: `Speech_DownloadInterruptedModel_ResumesOnRetry`
+
+Verifies `Speech-Models-DownloadResume` with the real `HttpModelDownloadClient` over an in-memory HTTP handler that
+honors `Range` and drops the first response after 256 bytes (no network). The interrupted download installs
+nothing; the retry requests only `bytes=256-` and installs the exact, verified file.
 
 ### Integration: Streaming Synthesis Produces Played Audio from Text
 

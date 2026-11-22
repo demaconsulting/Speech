@@ -11,16 +11,23 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 ///     voice cloning, run directly through ONNX Runtime on the CPU.
 /// </summary>
 /// <remarks>
-///     <b>Download provenance</b>: the graphs are published at
-///     <c>https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX</c> (MIT license). The SHA-256 checksums
-///     in <see cref="DownloadDescriptor"/> were computed directly from a local copy of those files; a release
-///     checklist item is to cross-check them against the repository's published LFS checksums. Each
+///     <b>Download provenance</b>: the graphs are originally published at
+///     <c>https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX</c> (MIT license, Copyright (c) 2025 Resemble AI).
+///     The SHA-256 checksums in <see cref="BundleContents"/> were computed directly from a local copy of those
+///     files; a release checklist item is to cross-check them against the repository's published LFS checksums. Each
 ///     <c>.onnx</c> graph keeps its <c>.onnx_data</c> weights file beside it. The tokenizer is embedded in
 ///     this package, not downloaded.
 ///     <para>
 ///     <b>Variants</b>: the default is the half-precision language model with 4-bit auxiliary graphs
 ///     (about 1.1 GB, 8 files). A non-default variant gets a distinct <see cref="Id"/> so the model store's
-///     installed-file check stays correct for the selected file set.
+///     installed-file check stays correct for the selected file set. The files are grouped into component bundles
+///     on this project's <c>models</c> GitHub release: one per language-model precision and one per auxiliary
+///     precision. A variant downloads its two bundles (unmodified files plus the MIT <c>LICENSE</c>, a
+///     <c>NOTICE</c>, a <c>README.txt</c> and a <c>model.json</c>) from the release when both are published (see
+///     <see cref="PublishedBundles"/>; today only the default variant's two bundles are), and otherwise downloads
+///     its eight files individually from Hugging Face, as before. A configured download mirror serves a
+///     bundle-installed variant's zips at <c>{mirror}/{model id}/{bundle}.zip</c> and an individually downloaded
+///     variant's files at <c>{mirror}/{model id}/onnx/{file}</c>.
 ///     </para>
 ///     <para>
 ///     <b>Voices</b>: nothing is bundled in this package. Voices come from <see cref="ChatterboxTurboModelOptions"/>
@@ -83,6 +90,71 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         ["conditional_decoder.onnx_data"] = "05f162a519f3e9abaf0b7337ae037f4af8b2b30c4455d39b2c61ed3a9b2b5476",
     };
 
+    /// <summary>
+    ///     The vendor files of every Chatterbox Turbo component bundle on the <c>models</c> release, keyed by
+    ///     bundle name: one language-model bundle per <see cref="ChatterboxTurboLanguageModelVariant"/> and one
+    ///     auxiliary bundle (embedding, speech encoder and conditional decoder) per
+    ///     <see cref="ChatterboxTurboAuxiliaryModelVariant"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Built from <see cref="Checksums"/> and the repository URL, so it is the single source of truth for the
+    ///     per-file pins: <see cref="InstalledFiles"/> is the selected language-model bundle's files followed by
+    ///     the selected auxiliary bundle's files, a published bundle in <see cref="PublishedBundles"/> uses its entry
+    ///     as its contents, and the non-shipped <c>DemaConsulting.Speech.ModelBundler</c> tool
+    ///     (which sees this member through <c>InternalsVisibleTo</c>) packs exactly these files into each bundle, so
+    ///     no SHA-256 is declared twice. Each graph is followed by its weights file. Immutable and safe to share
+    ///     across threads.
+    /// </remarks>
+    internal static IReadOnlyDictionary<string, SpeechModelDownloadDescriptor> BundleContents { get; } =
+        new Dictionary<string, SpeechModelDownloadDescriptor>(StringComparer.Ordinal)
+        {
+            [GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant.Fp16)] = BuildVendorFiles("language_model_fp16"),
+            [GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant.Fp32)] = BuildVendorFiles("language_model"),
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Q4)] =
+                BuildVendorFiles(GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant.Q4)),
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Fp16)] =
+                BuildVendorFiles(GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant.Fp16)),
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Fp32)] =
+                BuildVendorFiles(GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant.Fp32)),
+        };
+
+    /// <summary>
+    ///     The zip SHA-256 of every component bundle already published on the <c>models</c> release, keyed by
+    ///     bundle name.
+    /// </summary>
+    /// <remarks>
+    ///     Only the default variant's two bundles (half-precision language model, 4-bit auxiliary graphs) are
+    ///     published so far. A variant installs from bundles only when both of its component bundles appear here
+    ///     (see the constructor), so publishing a further bundle and adding its pin here switches the variants
+    ///     that use it from Hugging Face to the release with no other code change. Declared after
+    ///     <see cref="BundleContents"/> because static initializers run in textual order.
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<string, string> PublishedBundleChecksums =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant.Fp16)] =
+                "2c2e05d62e18453fa8c726d57b8c970948f5d693400f303fc2e9dc97838a1584",
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Q4)] =
+                "1981e10e65bb4f2954b99dee6c9b9e74242428cd87ed0dadf085ca6f8f229581",
+        };
+
+    /// <summary>
+    ///     The component bundles published on the <c>models</c> release, each pinned by its zip SHA-256 and holding
+    ///     the unmodified files of its <see cref="BundleContents"/> entry, in ordinal name order.
+    /// </summary>
+    /// <remarks>
+    ///     Public so a host or a mirror administrator can list exactly which zips (name, URL and SHA-256) the
+    ///     bundle-installed variants download. Today these are <c>chatterbox-turbo-lm-20261014-fp16-b1</c> and
+    ///     <c>chatterbox-turbo-aux-20261014-int4-b1</c>, the two bundles of the default variant. Immutable and safe
+    ///     to share across threads.
+    /// </remarks>
+    public static IReadOnlyList<SpeechModelBundle> PublishedBundles { get; } =
+    [
+        .. PublishedBundleChecksums
+            .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => CreateBundle(entry.Key, entry.Value)),
+    ];
+
     /// <summary>The configuration this instance was created with.</summary>
     private readonly ChatterboxTurboModelOptions _options;
 
@@ -103,6 +175,13 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
 
     /// <summary>Conditional decoder graph base name.</summary>
     private readonly string _conditionalDecoderName;
+
+    /// <summary>
+    ///     The two published component bundles (language model, then auxiliary graphs) this variant installs from,
+    ///     or <see langword="null"/> when at least one of them is not yet published and the variant downloads its
+    ///     files individually from Hugging Face.
+    /// </summary>
+    private readonly IReadOnlyList<SpeechModelBundle>? _bundles;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="OnnxChatterboxTurboEnglishSynthesisModel"/> class.
@@ -141,18 +220,13 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         _profile = new ChatterboxTurboCapabilityProfile(_options.EndOfSentenceTagPolicy, _options.MoodJoinSilenceMilliseconds);
 
         // Graph names follow the repository's suffix convention (none = full precision)
-        var auxiliarySuffix = _options.AuxiliaryModelVariant switch
-        {
-            ChatterboxTurboAuxiliaryModelVariant.Q4 => "_q4",
-            ChatterboxTurboAuxiliaryModelVariant.Fp16 => "_fp16",
-            _ => string.Empty,
-        };
+        var auxiliaryGraphNames = GetAuxiliaryGraphNames(_options.AuxiliaryModelVariant);
         _languageModelName = _options.LanguageModelVariant == ChatterboxTurboLanguageModelVariant.Fp16
             ? "language_model_fp16"
             : "language_model";
-        _embedTokensName = "embed_tokens" + auxiliarySuffix;
-        _speechEncoderName = "speech_encoder" + auxiliarySuffix;
-        _conditionalDecoderName = "conditional_decoder" + auxiliarySuffix;
+        _embedTokensName = auxiliaryGraphNames[0];
+        _speechEncoderName = auxiliaryGraphNames[1];
+        _conditionalDecoderName = auxiliaryGraphNames[2];
 
         _voices = ResolveVoices(_options, defaultLibrary);
 
@@ -173,7 +247,23 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                     _voices[0].Id),
             ];
 
-        DownloadDescriptor = BuildDescriptor();
+        // A variant installs from the models release only when both of its component bundles are published;
+        // otherwise it keeps downloading its eight files individually, so no variant ever mixes the two sources
+        var languageModelBundleName = GetLanguageModelBundleName(_options.LanguageModelVariant);
+        var auxiliaryBundleName = GetAuxiliaryModelBundleName(_options.AuxiliaryModelVariant);
+        InstalledFiles =
+        [
+            .. BundleContents[languageModelBundleName].Files,
+            .. BundleContents[auxiliaryBundleName].Files,
+        ];
+        var languageModelBundle = PublishedBundles.FirstOrDefault(bundle => string.Equals(bundle.Name, languageModelBundleName, StringComparison.Ordinal));
+        var auxiliaryBundle = PublishedBundles.FirstOrDefault(bundle => string.Equals(bundle.Name, auxiliaryBundleName, StringComparison.Ordinal));
+        _bundles = languageModelBundle is not null && auxiliaryBundle is not null
+            ? [languageModelBundle, auxiliaryBundle]
+            : null;
+        DownloadDescriptor = _bundles is not null
+            ? SpeechModelBundle.CreateDescriptor(_bundles)
+            : new SpeechModelDownloadDescriptor(InstalledFiles);
     }
 
     /// <inheritdoc/>
@@ -205,7 +295,45 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.Native;
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     For a variant whose two component bundles are both published (today the default variant), the two zips
+    ///     of <see cref="PublishedBundles"/> it uses, language model first; <see cref="InstallAsync"/> then extracts
+    ///     <see cref="InstalledFiles"/> from them. For any other variant, the eight files of
+    ///     <see cref="InstalledFiles"/>, downloaded individually from Hugging Face.
+    /// </remarks>
     public SpeechModelDownloadDescriptor DownloadDescriptor { get; }
+
+    /// <summary>
+    ///     The eight vendor files this variant installs (the language-model graph and weights followed by the three
+    ///     auxiliary graphs and their weights), whichever source <see cref="DownloadDescriptor"/> downloads them from.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="CreateBackend"/> checks these files rather than <see cref="DownloadDescriptor"/>, because a
+    ///     bundle-installed variant's descriptor names zips that are deleted once extracted.
+    /// </remarks>
+    internal IReadOnlyList<SpeechModelDownloadFile> InstalledFiles { get; }
+
+    /// <summary>
+    ///     Extracts and verifies the two downloaded component bundles of a bundle-installed variant in the staging
+    ///     directory; does nothing for a variant that downloads its files individually.
+    /// </summary>
+    /// <param name="stagedFilesDirectory">The staging directory holding the downloaded, checksum-verified files.</param>
+    /// <param name="cancellationToken">A token to observe while extracting.</param>
+    /// <returns>A task that completes once the bundles are extracted and the zips are deleted.</returns>
+    /// <remarks>
+    ///     Delegates to <see cref="SpeechModelBundle.InstallAsync"/>, which rejects any unsafe entry name, any extra
+    ///     or missing file, and any file whose SHA-256 differs from its pin, and places each bundle's license files
+    ///     under <c>licenses/&lt;bundle&gt;/</c>; an exception here leaves no partial install. A variant downloading
+    ///     individual files needs no post-processing, exactly as before bundles existed.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    ///     Thrown for a bundle-installed variant when <paramref name="stagedFilesDirectory"/> is null or empty.
+    /// </exception>
+    /// <exception cref="InvalidDataException">Thrown when a zip or one of its files fails verification.</exception>
+    public Task InstallAsync(string stagedFilesDirectory, CancellationToken cancellationToken = default) =>
+        _bundles is null
+            ? Task.CompletedTask
+            : SpeechModelBundle.InstallAsync(_bundles, stagedFilesDirectory, cancellationToken);
 
     /// <inheritdoc/>
     AudioFormat ISynthesisModel.PreferredAudioFormat => AudioFormat.Mono(OnnxChatterboxTurboSynthesisEngine.OutputSampleRate);
@@ -234,7 +362,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         }
 
         // Check every graph and weights file up front for a clear message
-        foreach (var file in DownloadDescriptor.Files)
+        foreach (var file in InstalledFiles)
         {
             var path = file.ResolveStagedPath(installedModelDirectory);
             if (!File.Exists(path))
@@ -404,12 +532,61 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         }
     }
 
-    /// <summary>Builds the download descriptor for the selected variants (graph plus weights file each).</summary>
+    /// <summary>
+    ///     Creates one published component bundle from its name and zip SHA-256, using the bundle's
+    ///     <see cref="BundleContents"/> entry as its contents.
+    /// </summary>
+    /// <param name="bundleName">The bundle name (the zip file name without <c>.zip</c>).</param>
+    /// <param name="sha256Checksum">The SHA-256 of the published zip.</param>
+    /// <returns>The bundle, served from <see cref="SpeechModelBundle.ModelsReleaseBaseUri"/>.</returns>
+    private static SpeechModelBundle CreateBundle(string bundleName, string sha256Checksum) =>
+        new(new Uri(SpeechModelBundle.ModelsReleaseBaseUri, bundleName + ".zip"), sha256Checksum, BundleContents[bundleName]);
+
+    /// <summary>Gets the name of the <c>models</c>-release bundle that carries a language-model variant's files.</summary>
+    /// <param name="variant">The language-model variant.</param>
+    /// <returns>The bundle name, for example <c>chatterbox-turbo-lm-20261014-fp16-b1</c>.</returns>
+    internal static string GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant variant) =>
+        variant == ChatterboxTurboLanguageModelVariant.Fp16
+            ? "chatterbox-turbo-lm-20261014-fp16-b1"
+            : "chatterbox-turbo-lm-20261014-fp32-b1";
+
+    /// <summary>Gets the name of the <c>models</c>-release bundle that carries an auxiliary-model variant's files.</summary>
+    /// <remarks>The repository's <c>q4</c> graphs map to the bundle naming rule's <c>int4</c> quantization token.</remarks>
+    /// <param name="variant">The auxiliary-model variant.</param>
+    /// <returns>The bundle name, for example <c>chatterbox-turbo-aux-20261014-int4-b1</c>.</returns>
+    internal static string GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant variant) =>
+        variant switch
+        {
+            ChatterboxTurboAuxiliaryModelVariant.Q4 => "chatterbox-turbo-aux-20261014-int4-b1",
+            ChatterboxTurboAuxiliaryModelVariant.Fp16 => "chatterbox-turbo-aux-20261014-fp16-b1",
+            _ => "chatterbox-turbo-aux-20261014-fp32-b1",
+        };
+
+    /// <summary>
+    ///     Gets the auxiliary graph base names (embedding, speech encoder, conditional decoder) of a variant, which
+    ///     follow the repository's suffix convention (<c>_q4</c>, <c>_fp16</c>, or none for full precision).
+    /// </summary>
+    /// <param name="variant">The auxiliary-model variant.</param>
+    /// <returns>The three graph base names, without extension, in that order.</returns>
+    private static string[] GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant variant)
+    {
+        var suffix = variant switch
+        {
+            ChatterboxTurboAuxiliaryModelVariant.Q4 => "_q4",
+            ChatterboxTurboAuxiliaryModelVariant.Fp16 => "_fp16",
+            _ => string.Empty,
+        };
+        return ["embed_tokens" + suffix, "speech_encoder" + suffix, "conditional_decoder" + suffix];
+    }
+
+    /// <summary>Builds the vendor files of one component bundle: each graph followed by its weights file.</summary>
+    /// <param name="graphNames">The graph base names (without extension), in order.</param>
+    /// <returns>The descriptor of the graphs' <c>.onnx</c> and <c>.onnx_data</c> files, installed under <c>onnx/</c>.</returns>
 #pragma warning disable S1075 // Download URLs are intentionally compiled-in, reviewed literals.
-    private SpeechModelDownloadDescriptor BuildDescriptor()
+    private static SpeechModelDownloadDescriptor BuildVendorFiles(params string[] graphNames)
     {
         var files = new List<SpeechModelDownloadFile>();
-        foreach (var name in new[] { _languageModelName, _embedTokensName, _speechEncoderName, _conditionalDecoderName })
+        foreach (var name in graphNames)
         {
             foreach (var extension in new[] { ".onnx", ".onnx_data" })
             {

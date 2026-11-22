@@ -85,11 +85,14 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ModelDownload
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall describe the
-              downloadable file set of the model for each selectable precision variant.
+              downloadable file set of the model for each selectable precision variant, from the
+              project's models release when the variant's component bundles are published.
             justification: |
-              The model store verifies and installs exactly what the descriptor lists.
+              The model store verifies and installs exactly what the descriptor lists, and the
+              release is reachable where Hugging Face is blocked.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-BundleInstall
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
 
           - id: SpeechOnnxChatterboxTurbo-Models-VariantLoading

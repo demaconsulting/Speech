@@ -9,7 +9,14 @@ and builds the loaded backend from an installed directory. Its companion types a
 **Data Model**: Immutable after construction: the options, the resolved list of
 `ChatterboxTurboReferenceVoice` values (supplied directly, loaded from a directory of `.wav` or
 `.flac` files, or lazily from the reference-voice library), the selected variants, and a static table of SHA-256
-checksums keyed by file. The model id
+checksums keyed by file. The internal static `BundleContents` maps each of the five component bundle names
+(`chatterbox-turbo-lm-20261014-{fp16,fp32}-b1`, `chatterbox-turbo-aux-20261014-{int4,fp16,fp32}-b1`; the
+repository's `q4` graphs use the `int4` token) to its vendor files, each with its original Hugging Face
+address, pin and `onnx/` install path. A private table holds the zip SHA-256 of each published bundle (today
+the fp16 language-model and int4 auxiliary bundles), and the public static `PublishedBundles` builds one
+`SpeechModelBundle` per entry. Each instance holds `InstalledFiles` (internal; its language-model bundle's
+files followed by its auxiliary bundle's files) and, when both of its bundles are published, the two bundles it
+installs from. The model id
 is `chatterbox-turbo-onnx-en` (`BaseModelId`) for the default fp16 language model with q4 auxiliary
 graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other combination.
 
@@ -17,8 +24,14 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
 
 - **Metadata**: id, display name, English language, license, 24 kHz mono `PreferredAudioFormat`,
   and the capability profile with native-tag support
-- **DownloadDescriptor**: four graphs, each an `.onnx` plus `.onnx_data` file, with pinned
-  checksums and relative install paths under `onnx/` (eight files by default)
+- **DownloadDescriptor**: when both of the variant's component bundles are published, the two zips
+  (`SpeechModelBundle.CreateDescriptor`, language model first); otherwise the eight files of
+  `InstalledFiles` (four graphs, each an `.onnx` plus `.onnx_data` file, with pinned checksums and
+  relative install paths under `onnx/`), downloaded individually from Hugging Face. Adding a bundle's pin
+  to the published table switches the variants that use it to the release with no other change
+- **InstallAsync**: for a bundle-installed variant, delegates to `SpeechModelBundle.InstallAsync`, which
+  extracts and verifies the vendor files and places each bundle's license files under
+  `licenses/<bundle>/`; for any other variant, does nothing, as before bundles existed
 - **Parameters**: a `voice` choice listing the available voices (first is default); its description
   appends the core `ReferenceVoiceLibrary.ConsentNotice`
 - **Voice resolution** (constructor): `ChatterboxTurboModelOptions.ReferenceVoices` rejects a null list with
@@ -60,8 +73,9 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   session that records its own disposal, to prove no session is left open when backend creation fails.
 - **CreateBackend(installDirectory)**: in order, validates the directory argument (null throws
   `ArgumentNullException`, empty throws `ArgumentException`), requires at least one voice
-  (`InvalidOperationException`), checks every model file exists (`FileNotFoundException`, before any session is
-  created), builds the networks (an invalid graph throws `InvalidOperationException`), the tokenizer and the
+  (`InvalidOperationException`), checks every file of `InstalledFiles` exists (`FileNotFoundException`, before any
+  session is created; the descriptor is not used, because a bundle-installed variant's zips are deleted once
+  extracted), builds the networks (an invalid graph throws `InvalidOperationException`), the tokenizer and the
   engine, and disposes created sessions if a later step fails. The voices are decoded lazily by the engine on
   first use; concurrent first use of one voice decodes its clip once (see `ChatterboxTurboReferenceVoice`).
 
@@ -77,7 +91,8 @@ choice to offer).
 
 **Dependencies**: `OnnxChatterboxTurboNetworks`, `OnnxChatterboxTurboSynthesisEngine`,
 `ByteLevelBpeTokenizer`, `ChatterboxTurboCapabilityProfile`, `ChatterboxTurboReferenceVoice`,
-core `ReferenceVoiceLibrary`.
+core `ReferenceVoiceLibrary` and `SpeechModelBundle`.
 
 **Callers**: `SpeechModelCatalogChatterboxTurboExtensions.AddChatterboxTurboModels` and Speech's
-model store and synthesizer factory.
+model store and synthesizer factory; the non-shipped ModelBundler tool reads `BundleContents` and the bundle
+names through `InternalsVisibleTo`.

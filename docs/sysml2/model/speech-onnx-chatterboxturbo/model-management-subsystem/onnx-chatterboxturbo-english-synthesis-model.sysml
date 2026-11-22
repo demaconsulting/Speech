@@ -24,8 +24,10 @@ package SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboEnglishSynthesisModel {
     }
 
     part def OnnxChatterboxTurboEnglishSynthesisModel {
-        doc /* The ISynthesisModel for Chatterbox Turbo English: identity, precision-variant file set with checksums,
-             * voice choice over caller-supplied reference voices, and backend construction from an installed model
+        doc /* The ISynthesisModel for Chatterbox Turbo English: identity, precision-variant file set with checksums
+             * (downloaded as one language-model and one auxiliary SHA-256-pinned bundle from the project's models
+             * release when both are published, extracted and verified through SpeechModelBundle, and otherwise as
+             * individual Hugging Face files), voice choice over caller-supplied reference voices, and backend construction from an installed model
              * directory. Includes its ChatterboxTurboModelOptions and variant enums. */
 
         metadata info : SoftwareInfo {
@@ -52,6 +54,7 @@ package SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboEnglishSynthesisModel {
         dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_ReferenceVoicePack::ReferenceVoicePack;
         dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_SpeechDiagnosticLevel::SpeechDiagnosticLevel;
         dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_SpeechModelContract::SpeechModelContract;
+        dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_SpeechModelBundle::SpeechModelBundle;
         dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_SpeechModelDescriptorEnums::SpeechModelDescriptorEnums;
         dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_SpeechModelDownloadDescriptor::SpeechModelDownloadDescriptor;
         dependency OnnxChatterboxTurboEnglishSynthesisModel to Speech_SpeechModelDownloadFile::SpeechModelDownloadFile;

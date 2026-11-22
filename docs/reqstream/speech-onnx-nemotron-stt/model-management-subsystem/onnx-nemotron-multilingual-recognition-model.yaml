@@ -72,38 +72,57 @@ sections:
 
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
                 title: >-
-                  The OnnxNemotronMultilingualRecognitionModel class shall declare a download
-                  descriptor naming each of the model's eleven files (the encoder, decoder, and
-                  joint graphs with their external-data files, the vocabulary, and the tokenizer
-                  and configuration files), each with its own relative install path.
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare, as its only
+                  download, the SHA-256-pinned nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1
+                  bundle on the project's models release, carrying each of the model's eleven files
+                  (the encoder, decoder, and joint graphs with their external-data files, the
+                  vocabulary, and the tokenizer and configuration files) at its own relative install
+                  path.
                 justification: |
-                  SpeechModelDownloader depends only on the generic ISpeechModel download
-                  descriptor; this model must honestly declare every individual file its engine
-                  construction needs, with each external-data file installed beside its graph
-                  under the identical base name as ONNX Runtime requires.
+                  Hosting the unmodified files as one verified bundle on GitHub lets users behind a
+                  firewall that blocks Hugging Face install the model; the bundle's contents keep
+                  every file the engine construction needs at the path it reads, with each
+                  external-data file beside its graph under the identical base name as ONNX Runtime
+                  requires.
                 tests:
-                  - DownloadDescriptor_ListsElevenFiles
+                  - OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle
+                  - OnnxNemotronMultilingualRecognitionModel_BundleContents_PinsEveryVendorFile
 
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadChecksums
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare a well-formed
-                  SHA-256 checksum for each of its download files.
+                  SHA-256 checksum for its bundle and for each vendor file the bundle carries.
                 justification: |
-                  The downloader verifies every file against its checksum, so an installation is
-                  known to be the exact file the model was validated with.
+                  The downloader verifies the bundle against its checksum and the install verifies
+                  every extracted file against its own, so an installation is known to be the exact
+                  files the model was validated with.
                 tests:
-                  - DownloadDescriptor_ListsElevenFiles
+                  - OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle
+                  - OnnxNemotronMultilingualRecognitionModel_BundleContents_PinsEveryVendorFile
 
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadUris
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare an HTTPS
-                  download URI for each of its download files, requiring no post-download
-                  archive extraction.
+                  download URI for its bundle and record the original HTTPS upstream URI of each
+                  vendor file the bundle carries.
                 justification: |
-                  Each file is fetched individually over a secure transport from the model's
-                  upstream repository.
+                  The bundle is fetched over a secure transport, and the recorded upstream
+                  addresses document where each unmodified file came from.
                 tests:
-                  - DownloadDescriptor_ListsElevenFiles
+                  - OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle
+                  - OnnxNemotronMultilingualRecognitionModel_BundleContents_PinsEveryVendorFile
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-BundleInstall
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class's InstallAsync method shall
+                  extract the downloaded bundle and shall fail when an extracted file does not match
+                  its pin.
+                justification: |
+                  The downloader hands the staged archive to the model's install hook; failing on a
+                  mismatched file leaves the prior install untouched and never installs altered
+                  model files.
+                tests:
+                  - OnnxNemotronMultilingualRecognitionModel_InstallAsync_BundleWithWrongFile_Throws
 
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageParameter
                 title: >-

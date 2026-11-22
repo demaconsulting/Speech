@@ -780,6 +780,8 @@ sections:
               must be path-safe.
             children:
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+              - Speech-Models-ZipEntryPathValidator-UnsafeNames
+              - Speech-Models-ZipEntryPathValidator-RootContainment
             tests:
               - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
 
@@ -937,3 +939,96 @@ sections:
               - Speech-Models-SpeechModelContract-SynthesisTextAnalyzerDeclaration
             tests:
               - ISynthesisModel_TextAnalyzer_DefaultImplementation_ReturnsNull
+
+          - id: Speech-Models-BundleExtraction
+            title: >-
+              The ModelManagementSubsystem shall install a model published as one or more bundle
+              archives by placing each contained vendor file at its install path, keeping each
+              bundle's license, notice, readme and metadata files with the installed model, never
+              writing an archive entry outside the model's own location, and removing the archive.
+            justification: |
+              Hosting each model as one archive on a single firewall-friendly host makes downloads
+              possible where the original hosts are blocked; the installed layout must stay the one
+              the model expects, the redistributed license material must travel with it, and the
+              untrusted entry names must not write anywhere else.
+            children:
+              - Speech-Models-SpeechModelBundle-ModelsReleaseLocation
+              - Speech-Models-SpeechModelBundle-Declaration
+              - Speech-Models-SpeechModelBundle-NamingRule
+              - Speech-Models-SpeechModelBundle-ReservedContentsPaths
+              - Speech-Models-SpeechModelBundle-Descriptor
+              - Speech-Models-SpeechModelBundle-MultiBundleInstall
+              - Speech-Models-SpeechModelBundleInstaller-VendorExtraction
+              - Speech-Models-SpeechModelBundleInstaller-LicenseFolder
+              - Speech-Models-SpeechModelBundleInstaller-ArchiveDeletion
+              - Speech-Models-SpeechModelBundleInstaller-EntryNameSafety
+              - Speech-Models-SpeechModelBundleInstaller-NotAZipRejection
+              - Speech-Models-ZipEntryPathValidator-UnsafeNames
+              - Speech-Models-ZipEntryPathValidator-Segments
+              - Speech-Models-ZipEntryPathValidator-PortableNames
+              - Speech-Models-ZipEntryPathValidator-RootContainment
+              - Speech-Models-SpeechModelDownloader-BundleInstall
+              - Speech-Models-SpeechModelDownloader-BundleMirrorPath
+            tests:
+              - SpeechModelDownloader_DownloadAsync_ValidBundle_InstallsVendorFilesAndLicenses
+              - SpeechModelBundleInstaller_InstallAsync_EntryEscapingDirectory_ThrowsInvalidDataException
+              - SpeechModelDownloader_ResolveEffectiveUri_Bundle_UsesModelIdAndZipName
+
+          - id: Speech-Models-BundleVerification
+            title: >-
+              The ModelManagementSubsystem shall install nothing from a model bundle, leaving any
+              earlier installed content untouched, unless the archive matches its pinned checksum,
+              holds exactly the files it declares plus its metadata, and every contained vendor file
+              matches both the bundle's own declaration and the model's compiled checksum.
+            justification: |
+              The archive is repackaged content: its pin proves it is the published archive, and the
+              per-file compiled pins prove the vendor files inside are unmodified upstream files.
+            children:
+              - Speech-Models-SpeechModelBundleInstaller-ExactEntrySet
+              - Speech-Models-SpeechModelBundleInstaller-ManifestValidation
+              - Speech-Models-SpeechModelBundleInstaller-FileVerification
+              - Speech-Models-SpeechModelBundleInstaller-PinCoverage
+              - Speech-Models-SpeechModelDownloader-BundleInstall
+            tests:
+              - SpeechModelDownloader_DownloadAsync_BundleZipChecksumMismatch_ReportsChecksumMismatch
+              - SpeechModelDownloader_DownloadAsync_BundleExtractionFails_LeavesNoCurrentAndKeepsPriorInstall
+              - SpeechModelBundleInstaller_InstallAsync_FileHashDiffersFromPinnedContents_ThrowsInvalidDataException
+
+          - id: Speech-Models-ResumableDownload
+            title: >-
+              The ModelManagementSubsystem shall, with its built-in HTTP download client, continue a
+              file download that an earlier attempt left incomplete by requesting only the remaining
+              bytes, falling back to a full download when the server ignores or refuses the request,
+              and still verifying the complete file's checksum.
+            justification: |
+              Large models (hundreds of megabytes) are often interrupted on slow or unstable links;
+              continuing from the received bytes lets a retry finish instead of starting over.
+            children:
+              - Speech-Models-HttpModelDownloadClient-RangeResume
+              - Speech-Models-HttpModelDownloadClient-RangeFallback
+              - Speech-Models-HttpModelDownloadClient-RangeFailureHandling
+              - Speech-Models-HttpModelDownloadClient-RangeMirrorAuthentication
+              - Speech-Models-SpeechModelDownloader-ResumableFetch
+              - Speech-Models-SpeechModelDownloader-HostClientNotResumed
+            tests:
+              - SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry
+              - SpeechModelDownloader_DownloadAsync_ServerIgnoresRange_RestartsAndInstalls
+
+          - id: Speech-Models-PartialDownloadRetention
+            title: >-
+              The ModelManagementSubsystem shall keep the received bytes of an interrupted download
+              between attempts, discard them once they fail verification, and remove them when the
+              model installs or is uninstalled.
+            justification: |
+              Kept bytes are what a later attempt resumes from, bytes that failed verification must
+              never be resumed again, and a large partial file must not outlive its purpose.
+            children:
+              - Speech-Models-SpeechModelDownloader-PartialRetention
+              - Speech-Models-SpeechModelStore-PartialDirectory
+              - Speech-Models-SpeechModelStore-PartialRemoval
+            tests:
+              - SpeechModelDownloader_DownloadAsync_CanceledMidTransfer_KeepsPartial
+              - SpeechModelDownloader_DownloadAsync_ResumedFileFailsChecksum_DiscardsPartial
+              - SpeechModelDownloader_DownloadAsync_SuccessfulInstall_RemovesPartials
+              - SpeechModelStore_Uninstall_RemovesPartials
+              - SpeechModelStore_CleanUpLeftovers_KeepsPartials

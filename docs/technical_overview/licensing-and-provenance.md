@@ -41,5 +41,35 @@ summary is not legal advice.
   data in the archive is discarded and never installed.
 - **Kokoro.** The Kokoro v1.0 voice is licensed Apache-2.0, and the Kokoro package embeds its phoneme vocabulary under
   the same license.
+- **Chatterbox Turbo.** The Chatterbox Turbo graphs are licensed MIT, Copyright (c) 2025 Resemble AI. The package
+  embeds only the tokenizer; reference voices come from the user or from the separately installed CC0 voice pack.
 
-The voices are downloaded on demand and verified by SHA-256; no voice data is embedded in a package.
+The voices are downloaded on demand and verified by SHA-256; no model weights or voice data are embedded in a package.
+
+## Model Hosting and Redistribution
+
+- **The `models` release.** DEMA Consulting redistributes the ONNX models it can legally host as zip bundles on one
+  long-lived pre-release of the project, the `models` release
+  (<https://github.com/demaconsulting/Speech/releases/tag/models>).
+  Hosting on GitHub lets users behind a firewall that blocks Hugging Face install the models. A published bundle is
+  never replaced: a change gets a new bundle revision (`-b2`, `-b3`, …) or a new upstream release in its name.
+- **Bundle contents.** Each bundle holds the vendor files **unmodified**, byte for byte, plus four files added by DEMA
+  Consulting: `LICENSE` (the original license text or texts), `NOTICE` (the attribution and notices of origin),
+  `model.json` (the original source URL, size and SHA-256 of every file, the upstream repository and the license) and
+  `README.txt` (a plain-text summary stating that the files are unmodified). The library verifies the zip and every
+  extracted file against pins compiled into the package, and installs the four added files with the model under
+  `licenses/<bundle>/`. The bundles are built reproducibly by the non-shipped `tools/ModelBundler` tool.
+- **Kokoro** (`kokoro-en-v1.0-int8-b1`): Apache-2.0. The files are the `onnx-community/Kokoro-82M-v1.0-ONNX` export of
+  `hexgrad/Kokoro-82M` v1.0; the attribution credits hexgrad and the onnx-community organization.
+- **Nemotron** (`nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1`): the model weights
+  (`nvidia/nemotron-3.5-asr-streaming-0.6b`, by NVIDIA Corporation) are licensed under the OpenMDW License Agreement
+  1.1, which allows redistribution when its text and the notices of origin are kept; the int4 ONNX conversion by the
+  onnx-community organization is tagged MIT. The bundle carries both texts and a notice naming both sources.
+- **Chatterbox Turbo** (`chatterbox-turbo-lm-20261014-fp16-b1` and `chatterbox-turbo-aux-20261014-int4-b1`): MIT,
+  Copyright (c) 2025 Resemble AI. The other precision variants are not hosted yet and still download from Hugging Face.
+- **Piper is not hosted.** The Piper LibriTTS-R voice is licensed CC BY 4.0, but its model card states that it was
+  fine-tuned from the Lessac voice, whose Blizzard 2013 training data is licensed for research purposes only. Whether
+  to host it is pending a decision by the project owner. Until then the Piper voice keeps downloading the sherpa-onnx
+  archive from the sherpa-onnx GitHub release, as before.
+- **Sherpa models and the voice pack.** The Sherpa models download their archives from the sherpa-onnx GitHub
+  releases, and the CC0 reference-voice pack from its own GitHub release; neither is re-hosted.

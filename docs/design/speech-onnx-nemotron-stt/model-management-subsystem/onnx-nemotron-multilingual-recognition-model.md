@@ -4,7 +4,7 @@
 Nemotron 3.5 ASR streaming (0.6B, int4 ONNX export), run directly through ONNX Runtime with no
 bundled native inference engine - unlike the sibling `DemaConsulting.Speech.Sherpa` package's
 sherpa-onnx-backed Nemotron model. It declares the model's identity, license, language
-parameter, and download descriptor, and builds the recognition backend from an installed copy.
+parameter, and its `models`-release bundle, and builds the recognition backend from an installed copy.
 
 **Data Model**: Holds only the optional ordered list of preferred execution provider names
 (`_preferredExecutionProviderNames`); the model is otherwise a stateless declaration. Constants:
@@ -15,24 +15,34 @@ parameter, and download descriptor, and builds the recognition backend from an i
 **Key Members**:
 
 - **Id / DisplayName / Role / AudioTagSupport / AudioFormat**: `Id` equals `ModelId`, which is
-  also the download mirror's one folder name (mirror layout `<mirror>/<modelId>/<file>`);
+  also the download mirror's one folder name (mirror layout `<mirror>/<modelId>/<bundle>.zip`);
   `Role = Recognition`; `AudioTagSupport = None`; `AudioFormat` is mono 16000 Hz.
 - **LicenseName / LicenseUrl**: `"OpenMDW-1.1"` with `https://openmdw.ai/license/1-1/`, the
   license of the model weights stated on the upstream model card of
   `nvidia/nemotron-3.5-asr-streaming-0.6b` (checked on the live card on 2026-11-21). The files
-  are the `onnx-community` int4 ONNX conversion, downloaded unchanged; that repository's MIT tag
+  are the `onnx-community` int4 ONNX conversion, redistributed unchanged; that repository's MIT tag
   covers only the conversion artifacts, and the weights remain under the OpenMDW License.
 - **Parameters**: exactly one `ChoiceParameter` with id `language`, options `en-US` (default) and
   `en-GB`.
-- **DownloadDescriptor**: eleven HTTPS files served from the repository's `resolve/main` path,
-  each with a SHA-256 checksum computed against the downloaded file and an install path equal to
-  its file name: `encoder.onnx` (2,677,548 bytes), `encoder.onnx.data` (690,089,984),
+- **BundleName / BundleContents** (internal): `BundleName = "nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"`;
+  `BundleContents` declares eleven vendor files, each with its original HTTPS address on the
+  repository's `resolve/main` path, a SHA-256 checksum computed against the downloaded file and an
+  install path equal to its file name: `encoder.onnx` (2,677,548 bytes), `encoder.onnx.data` (690,089,984),
   `decoder.onnx` (4,696), `decoder.onnx.data` (59,785,216), `joint.onnx` (2,136),
   `joint.onnx.data` (37,830,656), `vocab.txt` (64,024), `tokenizer.json` (642,525),
   `tokenizer_config.json` (183), `genai_config.json` (1,892), and `audio_processor_config.json`
   (413) - about 790 MB in total. Each `.onnx.data` file must sit beside its `.onnx` under the
-  identical base name for ONNX Runtime to find it. No file needs extraction, so no
-  `InstallAsync` override exists.
+  identical base name for ONNX Runtime to find it. The non-shipped `ModelBundler` tool reads both
+  members through `InternalsVisibleTo` to build the bundle, so no pin is declared twice.
+- **Bundles** (public, static): one `SpeechModelBundle`,
+  `{SpeechModelBundle.ModelsReleaseBaseUri}nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip`,
+  pinned by its zip SHA-256, with `BundleContents` as its contents.
+- **DownloadDescriptor**: `SpeechModelBundle.CreateDescriptor(Bundles)`, the one zip of the bundle.
+- **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to
+  `SpeechModelBundle.InstallAsync(Bundles, ...)`, which rejects unsafe entry names, extra or missing
+  entries and any file whose SHA-256 differs from its pin (throwing `InvalidDataException`), extracts
+  the eleven files to the install root, copies the bundle's `LICENSE` (OpenMDW-1.1 and MIT texts),
+  `NOTICE`, `README.txt` and `model.json` to `licenses/<bundle>/` and deletes the zip.
 - **CreateBackend(installedModelDirectory[, parameterValues])**: loads `vocab.txt` through
   `NemotronVocabulary.Load`; resolves the selected language (missing or unrecognized falls back
   to `en-US`) and its `lang_id` through `TryGetLanguageId`, throwing `InvalidOperationException`
@@ -71,10 +81,11 @@ networks always run on the CPU.
 **Dependencies**: `Microsoft.ML.OnnxRuntime`; `OnnxExecutionProviderSelector` from the sibling
 SpeechOnnx system; `NemotronVocabulary`; `OnnxNemotronRecognitionEngine`, `NemotronEncoder`,
 `NemotronRnntGreedyDecoder`, `NemotronRnntNetwork`, and `NemotronEngineOptions` from the
-RecognitionSubsystem; and the Speech library's `IRecognitionModel`, parameter, and
-download-descriptor types.
+RecognitionSubsystem; and the Speech library's `IRecognitionModel`, parameter, download-descriptor
+and `SpeechModelBundle` types.
 
 **Callers**: `SpeechModelCatalogNemotronSttExtensions.AddNemotronSttModels` constructs and registers the
 instance; the Speech library's `SpeechRecognizerFactory` and `SpeechModelDownloader` consume it
 through the generic model contract; the non-shipped ModelDownloader and evaluation tools construct
-it directly (the evaluation tool also through the internal options overload).
+it directly (the evaluation tool also through the internal options overload), and the non-shipped
+ModelBundler tool reads its bundle name and contents.

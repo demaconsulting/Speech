@@ -20,6 +20,9 @@ package Speech_ModelManagementSubsystem {
     private import Speech_SpeechModelStore::*;
     private import Speech_SpeechModelStoreException::*;
     private import Speech_SpeechModelStoreOptions::*;
+    private import Speech_SpeechModelBundle::*;
+    private import Speech_SpeechModelBundleInstaller::*;
+    private import Speech_ZipEntryPathValidator::*;
 
     part def ModelManagementSubsystem {
         doc /* Per-user speech model storage with atomic install/repair/uninstall, the queued download-verify-install
@@ -27,8 +30,10 @@ package Speech_ModelManagementSubsystem {
              * and the model catalog/contract seam: typed tunable-parameter descriptors, the common ISpeechModel
              * contract with its role-marker interfaces (including the ISynthesisModel ResolveSpeakerId hook), and
              * SpeechModelCatalog's enumeration of the models registered with it through AddModels alongside install
-             * state. The library ships no concrete models itself; sibling packages such as SpeechSherpa supply them
-             * through the IRecognitionModel/ISynthesisModel extension seam. */
+             * state, plus model bundles (one pinned zip of unmodified vendor files, installed with per-file verification
+             * through a shared zip-slip guard) and resumable downloads. The library ships no concrete models itself;
+             * sibling packages such as SpeechSherpa supply them through the IRecognitionModel/ISynthesisModel extension
+             * seam. */
 
         metadata info : SoftwareInfo {
             designFiles = ("docs/design/speech/model-management-subsystem.md");
@@ -56,5 +61,8 @@ package Speech_ModelManagementSubsystem {
         part referenceVoicePackInstaller : ReferenceVoicePackInstaller;
         part referenceVoiceLibrary : ReferenceVoiceLibrary;
         part numericParameterBounds : NumericParameterBounds;
+        part zipEntryPathValidator : ZipEntryPathValidator;
+        part speechModelBundle : SpeechModelBundle;
+        part speechModelBundleInstaller : SpeechModelBundleInstaller;
     }
 }

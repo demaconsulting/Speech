@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text.Json;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
@@ -7,8 +9,8 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.Tests.ModelManagementSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="OnnxNemotronMultilingualRecognitionModel"/>: catalog metadata,
-///     the 11-file download descriptor, the language parameter, the engine-options overload, and
-///     error handling. Real-model transcription is covered by the system tests.
+///     the <c>models</c>-release bundle and its 11 pinned vendor files, the language parameter, the
+///     engine-options overload, and error handling. Real-model transcription is covered by the system tests.
 /// </summary>
 public sealed class OnnxNemotronMultilingualRecognitionModelTests
 {
@@ -37,12 +39,20 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
         Assert.Equal(1, model.AudioFormat.ChannelCount);
     }
 
-    /// <summary>Proves the download descriptor lists the 11 files with valid checksums and Hugging Face URIs.</summary>
+    /// <summary>
+    ///     Proves the bundle's contents pin the 11 vendor files with valid checksums and record their original
+    ///     Hugging Face URIs.
+    /// </summary>
     [Fact]
-    public void DownloadDescriptor_ListsElevenFiles()
+    public void OnnxNemotronMultilingualRecognitionModel_BundleContents_PinsEveryVendorFile()
     {
-        var files = new OnnxNemotronMultilingualRecognitionModel().DownloadDescriptor.Files;
+        // Arrange
+        var bundle = Assert.Single(OnnxNemotronMultilingualRecognitionModel.Bundles);
 
+        // Act
+        var files = bundle.Contents.Files;
+
+        // Assert
         Assert.Equal(ExpectedFiles, files.Select(f => f.RelativeInstallPath));
         Assert.All(files, f =>
         {
@@ -52,6 +62,52 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
                 f.Uri.AbsoluteUri);
         });
         Assert.Equal(11, files.Select(f => f.Sha256Checksum).Distinct().Count());
+    }
+
+    /// <summary>
+    ///     Proves the model downloads exactly one zip, the pinned Nemotron bundle on the project's <c>models</c>
+    ///     release.
+    /// </summary>
+    [Fact]
+    public void OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle()
+    {
+        // Arrange
+        var model = new OnnxNemotronMultilingualRecognitionModel();
+
+        // Act
+        var file = Assert.Single(model.DownloadDescriptor.Files);
+
+        // Assert
+        var bundle = Assert.Single(OnnxNemotronMultilingualRecognitionModel.Bundles);
+        Assert.Equal("nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1", bundle.Name);
+        Assert.Equal(
+            new Uri("https://github.com/demaconsulting/Speech/releases/download/models/nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip"),
+            file.Uri);
+        Assert.Equal("733375bb604712afac6c4adbd6a9149ebc414fc9a5bee39ed3bdfc3c104048b2", file.Sha256Checksum);
+        Assert.Equal("nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip", file.RelativeInstallPath);
+    }
+
+    /// <summary>
+    ///     Proves installing a well-formed bundle whose vendor bytes do not match the compiled pins throws
+    ///     <see cref="InvalidDataException"/>, so a tampered bundle is never installed.
+    /// </summary>
+    [Fact]
+    public async Task OnnxNemotronMultilingualRecognitionModel_InstallAsync_BundleWithWrongFile_Throws()
+    {
+        // Arrange: stage the model's bundle with every vendor file replaced by other bytes
+        var model = new OnnxNemotronMultilingualRecognitionModel();
+        var stagingDirectory = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Onnx.NemotronStt.Tests", Guid.NewGuid().ToString("N"));
+        StageBundleWithWrongFiles(Assert.Single(OnnxNemotronMultilingualRecognitionModel.Bundles), stagingDirectory);
+        try
+        {
+            // Act / Assert: verification rejects the extracted bytes
+            await Assert.ThrowsAsync<InvalidDataException>(
+                () => model.InstallAsync(stagingDirectory, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(stagingDirectory, recursive: true);
+        }
     }
 
     /// <summary>Proves the single language choice parameter defaults to en-US and offers en-GB.</summary>
@@ -131,5 +187,45 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
 
         // Act / Assert: null options are rejected
         Assert.Throws<ArgumentNullException>(() => model.CreateBackend("models", null, null!));
+    }
+
+    /// <summary>
+    ///     Stages a well-formed bundle zip for <paramref name="bundle"/> whose <c>model.json</c> declares every vendor
+    ///     file at its compiled pin, but whose vendor entries hold other bytes - so only the extracted-bytes
+    ///     verification can reject it.
+    /// </summary>
+    /// <param name="bundle">The bundle to imitate.</param>
+    /// <param name="directory">The staging directory to write <c>{bundle.FileName}</c> into.</param>
+    private static void StageBundleWithWrongFiles(SpeechModelBundle bundle, string directory)
+    {
+        var wrongBytes = "these are not the vendor bytes"u8.ToArray();
+        var manifest = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schemaVersion = 1,
+            bundle = bundle.Name,
+            files = bundle.Contents.Files
+                .Select(file => new { path = file.RelativeInstallPath, size = wrongBytes.Length, sha256 = file.Sha256Checksum })
+                .ToArray(),
+        });
+
+        Directory.CreateDirectory(directory);
+        using var archive = ZipFile.Open(Path.Join(directory, bundle.FileName), ZipArchiveMode.Create);
+        WriteEntry(archive, "README.txt", "Test bundle."u8.ToArray());
+        WriteEntry(archive, "LICENSE", "Test license."u8.ToArray());
+        WriteEntry(archive, "model.json", manifest);
+        foreach (var file in bundle.Contents.Files)
+        {
+            WriteEntry(archive, file.RelativeInstallPath, wrongBytes);
+        }
+    }
+
+    /// <summary>Writes one stored entry into a zip being created.</summary>
+    /// <param name="archive">The archive in create mode.</param>
+    /// <param name="name">The entry name.</param>
+    /// <param name="content">The entry bytes.</param>
+    private static void WriteEntry(ZipArchive archive, string name, byte[] content)
+    {
+        using var stream = archive.CreateEntry(name, CompressionLevel.NoCompression).Open();
+        stream.Write(content, 0, content.Length);
     }
 }

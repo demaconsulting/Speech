@@ -76,38 +76,42 @@ sections:
 
           - id: SpeechOnnxNemotronStt-Models-DownloadDescriptor
             title: >-
-              The ModelManagementSubsystem shall declare a download descriptor naming every one
-              of the model's eleven files.
+              The ModelManagementSubsystem shall declare a download of one bundle from the
+              project's models release that carries every one of the model's eleven files, and
+              shall install the files from it.
             justification: |
-              A host needs an installable model; the downloader can only fetch the files the
-              model declares.
+              A host needs an installable model; the downloader can only fetch what the model
+              declares, and one bundle on GitHub is reachable where Hugging Face is blocked.
             children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-BundleInstall
             tests:
-              - DownloadDescriptor_ListsElevenFiles
+              - OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle
+              - OnnxNemotronMultilingualRecognitionModel_InstallAsync_BundleWithWrongFile_Throws
 
           - id: SpeechOnnxNemotronStt-Models-DownloadChecksums
             title: >-
-              The ModelManagementSubsystem shall declare a checksum for every file in the
-              model's download descriptor.
+              The ModelManagementSubsystem shall declare a checksum for the model's bundle and for
+              every file the bundle carries.
             justification: |
-              The downloader can only verify the integrity of the files for which the model
-              declares a checksum.
+              The downloader and the install can only verify the integrity of the files for which
+              the model declares a checksum.
             children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadChecksums
             tests:
-              - DownloadDescriptor_ListsElevenFiles
+              - OnnxNemotronMultilingualRecognitionModel_BundleContents_PinsEveryVendorFile
 
           - id: SpeechOnnxNemotronStt-Models-DownloadUris
             title: >-
-              The ModelManagementSubsystem shall declare an HTTPS download URI for every file in
-              the model's download descriptor.
+              The ModelManagementSubsystem shall declare an HTTPS download URI for the model's
+              bundle and record the original HTTPS source of every file the bundle carries.
             justification: |
-              Downloading over HTTPS protects the model files from tampering in transit.
+              Downloading over HTTPS protects the model files from tampering in transit, and the
+              recorded sources document the provenance of the unmodified files.
             children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadUris
             tests:
-              - DownloadDescriptor_ListsElevenFiles
+              - OnnxNemotronMultilingualRecognitionModel_DownloadDescriptor_IsModelsReleaseBundle
 
           - id: SpeechOnnxNemotronStt-Models-LanguageSelection
             title: >-

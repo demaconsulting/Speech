@@ -273,6 +273,39 @@ sections:
           - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
           - ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri
 
+      - id: Speech-Models-BundleInstall
+        title: >-
+          The library shall install a model published as an archive bundle only when the archive
+          and every file it contains match their pinned SHA-256 checksums, and shall never write an
+          archive entry outside the model's own directory.
+        tags: [system]
+        justification: |
+          Hosting each model as one archive on a single firewall-friendly release lets users whose
+          networks block the original model hosts still download models. The archive is repackaged
+          content, so its own pin proves it is the published archive, a compiled pin per contained
+          file proves the vendor files are unmodified, and path-safe extraction keeps untrusted
+          entry names from writing anywhere else.
+        children:
+          - Speech-Models-BundleExtraction
+          - Speech-Models-BundleVerification
+        tests:
+          - Speech_DownloadBundledModel_InstallsVerifiedFiles
+
+      - id: Speech-Models-DownloadResume
+        title: >-
+          The library shall continue an interrupted model download from the bytes already received
+          when the server supports ranged requests.
+        tags: [system]
+        justification: |
+          Models are hundreds of megabytes, and downloads on slow or unstable links are often
+          interrupted; a retry that continues from the received bytes finishes instead of starting
+          over every time.
+        children:
+          - Speech-Models-ResumableDownload
+          - Speech-Models-PartialDownloadRetention
+        tests:
+          - Speech_DownloadInterruptedModel_ResumesOnRetry
+
       - id: Speech-Models-ReferenceVoiceLibrary
         title: >-
           The library shall provide a model-agnostic reference-voice library that downloads a

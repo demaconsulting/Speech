@@ -66,18 +66,22 @@ sections:
             title: >-
               The ModelManagementSubsystem shall provide one real, concrete ISynthesisModel
               class (OnnxKokoroEnglishSynthesisModel) with a stable identity, a declared
-              license, a checksum-verified download descriptor naming every file the model needs
-              with no post-download extraction step, a preferred audio format, and the ability
-              to construct its synthesis engine from the installed files.
+              license, a download of one checksum-verified bundle from the project's models release
+              whose every extracted file is checked against its own pin, a preferred audio format,
+              and the ability to construct its synthesis engine from the installed files.
             justification: |
               The Speech library defines the synthesis-model contract but ships no concrete
               models; a host needs a real, checksum-verified, installable synthesis model to
-              perform offline text-to-speech with this model family at all.
+              perform offline text-to-speech with this model family at all. Hosting the unmodified
+              files as one bundle on GitHub lets users behind a firewall that blocks Hugging Face
+              install it.
             children:
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-Identity
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-License
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadDescriptor
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-BundleContents
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadIntegrity
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-BundleInstall
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstructionArgumentValidation
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-SessionDisposedOnFailure

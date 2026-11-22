@@ -18,6 +18,12 @@ over HTTP) without requiring any external network access.
   directory under `Path.GetTempPath()`, deleted on test disposal
 - **Stubbed HTTP**: `HttpModelDownloadClientTests` starts an in-process `WireMock.Net`
   `WireMockServer`, stubbing one fixed response per test; no real network access
+- **Range-aware fake server**: resume scenarios use `Fakes/FakeRangeHttpMessageHandler.cs`, an in-memory
+  `HttpMessageHandler` that serves one file honoring `Range` (`206`, `416`, or `200` when told to ignore it) and
+  can drop the connection after a set number of bytes; it is plugged into a real `HttpModelDownloadClient`
+- **Synthetic bundles**: bundle scenarios use `Fakes/ModelBundleTestZips.cs`, which builds small bundle zips in
+  memory with `System.IO.Compression` (README.txt, LICENSE, optional NOTICE, `model.json` and two vendor files) and
+  the matching `SpeechModelBundle` declarations
 
 ### Unit Verification Documents
 
@@ -29,7 +35,8 @@ See each unit's own verification document for its detailed test scenarios:
 `i-model-download-client.md`, `http-model-download-client.md`,
 `speech-model-descriptor-enums.md`, `speech-model-parameters.md`, `speech-model-contract.md`,
 `speech-model-descriptor.md`, `speech-model-catalog.md`, `reference-voice-pack.md`,
-`reference-voice-pack-installer.md`, `reference-voice-library.md`.
+`reference-voice-pack-installer.md`, `reference-voice-library.md`, `zip-entry-path-validator.md`,
+`speech-model-bundle.md`, `speech-model-bundle-installer.md`.
 
 ### Test Scenarios
 
@@ -282,6 +289,57 @@ catalog instance (`Speech-Models-CatalogStoreComposition`); a mirror passed to t
 `ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory`,
 `ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged`
 
+#### Bundled model installs its verified vendor files
+
+**Stimulus**: `SpeechModelDownloader.DownloadAsync` for a bundle descriptor served by the fake client, with
+`SpeechModelBundle.InstallAsync` as the install hook; and a bundle entry name that escapes the directory.
+
+**Expected**: The vendor files are installed at their install paths with the bundle's license folder and no zip;
+the mirror path of a bundle is `{mirror}/{model-id}/{bundle}.zip`; an unsafe entry name fails before anything is
+written.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_ValidBundle_InstallsVendorFilesAndLicenses`,
+`SpeechModelDownloader_ResolveEffectiveUri_Bundle_UsesModelIdAndZipName`,
+`SpeechModelBundleInstaller_InstallAsync_EntryEscapingDirectory_ThrowsInvalidDataException`
+
+#### Unverified bundles install nothing
+
+**Stimulus**: A bundle zip whose bytes differ from its pin; a correctly pinned zip holding a tampered vendor file,
+both for a fresh model and over earlier content; a self-consistent zip whose vendor file differs from the compiled
+pin.
+
+**Expected**: `ChecksumMismatch` for the zip (the install hook never runs); `Failed` with `InvalidDataException` for
+the tampered contents, with no `current/` for a fresh model and the earlier content unchanged otherwise.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_BundleZipChecksumMismatch_ReportsChecksumMismatch`,
+`SpeechModelDownloader_DownloadAsync_BundleExtractionFails_LeavesNoCurrentAndKeepsPriorInstall`,
+`SpeechModelBundleInstaller_InstallAsync_FileHashDiffersFromPinnedContents_ThrowsInvalidDataException`
+
+#### Interrupted downloads resume
+
+**Stimulus**: The built-in client over the range-aware fake server, whose first response drops after 100 bytes;
+then a retry. Separately, a server that ignores `Range`.
+
+**Expected**: The first attempt installs nothing and keeps 100 bytes; the retry sends `Range: bytes=100-`, reports
+an `Info` resume diagnostic and installs the exact file; a server ignoring `Range` gets a full download that still
+installs.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry`,
+`SpeechModelDownloader_DownloadAsync_ServerIgnoresRange_RestartsAndInstalls`
+
+#### Partial downloads are retained and cleaned up
+
+**Stimulus**: A transfer canceled part-way; a stale partial file that makes the resumed file fail its checksum; a
+successful install with a stale partial file present; leftover cleanup and uninstall with a partial file present.
+
+**Expected**: The canceled transfer's bytes are kept; the failing partial is discarded; a successful install and an
+uninstall remove `.partial/`; leftover cleanup keeps it.
+
+**Tests**: `SpeechModelDownloader_DownloadAsync_CanceledMidTransfer_KeepsPartial`,
+`SpeechModelDownloader_DownloadAsync_ResumedFileFailsChecksum_DiscardsPartial`,
+`SpeechModelDownloader_DownloadAsync_SuccessfulInstall_RemovesPartials`,
+`SpeechModelStore_Uninstall_RemovesPartials`, `SpeechModelStore_CleanUpLeftovers_KeepsPartials`
+
 ### Requirement Coverage Summary
 
 Each subsystem requirement is verified at its own level by the tests named in
@@ -308,6 +366,10 @@ scenarios above, and every unit requirement is covered by the unit verification 
 - `Speech-Models-CatalogEnumeration`, `-CatalogStateReporting`, `-CatalogStoreComposition`: Catalog registration;
   Catalog tracks download state; Catalog states and store exposure
 - `Speech-Models-ReferenceVoice*`: Reference voice pack install, upgrade and uninstall; Reference voice merge
+- `Speech-Models-BundleExtraction`, `-BundleVerification`: Bundled model installs its verified vendor files;
+  Unverified bundles install nothing
+- `Speech-Models-ResumableDownload`, `-PartialDownloadRetention`: Interrupted downloads resume; Partial downloads
+  are retained and cleaned up
 
 ### Acceptance Criteria
 
@@ -343,6 +405,12 @@ A ModelManagementSubsystem test run passes when all of the following hold:
   wait for it and then remove the pack, never touch the user voice folder, and list voices merged in
   the documented precedence with emotion clips exposed as mood variants of a voice rather than as
   extra voices.
+- A bundled model installs only when its zip matches its pin and every vendor file matches both the bundle's
+  `model.json` and the compiled pin; any unsafe entry name, unexpected or missing entry, or mismatch installs
+  nothing and leaves earlier content untouched.
+- With the built-in HTTP client an interrupted file download resumes from its kept bytes on the next call,
+  falls back to a full download when the server ignores or refuses the range, discards kept bytes that fail
+  verification, and leaves no partial files after a successful install or an uninstall.
 
 The concrete
 `IRecognitionModel`/`ISynthesisModel` implementations shipped by this repository are not part of

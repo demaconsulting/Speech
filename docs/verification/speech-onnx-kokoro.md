@@ -22,11 +22,10 @@ spoke, and how many sounds were spoken - so a test can show that a reading, a sp
 the dictionary or a long text changes what the model is asked to say, and that the right voice was used. The
 phonemes themselves are never mocked.
 
-Below the system level, `OnnxKokoroEnglishSynthesisModel`'s identity, 30-file download descriptor, speaker-id
-resolution and text analysis are verified deterministically with no network access (see *SpeechOnnxKokoro
+Below the system level, `OnnxKokoroEnglishSynthesisModel`'s identity, `models`-release bundle (30 pinned vendor files),
+speaker-id resolution and text analysis are verified deterministically with no network access (see *SpeechOnnxKokoro
 ModelManagementSubsystem Verification*), `KokoroPhonemePipeline` against a golden corpus of 41 sentences, and
-`OnnxKokoroSynthesisEngine` against the same fixture graph (see *SpeechOnnxKokoro SynthesisSubsystem
-Verification*).
+`OnnxKokoroSynthesisEngine` against the same fixture graph (see *SpeechOnnxKokoro SynthesisSubsystem Verification*).
 
 Automated coverage **does not** extend to the audible quality of speech from the real ~88 MiB production model,
 or to playing or capturing audio through real hardware. The audible quality - in particular the choice of weak

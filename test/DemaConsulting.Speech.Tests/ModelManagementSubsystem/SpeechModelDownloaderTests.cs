@@ -1277,6 +1277,360 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a model distributed as a bundle downloads the single zip, installs every vendor file at its
+    ///     install path with the bundle's metadata under <c>licenses/{name}/</c>, and keeps no zip in the installed
+    ///     model.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_ValidBundle_InstallsVendorFilesAndLicenses()
+    {
+        // Arrange
+        var zip = ModelBundleTestZips.BuildZip(ModelBundleTestZips.BundleEntries());
+        var bundle = ModelBundleTestZips.BundleFor(zip);
+        var store = NewStore();
+        var client = new FakeModelDownloadClient(zip, chunkSize: 64);
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "bundled-model",
+            SpeechModelBundle.CreateDescriptor([bundle]),
+            (staging, token) => SpeechModelBundle.InstallAsync([bundle], staging, token),
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(
+            [
+                "licenses/test-model-v1.0-int8-b1/LICENSE",
+                "licenses/test-model-v1.0-int8-b1/NOTICE",
+                "licenses/test-model-v1.0-int8-b1/README.txt",
+                "licenses/test-model-v1.0-int8-b1/model.json",
+                "onnx/model.onnx",
+                "voices/af.bin",
+            ],
+            ModelBundleTestZips.ListFiles(store.GetCurrentDirectory("bundled-model")));
+    }
+
+    /// <summary>
+    ///     Proves that a bundle zip whose bytes differ from its pin is reported as a checksum mismatch and never
+    ///     reaches extraction.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_BundleZipChecksumMismatch_ReportsChecksumMismatch()
+    {
+        // Arrange: the server delivers a tampered zip (one byte changed)
+        var zip = ModelBundleTestZips.BuildZip(ModelBundleTestZips.BundleEntries());
+        var bundle = ModelBundleTestZips.BundleFor(zip);
+        var tampered = (byte[])zip.Clone();
+        tampered[^1] ^= 0xFF;
+        var store = NewStore();
+        var hookRan = false;
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(tampered, chunkSize: 64));
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "bundled-model",
+            SpeechModelBundle.CreateDescriptor([bundle]),
+            (_, _) =>
+            {
+                hookRan = true;
+                return Task.CompletedTask;
+            },
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.ChecksumMismatch, result.Outcome);
+        Assert.False(hookRan);
+        Assert.False(store.IsInstalled("bundled-model"));
+    }
+
+    /// <summary>
+    ///     Proves that a bundle that fails extraction (here a tampered vendor file inside a correctly pinned zip)
+    ///     installs nothing, reports <see cref="SpeechModelDownloadOutcome.Failed"/>, discards its staging directory,
+    ///     and leaves the content a previous install put in <c>current/</c> untouched.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_BundleExtractionFails_LeavesNoCurrentAndKeepsPriorInstall()
+    {
+        // Arrange: a zip whose model graph differs from what its model.json declares, pinned as published
+        var entries = ModelBundleTestZips.BundleEntries();
+        var index = entries.FindIndex(entry => entry.Name == "onnx/model.onnx");
+        var tampered = (byte[])entries[index].Content.Clone();
+        tampered[0] ^= 0xFF;
+        entries[index] = ("onnx/model.onnx", tampered);
+        var zip = ModelBundleTestZips.BuildZip(entries);
+        var bundle = ModelBundleTestZips.BundleFor(zip);
+        var descriptor = SpeechModelBundle.CreateDescriptor([bundle]);
+        var store = NewStore();
+        using var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(zip, chunkSize: 64));
+        Task InstallHook(string staging, CancellationToken token) => SpeechModelBundle.InstallAsync([bundle], staging, token);
+
+        // Act 1: a first-time install
+        var fresh = await downloader.DownloadAsync("fresh-model", descriptor, InstallHook, null, TestContext.Current.CancellationToken);
+
+        // Assert 1: nothing is installed and no current/ or staging directory is left
+        Assert.Equal(SpeechModelDownloadOutcome.Failed, fresh.Outcome);
+        Assert.IsType<InvalidDataException>(fresh.Error);
+        Assert.False(Directory.Exists(store.GetCurrentDirectory("fresh-model")));
+        Assert.False(Directory.Exists(Path.Join(store.GetModelDirectory("fresh-model"), ".tmp")) &&
+                     Directory.EnumerateFileSystemEntries(Path.Join(store.GetModelDirectory("fresh-model"), ".tmp")).Any());
+
+        // Arrange 2: a repair over earlier content (its manifest removed, so the downloader repairs it)
+        var (operationId, priorStaging) = store.BeginStaging("repaired-model");
+        await File.WriteAllTextAsync(Path.Join(priorStaging, "prior.bin"), "prior content", TestContext.Current.CancellationToken);
+        store.CompleteInstall("repaired-model", operationId, priorStaging, 13);
+        File.Delete(Path.Join(store.GetModelDirectory("repaired-model"), "install-manifest.json"));
+
+        // Act 2
+        var repair = await downloader.DownloadAsync("repaired-model", descriptor, InstallHook, null, TestContext.Current.CancellationToken);
+
+        // Assert 2: the earlier content is exactly as it was
+        Assert.Equal(SpeechModelDownloadOutcome.Failed, repair.Outcome);
+        Assert.Equal(["prior.bin"], ModelBundleTestZips.ListFiles(store.GetCurrentDirectory("repaired-model")));
+    }
+
+    /// <summary>
+    ///     Proves that the mirror path of a bundle is <c>{mirror}/{model-id}/{bundle}.zip</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloader_ResolveEffectiveUri_Bundle_UsesModelIdAndZipName()
+    {
+        // Arrange
+        var zip = ModelBundleTestZips.BuildZip(ModelBundleTestZips.BundleEntries());
+        var bundle = ModelBundleTestZips.BundleFor(zip);
+        var mirror = new DownloadMirror(new Uri("https://mirror.example.test/models/"));
+
+        // Act
+        var effective = SpeechModelDownloader.ResolveEffectiveUri(
+            bundle.DownloadFile.Uri, mirror, "kokoro-onnx-v1_0-en", bundle.DownloadFile.RelativeInstallPath);
+
+        // Assert
+        Assert.Equal("https://mirror.example.test/models/kokoro-onnx-v1_0-en/test-model-v1.0-int8-b1.zip", effective.AbsoluteUri);
+    }
+
+    /// <summary>
+    ///     Proves that a transfer interrupted by a network failure keeps its received bytes, and that the next call
+    ///     asks only for the remaining bytes with <c>Range</c>, reports the resume, installs the verified file, and
+    ///     removes the partial directory.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry()
+    {
+        // Arrange: a server whose first response drops the connection after 100 bytes
+        var payload = Enumerable.Range(0, 1000).Select(value => (byte)value).ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var handler = new FakeRangeHttpMessageHandler(payload) { FailAfterBytes = 100 };
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        using var downloader = new SpeechModelDownloader(store, client, diagnostics);
+        var partialFile = Path.Join(store.GetPartialDirectory("model-a"), descriptor.Files[0].Sha256Checksum + ".part");
+
+        // Act 1: the interrupted attempt
+        var first = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert 1: nothing installed, the received bytes kept
+        Assert.NotEqual(SpeechModelDownloadOutcome.Installed, first.Outcome);
+        Assert.Equal(100, new FileInfo(partialFile).Length);
+
+        // Act 2: the retry
+        var second = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert 2: resumed at byte 100, installed intact, partials removed
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, second.Outcome);
+        Assert.Equal("bytes=100-", handler.ReceivedRanges[^1]?.ToString());
+        Assert.Equal(payload, await File.ReadAllBytesAsync(Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken));
+        Assert.False(Directory.Exists(store.GetPartialDirectory("model-a")));
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "ModelManagementSubsystem",
+            Arg.Is<string>(message => message.Contains("Resuming 'model.bin'", StringComparison.Ordinal) && message.Contains("100 bytes", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    ///     Proves that a caller cancellation mid-transfer keeps the received bytes for a later resume.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_CanceledMidTransfer_KeepsPartial()
+    {
+        // Arrange: the server's body cancels the caller's token after 50 bytes
+        var payload = Enumerable.Range(0, 400).Select(value => (byte)value).ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        using var cancellation = new CancellationTokenSource();
+        var handler = new FakeRangeHttpMessageHandler(payload)
+        {
+            FaultAfterBytes = (50, () =>
+            {
+                cancellation.Cancel();
+                return new OperationCanceledException(cancellation.Token);
+            }
+            ),
+        };
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            downloader.DownloadAsync("model-a", descriptor, cancellationToken: cancellation.Token));
+
+        // Assert
+        var partialFile = Path.Join(store.GetPartialDirectory("model-a"), descriptor.Files[0].Sha256Checksum + ".part");
+        Assert.Equal(50, new FileInfo(partialFile).Length);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that when the server ignores <c>Range</c> the download restarts from the beginning and still installs
+    ///     the verified file.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_ServerIgnoresRange_RestartsAndInstalls()
+    {
+        // Arrange: a partial file left by an earlier attempt, and a server that always sends the whole file
+        var payload = Enumerable.Range(0, 300).Select(value => (byte)value).ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetPartialDirectory("model-a"));
+        await File.WriteAllBytesAsync(
+            Path.Join(store.GetPartialDirectory("model-a"), descriptor.Files[0].Sha256Checksum + ".part"),
+            payload[..120],
+            TestContext.Current.CancellationToken);
+        var handler = new FakeRangeHttpMessageHandler(payload) { IgnoreRange = true };
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal("bytes=120-", Assert.Single(handler.ReceivedRanges)?.ToString());
+        Assert.Equal(payload, await File.ReadAllBytesAsync(Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that a resumed file that fails its checksum (stale bytes in the partial file) is reported as a
+    ///     checksum mismatch and its partial file discarded, so the next attempt downloads cleanly and installs.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_ResumedFileFailsChecksum_DiscardsPartial()
+    {
+        // Arrange: a partial file whose bytes do not match the start of the real file
+        var payload = Enumerable.Range(0, 300).Select(value => (byte)value).ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var partialFile = Path.Join(store.GetPartialDirectory("model-a"), descriptor.Files[0].Sha256Checksum + ".part");
+        Directory.CreateDirectory(store.GetPartialDirectory("model-a"));
+        await File.WriteAllBytesAsync(partialFile, new byte[120], TestContext.Current.CancellationToken);
+        var handler = new FakeRangeHttpMessageHandler(payload);
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act 1
+        var first = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert 1
+        Assert.Equal(SpeechModelDownloadOutcome.ChecksumMismatch, first.Outcome);
+        Assert.False(File.Exists(partialFile));
+
+        // Act 2
+        var second = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert 2: the retry downloaded the whole file without Range and installed it
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, second.Outcome);
+        Assert.Null(handler.ReceivedRanges[^1]);
+    }
+
+    /// <summary>
+    ///     Proves that a partial file named for a different checksum (bytes left by an older pin) is never resumed:
+    ///     the download sends no <c>Range</c>, reports no resume, and installs the verified file.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_PartialFileForOtherChecksum_IsNotResumed()
+    {
+        // Arrange: a partial file of wrong bytes named for another checksum
+        var payload = Enumerable.Range(0, 300).Select(value => (byte)value).ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetPartialDirectory("model-a"));
+        await File.WriteAllBytesAsync(
+            Path.Join(store.GetPartialDirectory("model-a"), new string('0', 64) + ".part"),
+            new byte[120],
+            TestContext.Current.CancellationToken);
+        var handler = new FakeRangeHttpMessageHandler(payload);
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        using var downloader = new SpeechModelDownloader(store, client, diagnostics);
+
+        // Act
+        var result = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert: one whole-file request, no resume reported, the exact file installed
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Null(Assert.Single(handler.ReceivedRanges));
+        Assert.Equal(payload, await File.ReadAllBytesAsync(Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken));
+        diagnostics.DidNotReceive().Report(
+            SpeechDiagnosticLevel.Info,
+            Arg.Any<string>(),
+            Arg.Is<string>(message => message.Contains("Resuming", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    ///     Proves that a successful install removes the partial-download directory, including partial files of other
+    ///     pins left by earlier attempts.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_SuccessfulInstall_RemovesPartials()
+    {
+        // Arrange: a stale partial file for an older pin
+        var payload = "fresh payload"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetPartialDirectory("model-a"));
+        await File.WriteAllTextAsync(Path.Join(store.GetPartialDirectory("model-a"), new string('0', 64) + ".part"), "stale", TestContext.Current.CancellationToken);
+        using var httpClient = new HttpClient(new FakeRangeHttpMessageHandler(payload));
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.False(Directory.Exists(store.GetPartialDirectory("model-a")));
+    }
+
+    /// <summary>
+    ///     Proves that a host-supplied <see cref="IModelDownloadClient"/> keeps the non-resumable behavior: no partial
+    ///     directory is created even when its transfer fails.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_HostSuppliedClient_CreatesNoPartials()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(() => new IOException("Simulated connection reset."));
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
+        Assert.False(Directory.Exists(store.GetPartialDirectory("model-a")));
+    }
+
+    /// <summary>
     ///     Constructs a store rooted at this test's scratch directory.
     /// </summary>
     private SpeechModelStore NewStore() =>

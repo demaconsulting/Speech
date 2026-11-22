@@ -97,6 +97,9 @@ The system exposes the following public API to external consumers:
   real implementation
 - **SpeechModelDownloadFile** / **SpeechModelDownloadDescriptor**: HTTPS URL(s) and SHA-256
   checksum descriptor types for a model's downloadable files
+- **SpeechModelBundle**: the declaration of a model published as one or more SHA-256-pinned zip
+  bundles on the project's `models` release, with the compiled per-file pins of the vendor files
+  inside (its extraction engine and the shared zip-slip guard stay internal to the subsystem)
 - **SpeechModelDownloadProgress**: single-file transfer progress payload
 - **SpeechModelRole** / **SpeechModelState** / **SpeechModelAudioTagSupport**: fixed
   declaration-shape enums for a model's role, install lifecycle state, and declared inline
@@ -184,6 +187,7 @@ The system exposes the following public API to external consumers:
 | `SpeechModelStore.Uninstall`/`UninstallAsync` | Inbound | Method call |
 | `SpeechModelDownloader.DownloadAsync(...)` | Inbound/Outbound | Method call/return |
 | `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call |
+| `SpeechModelBundle.CreateDescriptor`/`InstallAsync` (model extensions) | Inbound | Method call |
 | `SpeechModelCatalog.AddModels(...)` | Inbound | Method call |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return |
 | `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return |
@@ -226,6 +230,8 @@ The system exposes the following public API to external consumers:
 - `SpeechModelStore.Uninstall`/`UninstallAsync`: Throws store exception if blocked
 - `SpeechModelDownloader.DownloadAsync(...)`: One at a time; honest failures
 - `IModelDownloadClient.DownloadAsync(...)`: Throws on any non-success/transport failure
+- `SpeechModelBundle.CreateDescriptor`/`InstallAsync`: Rejects colliding bundles; install throws on any
+  unsafe, unexpected or unverified entry
 - `SpeechModelCatalog.AddModels(...)`: Registers host-supplied models; the extension point
 - `SpeechModelCatalog.Enumerate()`: Never throws
 - `SpeechModelCatalog.DownloadAsync(...)`: Throws for unknown model id
@@ -354,7 +360,10 @@ direct safety impact is introduced.
    download concurrently), fetches each file
    via the injected `IModelDownloadClient` (`HttpModelDownloadClient` by default) into a
    `.tmp/{guid}` staging directory, and forwards progress with file index/count rewritten to the
-   model's overall position
+   model's overall position. With the default `HttpModelDownloadClient` the bytes first land in a
+   `.partial/{sha256}.part` file that survives a failed or canceled attempt, and the next attempt
+   continues it with an HTTP `Range` request (falling back to a full download when the server does
+   not honor the range) before moving the completed file into staging
 3. **Verify**: Each fetched file's SHA-256 checksum is verified against the descriptor; any
    mismatch, cancellation, or transport failure discards the staging directory and reports an
    honest failure outcome without touching `current/`
@@ -362,11 +371,14 @@ direct safety impact is introduced.
    (the only overload `SpeechModelCatalog` uses), the model's own `InstallAsync` unpacks the
    verified staged files in place (a no-op default for models that need no unpacking); a failure
    here is handled identically to a verification failure - the staging directory is discarded and
-   `current/` is never touched
+   `current/` is never touched. For a bundled model the downloaded files are the bundle zips and the
+   hook is `SpeechModelBundle.InstallAsync`, which validates every entry name, extracts the vendor
+   files, verifies each against the bundle's `model.json` and the compiled per-file pin, keeps the
+   license material under `licenses/{bundle}/`, and deletes the zip
 5. **Output**: Once every file is verified (and, if applicable, unpacked),
    `SpeechModelStore.CompleteInstall(...)` atomically renames the staging directory into
    `current/` and writes `install-manifest.json`, replacing any prior installation only after the
-   replacement is fully verified
+   replacement is fully verified; the model's `.partial/` directory is then removed
 
 **Model catalog enumeration and download-state tracking path:**
 

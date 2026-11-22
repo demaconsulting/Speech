@@ -11,7 +11,8 @@ package Speech_HttpModelDownloadClient {
              * Authorization header, on every request whose URI falls within the configured mirror's base URI - sent
              * through the single HttpClient this instance was constructed with (never a second, separately configured
              * client), so the caller-supplied client's own configuration always applies. No NTLM challenge/response
-             * handshake is supported. */
+             * handshake is supported. An internal DownloadFromOffsetAsync resumes an interrupted file with an HTTP Range
+             * request, falling back to one full download when the server ignores or refuses the range. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech/ModelManagementSubsystem/HttpModelDownloadClient.cs");

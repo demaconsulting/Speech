@@ -24,13 +24,14 @@ The model is the `onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4` Hugg
 (about 790 MB, eleven files: `encoder.onnx` plus `encoder.onnx.data`, `decoder.onnx` plus
 `decoder.onnx.data`, `joint.onnx` plus `joint.onnx.data`, `vocab.txt`, `tokenizer.json`,
 `tokenizer_config.json`, `genai_config.json`, and `audio_processor_config.json`), each file
-SHA-256-verified on download. The export contains only the three neural networks of a
+SHA-256-verified on install. The export contains only the three neural networks of a
 cache-aware streaming RNN-T recognizer, so this package supplies the rest of the pipeline itself:
 the streaming log-mel feature extractor, the RNN-T greedy decoder, vocabulary handling, the
 leading-silence mitigation, and endpointing.
 
 The export is the int4 ONNX conversion published by the `onnx-community` organization on Hugging
-Face; it is downloaded unchanged, one URL per file, from that repository. The conversion carries an
+Face. The unchanged files are downloaded as one bundle from the project's `models` GitHub release, and
+the original URL of each file is recorded with its pin. The conversion carries an
 ONNX Runtime GenAI `genai_config.json` and int4 `MatMulNBits` operators, but this package does not
 use ONNX Runtime GenAI: it reads only the three graphs and `vocab.txt` and runs them with the base
 ONNX Runtime API.
@@ -52,7 +53,7 @@ recordings that measure this system on real speech; neither is part of the packa
 ### Design Decisions
 
 - **D1 - one catalog id with a language parameter**: the download mirror layout is
-  `<mirror>/<modelId>/<file>`, so a model id must equal the mirror's folder name, and every
+  `<mirror>/<modelId>/<bundle>.zip`, so a model id must equal the mirror's folder name, and every
   locale shares the same ~790 MB of files. The package therefore registers one model,
   `nemotron-3.5-asr-streaming-0.6b-onnx-int4`, with a `language` `ChoiceParameter` (`en-US`
   default, `en-GB`) instead of one id per locale. The encoder's `lang_id` is derived from the
@@ -172,12 +173,15 @@ clinical or safety role.
 
 **Model install path:**
 
-1. **Input**: Speech's `SpeechModelDownloader` fetches and checksum-verifies every file this
-   model's `DownloadDescriptor` declares directly into the staged directory, each at its own
-   declared relative install path (each `.onnx.data` file beside its `.onnx`)
-2. **Output**: Because every declared file is already directly usable with no extraction step,
-   this model needs no `InstallAsync` override; the staged directory is promoted to the installed
-   location unchanged
+1. **Input**: Speech's `SpeechModelDownloader` fetches and checksum-verifies the one bundle this
+   model's `DownloadDescriptor` declares (`nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip` on the
+   project's `models` GitHub release) into the staged directory, resuming an interrupted transfer on the
+   next attempt
+2. **Output**: The model's `InstallAsync` hands the staged zip to Speech's `SpeechModelBundle`, which
+   extracts the eleven files to their relative install paths (each `.onnx.data` file beside its `.onnx`),
+   checks each against its compiled SHA-256 pin, keeps the bundle's license files under
+   `licenses/<bundle>/` and deletes the zip; the staged directory is then promoted to the installed
+   location. The installed layout is the same as before bundles existed, so an earlier install keeps working
 
 **Backend construction path:**
 
@@ -223,9 +227,10 @@ clinical or safety role.
 - **No accelerated execution-provider package reference**: this library references only the base
   `Microsoft.ML.OnnxRuntime` package, matching the sibling SpeechOnnx package's convention; a
   consuming application supplies its own accelerated native runtime package for its own target RID
-- **Metadata and download descriptors only**: no model weights are bundled or redistributed; a
-  consumer fetches the model files through Speech's download machinery on their own explicit
-  action, and the model visibly declares its own license
+- **Metadata and download descriptors only**: the package embeds no model weights; a consumer
+  fetches the model files through Speech's download machinery on their own explicit action, and the
+  model visibly declares its own license. DEMA Consulting redistributes the unchanged files as one
+  bundle on the project's `models` GitHub release, with the OpenMDW-1.1 and MIT texts and a `NOTICE`
 - **Code license**: the package's own code is MIT-licensed; the model weights are governed by the
   model's own license (see the license note below)
 - **Compliance**: all functionality must be traceable to requirements
@@ -243,7 +248,11 @@ therefore declares `LicenseName = "OpenMDW-1.1"` and the address of the license 
 `https://openmdw.ai/license/1-1/`, as its `LicenseUrl`. The files are the int4 ONNX conversion
 published as `onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4`, downloaded unchanged; the
 MIT tag of that repository covers only the conversion artifacts, and the converted weights remain
-under the OpenMDW License. No model file is bundled or redistributed by this package.
+under the OpenMDW License. The package embeds no model file. DEMA Consulting redistributes the unchanged
+files as one bundle on the project's `models` GitHub release, as the OpenMDW License permits; the bundle
+carries the OpenMDW-1.1 text, the MIT text of the conversion, a `NOTICE` that keeps the notices of origin,
+a `README.txt` and a `model.json` recording each file's original URL and SHA-256, all installed under
+`licenses/<bundle>/`.
 
 ### Platform Support
 

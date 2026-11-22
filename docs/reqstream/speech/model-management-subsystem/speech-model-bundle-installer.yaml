@@ -1,0 +1,120 @@
+---
+# Software Unit Requirements for SpeechModelBundleInstaller
+#
+# Unit-level behavior of the internal SpeechModelBundleInstaller (the extraction and verification
+# engine behind SpeechModelBundle.InstallAsync), decomposing the parent ModelManagementSubsystem
+# bundle requirements. Covered by
+# test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelBundleInstallerTests.cs.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelBundleInstaller Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelBundleInstaller-VendorExtraction
+                title: >-
+                  The SpeechModelBundleInstaller shall extract every vendor file of a verified bundle
+                  archive to its declared install path with its exact bytes, ignoring directory
+                  entries.
+                justification: |
+                  Models locate their files by fixed install paths, so a bundle install must produce
+                  the same layout a direct per-file download does.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_ValidBundle_ExtractsVendorFilesAndLicenses
+                  - SpeechModelBundleInstaller_InstallAsync_DirectoryEntries_AreIgnored
+
+              - id: Speech-Models-SpeechModelBundleInstaller-LicenseFolder
+                title: >-
+                  The SpeechModelBundleInstaller shall copy the bundle's model.json, README.txt,
+                  LICENSE and, when present, NOTICE into a license folder named after the bundle.
+                justification: |
+                  Redistributing the vendor files requires the license text and attribution notices
+                  to travel with them; NOTICE is only present where the license requires one.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_ValidBundle_ExtractsVendorFilesAndLicenses
+                  - SpeechModelBundleInstaller_InstallAsync_WithoutNotice_Installs
+
+              - id: Speech-Models-SpeechModelBundleInstaller-ArchiveDeletion
+                title: >-
+                  The SpeechModelBundleInstaller shall delete the bundle archive after a successful
+                  extraction and keep it when the extraction is canceled.
+                justification: |
+                  The archive is as large as the model and redundant once extracted.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_ValidBundle_ExtractsVendorFilesAndLicenses
+                  - SpeechModelBundleInstaller_InstallAsync_CanceledToken_ThrowsAndKeepsZip
+
+              - id: Speech-Models-SpeechModelBundleInstaller-EntryNameSafety
+                title: >-
+                  The SpeechModelBundleInstaller shall reject an archive containing any entry whose
+                  name is unsafe or not valid on every platform, or two entries whose names differ only
+                  by letter case, before writing any file.
+                justification: |
+                  A checksum proves the archive is the published one, not that its entry names are
+                  safe; validating every name first means a rejected archive leaves nothing behind.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_EntryEscapingDirectory_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_DuplicateEntryDifferingInCase_ThrowsInvalidDataException
+
+              - id: Speech-Models-SpeechModelBundleInstaller-ExactEntrySet
+                title: >-
+                  The SpeechModelBundleInstaller shall reject an archive whose entries are not exactly
+                  the files its model.json declares plus model.json, README.txt, LICENSE and an optional
+                  NOTICE.
+                justification: |
+                  An unexpected entry is content nobody reviewed, and a missing one is an incomplete
+                  model or a missing license.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_EntryNotInModelJson_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_DeclaredEntryMissing_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_MissingMetadataEntry_ThrowsInvalidDataException
+
+              - id: Speech-Models-SpeechModelBundleInstaller-ManifestValidation
+                title: >-
+                  The SpeechModelBundleInstaller shall reject a bundle whose model.json is missing,
+                  larger than 1 MiB, not valid JSON, of a schema version other than 1, names another
+                  bundle, or declares a malformed, reserved or duplicate file entry.
+                justification: |
+                  model.json drives the extraction, so it must be bounded, understood and about this
+                  bundle before any of it is trusted.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_MalformedModelJson_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_OversizedMetadataEntry_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_MissingMetadataEntry_ThrowsInvalidDataException
+
+              - id: Speech-Models-SpeechModelBundleInstaller-FileVerification
+                title: >-
+                  The SpeechModelBundleInstaller shall reject a vendor file whose size or SHA-256
+                  differs from its model.json entry, or whose SHA-256 differs from the compiled pin,
+                  never writing more bytes than model.json declares.
+                justification: |
+                  Comparing against both the bundle's own declaration and the compiled pin proves the
+                  extracted file is the unmodified vendor file; the declared size bounds a
+                  decompression bomb.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_FileHashDiffersFromModelJson_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_FileHashDiffersFromPinnedContents_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_EntrySizeDiffersFromDeclared_ThrowsInvalidDataException
+
+              - id: Speech-Models-SpeechModelBundleInstaller-PinCoverage
+                title: >-
+                  The SpeechModelBundleInstaller shall reject a bundle whose model.json file list
+                  differs from the bundle's compiled pinned file list.
+                justification: |
+                  Every installed vendor file must carry a compiled-in pin, and every pinned file must
+                  be installed.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_PinnedFileMissing_ThrowsInvalidDataException
+                  - SpeechModelBundleInstaller_InstallAsync_DeclaredFileWithoutPin_ThrowsInvalidDataException
+
+              - id: Speech-Models-SpeechModelBundleInstaller-NotAZipRejection
+                title: >-
+                  The SpeechModelBundleInstaller shall reject a staged bundle that is not a zip archive
+                  as invalid data.
+                justification: |
+                  An unreadable archive must surface as an install failure rather than an unrelated
+                  exception type.
+                tests:
+                  - SpeechModelBundleInstaller_InstallAsync_NotAZip_ThrowsInvalidDataException

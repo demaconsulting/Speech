@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 using Microsoft.AspNetCore.Builder;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -378,6 +379,208 @@ public sealed class HttpModelDownloadClientTests
         Assert.Equal(expectedAuthorization, initialRequestMessage.Headers["Authorization"].Single());
         Assert.False(redirectedRequestMessage.Headers.ContainsKey("Authorization"));
         Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that a resume request asks for the remaining bytes with a <c>Range</c> header and, on a matching
+    ///     <c>206 Partial Content</c>, appends them after the bytes already held, reporting progress that counts the
+    ///     held bytes against the complete length.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_PartialContent_Appends()
+    {
+        // Arrange: the destination already holds the first 10 bytes
+        var payload = CreatePayload(sizeBytes: 64);
+        var handler = new FakeRangeHttpMessageHandler(payload);
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var destination = new MemoryStream();
+        await destination.WriteAsync(payload.AsMemory(0, 10), CancellationToken.None);
+        var reports = new List<SpeechModelDownloadProgress>();
+
+        // Act
+        await client.DownloadFromOffsetAsync(
+            new Uri("https://example.invalid/model.bin"), destination, 10, new SynchronousProgress<SpeechModelDownloadProgress>(reports.Add), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(payload, destination.ToArray());
+        var range = Assert.Single(handler.ReceivedRanges);
+        Assert.Equal("bytes=10-", range?.ToString());
+        Assert.Equal(10, reports[0].BytesTransferred);
+        Assert.Equal(payload.Length, reports[^1].BytesTransferred);
+        Assert.All(reports, report => Assert.Equal(payload.Length, report.TotalBytes));
+    }
+
+    /// <summary>
+    ///     Proves that a server that ignores <c>Range</c> and answers <c>200 OK</c> makes the client discard the held
+    ///     bytes and write the whole body.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_FullContent_Rewrites()
+    {
+        // Arrange: the held bytes are stale garbage the full body must replace
+        var payload = CreatePayload(sizeBytes: 64);
+        var handler = new FakeRangeHttpMessageHandler(payload) { IgnoreRange = true };
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var destination = new MemoryStream();
+        await destination.WriteAsync(new byte[100], CancellationToken.None);
+
+        // Act
+        await client.DownloadFromOffsetAsync(new Uri("https://example.invalid/model.bin"), destination, 100, null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(payload, destination.ToArray());
+        Assert.Single(handler.ReceivedRanges);
+    }
+
+    /// <summary>
+    ///     Proves that a <c>416 Range Not Satisfiable</c> answer makes the client truncate the held bytes and download
+    ///     the file once more from the start without <c>Range</c>.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_RangeNotSatisfiable_Restarts()
+    {
+        // Arrange: more bytes are held than the file has, so the range cannot be satisfied
+        var payload = CreatePayload(sizeBytes: 64);
+        var handler = new FakeRangeHttpMessageHandler(payload);
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var destination = new MemoryStream();
+        await destination.WriteAsync(new byte[80], CancellationToken.None);
+
+        // Act
+        await client.DownloadFromOffsetAsync(new Uri("https://example.invalid/model.bin"), destination, 80, null, CancellationToken.None);
+
+        // Assert: one ranged request, then exactly one plain request
+        Assert.Equal(payload, destination.ToArray());
+        Assert.Equal(2, handler.ReceivedRanges.Count);
+        Assert.NotNull(handler.ReceivedRanges[0]);
+        Assert.Null(handler.ReceivedRanges[1]);
+    }
+
+    /// <summary>
+    ///     Proves that a <c>206</c> answer for a different range than requested makes the client truncate the held
+    ///     bytes and download the file once more from the start without <c>Range</c>.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_ContentRangeMismatch_Restarts()
+    {
+        // Arrange: the first answer is a 206 starting at byte 0 instead of the requested byte 10
+        var payload = CreatePayload(sizeBytes: 64);
+        var requests = new List<RangeHeaderValue?>();
+        var handler = new DelegatingStubHandler(request =>
+        {
+            requests.Add(request.Headers.Range);
+            if (request.Headers.Range is not null)
+            {
+                var mismatched = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(payload) };
+                mismatched.Content.Headers.ContentRange = new ContentRangeHeaderValue(0, payload.Length - 1, payload.Length);
+                return mismatched;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(payload) };
+        });
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var destination = new MemoryStream();
+        await destination.WriteAsync(payload.AsMemory(0, 10), CancellationToken.None);
+
+        // Act
+        await client.DownloadFromOffsetAsync(new Uri("https://example.invalid/model.bin"), destination, 10, null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(payload, destination.ToArray());
+        Assert.Equal(2, requests.Count);
+        Assert.Null(requests[1]);
+    }
+
+    /// <summary>
+    ///     Proves that a fresh download (offset zero) sends no <c>Range</c> header.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_ZeroOffset_SendsNoRangeHeader()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 32);
+        var handler = new FakeRangeHttpMessageHandler(payload);
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var destination = new MemoryStream();
+
+        // Act
+        await client.DownloadFromOffsetAsync(new Uri("https://example.invalid/model.bin"), destination, 0, null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(payload, destination.ToArray());
+        Assert.Null(Assert.Single(handler.ReceivedRanges));
+    }
+
+    /// <summary>
+    ///     Proves that an error answer to a resume request throws <see cref="HttpRequestException"/> with the status,
+    ///     exactly as a plain download does, and leaves the held bytes in place for a later attempt.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_NotFound_ThrowsAndKeepsHeldBytes()
+    {
+        // Arrange
+        var handler = new DelegatingStubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var httpClient = new HttpClient(handler);
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var destination = new MemoryStream();
+        await destination.WriteAsync(new byte[10], CancellationToken.None);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.DownloadFromOffsetAsync(new Uri("https://example.invalid/model.bin"), destination, 10, null, CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
+        Assert.Equal(10, destination.Length);
+    }
+
+    /// <summary>
+    ///     Proves that a resume request to the configured mirror carries the mirror's authentication along with the
+    ///     <c>Range</c> header.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadFromOffsetAsync_MirrorUri_SendsAuthorizationWithRange()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 32);
+        HttpRequestMessage? received = null;
+        var handler = new DelegatingStubHandler(request =>
+        {
+            received = request;
+            var response = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(payload[4..]) };
+            response.Content.Headers.ContentRange = new ContentRangeHeaderValue(4, payload.Length - 1, payload.Length);
+            return response;
+        });
+        using var httpClient = new HttpClient(handler);
+        var mirror = new DownloadMirror(new Uri("https://mirror.invalid/models"), bearerToken: "secret-token");
+        using var client = new HttpModelDownloadClient(httpClient, mirror);
+        using var destination = new MemoryStream();
+        await destination.WriteAsync(payload.AsMemory(0, 4), CancellationToken.None);
+
+        // Act
+        await client.DownloadFromOffsetAsync(new Uri("https://mirror.invalid/models/m/model.bin"), destination, 4, null, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(received);
+        Assert.Equal("Bearer secret-token", received.Headers.Authorization?.ToString());
+        Assert.Equal("bytes=4-", received.Headers.Range?.ToString());
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
+    ///     A test <see cref="HttpMessageHandler"/> that answers every request with a caller-supplied function.
+    /// </summary>
+    /// <param name="respond">Produces the response for a request.</param>
+    private sealed class DelegatingStubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        /// <inheritdoc/>
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(respond(request));
     }
 
     /// <summary>

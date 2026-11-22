@@ -22,6 +22,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     map to one destination fail it, each extracted path is re-checked to
 ///     lie inside the staging directory, and the number of bytes actually read per entry and in total is capped
 ///     (the caps are enforced on the bytes read from the entry stream, not on the sizes the archive headers declare).
+///     The name and resolved-path checks are those of the shared <see cref="ZipEntryPathValidator"/>, the same guard
+///     <see cref="SpeechModelBundleInstaller"/> applies to model bundles.
 /// </remarks>
 internal static class ReferenceVoicePackInstaller
 {
@@ -58,17 +60,6 @@ internal static class ReferenceVoicePackInstaller
 
     /// <summary>JSON options for <c>pack.json</c>.</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
-    /// <summary>The characters rejected in any extracted path segment on every platform (the Windows-invalid set; a colon is already rejected in <see cref="SplitSafely"/>).</summary>
-    private static readonly char[] InvalidSegmentChars = [.. Path.GetInvalidFileNameChars(), '*', '?', '<', '>', '|', '"'];
-
-    /// <summary>The Windows reserved device names (matched with or without an extension).</summary>
-    private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CON", "PRN", "AUX", "NUL",
-        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-    };
 
     /// <summary>
     ///     Extracts the pack's allowed entries from the staged archive into the staging directory.
@@ -126,10 +117,10 @@ internal static class ReferenceVoicePackInstaller
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Every entry is validated for portability before the allow-list decides whether it is extracted, so an
-                // ignored entry with a name that is invalid on some platform still fails the install
-                var segments = SplitSafely(entry.FullName);
-                ValidateDestinationSegments(entry.FullName, segments);
+                // Every entry is validated for safety and portability (by the shared zip-slip guard) before the
+                // allow-list decides whether it is extracted, so an ignored entry with a name that is unsafe or invalid
+                // on some platform still fails the install
+                var segments = ZipEntryPathValidator.Validate(entry.FullName);
 
                 var relativePath = MapToDestination(pack, includeEmotions, segments, out var kind);
                 if (relativePath is null)
@@ -137,11 +128,7 @@ internal static class ReferenceVoicePackInstaller
                     continue;
                 }
 
-                var destination = Path.GetFullPath(Path.Combine(stagingRoot, relativePath));
-                if (!destination.StartsWith(stagingRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-                {
-                    throw new InvalidDataException($"Archive entry '{entry.FullName}' resolves outside the install directory.");
-                }
+                var destination = ZipEntryPathValidator.ResolveUnderRoot(stagingRoot, relativePath, entry.FullName);
 
                 if (!written.Add(destination))
                 {
@@ -192,47 +179,6 @@ internal static class ReferenceVoicePackInstaller
         catch (Exception ex) when (ex is NotSupportedException or ArgumentException)
         {
             throw new InvalidDataException($"The reference-voice archive '{Path.GetFileName(archivePath)}' is not a valid zip file.", ex);
-        }
-    }
-
-    /// <summary>
-    ///     Splits an entry name into segments, rejecting any name that could escape the extraction directory.
-    /// </summary>
-    private static string[] SplitSafely(string entryName)
-    {
-        if (entryName.Contains('\\') || entryName.Contains(':') || entryName.StartsWith('/') || entryName.Contains('\0'))
-        {
-            throw new InvalidDataException($"Archive entry '{entryName}' has an unsafe path.");
-        }
-
-        var segments = entryName.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Any(segment => segment is ".." or "."))
-        {
-            throw new InvalidDataException($"Archive entry '{entryName}' has an unsafe path.");
-        }
-
-        return segments;
-    }
-
-    /// <summary>
-    ///     Rejects an entry whose segments cannot be created on every platform (invalid characters, control
-    ///     characters, reserved device names, trailing dots or spaces) with an <see cref="InvalidDataException"/>
-    ///     instead of letting the file system throw an unrelated exception type. Applied to every archive entry,
-    ///     whether or not the allow-list extracts it.
-    /// </summary>
-    private static void ValidateDestinationSegments(string entryName, string[] segments)
-    {
-        foreach (var segment in segments)
-        {
-            var stem = segment.Split('.')[0].TrimEnd(' ');
-            if (segment.IndexOfAny(InvalidSegmentChars) >= 0
-                || segment.Any(char.IsControl)
-                || segment.EndsWith('.')
-                || segment.EndsWith(' ')
-                || ReservedNames.Contains(stem))
-            {
-                throw new InvalidDataException($"Archive entry '{entryName}' has a name that is not valid on every platform.");
-            }
         }
     }
 

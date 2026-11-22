@@ -445,3 +445,66 @@ sections:
                   Cancellation during unpacking is a caller-driven outcome, not a failure.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_InstallHookCanceled_ThrowsAndInstallsNothing
+
+              - id: Speech-Models-SpeechModelDownloader-BundleInstall
+                title: >-
+                  The model downloader shall install a model distributed as a bundle by fetching and
+                  verifying the bundle archive and then running the model's install step on it,
+                  reporting an archive checksum mismatch as a checksum mismatch and an extraction
+                  failure as a failure, with nothing installed and earlier installed content intact.
+                justification: |
+                  The bundle archive is pinned like any other download, and its extraction is the
+                  model's install step, so the existing verified, all-or-nothing install path applies
+                  unchanged.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ValidBundle_InstallsVendorFilesAndLicenses
+                  - SpeechModelDownloader_DownloadAsync_BundleZipChecksumMismatch_ReportsChecksumMismatch
+                  - SpeechModelDownloader_DownloadAsync_BundleExtractionFails_LeavesNoCurrentAndKeepsPriorInstall
+
+              - id: Speech-Models-SpeechModelDownloader-BundleMirrorPath
+                title: >-
+                  The model downloader shall request a bundle archive from a configured mirror at the
+                  model id followed by the bundle file name.
+                justification: |
+                  A mirror operator lays out one archive per model, so the archive's mirror location
+                  must be predictable from the model id and bundle name.
+                tests:
+                  - SpeechModelDownloader_ResolveEffectiveUri_Bundle_UsesModelIdAndZipName
+
+              - id: Speech-Models-SpeechModelDownloader-ResumableFetch
+                title: >-
+                  The model downloader shall, when using the built-in HTTP download client, continue a
+                  file from the bytes an earlier interrupted attempt received for the same expected
+                  checksum, report the resume offset as an informational diagnostic, and still verify
+                  the whole file's checksum.
+                justification: |
+                  Resuming across calls lets a user re-run an interrupted download of a large model
+                  without losing progress, while the checksum still guards the resumed bytes.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry
+                  - SpeechModelDownloader_DownloadAsync_ServerIgnoresRange_RestartsAndInstalls
+                  - SpeechModelDownloader_DownloadAsync_PartialFileForOtherChecksum_IsNotResumed
+
+              - id: Speech-Models-SpeechModelDownloader-PartialRetention
+                title: >-
+                  The model downloader shall keep the received bytes of a file whose transfer fails or
+                  is canceled, discard them when the completed file fails its checksum, and remove all
+                  partially downloaded files once the model installs.
+                justification: |
+                  Kept bytes are what a later attempt resumes from; bytes that failed verification
+                  must never be resumed again; and nothing partial should remain after success.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_InterruptedTransfer_ResumesFromPartialOnRetry
+                  - SpeechModelDownloader_DownloadAsync_CanceledMidTransfer_KeepsPartial
+                  - SpeechModelDownloader_DownloadAsync_ResumedFileFailsChecksum_DiscardsPartial
+                  - SpeechModelDownloader_DownloadAsync_SuccessfulInstall_RemovesPartials
+
+              - id: Speech-Models-SpeechModelDownloader-HostClientNotResumed
+                title: >-
+                  The model downloader shall keep partially downloaded files only for its built-in HTTP
+                  download client, never for a host-supplied download client.
+                justification: |
+                  The download-client interface has no way to request a byte range, so a host-supplied
+                  client keeps its existing whole-file behavior.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_HostSuppliedClient_CreatesNoPartials

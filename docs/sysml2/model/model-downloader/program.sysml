@@ -3,8 +3,9 @@ package ModelDownloader_Program {
 
     part def Program {
         doc /* Hosts the CI-only model download command: builds the four sherpa-onnx models of the SpeechSherpa
-             * package and the ONNX Nemotron speech-to-text model of the SpeechOnnxNemotronStt package, and
-             * downloads each requested model id into the per-user model store with an extended transfer
+             * package, the ONNX Nemotron speech-to-text model of the SpeechOnnxNemotronStt package and the ONNX Kokoro
+             * synthesis model of the SpeechOnnxKokoro package (the last two install from their models-release
+             * bundles), prints the source of every declared download, and downloads each requested model id into the per-user model store with an extended transfer
              * timeout, one model at a time so one failure never prevents the later requests, so automated runs can
              * provision real speech models before the integration tests execute. */
 
@@ -12,8 +13,9 @@ package ModelDownloader_Program {
             sourceFiles = ("tools/ModelDownloader/Program.cs");
         }
 
-        // Builds the sherpa-onnx models and the ONNX Nemotron model and fetches each into the SpeechModelStore
-        // through the HTTP downloader.
+        // Builds the sherpa-onnx models and the ONNX Nemotron and Kokoro models and fetches each into the
+        // SpeechModelStore through the HTTP downloader.
+        dependency Program to SpeechOnnxKokoro_OnnxKokoroEnglishSynthesisModel::OnnxKokoroEnglishSynthesisModel;
         dependency Program to SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel::OnnxNemotronMultilingualRecognitionModel;
         dependency Program to SpeechSherpa_SherpaOnnxKokoroEnglishSynthesisModel::SherpaOnnxKokoroEnglishSynthesisModel;
         dependency Program to SpeechSherpa_SherpaOnnxNemotronStreamingEnRecognitionModel::SherpaOnnxNemotronStreamingEnRecognitionModel;
@@ -21,6 +23,8 @@ package ModelDownloader_Program {
         dependency Program to SpeechSherpa_SherpaOnnxZipformerEnRecognitionModel::SherpaOnnxZipformerEnRecognitionModel;
         dependency Program to Speech_HttpModelDownloadClient::HttpModelDownloadClient;
         dependency Program to Speech_SpeechModelContract::SpeechModelContract;
+        dependency Program to Speech_SpeechModelDownloadDescriptor::SpeechModelDownloadDescriptor;
+        dependency Program to Speech_SpeechModelDownloadFile::SpeechModelDownloadFile;
         dependency Program to Speech_SpeechModelDownloadProgress::SpeechModelDownloadProgress;
         dependency Program to Speech_SpeechModelDownloader::SpeechModelDownloader;
         dependency Program to Speech_SpeechModelStore::SpeechModelStore;
