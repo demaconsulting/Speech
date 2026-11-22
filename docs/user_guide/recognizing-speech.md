@@ -144,15 +144,20 @@ reports `"Apache-2.0 (likely)"`, preserving the same uncertainty rating in the v
 
 The optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a third, streaming
 recognition model through `AddNemotronSttModels()`: `OnnxNemotronMultilingualRecognitionModel`
-(`nemotron-3.5-asr-streaming-0.6b-onnx-int4`, an int4 ONNX export of about 790 MB, dual-licensed
-under the **MIT License and the NVIDIA Open Model License**, both of which apply; review the
-NVIDIA license's terms before redistributing). It declares one
+(`nemotron-3.5-asr-streaming-0.6b-onnx-int4`, an int4 ONNX export of about 790 MB of NVIDIA's
+`nemotron-3.5-asr-streaming-0.6b`, whose weights NVIDIA releases under the **OpenMDW License
+Agreement 1.1** (`OpenMDW-1.1`), a permissive license that asks you to keep its license and origin
+notices when you redistribute the model; the files are downloaded unchanged from the
+`onnx-community` conversion on Hugging Face). It declares one
 `language` choice parameter (`en-US` by default, or `en-GB`) that you pass like any other model
 parameter, for example `--stt-param language=en-GB` with `speech-cli recognize`. Its engine runs
 entirely on ONNX Runtime, keeps the decoder and joint networks on a single non-spinning CPU
 thread, and mitigates leading silence by shortening any quiet run longer than 400 ms to 400 ms
 (the quiet threshold is calibrated from the first 400 ms of audio) and by adding a tiny seeded
-dither; it also finalizes an utterance after 2.5 seconds of quiet following speech. A download
+dither. It reports an utterance as final after 1.2 seconds of silence following speech, splits
+speech that runs on without a pause into finals at most about 20 seconds apart (between words, so
+no word is lost) and never produces text from silence alone. At the end of the audio it decodes
+only silence, so it does not invent words after the last spoken word. A download
 mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`. See
 "Synthesizing Speech" below for the production synthesis models.
 
