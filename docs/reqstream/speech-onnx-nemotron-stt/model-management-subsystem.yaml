@@ -217,3 +217,30 @@ sections:
             tests:
               - Detokenize_Tokens_NormalizesText
               - Detokenize_Empty_ReturnsEmpty
+
+          - id: SpeechOnnxNemotronStt-Models-VocabularyWordBoundaries
+            title: >-
+              The ModelManagementSubsystem shall identify which emitted tokens start a new word,
+              using the model's own vocabulary.
+            justification: |
+              Long continuous speech is split into utterances between words, never inside one,
+              which requires knowing where each word begins in the emitted tokens.
+            children:
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-StartsWord
+            tests:
+              - NemotronVocabulary_StartsWord_Tokens_DetectsWordBoundaryMarker
+
+          - id: SpeechOnnxNemotronStt-Models-EngineOptionsBackend
+            title: >-
+              The ModelManagementSubsystem shall create a backend with explicitly supplied
+              engine tuning options for evaluation, rejecting missing or invalid options before
+              any model file is read.
+            justification: |
+              The shipped defaults (such as the blank penalty) are chosen by measuring the real
+              model under varied options with the evaluation tool; invalid options must fail
+              immediately rather than after the large model files have been loaded.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-EngineOptions
+            tests:
+              - OnnxNemotronMultilingualRecognitionModel_CreateBackend_NegativeBlankPenalty_ThrowsArgumentOutOfRangeException
+              - OnnxNemotronMultilingualRecognitionModel_CreateBackend_NullEngineOptions_ThrowsArgumentNullException

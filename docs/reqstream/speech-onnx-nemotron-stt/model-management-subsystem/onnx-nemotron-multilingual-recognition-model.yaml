@@ -6,14 +6,8 @@
 # ModelManagementSubsystem requirements.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/ModelManagementSubsystem/
-# OnnxNemotronMultilingualRecognitionModelTests.cs. That file also contains
-# CreateBackend_RealModel_TranscribesWhenPresent, a skip-conditional test against the genuine
-# production model that is NOT linked to any requirement below: the CI model-download bootstrap
-# does not provision this package's ~790 MB model, so this test would always skip in CI and
-# could never satisfy --enforce there, mirroring the sibling SpeechOnnxKokoro and SpeechSherpa
-# packages' convention of keeping their real-model proof as narrative verification-doc evidence
-# (see docs/verification/speech-onnx-nemotron-stt/model-management-subsystem/
-# onnx-nemotron-multilingual-recognition-model.md).
+# OnnxNemotronMultilingualRecognitionModelTests.cs, which uses no network access and no real model
+# files; the real installed model is exercised by the system tests in SpeechOnnxNemotronSttTests.cs.
 
 sections:
   - title: SpeechOnnxNemotronStt Requirements
@@ -57,19 +51,20 @@ sections:
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-License
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare
-                  LicenseName = "MIT and NVIDIA Open Model License", the model being
-                  dual-licensed with both licenses applying.
+                  LicenseName = "OpenMDW-1.1", the license that governs the model.
                 justification: |
                   This model's license must be discoverable programmatically, not only via
-                  DisplayName prose or XML documentation. The upstream model is dual-licensed
-                  under the MIT License and the NVIDIA Open Model License, so both are named.
+                  DisplayName prose or XML documentation. The model card of the upstream NVIDIA
+                  model (nvidia/nemotron-3.5-asr-streaming-0.6b) names OpenMDW-1.1 as the
+                  governing license, as verified by the project owner on the live Hugging Face
+                  card; the MIT tag of the ONNX conversion repository covers only the conversion.
                 tests:
                   - Metadata_IsDeclared
 
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LicenseUrl
                 title: >-
-                  The OnnxNemotronMultilingualRecognitionModel class shall declare the NVIDIA
-                  Open Model License URL as its LicenseUrl.
+                  The OnnxNemotronMultilingualRecognitionModel class shall declare
+                  https://openmdw.ai/license/1-1/ as its LicenseUrl.
                 justification: |
                   A host must be able to link to the full license text that governs the model.
                 tests:
@@ -161,3 +156,17 @@ sections:
                   recognition, so it must fail before any session is created.
                 tests:
                   - CreateBackend_VocabularyWithoutLocale_Throws
+
+              - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-EngineOptions
+                title: >-
+                  The OnnxNemotronMultilingualRecognitionModel class shall create a backend with
+                  explicitly supplied engine options, throwing ArgumentNullException for null
+                  options and ArgumentOutOfRangeException for an invalid blank penalty before
+                  reading any model file.
+                justification: |
+                  The evaluation tool measures the engine under varied tuning options against
+                  the installed model; invalid options must fail immediately rather than after
+                  the large model files have been loaded.
+                tests:
+                  - OnnxNemotronMultilingualRecognitionModel_CreateBackend_NegativeBlankPenalty_ThrowsArgumentOutOfRangeException
+                  - OnnxNemotronMultilingualRecognitionModel_CreateBackend_NullEngineOptions_ThrowsArgumentNullException

@@ -4,8 +4,9 @@
 # These requirements describe the design-level behavior of the OnnxNemotronRecognitionEngine unit,
 # the real raw-ONNX implementation of the Speech library's public IRecognitionBackend seam,
 # decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem requirements. The unit's
-# collaborators NemotronEncoder and NemotronRnntNetwork have their own unit requirement files
-# (nemotron-encoder.yaml and nemotron-rnnt-network.yaml).
+# collaborators NemotronEncoder, NemotronRnntNetwork, and NemotronEndpointDetector have their own
+# unit requirement files (nemotron-encoder.yaml, nemotron-rnnt-network.yaml, and
+# nemotron-endpoint-detector.yaml).
 #
 # Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
 # OnnxNemotronRecognitionEngineTests.cs, against fake encoder and network implementations
@@ -89,13 +90,25 @@ sections:
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-FlushTail
                 title: >-
                   The OnnxNemotronRecognitionEngine class's TryFlush method shall decode the
-                  configured number of all-zero tail chunks after the buffered audio, so the
-                  model's look-ahead delay is drained.
+                  configured number of whole chunks of silence features after the buffered audio,
+                  so the model's look-ahead delay is drained.
                 justification: |
                   The model's look-ahead delay would otherwise hold back the last words of an
                   utterance.
                 tests:
                   - TryFlush_NoTailChunks_DecodesOnlyAudio
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilencePadding
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall complete a partly filled chunk
+                  and form the flush tail only from the features of dithered digital silence,
+                  never from all-zero feature rows, so the padding adds no words.
+                justification: |
+                  An all-zero log-mel row is a loud input to the model, which then invents words
+                  after the last spoken word; silence features let the model hear silence.
+                tests:
+                  - OnnxNemotronRecognitionEngine_TryFlush_PartialChunk_PadsWithSilenceFeatures
+                  - OnnxNemotronRecognitionEngine_TryFlush_SpeechThenSilence_AddsNoWordsFromPadding
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-FlushNothing
                 title: >-
@@ -107,34 +120,97 @@ sections:
                   - TryFlush_NoAudio_ReturnsFalse
                   - TryFlush_AudioWithoutTokens_ReturnsFalse
 
-              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-DecodeClockEndpointing
                 title: >-
-                  The OnnxNemotronRecognitionEngine class shall finalize an utterance when the
-                  input clock has been quiet for at least 2500 ms after speech, reporting the
-                  final text and fully resetting the model state.
+                  The OnnxNemotronRecognitionEngine class shall report the utterance text as a
+                  final result when its endpoint detector reports an endpoint, measuring each
+                  decoded encoder frame at its input duration and counting the quiet input the
+                  limiter removed at the point in the stream where it was removed.
                 justification: |
-                  The limiter removes most of a long quiet run, so the chunk clock stalls during
-                  silence; endpointing must therefore be measured on the input clock.
+                  The utterance boundary must follow the audio the model actually decoded: a
+                  frame without new words is trailing silence whether the input was silent or
+                  steady noise, and a pause the limiter shortened must still count at its real
+                  length so an utterance ends about 1.2 s after its last word.
                 tests:
-                  - TryDecode_QuietAfterSpeech_EndpointsAndResets
+                  - OnnxNemotronRecognitionEngine_TryDecode_SilenceAfterSpeech_FinalizesWithoutModelReset
+                  - OnnxNemotronRecognitionEngine_TryDecode_ShortPauseBelowRule_KeepsOneUtterance
+                  - OnnxNemotronRecognitionEngine_TryDecode_SteadyAudioWithoutNewTokens_FinalizesAfterTrailingBlanks
 
-              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietInsideBlock
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointKeepsModelState
                 title: >-
-                  The OnnxNemotronRecognitionEngine class shall finalize an utterance at a quiet
-                  run that lies inside a single large block of accepted audio.
+                  The OnnxNemotronRecognitionEngine class shall keep the encoder caches, the
+                  decoder state, and the feature stream at an endpoint, so tokens decoded after
+                  the endpoint are reported exactly once in the next utterance.
                 justification: |
-                  A host may deliver audio in blocks of any size, and the utterance boundary must
-                  not depend on how the audio was split.
+                  Resetting the model at an endpoint discards the left context of speech that
+                  resumes right after it, losing or repeating words; keeping the state lets the
+                  model continue as if no endpoint had occurred.
                 tests:
-                  - TryDecode_QuietInsideOneBlock_SplitsUtterance
+                  - OnnxNemotronRecognitionEngine_TryDecode_SilenceAfterSpeech_FinalizesWithoutModelReset
+                  - OnnxNemotronRecognitionEngine_TryDecode_SpeechAfterEndpoint_KeepsEveryToken
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointWithinBlock
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall report one final result per
+                  utterance when several paused utterances arrive in a single block of accepted
+                  audio.
+                justification: |
+                  A host may deliver audio in blocks of any size, and the utterance boundaries
+                  must not depend on how the audio was split.
+                tests:
+                  - OnnxNemotronRecognitionEngine_TryDecode_PausedSpeechInOneBlock_ReportsOneFinalPerUtterance
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-MaximumUtterance
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall, when an utterance reaches the
+                  maximum utterance length, report the tokens before the start of its last word
+                  as a final result and carry that last word into the next utterance.
+                justification: |
+                  The last word may still be in progress when the maximum is reached; splitting
+                  between words keeps every word whole and reported exactly once.
+                tests:
+                  - OnnxNemotronRecognitionEngine_TryDecode_ContinuousTokensBeyondMaximum_SplitsUtterance
+                  - OnnxNemotronRecognitionEngine_TryDecode_MaximumLengthSplit_KeepsWordsWhole
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointOptions
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall apply the configured endpoint
+                  rules and throw ArgumentOutOfRangeException for a negative endpoint rule
+                  duration or a negative number of flush tail chunks.
+                justification: |
+                  The endpoint rules are tuning values the evaluation tool varies; an invalid
+                  configuration must fail at construction rather than silently distort
+                  segmentation.
+                tests:
+                  - OnnxNemotronRecognitionEngine_TryDecode_CustomEndpointRules_FinalizesAtConfiguredSilence
+                  - OnnxNemotronRecognitionEngine_Constructor_InvalidOptions_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ClosingPunctuation
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall drop closing punctuation tokens
+                  (such as ".", ",", "?", closing brackets and quotes, and their CJK and
+                  full-width forms) that would open a new utterance after an endpoint, while
+                  keeping the words that follow them.
+                justification: |
+                  Because the model state is kept at an endpoint, the model may emit the closing
+                  punctuation of the sentence just finalized a little later; that punctuation
+                  belongs to the finalized sentence and must neither become a final of its own
+                  nor start the next utterance.
+                tests:
+                  - OnnxNemotronRecognitionEngine_TryFlush_PunctuationAfterEndpoint_ReportsNoPunctuationOnlyFinal
+                  - OnnxNemotronRecognitionEngine_TryFlush_PunctuationBeforeNextWords_StartsSegmentWithWord
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilenceNeverEndpoints
                 title: >-
-                  The OnnxNemotronRecognitionEngine class shall never endpoint on silence alone.
+                  The OnnxNemotronRecognitionEngine class shall report no result, provisional or
+                  final, for input that is silence alone, however long, and shall not reset the
+                  model for it.
                 justification: |
-                  A stream of only silence has no utterance to finalize.
+                  A stream of only silence has no utterance to finalize, and any text reported
+                  for it would be invented.
                 tests:
                   - TryDecode_OnlySilence_NeverEndpoints
+                  - OnnxNemotronRecognitionEngine_TryFlush_SilenceOnly_ReportsNoText
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
                 title: >-
@@ -144,7 +220,7 @@ sections:
                   result.
                 justification: |
                   The limiter drops audio during a long quiet run, so the last words would
-                  otherwise wait in an incomplete chunk until the 2500 ms endpoint.
+                  otherwise wait in an incomplete chunk until the endpoint.
                 tests:
                   - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
 
@@ -158,18 +234,6 @@ sections:
                 tests:
                   - TryDecode_CustomLimiterCap_PadsAtThatCap
 
-              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
-                title: >-
-                  The OnnxNemotronRecognitionEngine class shall finalize an utterance after
-                  three consecutive token-free chunks once text exists, keeping the model state
-                  so decoding continues seamlessly.
-                justification: |
-                  Steady background noise never reads as quiet, so a fallback endpoint based on
-                  the model's own lack of output is needed; keeping the model state avoids
-                  disturbing a speaker who merely paused.
-                tests:
-                  - TryDecode_EmptyChunksAfterText_FinalizesKeepingState
-
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Reset
                 title: >-
                   After the OnnxNemotronRecognitionEngine class's Reset method, processing a new
@@ -178,8 +242,8 @@ sections:
                 justification: |
                   The Speech library reuses a backend across sessions; a new session must not
                   inherit the previous session's audio or model state. (The design resets the
-                  limiter, dither, feature extractor, encoder, decoder, and utterance state; see the
-                  OnnxNemotronRecognitionEngine design.)
+                  limiter, dither, feature extractor, encoder, decoder, endpoint detector, and
+                  utterance state; see the OnnxNemotronRecognitionEngine design.)
                 tests:
                   - Reset_AfterAudio_NextStreamMatchesFreshEngine
 

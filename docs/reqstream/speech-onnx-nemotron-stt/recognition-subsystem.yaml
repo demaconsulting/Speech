@@ -8,8 +8,8 @@
 # (OnnxNemotronRecognitionEngine) and the units it composes: the streaming log-mel feature
 # extractor (NemotronFeatureExtractor), the cache-aware encoder wrapper (NemotronEncoder), the
 # RNN-T greedy decoder (NemotronRnntGreedyDecoder) and its ONNX-backed network
-# (NemotronRnntNetwork), and the leading-silence limiter with its dither source
-# (SilenceRunLimiter, DitherNoise). All
+# (NemotronRnntNetwork), the decode-clock endpoint detector (NemotronEndpointDetector), and the
+# leading-silence limiter with its dither source (SilenceRunLimiter, DitherNoise). All
 # recognition policy above that seam (session state machine, resampling, cancellation, fault
 # containment) remains in the Speech library's own RecognitionSubsystem.
 #
@@ -133,48 +133,139 @@ sections:
               - TryFlush_NoAudio_ReturnsFalse
               - TryFlush_AudioWithoutTokens_ReturnsFalse
 
-          - id: SpeechOnnxNemotronStt-Recognition-QuietEndpointing
+          - id: SpeechOnnxNemotronStt-Recognition-EndpointAfterSpeech
             title: >-
-              The RecognitionSubsystem shall finalize an utterance when the input has been quiet
-              for at least 2500 ms after speech.
+              The RecognitionSubsystem shall report the text of an utterance as a final result
+              once the audio after its last recognized word has held no new words for 1200 ms,
+              counting quiet input it shortened at its full length, and shall not end the
+              utterance at a shorter pause.
             justification: |
-              The limiter removes most of a long quiet run, so the chunk clock stalls during
-              silence; endpointing must therefore be measured on the input clock.
+              A speaker who has paused for 1.2 s has finished the utterance, while a shorter
+              pause between words must not split it. Measuring on the decoded audio makes steady
+              background noise without new words count as a pause, and counting shortened quiet
+              at its real length keeps the endpoint about 1.2 s after the last word.
             children:
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-DecodeClockEndpointing
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-TrailingSilenceAfterSpeech
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-DroppedSilenceCounts
             tests:
-              - TryDecode_QuietAfterSpeech_EndpointsAndResets
+              - OnnxNemotronRecognitionEngine_TryDecode_SilenceAfterSpeech_FinalizesWithoutModelReset
+              - OnnxNemotronRecognitionEngine_TryDecode_ShortPauseBelowRule_KeepsOneUtterance
+              - OnnxNemotronRecognitionEngine_TryDecode_SteadyAudioWithoutNewTokens_FinalizesAfterTrailingBlanks
 
-          - id: SpeechOnnxNemotronStt-Recognition-QuietEndpointingInsideBlock
+          - id: SpeechOnnxNemotronStt-Recognition-EndpointLongSilence
             title: >-
-              The RecognitionSubsystem shall finalize an utterance at a quiet run of at least
-              2500 ms that lies inside a single large block of audio.
+              The RecognitionSubsystem shall restart its utterance measurement after 2400 ms of
+              silence in which no word was recognized, without reporting a result.
             justification: |
-              A host may deliver audio in blocks of any size, and the utterance boundary must
-              not depend on how the audio was split.
+              Silence before any speech must not count toward the length of the utterance that
+              follows it, and silence alone has nothing to report.
             children:
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietInsideBlock
-            tests:
-              - TryDecode_QuietInsideOneBlock_SplitsUtterance
-
-          - id: SpeechOnnxNemotronStt-Recognition-SilenceNeverEndpoints
-            title: >-
-              The RecognitionSubsystem shall never finalize an utterance on silence alone.
-            justification: |
-              A stream of only silence has no utterance to finalize.
-            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-TrailingSilenceWithoutSpeech
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilenceNeverEndpoints
             tests:
               - TryDecode_OnlySilence_NeverEndpoints
+              - OnnxNemotronRecognitionEngine_TryFlush_SilenceOnly_ReportsNoText
+
+          - id: SpeechOnnxNemotronStt-Recognition-EndpointMaximumUtterance
+            title: >-
+              The RecognitionSubsystem shall report a final result once an utterance reaches
+              20000 ms even while speech continues, splitting it between words and carrying the
+              word in progress into the next utterance, so no word is lost, split, or repeated.
+            justification: |
+              A long monologue without pauses must still yield final results at a bounded
+              interval, and the split must not damage the words around it.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-MaximumUtterance
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-MaximumUtteranceLength
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-Reset
+            tests:
+              - OnnxNemotronRecognitionEngine_TryDecode_ContinuousTokensBeyondMaximum_SplitsUtterance
+              - OnnxNemotronRecognitionEngine_TryDecode_MaximumLengthSplit_KeepsWordsWhole
+
+          - id: SpeechOnnxNemotronStt-Recognition-EndpointConfiguration
+            title: >-
+              The RecognitionSubsystem shall apply configurable endpoint rule durations, with
+              defaults of 1200 ms after speech, 2400 ms without speech, and a 20000 ms maximum
+              utterance, a duration of zero disabling its rule and a negative duration being
+              rejected.
+            justification: |
+              The rules are tuning values the evaluation tool varies, a configuration may need
+              to switch a rule off, and an invalid configuration must fail immediately rather
+              than silently distort segmentation.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointOptions
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-DefaultRules
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-ConfigurableRules
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-InvalidArguments
+            tests:
+              - OnnxNemotronRecognitionEngine_TryDecode_CustomEndpointRules_FinalizesAtConfiguredSilence
+              - OnnxNemotronRecognitionEngine_Constructor_InvalidOptions_ThrowsArgumentOutOfRangeException
+
+          - id: SpeechOnnxNemotronStt-Recognition-EndpointKeepsModelState
+            title: >-
+              The RecognitionSubsystem shall keep its decoding context across an endpoint, so
+              speech that resumes after an endpoint is reported with every word exactly once.
+            justification: |
+              Discarding the model's context at an endpoint loses the opening words of speech
+              that resumes right after it, or repeats words already finalized.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointKeepsModelState
+            tests:
+              - OnnxNemotronRecognitionEngine_TryDecode_SilenceAfterSpeech_FinalizesWithoutModelReset
+              - OnnxNemotronRecognitionEngine_TryDecode_SpeechAfterEndpoint_KeepsEveryToken
+
+          - id: SpeechOnnxNemotronStt-Recognition-EndpointWithinBlock
+            title: >-
+              The RecognitionSubsystem shall report one final result per utterance when several
+              paused utterances arrive in a single block of audio.
+            justification: |
+              A host may deliver audio in blocks of any size, and the utterance boundaries must
+              not depend on how the audio was split.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointWithinBlock
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-Reset
+            tests:
+              - OnnxNemotronRecognitionEngine_TryDecode_PausedSpeechInOneBlock_ReportsOneFinalPerUtterance
+
+          - id: SpeechOnnxNemotronStt-Recognition-ClosingPunctuation
+            title: >-
+              The RecognitionSubsystem shall never report closing punctuation recognized after
+              an endpoint as a result of its own or at the start of the next utterance, while
+              keeping the words that follow it.
+            justification: |
+              Because the decoding context is kept across an endpoint, the closing punctuation
+              of a finalized sentence can be recognized just after its endpoint; it belongs to
+              that sentence and a punctuation-only or punctuation-led result is not text the
+              speaker said.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ClosingPunctuation
+            tests:
+              - OnnxNemotronRecognitionEngine_TryFlush_PunctuationAfterEndpoint_ReportsNoPunctuationOnlyFinal
+              - OnnxNemotronRecognitionEngine_TryFlush_PunctuationBeforeNextWords_StartsSegmentWithWord
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceNeverEndpoints
+            title: >-
+              The RecognitionSubsystem shall report no result, provisional or final, for input
+              that is silence alone, however long.
+            justification: |
+              A stream of only silence has no utterance to finalize, and any text reported for
+              it would be invented.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilenceNeverEndpoints
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-PaddingNeverEndpoints
+            tests:
+              - TryDecode_OnlySilence_NeverEndpoints
+              - OnnxNemotronRecognitionEngine_TryFlush_SilenceOnly_ReportsNoText
 
           - id: SpeechOnnxNemotronStt-Recognition-QuietPadding
             title: >-
               The RecognitionSubsystem shall, once the quiet run after speech reaches the
-              limiter's quiet cap and before the endpoint, report the text of a partly filled
-              chunk as a provisional result by completing it with dithered silence.
+              limiter's quiet cap and before the utterance is finalized, report the text of a
+              partly filled chunk as a provisional result by completing it with silence.
             justification: |
               The limiter drops audio during a long quiet run, so the last words would
-              otherwise wait in an incomplete chunk until the 2500 ms endpoint.
+              otherwise wait in an incomplete chunk until the endpoint.
             children:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPaddingCap
@@ -182,17 +273,20 @@ sections:
               - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
               - TryDecode_CustomLimiterCap_PadsAtThatCap
 
-          - id: SpeechOnnxNemotronStt-Recognition-EmptyChunkEndpointing
+          - id: SpeechOnnxNemotronStt-Recognition-SilencePadding
             title: >-
-              The RecognitionSubsystem shall finalize an utterance after three consecutive
-              token-free chunks once text exists, without disturbing the model state.
+              The RecognitionSubsystem shall complete partly filled chunks and the flush tail
+              only with the features of silence, never with all-zero feature rows, so the
+              padding adds no words after the last spoken word.
             justification: |
-              Steady background noise never reads as quiet, so a fallback endpoint based on the
-              model's own lack of output is needed.
+              An all-zero log-mel row is a loud input to the model, which then invents words
+              after the last spoken word; silence features let the model hear silence.
             children:
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilencePadding
+              - SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-PaddingNeverEndpoints
             tests:
-              - TryDecode_EmptyChunksAfterText_FinalizesKeepingState
+              - OnnxNemotronRecognitionEngine_TryFlush_PartialChunk_PadsWithSilenceFeatures
+              - OnnxNemotronRecognitionEngine_TryFlush_SpeechThenSilence_AddsNoWordsFromPadding
 
           - id: SpeechOnnxNemotronStt-Recognition-SessionReset
             title: >-
@@ -220,45 +314,53 @@ sections:
 
           - id: SpeechOnnxNemotronStt-Recognition-FeatureExtraction
             title: >-
-              The RecognitionSubsystem shall convert 16 kHz mono audio into the model's
-              128-band log-mel feature frames, matching the model's reference front end.
+              The RecognitionSubsystem shall convert 16 kHz mono audio into the 128-band log-mel
+              feature frames of the NeMo front end the model was trained with (constant zero
+              center padding, symmetric Hann window, and a 2^-24 log guard), matching
+              independently computed reference values to within 1e-3.
             justification: |
               The encoder consumes log-mel features rather than samples, and was trained on
-              exactly this front end.
+              exactly this front end; a mismatch silently degrades accuracy, most of all on
+              quiet speech and silence.
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-LogMel
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-SilenceFloor
             tests:
-              - Extract_GoldenSignal_MatchesReference
+              - NemotronFeatureExtractor_Extract_GoldenSignals_MatchNeMoReference
               - Extract_Silence_IsLogEpsilon
 
           - id: SpeechOnnxNemotronStt-Recognition-FeatureStreaming
             title: >-
               The RecognitionSubsystem shall produce the same feature frames whether the audio
-              arrives in one piece or in arbitrary chunks, and after a reset.
+              arrives in one piece or in arbitrary chunks, and after a reset, making each frame
+              available as soon as its audio has arrived.
             justification: |
-              A streaming recognizer receives audio in arbitrary pieces; the features must not
-              depend on how the audio was split or on earlier sessions.
+              A streaming recognizer receives audio in arbitrary pieces and must decode while
+              the speaker is still talking; the features must not depend on how the audio was
+              split or on earlier sessions.
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEquivalence
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEmission
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Reset
             tests:
               - Extract_Chunked_EqualsOneShot
+              - NemotronFeatureExtractor_Accept_StreamingInput_EmitsFramesWithoutFlush
               - Reset_AfterUse_ReproducesFeatures
 
           - id: SpeechOnnxNemotronStt-Recognition-FeatureFlush
             title: >-
               The RecognitionSubsystem shall produce the final feature frames of the accepted
-              audio on flush, including for audio shorter than one analysis window, and none
-              when no audio was accepted.
+              audio on flush, one frame per 160 samples plus one (as the NeMo front end does),
+              including for audio shorter than one analysis window, and none when no audio was
+              accepted.
             justification: |
-              The last audio of an utterance must reach the encoder, while an empty stream must
-              not invent frames.
+              The last audio of an utterance must reach the encoder with the frame layout the
+              model was trained with, while an empty stream must not invent frames.
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Flush
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-FlushNoAudio
             tests:
-              - Flush_VeryShortInput_ProducesFrames
+              - NemotronFeatureExtractor_Flush_InputLength_ProducesNeMoFrameCount
               - Flush_NoAudio_ProducesNoFrames
 
           - id: SpeechOnnxNemotronStt-Recognition-GreedyDecoding
@@ -289,17 +391,26 @@ sections:
           - id: SpeechOnnxNemotronStt-Recognition-BlankPenalty
             title: >-
               The RecognitionSubsystem shall prefer a non-blank token over blank for quiet,
-              isolated words by penalizing the blank score by a fixed amount.
+              isolated words by penalizing the blank score by a configurable, finite,
+              non-negative amount whose default was chosen by measurement on the evaluation
+              data, rejecting an invalid penalty.
             justification: |
               The model is under-confident on quiet, isolated words and otherwise emits blank
-              for them.
+              for them, while too large a penalty makes it emit words early and repeat them.
+              The default, 1.0, gave the lowest LibriSpeech-subset word error rate with no
+              invented words in a sweep from 0 to 3 in steps of 0.5 (recorded in
+              docs/evaluation/nemotron-stt/README.md).
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-BlankPenalty
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-ConfigurablePenalty
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-PenaltyValidation
             tests:
               - SelectToken_BlankWithinPenalty_PrefersNonBlank
               - SelectToken_BlankBeyondPenalty_ReturnsBlank
               - SelectToken_NonBlankIds_AreNotPenalized
               - PredictToken_ScoreEqualsBlank_AppliesPenalty
+              - NemotronRnntNetwork_PredictToken_ZeroPenalty_ReturnsBlankWhenBlankScoresHighest
+              - NemotronRnntNetwork_Constructor_NegativeOrNonFiniteBlankPenalty_ThrowsArgumentOutOfRangeException
 
           - id: SpeechOnnxNemotronStt-Recognition-DecoderNetworkWiring
             title: >-
@@ -444,7 +555,7 @@ sections:
               The RecognitionSubsystem shall measure the current quiet run on the input clock,
               including dropped samples, and restore the uncalibrated limiter state on reset.
             justification: |
-              Endpointing must see how long the input has really been quiet even though the
+              The recognizer must know how long the input has really been quiet even though the
               limiter removes most of it, and a new session must start uncalibrated.
             children:
               - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-QuietRunClock

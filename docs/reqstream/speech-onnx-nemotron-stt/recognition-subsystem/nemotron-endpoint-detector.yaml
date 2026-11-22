@@ -1,0 +1,123 @@
+---
+# Software Unit Requirements for NemotronEndpointDetector
+#
+# These requirements describe the design-level behavior of the NemotronEndpointDetector unit, the
+# pure decision of when an utterance ends (trailing silence after speech, trailing silence
+# without speech, maximum utterance length), decomposing the parent SpeechOnnxNemotronStt
+# RecognitionSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# NemotronEndpointDetectorTests.cs; the detector needs no model files and no ONNX Runtime.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: NemotronEndpointDetector Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-DefaultRules
+                title: >-
+                  The NemotronEndpointDetector class shall default to 2400 ms of trailing
+                  silence, 1200 ms of trailing silence after speech, and a 20000 ms maximum
+                  utterance length.
+                justification: |
+                  These match the endpoint rules of the Sherpa-based Nemotron backend, so the ONNX
+                  backend segments speech the same way and can replace it.
+                tests:
+                  - NemotronEndpointDetector_Rules_Default_AreSherpaEquivalent
+                  - NemotronEndpointDetector_Check_NoFrames_ReturnsNone
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-TrailingSilenceAfterSpeech
+                title: >-
+                  The NemotronEndpointDetector class shall report an endpoint once the decoded
+                  frames after the last token of a segment holding speech reach the configured
+                  trailing silence after speech, and not before.
+                justification: |
+                  This rule ends ordinary utterances: a speaker who paused for 1.2 s has
+                  finished the utterance, while a shorter pause between words must not split it.
+                tests:
+                  - NemotronEndpointDetector_Check_TrailingBlanksAfterTokenReachAfterSpeechRule_ReturnsTrailingSilenceAfterSpeech
+                  - NemotronEndpointDetector_Check_TrailingBlanksAfterTokenBelowRule_ReturnsNone
+                  - NemotronEndpointDetector_AdvanceFrame_TokenAfterSilence_RestartsTrailingSilence
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-TrailingSilenceWithoutSpeech
+                title: >-
+                  The NemotronEndpointDetector class shall report an endpoint once a segment
+                  without speech reaches the configured trailing silence, and not before.
+                justification: |
+                  Long silence must restart the segment clocks even when nothing was said, so
+                  the maximum-length rule never measures silence that preceded the speech.
+                tests:
+                  - NemotronEndpointDetector_Check_SilenceWithoutTokenBelowLongRule_ReturnsNone
+                  - NemotronEndpointDetector_Check_SilenceWithoutTokenReachesLongRule_ReturnsTrailingSilence
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-MaximumUtteranceLength
+                title: >-
+                  The NemotronEndpointDetector class shall report an endpoint once a segment
+                  reaches the configured maximum utterance length, even while speech continues.
+                justification: |
+                  A long monologue without pauses must still yield final results at a bounded
+                  interval.
+                tests:
+                  - NemotronEndpointDetector_Check_UtteranceReachesMaximum_ReturnsMaxUtteranceLength
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-ConfigurableRules
+                title: >-
+                  The NemotronEndpointDetector class shall apply the configured rule durations,
+                  treating a duration of zero as a disabled rule.
+                justification: |
+                  The rules are tuning values that the evaluation tool and the tests vary, and a
+                  configuration may need to switch a rule off entirely.
+                tests:
+                  - NemotronEndpointDetector_Check_CustomAfterSpeechRule_FiresAtConfiguredSilence
+                  - NemotronEndpointDetector_Check_RuleSetToZero_DisablesRule
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-PaddingNeverEndpoints
+                title: >-
+                  The NemotronEndpointDetector class shall count a token decoded on synthetic
+                  padding as speech but shall never let padding advance the silence or utterance
+                  length.
+                justification: |
+                  Padding is inserted only to complete an encoder chunk; if it advanced the
+                  clocks, every flush or pad would shift the endpoints, and padding alone could
+                  produce a final.
+                tests:
+                  - NemotronEndpointDetector_AdvancePaddingFrame_OnlyPadding_NeverEndpoints
+                  - NemotronEndpointDetector_AdvancePaddingFrame_TokenOnPadding_CountsAsSpeech
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-DroppedSilenceCounts
+                title: >-
+                  The NemotronEndpointDetector class shall count quiet input removed before
+                  decoding as trailing silence and utterance length.
+                justification: |
+                  The silence-run limiter removes most of a long pause before the decoder sees
+                  it; without this, a pause would end an utterance much later than its real
+                  duration.
+                tests:
+                  - NemotronEndpointDetector_AdvanceSilence_DroppedQuietAfterToken_CountsTowardTrailingSilence
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-Reset
+                title: >-
+                  The NemotronEndpointDetector class's Reset method shall start a new segment
+                  with both clocks at zero and without speech, unless the caller carries speech
+                  into the new segment, in which case the new segment holds speech.
+                justification: |
+                  Each utterance is measured on its own; the next one must not inherit the
+                  silence or length of the one just finalized. A split at the maximum utterance
+                  length carries the last word into the next segment, which therefore already
+                  holds speech.
+                tests:
+                  - NemotronEndpointDetector_Reset_AfterEndpoint_StartsNewSegment
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronEndpointDetector-InvalidArguments
+                title: >-
+                  The NemotronEndpointDetector class shall throw ArgumentOutOfRangeException for
+                  a negative rule duration, a sample rate that is not positive, or a negative
+                  frame or silence duration.
+                justification: |
+                  A programming error should surface immediately rather than silently disable or
+                  distort endpointing.
+                tests:
+                  - NemotronEndpointDetector_Constructor_NegativeRule_ThrowsArgumentOutOfRangeException
+                  - NemotronEndpointDetector_AdvanceFrame_NegativeDuration_ThrowsArgumentOutOfRangeException

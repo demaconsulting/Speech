@@ -135,8 +135,9 @@ sections:
                   The SilenceRunLimiter class shall expose the length of the current quiet run
                   measured on the input clock, including samples it dropped.
                 justification: |
-                  Endpointing must see how long the input has really been quiet even though the
-                  limiter removes most of it.
+                  The engine must know how long the input has really been quiet, to complete a
+                  partly filled chunk once the quiet run reaches the cap, even though the limiter
+                  removes most of the run.
                 tests:
                   - QuietRunSamples_TracksInputClock
 
