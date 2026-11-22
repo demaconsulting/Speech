@@ -80,8 +80,8 @@ public sealed class NemotronRnntGreedyDecoderTests
     [Fact]
     public void SelectToken_BlankWithinPenalty_PrefersNonBlank()
     {
-        // Blank (index 2) leads by 2.0, less than the 3.0 penalty, so token 1 wins.
-        var logits = new[] { 0.0f, 5.0f, 7.0f };
+        // Blank (index 2) leads by half the default penalty, so token 1 wins.
+        var logits = new[] { 0.0f, 5.0f, 5.0f + (NemotronRnntNetwork.DefaultBlankPenalty / 2) };
 
         Assert.Equal(1, NemotronRnntNetwork.SelectToken(logits, 2, NemotronRnntNetwork.DefaultBlankPenalty));
     }
@@ -90,7 +90,8 @@ public sealed class NemotronRnntGreedyDecoderTests
     [Fact]
     public void SelectToken_BlankBeyondPenalty_ReturnsBlank()
     {
-        var logits = new[] { 0.0f, 5.0f, 9.0f };
+        // Blank (index 2) leads by twice the default penalty, so it still wins.
+        var logits = new[] { 0.0f, 5.0f, 5.0f + (NemotronRnntNetwork.DefaultBlankPenalty * 2) };
 
         Assert.Equal(2, NemotronRnntNetwork.SelectToken(logits, 2, NemotronRnntNetwork.DefaultBlankPenalty));
     }

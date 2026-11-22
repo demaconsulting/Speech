@@ -24,12 +24,20 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 internal sealed class NemotronRnntNetwork : IRnntNetwork
 {
     /// <summary>
-    ///     The default score penalty applied to the blank token. The model is under-confident on
-    ///     quiet, isolated microphone words and otherwise emits blank for them; values above about
-    ///     4 cause repeated or spurious tokens. Provisional value pending the evaluation-tool
-    ///     sweep that selects the evidence-based default.
+    ///     The default score penalty applied to the blank token (1.0), chosen by measurement with
+    ///     the speech-to-text evaluation tool.
     /// </summary>
-    public const float DefaultBlankPenalty = 3.0f;
+    /// <remarks>
+    ///     The model is under-confident on quiet, isolated words and emits blank for them with no
+    ///     penalty, while a large penalty makes it emit words early and then repeat them (such as
+    ///     "Sun sunset" after background noise). A sweep of 0 to 3 in steps of 0.5 over the
+    ///     committed evaluation data (<c>docs/evaluation/nemotron-stt/README.md</c>) gave the
+    ///     lowest LibriSpeech-subset word error rate at 0.5 and 1.0 (3.39%, against 4.82% at 3.0);
+    ///     1.0 is the default because it also finalizes exactly one result per LibriSpeech
+    ///     utterance and gives the lowest word error rate on the paused and continuous scenarios,
+    ///     while quiet speech differs from 0.5 by one word. No value invented any words.
+    /// </remarks>
+    public const float DefaultBlankPenalty = 1.0f;
 
     /// <summary>The prediction-network hidden size.</summary>
     private const int DecoderHidden = 640;

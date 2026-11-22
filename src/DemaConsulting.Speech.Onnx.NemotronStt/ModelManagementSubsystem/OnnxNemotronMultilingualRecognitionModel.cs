@@ -33,10 +33,11 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 ///     <see cref="Languages"/>. An unrecognized or missing selection degrades to <c>en-US</c>.
 ///     </para>
 ///     <para>
-///     <b>License</b>: the model is dual-licensed under the MIT License and the NVIDIA Open
-///     Model License and both apply, so <see cref="LicenseName"/> names both. The single
-///     <see cref="LicenseUrl"/> points at the NVIDIA Open Model License, the one with
-///     substantive terms (the MIT License is the standard text).
+///     <b>License</b>: NVIDIA publishes the model weights (<c>nvidia/nemotron-3.5-asr-streaming-0.6b</c>)
+///     under the OpenMDW License Agreement 1.1, so <see cref="LicenseName"/> is
+///     <c>OpenMDW-1.1</c> and <see cref="LicenseUrl"/> points at its text. The int4 ONNX
+///     conversion is downloaded unchanged from the <c>onnx-community</c> Hugging Face
+///     organization; that repository's MIT tag covers only the conversion, not the weights.
 ///     </para>
 ///     <para>
 ///     <b>Execution providers</b>: the encoder honors the preferred execution provider names with

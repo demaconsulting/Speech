@@ -143,8 +143,8 @@ public sealed class NemotronRnntNetworkTests
     [Fact]
     public void NemotronRnntNetwork_SelectToken_ZeroPenalty_PrefersHighestLogit()
     {
-        // Arrange: logits where blank (index 2) leads by 2.0
-        var logits = new[] { 0.0f, 5.0f, 7.0f };
+        // Arrange: logits where blank (index 2) leads by half the default penalty
+        var logits = new[] { 0.0f, 5.0f, 5.0f + (NemotronRnntNetwork.DefaultBlankPenalty / 2) };
 
         // Act: select with no penalty and with the default penalty
         var plain = NemotronRnntNetwork.SelectToken(logits, 2, 0f);

@@ -182,7 +182,7 @@ public sealed class SpeechOnnxNemotronSttTests(SpeechOnnxNemotronSttFixture fixt
 
     /// <summary>
     ///     The highest word error rate accepted for one short segment (a phrase or one utterance of
-    ///     about 20 words). One or two misrecognized words stay below it, while a segment that
+    ///     about 20 words). One or two wrongly recognized words stay below it, while a segment that
     ///     lost a large part of its words or absorbed a neighboring utterance exceeds it.
     /// </summary>
     private const double SegmentMaximumWordErrorRate = 0.2;
@@ -467,8 +467,15 @@ public sealed class SpeechOnnxNemotronSttTests(SpeechOnnxNemotronSttFixture fixt
     }
 
     /// <summary>
-    ///     Proves that quiet noise preceding the speech does not cause its opening words to be lost.
+    ///     Proves that quiet noise preceding the speech does not cause its opening words to be lost
+    ///     and adds no words of its own.
     /// </summary>
+    /// <remarks>
+    ///     The assertion is on lost and added words rather than on the exact opening word: right
+    ///     after several seconds of noise the int4 model may mishear the first word (a similar-sounding
+    ///     word for "Sunset" at some noise lengths), which is a recognition error, not a lost
+    ///     word, and is bounded by the segment word error rate.
+    /// </remarks>
     [Fact]
     public void SpeechOnnxNemotronStt_Transcribe_QuietNoiseBeforeSpeech_KeepsOpeningWords()
     {
@@ -479,10 +486,14 @@ public sealed class SpeechOnnxNemotronSttTests(SpeechOnnxNemotronSttFixture fixt
         // Act
         var transcript = fixture.Transcribe(backend, samples);
 
-        // Assert: the opening words of the first line are present at the start
+        // Assert: every reference word has a counterpart (nothing deleted), the opening line
+        // starts the transcript, and nothing was added
+        var alignment = WordErrorRateCalculator.Align(FirstPhrase + " " + SecondPhrase, transcript.Text);
         var words = WordErrorRateCalculator.NormalizeAndSplit(transcript.Text);
-        Assert.Contains("sunset", words.Take(3));
-        Assert.Contains("evening", words.Take(5));
+        Assert.Equal(0, alignment.Deletions);
+        Assert.Equal(0, alignment.Insertions);
+        Assert.Equal(new[] { "and", "evening", "star" }, words.Skip(1).Take(3));
+        Assert.True(alignment.WordErrorRate <= SegmentMaximumWordErrorRate, $"\"{transcript.Text}\"");
     }
 
     /// <summary>
