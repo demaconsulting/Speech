@@ -109,13 +109,14 @@ Before this class existed, no automated test anywhere in this project asserted o
 transcribed text content against a known-correct ground truth.
 It drives the same real, unmodified engine used in the re-verification above with a real, CC0-licensed spoken-word
 recitation of Alfred, Lord Tennyson's public-domain poem "Crossing the Bar"
-(`test/DemaConsulting.Speech.Sherpa.Tests/TestData/crossing-the-bar-16k-mono.wav`; full attribution and
-license in that folder's `NOTICE.md`), fed through the real engine in 0.1-second streaming chunks
+(`data/stt-en/crossing-the-bar-16k-mono.wav`; full attribution and
+license in `data/stt-en/ATTRIBUTION.md`), fed through the real engine in 0.1-second streaming chunks
 followed by trailing silence to flush the final utterance, and scores the concatenated finalized
 transcript against the poem's own published text using Word Error Rate (a small, self-contained
-`WordErrorRateCalculator` test helper implementing the standard Levenshtein
-edit-distance-over-words algorithm, unit-tested independently of any model with hand-computed
-cases). Both transcripts are normalized (lower-cased, punctuation stripped, whitespace collapsed)
+`WordErrorRateCalculator` helper, shared with the speech-to-text evaluation tool in
+`tools/DemaConsulting.Speech.SttEvaluation/` and compiled into this test project, implementing the
+standard Levenshtein edit-distance-over-words algorithm, unit-tested independently of any model
+with hand-computed cases). Both transcripts are normalized (lower-cased, punctuation stripped, whitespace collapsed)
 before comparison so casing and punctuation differences - which do not reflect whether the
 recognizer heard the right words - are never counted as errors. A 20% WER tolerance, not an exact
 string match, is required because a real model's raw output legitimately differs from the ground
@@ -167,9 +168,12 @@ nothing crashes.
 - **Dependencies**: The real, already-installed streaming Zipformer and Nemotron models and the
   real native sherpa-onnx runtime; no physical audio hardware and no network access. Each test
   self-skips when its target model is not installed
-- **Fixture**: `test/DemaConsulting.Speech.Sherpa.Tests/TestData/crossing-the-bar-16k-mono.wav`
-- **Test helper**: `WordErrorRateCalculator`, unit-tested independently of any model by
-  `WordErrorRateCalculatorTests` with hand-computed cases
+- **Fixture**: `data/stt-en/crossing-the-bar-16k-mono.wav` (attribution and license in
+  `data/stt-en/ATTRIBUTION.md`), linked into the test output as `TestData/crossing-the-bar-16k-mono.wav`
+- **Test helper**: `WordErrorRateCalculator` from `tools/DemaConsulting.Speech.SttEvaluation/`,
+  compiled into this test project and unit-tested independently of any model by
+  `WordErrorRateCalculatorTests` (in
+  `test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/Evaluation/`) with hand-computed cases
 
 #### Acceptance Criteria
 

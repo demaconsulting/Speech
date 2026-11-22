@@ -16,7 +16,7 @@ immediate speech, and very quiet speech pass through intact; the adaptive thresh
 to its bounds and non-adaptive mode keeps the default; a stream shorter than the 20-frame
 calibration window keeps the default threshold; audio flows during calibration; chunked
 feeding equals single feeding; flush emits partial frames; reset restores the initial state;
-`QuietRunSamples` follows the input clock.
+`QuietRunSamples` follows the input clock, including the samples the limiter dropped.
 
 #### Test Scenarios
 

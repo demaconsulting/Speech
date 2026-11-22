@@ -285,8 +285,9 @@ scenario list, including argument-validation coverage.
 `WavFileAudioCaptureDevice_Start_StereoFile_ThrowsInvalidOperationException`,
 `WavFileAudioCaptureDevice_Stop_CalledDuringFrameCaptured_InterruptsDeliveryWithoutEndOfFileReached`
 
-Verifies that `WavFileAudioCaptureDevice` delivers the existing `crossing-the-bar-16k-mono.wav`
-fixture's full sample content through `FrameCaptured`, raises the additive `EndOfFileReached`
+Verifies that `WavFileAudioCaptureDevice` delivers the full sample content of the existing
+`crossing-the-bar-16k-mono.wav` fixture (`data/stt-en/crossing-the-bar-16k-mono.wav`) through
+`FrameCaptured`, raises the additive `EndOfFileReached`
 event exactly once after the last frame (and not at all when `Stop` interrupts delivery early),
 reports the fixture's known mono/16 kHz format, and rejects an unsupported (stereo) file with
 `InvalidOperationException` rather than `AudioDeviceUnavailableException`. See

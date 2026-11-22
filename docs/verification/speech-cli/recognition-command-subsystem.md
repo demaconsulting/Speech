@@ -74,7 +74,7 @@ microphone behavior needs confirming, perform these checks on a developer machin
 outcome as described under "Manual Evidence Record":
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- recognize --stt-model <id> --input
-  test/DemaConsulting.Speech.Tests/TestData/crossing-the-bar-16k-mono.wav`, against a downloaded
+  data/stt-en/crossing-the-bar-16k-mono.wav`, against a downloaded
   recognition model, prints non-empty recognized text and exits cleanly.
 - `recognize --stt-model <id> --mic --silence-timeout <seconds>`, on a machine with a real
   microphone, prints live interim and final results while speaking and ends the session
