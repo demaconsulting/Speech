@@ -960,7 +960,7 @@ tools/DemaConsulting.Speech.SttEvaluation/
 ├── DemaConsulting.Speech.SttEvaluation.csproj             — Non-packable net10.0 console project
 ├── README.md                                              — Commands, scenarios, metrics, gates and output rules
 ├── Program.cs                                             — Entry point: the evaluate command, its options and the known models
-├── ToolPaths.cs                                           — Repository root, data folder and the artifacts-only output folder
+├── ToolPaths.cs                                           — Repository root, data folder and the artifacts-only output folder (shared: linked into the tests)
 ├── EvaluationRunner.cs                                    — Scenario construction (with EvaluationScenarios) and per-model evaluation
 ├── EvaluationReport.cs                                    — Gate results, console summary and the report files under artifacts/
 ├── EngineOptionOverrides.cs                               — --engine-option parameters and internal ONNX Nemotron engine options

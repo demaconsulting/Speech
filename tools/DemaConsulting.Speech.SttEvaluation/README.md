@@ -93,4 +93,4 @@ model - is ever committed.
 `WordErrorRateCalculator.cs`, `SttDataSet.cs`, `SttTranscriber.cs` and `SttEvaluationGates.cs` are compiled (linked)
 into `DemaConsulting.Speech.Onnx.NemotronStt.Tests` (and the calculator into `DemaConsulting.Speech.Sherpa.Tests`),
 whose `Evaluation/` tests cover them. They use public library APIs only and compile for every target framework of the
-tests.
+tests. `ToolPaths.cs` is linked into the same tests so that the rule confining output to `artifacts/` is tested.

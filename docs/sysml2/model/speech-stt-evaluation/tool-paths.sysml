@@ -8,6 +8,7 @@ package SpeechSttEvaluation_ToolPaths {
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/DemaConsulting.Speech.SttEvaluation/ToolPaths.cs");
+            testFiles = ("test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/Evaluation/ToolPathsTests.cs");
         }
     }
 }

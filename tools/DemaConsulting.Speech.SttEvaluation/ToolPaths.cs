@@ -55,7 +55,11 @@ internal static class ToolPaths
     /// <param name="repositoryRoot">The repository root.</param>
     /// <param name="requested">The requested folder (absolute, or relative to the current directory), or <see langword="null"/> for the default.</param>
     /// <returns>The absolute output folder.</returns>
-    /// <exception cref="ArgumentException">Thrown when the folder is outside <c>artifacts/</c>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when the folder is outside <c>artifacts/</c>; outside Windows the folder name must
+    ///     match in case, because a case variant such as <c>Artifacts/</c> is a different folder
+    ///     that git does not ignore.
+    /// </exception>
     public static string ResolveOutputDirectory(string repositoryRoot, string? requested)
     {
         if (requested is null)
@@ -63,11 +67,14 @@ internal static class ToolPaths
             return DefaultOutputDirectory(repositoryRoot);
         }
 
-        // Only a folder inside the git-ignored artifacts folder is accepted, so no output can be committed
+        // Only a folder inside the git-ignored artifacts folder is accepted, so no output can be
+        // committed. File names are case-sensitive outside Windows, where "Artifacts" is a
+        // different, not ignored folder, so the comparison ignores case only on Windows
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(requested));
         var artifacts = Path.TrimEndingDirectorySeparator(Path.GetFullPath(ArtifactsDirectory(repositoryRoot)));
-        if (!full.StartsWith(artifacts + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(full, artifacts, StringComparison.OrdinalIgnoreCase))
+        if (!full.StartsWith(artifacts + Path.DirectorySeparatorChar, comparison) &&
+            !string.Equals(full, artifacts, comparison))
         {
             throw new ArgumentException($"The output folder '{full}' must be inside '{artifacts}'.", nameof(requested));
         }

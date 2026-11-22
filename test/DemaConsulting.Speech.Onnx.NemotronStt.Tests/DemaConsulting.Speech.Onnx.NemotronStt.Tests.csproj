@@ -75,12 +75,14 @@
        The word error rate calculator, data-set reader, streaming transcriber and accuracy gates
        are owned by the non-shipped STT evaluation tool and compiled into this test assembly (the
        Phonemes.En tests use the same pattern for their tool code), so the tests and the tool
-       measure with one implementation. -->
+       measure with one implementation. The tool's path rules are compiled in as well so that
+       the artifacts-only output rule is tested. -->
   <ItemGroup>
     <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\WordErrorRateCalculator.cs" Link="Linked\WordErrorRateCalculator.cs" />
     <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttDataSet.cs" Link="Linked\SttDataSet.cs" />
     <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttTranscriber.cs" Link="Linked\SttTranscriber.cs" />
     <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttEvaluationGates.cs" Link="Linked\SttEvaluationGates.cs" />
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\ToolPaths.cs" Link="Linked\ToolPaths.cs" />
   </ItemGroup>
 
   <!-- Real-Model System Tests.
