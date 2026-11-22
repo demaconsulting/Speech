@@ -76,6 +76,12 @@ Every scenario reports WER, segments, invented words, latency and speed.
 most 10% on `poem`. The thresholds live in `SttEvaluationGates.cs`, which the real-model tests compile in as well, so
 the tool and the tests apply the same gates.
 
+## Evaluated Defaults
+
+The engine's default blank penalty (1.0) was chosen with this tool by sweeping `--engine-option BlankPenalty=<value>`
+from 0 to 3 in steps of 0.5; the method, the sweep and the before-and-after numbers are recorded in
+`docs/evaluation/nemotron-stt/README.md`. Re-run the sweep when the engine, the front end or the model changes.
+
 ## Output
 
 Reports are written only below `artifacts/stt-evaluation/` (git-ignored): per model `summary.tsv`, `items.tsv` and
