@@ -35,4 +35,5 @@ failure modes.
 **Dependencies**: None beyond the .NET base class library (`System.IO.Path`).
 
 **Callers**: `ReferenceVoicePackInstaller` (every pack entry), `SpeechModelBundleInstaller` (every bundle entry
-and every `model.json` path) and `SpeechModelBundle` (vendor-path portability at construction).
+and every `model.json` path) and `SpeechModelBundle` (the same `Validate` check on every vendor path at
+construction).

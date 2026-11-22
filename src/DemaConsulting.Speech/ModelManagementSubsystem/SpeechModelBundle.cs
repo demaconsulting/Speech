@@ -53,8 +53,9 @@ public sealed partial class SpeechModelBundle
     ///     The vendor files inside the zip: each one's original upstream URI, SHA-256 pin and install path (which is
     ///     also its path inside the zip). No path may lie under <c>licenses/</c>, equal a metadata entry name
     ///     (<c>model.json</c>, <c>README.txt</c>, <c>LICENSE</c>, <c>NOTICE</c>) or <see cref="FileName"/>, differ from
-    ///     another only by letter case, be a parent directory of another, or contain a segment that is not valid on
-    ///     every platform (all compared without regard to case).
+    ///     another only by letter case, be a parent directory of another, contain a colon, or contain a segment that is
+    ///     not valid on every platform (all compared without regard to case). These are the same entry-name rules the
+    ///     installer applies to the zip, so a bundle that constructs on any platform installs on every platform.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when an argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
@@ -312,10 +313,11 @@ public sealed partial class SpeechModelBundle
                     nameof(contents));
             }
 
-            // The path is also a zip entry name, which the installer requires to be valid on every platform
+            // The path is also a zip entry name, so it must pass the installer's full entry-name check (including the
+            // colon rejection, which the platform's invalid-character set omits on Unix) on every platform
             try
             {
-                ZipEntryPathValidator.ValidatePortableSegments(path, segments);
+                ZipEntryPathValidator.Validate(path);
             }
             catch (InvalidDataException ex)
             {

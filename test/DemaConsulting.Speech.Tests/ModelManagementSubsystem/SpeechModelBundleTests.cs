@@ -186,6 +186,27 @@ public sealed class SpeechModelBundleTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a vendor path containing a colon is rejected at construction on every platform, matching the
+    ///     installer's entry-name check (Unix's invalid file-name characters omit the colon, so only the shared
+    ///     zip-slip check catches it there).
+    /// </summary>
+    /// <param name="path">A relative vendor path that contains a colon.</param>
+    [Theory]
+    [InlineData("a/b:c")]
+    [InlineData("model.onnx:stream")]
+    [InlineData("voices/x:")]
+    public void SpeechModelBundle_Constructor_ContentsPathWithColon_ThrowsArgumentException(string path)
+    {
+        // Arrange: the vendor file itself is a valid relative install path on every platform
+        var contents = ModelBundleTestZips.ContentsFor([(path, "x"u8.ToArray())]);
+        var uri = new Uri(SpeechModelBundle.ModelsReleaseBaseUri, "kokoro-en-v1.0-int8-b1.zip");
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => new SpeechModelBundle(uri, Checksum, contents));
+        Assert.Equal("contents", exception.ParamName);
+    }
+
+    /// <summary>
     ///     Proves that the descriptor of a multi-bundle model lists each bundle's zip, in order, as the download files.
     /// </summary>
     [Fact]

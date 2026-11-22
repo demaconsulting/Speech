@@ -54,6 +54,10 @@ quantization token, a missing, zero or leading-zero revision, another extension,
 `licenses/` in either case, `model.json`, `notice`, the zip's own name, a case-only duplicate, a file that is
 another file's parent directory, and a reserved device name)
 
+**Test**: `SpeechModelBundle_Constructor_ContentsPathWithColon_ThrowsArgumentException` (a colon inside a segment,
+an alternate-data-stream style suffix and a trailing colon, rejected on every platform by the installer's shared
+entry-name check)
+
 ##### Download Descriptor
 
 **Test**: `SpeechModelBundle_CreateDescriptor_TwoBundles_ListsEachZip`

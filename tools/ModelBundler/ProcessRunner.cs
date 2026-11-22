@@ -55,10 +55,34 @@ internal sealed class ProcessRunner : IProcessRunner
         }
         catch (OperationCanceledException)
         {
-            process.Kill(entireProcessTree: true);
+            // Stop the child, then surface the caller's cancellation rather than any failure of the kill itself
+            KillAfterCancellation(process);
             throw;
         }
 
         return new ProcessResult(process.ExitCode, await output.ConfigureAwait(false), await error.ConfigureAwait(false));
+    }
+
+    /// <summary>Kills a canceled run's process tree, tolerating a process that has already exited.</summary>
+    /// <remarks>
+    ///     Cancellation can race with normal completion: the wait may observe the canceled token just after the child
+    ///     exits, and killing an exited process (or a tree whose members have exited) throws. That failure is
+    ///     swallowed so it never masks the caller's <see cref="OperationCanceledException"/>; a process that has
+    ///     exited needs no kill, and there is nothing more a canceled run can do about one that cannot be killed.
+    /// </remarks>
+    /// <param name="process">The started process. Must not be <see langword="null"/>.</param>
+    internal static void KillAfterCancellation(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // The process exited between the check and the kill, or could not be killed; cancellation still wins
+        }
     }
 }

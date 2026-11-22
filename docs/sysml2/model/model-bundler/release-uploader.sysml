@@ -10,7 +10,7 @@ package ModelBundler_ReleaseUploader {
 
         metadata info : SoftwareInfo {
             sourceFiles = ("tools/ModelBundler/ReleaseUploader.cs", "tools/ModelBundler/ProcessRunner.cs");
-            testFiles = ("test/DemaConsulting.Speech.ModelBundler.Tests/ReleaseUploaderTests.cs");
+            testFiles = ("test/DemaConsulting.Speech.ModelBundler.Tests/ReleaseUploaderTests.cs", "test/DemaConsulting.Speech.ModelBundler.Tests/ProcessRunnerTests.cs");
         }
 
         // Reads the digests the build listed.

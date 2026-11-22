@@ -24,9 +24,11 @@ unmodified upstream file.
 - The internal constant `LicensesDirectoryName` (`licenses`).
 
 Invariants enforced at construction: no `Contents` path (normalized to `/`, compared ignoring case) is under
-`licenses/`, equals a metadata entry name (`model.json`, `README.txt`, `LICENSE`, `NOTICE`) or `FileName`, has a
-segment that is not portable (per `ZipEntryPathValidator`), or collides with another path of the bundle (equal
-ignoring case, or one a parent directory of another).
+`licenses/`, equals a metadata entry name (`model.json`, `README.txt`, `LICENSE`, `NOTICE`) or `FileName`, fails
+the installer's full entry-name check `ZipEntryPathValidator.Validate` (an unsafe name such as one containing a
+colon, or a segment that is not portable), or collides with another path of the bundle (equal ignoring case, or one
+a parent directory of another). Running the same check the installer runs, rather than only the platform-dependent
+segment check, keeps a declaration that constructs on Unix from failing at install time.
 
 **Key Methods**:
 

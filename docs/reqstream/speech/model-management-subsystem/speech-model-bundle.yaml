@@ -61,6 +61,7 @@ sections:
                   not during an install.
                 tests:
                   - SpeechModelBundle_Constructor_ReservedOrCollidingContentsPath_ThrowsArgumentException
+                  - SpeechModelBundle_Constructor_ContentsPathWithColon_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelBundle-Descriptor
                 title: >-
