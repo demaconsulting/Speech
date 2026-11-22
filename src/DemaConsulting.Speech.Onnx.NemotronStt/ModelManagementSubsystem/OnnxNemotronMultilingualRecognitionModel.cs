@@ -138,14 +138,27 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
     public AudioFormat AudioFormat => AudioFormat.Mono(OnnxNemotronRecognitionEngine.SampleRate);
 
 #pragma warning disable S1075 // This model's download URLs are intentionally compiled-in, reviewed literals - the whole point of a catalog entry is to name specific, checksum-verified release assets.
-    /// <inheritdoc/>
+    /// <summary>
+    ///     The name of the <c>models</c>-release bundle that carries this model's unmodified vendor
+    ///     files (see <see cref="BundleContents"/>).
+    /// </summary>
+    internal const string BundleName = "nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1";
+
+    /// <summary>
+    ///     The vendor files of the <see cref="BundleName"/> bundle: the eleven upstream files, each
+    ///     with its original <c>resolve/main</c> URL, SHA-256 pin and install path.
+    /// </summary>
     /// <remarks>
-    ///     Byte sizes: encoder.onnx 2,677,548; encoder.onnx.data 690,089,984; decoder.onnx 4,696;
-    ///     decoder.onnx.data 59,785,216; joint.onnx 2,136; joint.onnx.data 37,830,656; vocab.txt
-    ///     64,024; tokenizer.json 642,525; tokenizer_config.json 183; genai_config.json 1,892;
-    ///     audio_processor_config.json 413.
+    ///     This is the single source of truth for the per-file pins: <see cref="DownloadDescriptor"/>
+    ///     is built from it, and the non-shipped <c>DemaConsulting.Speech.ModelBundler</c> tool (which
+    ///     sees this member through <c>InternalsVisibleTo</c>) packs exactly these files into the
+    ///     bundle, so no SHA-256 is declared twice. Byte sizes: encoder.onnx 2,677,548;
+    ///     encoder.onnx.data 690,089,984; decoder.onnx 4,696; decoder.onnx.data 59,785,216; joint.onnx
+    ///     2,136; joint.onnx.data 37,830,656; vocab.txt 64,024; tokenizer.json 642,525;
+    ///     tokenizer_config.json 183; genai_config.json 1,892; audio_processor_config.json 413.
+    ///     Immutable and safe to share across threads.
     /// </remarks>
-    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(
+    internal static SpeechModelDownloadDescriptor BundleContents { get; } = new(
     [
         Declare("encoder.onnx", "0b05217594ec0bda442e43a90a298ac2471a3bdcea9b169de34214e61a730e17"),
         Declare("encoder.onnx.data", "2f27295855aeb99ab1f8cd2254418d9ad7a087ea8dbe85f5596b4d887ea7d630"),
@@ -160,6 +173,12 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
         Declare("audio_processor_config.json", "ab28d41eb87ce3922006edeb9c3fad4d5ce451f9a56a12d84f470f02a5ec157b"),
     ]);
 #pragma warning restore S1075
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     The eleven files of <see cref="BundleContents"/>, whose remarks list each file's byte size.
+    /// </remarks>
+    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = BundleContents;
 
     /// <inheritdoc/>
     public IRecognitionBackend CreateBackend(string installedModelDirectory) =>

@@ -83,6 +83,33 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         ["conditional_decoder.onnx_data"] = "05f162a519f3e9abaf0b7337ae037f4af8b2b30c4455d39b2c61ed3a9b2b5476",
     };
 
+    /// <summary>
+    ///     The vendor files of every Chatterbox Turbo component bundle on the <c>models</c> release, keyed by
+    ///     bundle name: one language-model bundle per <see cref="ChatterboxTurboLanguageModelVariant"/> and one
+    ///     auxiliary bundle (embedding, speech encoder and conditional decoder) per
+    ///     <see cref="ChatterboxTurboAuxiliaryModelVariant"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Built from <see cref="Checksums"/> and the repository URL, so it is the single source of truth for the
+    ///     per-file pins: <see cref="DownloadDescriptor"/> is the selected language-model bundle's files followed by
+    ///     the selected auxiliary bundle's files, and the non-shipped <c>DemaConsulting.Speech.ModelBundler</c> tool
+    ///     (which sees this member through <c>InternalsVisibleTo</c>) packs exactly these files into each bundle, so
+    ///     no SHA-256 is declared twice. Each graph is followed by its weights file. Immutable and safe to share
+    ///     across threads.
+    /// </remarks>
+    internal static IReadOnlyDictionary<string, SpeechModelDownloadDescriptor> BundleContents { get; } =
+        new Dictionary<string, SpeechModelDownloadDescriptor>(StringComparer.Ordinal)
+        {
+            [GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant.Fp16)] = BuildVendorFiles("language_model_fp16"),
+            [GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant.Fp32)] = BuildVendorFiles("language_model"),
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Q4)] =
+                BuildVendorFiles(GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant.Q4)),
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Fp16)] =
+                BuildVendorFiles(GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant.Fp16)),
+            [GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant.Fp32)] =
+                BuildVendorFiles(GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant.Fp32)),
+        };
+
     /// <summary>The configuration this instance was created with.</summary>
     private readonly ChatterboxTurboModelOptions _options;
 
@@ -141,18 +168,13 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         _profile = new ChatterboxTurboCapabilityProfile(_options.EndOfSentenceTagPolicy, _options.MoodJoinSilenceMilliseconds);
 
         // Graph names follow the repository's suffix convention (none = full precision)
-        var auxiliarySuffix = _options.AuxiliaryModelVariant switch
-        {
-            ChatterboxTurboAuxiliaryModelVariant.Q4 => "_q4",
-            ChatterboxTurboAuxiliaryModelVariant.Fp16 => "_fp16",
-            _ => string.Empty,
-        };
+        var auxiliaryGraphNames = GetAuxiliaryGraphNames(_options.AuxiliaryModelVariant);
         _languageModelName = _options.LanguageModelVariant == ChatterboxTurboLanguageModelVariant.Fp16
             ? "language_model_fp16"
             : "language_model";
-        _embedTokensName = "embed_tokens" + auxiliarySuffix;
-        _speechEncoderName = "speech_encoder" + auxiliarySuffix;
-        _conditionalDecoderName = "conditional_decoder" + auxiliarySuffix;
+        _embedTokensName = auxiliaryGraphNames[0];
+        _speechEncoderName = auxiliaryGraphNames[1];
+        _conditionalDecoderName = auxiliaryGraphNames[2];
 
         _voices = ResolveVoices(_options, defaultLibrary);
 
@@ -404,12 +426,63 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         }
     }
 
-    /// <summary>Builds the download descriptor for the selected variants (graph plus weights file each).</summary>
+    /// <summary>
+    ///     Builds the download descriptor for the selected variants: the selected language-model bundle's vendor
+    ///     files followed by the selected auxiliary bundle's vendor files (graph plus weights file each).
+    /// </summary>
+    /// <returns>The eight vendor files of the selected variants, in graph order.</returns>
+    private SpeechModelDownloadDescriptor BuildDescriptor() =>
+        new(
+        [
+            .. BundleContents[GetLanguageModelBundleName(_options.LanguageModelVariant)].Files,
+            .. BundleContents[GetAuxiliaryModelBundleName(_options.AuxiliaryModelVariant)].Files,
+        ]);
+
+    /// <summary>Gets the name of the <c>models</c>-release bundle that carries a language-model variant's files.</summary>
+    /// <param name="variant">The language-model variant.</param>
+    /// <returns>The bundle name, for example <c>chatterbox-turbo-lm-20261014-fp16-b1</c>.</returns>
+    internal static string GetLanguageModelBundleName(ChatterboxTurboLanguageModelVariant variant) =>
+        variant == ChatterboxTurboLanguageModelVariant.Fp16
+            ? "chatterbox-turbo-lm-20261014-fp16-b1"
+            : "chatterbox-turbo-lm-20261014-fp32-b1";
+
+    /// <summary>Gets the name of the <c>models</c>-release bundle that carries an auxiliary-model variant's files.</summary>
+    /// <remarks>The repository's <c>q4</c> graphs map to the bundle naming rule's <c>int4</c> quantization token.</remarks>
+    /// <param name="variant">The auxiliary-model variant.</param>
+    /// <returns>The bundle name, for example <c>chatterbox-turbo-aux-20261014-int4-b1</c>.</returns>
+    internal static string GetAuxiliaryModelBundleName(ChatterboxTurboAuxiliaryModelVariant variant) =>
+        variant switch
+        {
+            ChatterboxTurboAuxiliaryModelVariant.Q4 => "chatterbox-turbo-aux-20261014-int4-b1",
+            ChatterboxTurboAuxiliaryModelVariant.Fp16 => "chatterbox-turbo-aux-20261014-fp16-b1",
+            _ => "chatterbox-turbo-aux-20261014-fp32-b1",
+        };
+
+    /// <summary>
+    ///     Gets the auxiliary graph base names (embedding, speech encoder, conditional decoder) of a variant, which
+    ///     follow the repository's suffix convention (<c>_q4</c>, <c>_fp16</c>, or none for full precision).
+    /// </summary>
+    /// <param name="variant">The auxiliary-model variant.</param>
+    /// <returns>The three graph base names, without extension, in that order.</returns>
+    private static string[] GetAuxiliaryGraphNames(ChatterboxTurboAuxiliaryModelVariant variant)
+    {
+        var suffix = variant switch
+        {
+            ChatterboxTurboAuxiliaryModelVariant.Q4 => "_q4",
+            ChatterboxTurboAuxiliaryModelVariant.Fp16 => "_fp16",
+            _ => string.Empty,
+        };
+        return ["embed_tokens" + suffix, "speech_encoder" + suffix, "conditional_decoder" + suffix];
+    }
+
+    /// <summary>Builds the vendor files of one component bundle: each graph followed by its weights file.</summary>
+    /// <param name="graphNames">The graph base names (without extension), in order.</param>
+    /// <returns>The descriptor of the graphs' <c>.onnx</c> and <c>.onnx_data</c> files, installed under <c>onnx/</c>.</returns>
 #pragma warning disable S1075 // Download URLs are intentionally compiled-in, reviewed literals.
-    private SpeechModelDownloadDescriptor BuildDescriptor()
+    private static SpeechModelDownloadDescriptor BuildVendorFiles(params string[] graphNames)
     {
         var files = new List<SpeechModelDownloadFile>();
-        foreach (var name in new[] { _languageModelName, _embedTokensName, _speechEncoderName, _conditionalDecoderName })
+        foreach (var name in graphNames)
         {
             foreach (var extension in new[] { ".onnx", ".onnx_data" })
             {

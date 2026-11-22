@@ -85,6 +85,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests" />
+    <!-- The non-shipped model bundling tool reads BundleContents, the single source of the per-file pins. -->
+    <InternalsVisibleTo Include="DemaConsulting.Speech.ModelBundler" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,230 @@
+{
+  "bundles": [
+    {
+      "name": "kokoro-en-v1.0-int8-b1",
+      "model": "kokoro-en",
+      "upstreamRelease": "v1.0",
+      "quant": "int8",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "kokoro-onnx-v1_0-en"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-10)"
+      },
+      "licenses": [
+        {
+          "name": "Apache-2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0",
+          "appliesTo": "model weights and voices (hexgrad/Kokoro-82M; ONNX export by onnx-community)",
+          "textFile": "licenses/Apache-2.0.txt"
+        }
+      ],
+      "attribution": "Kokoro-82M by hexgrad (https://huggingface.co/hexgrad/Kokoro-82M), licensed under the Apache License 2.0; ONNX export by the onnx-community organization on Hugging Face (https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX).",
+      "notice": [
+        "Kokoro-82M v1.0",
+        "Model and voices by hexgrad: https://huggingface.co/hexgrad/Kokoro-82M",
+        "ONNX export (int8-quantized model and voice style vectors) by the onnx-community organization on Hugging Face:",
+        "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX",
+        "Licensed under the Apache License, Version 2.0 (see LICENSE)."
+      ]
+    },
+    {
+      "name": "nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1",
+      "model": "nemotron-3.5-asr-streaming-0.6b",
+      "upstreamRelease": "20261011",
+      "quant": "int4",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "nemotron-3.5-asr-streaming-0.6b-onnx-int4"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-11)"
+      },
+      "licenses": [
+        {
+          "name": "OpenMDW-1.1",
+          "url": "https://openmdw.ai/license/1-1/",
+          "appliesTo": "model weights (nvidia/nemotron-3.5-asr-streaming-0.6b)",
+          "textFile": "licenses/OpenMDW-1.1.txt"
+        },
+        {
+          "name": "MIT",
+          "url": "https://opensource.org/license/mit",
+          "appliesTo": "ONNX int4 conversion (onnx-community)",
+          "textFile": "licenses/MIT-onnx-community.txt"
+        }
+      ],
+      "attribution": "Nemotron 3.5 ASR Streaming 0.6B by NVIDIA Corporation (https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b), licensed under the OpenMDW License Agreement 1.1; ONNX int4 conversion by the onnx-community organization on Hugging Face (https://huggingface.co/onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4), tagged MIT.",
+      "notice": [
+        "Nemotron 3.5 ASR Streaming 0.6B by NVIDIA Corporation, licensed under the OpenMDW License Agreement 1.1:",
+        "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b",
+        "ONNX int4 conversion by the onnx-community organization on Hugging Face, tagged MIT:",
+        "https://huggingface.co/onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4",
+        "The MIT text in LICENSE names \"onnx-community contributors\" as the copyright holder of the conversion; that holder is not verified.",
+        "Both license texts are in LICENSE."
+      ]
+    },
+    {
+      "name": "chatterbox-turbo-lm-20261014-fp16-b1",
+      "model": "chatterbox-turbo-lm",
+      "upstreamRelease": "20261014",
+      "quant": "fp16",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "chatterbox-turbo-onnx-en",
+        "chatterbox-turbo-onnx-en-lm-fp16-aux-fp16",
+        "chatterbox-turbo-onnx-en-lm-fp16-aux-fp32"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
+      },
+      "licenses": [
+        {
+          "name": "MIT",
+          "url": "https://opensource.org/license/mit",
+          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
+          "textFile": "licenses/MIT-ResembleAI.txt"
+        }
+      ],
+      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
+      "notice": [
+        "Chatterbox Turbo (ONNX) - half-precision language model",
+        "Copyright (c) 2025 Resemble AI",
+        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "Licensed under the MIT License (see LICENSE)."
+      ]
+    },
+    {
+      "name": "chatterbox-turbo-lm-20261014-fp32-b1",
+      "model": "chatterbox-turbo-lm",
+      "upstreamRelease": "20261014",
+      "quant": "fp32",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "chatterbox-turbo-onnx-en-lm-fp32-aux-q4",
+        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp16",
+        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp32"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
+      },
+      "licenses": [
+        {
+          "name": "MIT",
+          "url": "https://opensource.org/license/mit",
+          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
+          "textFile": "licenses/MIT-ResembleAI.txt"
+        }
+      ],
+      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
+      "notice": [
+        "Chatterbox Turbo (ONNX) - full-precision language model",
+        "Copyright (c) 2025 Resemble AI",
+        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "Licensed under the MIT License (see LICENSE)."
+      ]
+    },
+    {
+      "name": "chatterbox-turbo-aux-20261014-int4-b1",
+      "model": "chatterbox-turbo-aux",
+      "upstreamRelease": "20261014",
+      "quant": "int4",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "chatterbox-turbo-onnx-en",
+        "chatterbox-turbo-onnx-en-lm-fp32-aux-q4"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
+      },
+      "licenses": [
+        {
+          "name": "MIT",
+          "url": "https://opensource.org/license/mit",
+          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
+          "textFile": "licenses/MIT-ResembleAI.txt"
+        }
+      ],
+      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
+      "notice": [
+        "Chatterbox Turbo (ONNX) - 4-bit (q4) embedding, speech encoder and conditional decoder",
+        "Copyright (c) 2025 Resemble AI",
+        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "Licensed under the MIT License (see LICENSE)."
+      ]
+    },
+    {
+      "name": "chatterbox-turbo-aux-20261014-fp16-b1",
+      "model": "chatterbox-turbo-aux",
+      "upstreamRelease": "20261014",
+      "quant": "fp16",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "chatterbox-turbo-onnx-en-lm-fp16-aux-fp16",
+        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp16"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
+      },
+      "licenses": [
+        {
+          "name": "MIT",
+          "url": "https://opensource.org/license/mit",
+          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
+          "textFile": "licenses/MIT-ResembleAI.txt"
+        }
+      ],
+      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
+      "notice": [
+        "Chatterbox Turbo (ONNX) - half-precision embedding, speech encoder and conditional decoder",
+        "Copyright (c) 2025 Resemble AI",
+        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "Licensed under the MIT License (see LICENSE)."
+      ]
+    },
+    {
+      "name": "chatterbox-turbo-aux-20261014-fp32-b1",
+      "model": "chatterbox-turbo-aux",
+      "upstreamRelease": "20261014",
+      "quant": "fp32",
+      "bundleRevision": 1,
+      "date": "2026-11-22",
+      "modelIds": [
+        "chatterbox-turbo-onnx-en-lm-fp16-aux-fp32",
+        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp32"
+      ],
+      "upstream": {
+        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
+      },
+      "licenses": [
+        {
+          "name": "MIT",
+          "url": "https://opensource.org/license/mit",
+          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
+          "textFile": "licenses/MIT-ResembleAI.txt"
+        }
+      ],
+      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
+      "notice": [
+        "Chatterbox Turbo (ONNX) - full-precision embedding, speech encoder and conditional decoder",
+        "Copyright (c) 2025 Resemble AI",
+        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
+        "Licensed under the MIT License (see LICENSE)."
+      ]
+    }
+  ]
+}

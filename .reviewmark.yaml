@@ -65,6 +65,8 @@ needs-review:
   - "!**/.venv/**"                # Exclude Python virtual environment
   - "!tools/KokoroOnnxBenchmark/**"  # Exclude dev-only benchmark spike (not part of the public surface)
   - "!tools/ModelDownloader/**"      # Exclude dev-only model downloader (not part of the public surface)
+  - "!tools/ModelBundler/**"         # Exclude the maintainer-only model bundling tool (not part of the public surface; modeled in SysML2)
+  - "!test/DemaConsulting.Speech.ModelBundler.Tests/**"  # Exclude the maintainer-only model bundling tool's tests
   - "!tools/DemaConsulting.Speech.Proofreader/**"       # Exclude dev-only TTS proofreading tool (not part of the public surface)
   - "!test/DemaConsulting.Speech.Proofreader.Tests/**"  # Exclude the dev-only proofreading tool's tests
   - "!data/text-en/external/**"      # Exclude local evaluation caches (never committed)

@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Maintainer-only tool: repackages the unmodified vendor files of the ONNX model packages into
+         deterministic, SHA-256-pinned bundle zips (with LICENSE, NOTICE, model.json and README.txt) for the
+         project's append-only "models" GitHub release, verifies them by rebuilding, and uploads them without
+         ever replacing an existing asset. The vendor files, pins and original URLs come from each package's
+         internal BundleContents (InternalsVisibleTo), so no hash is declared twice. This tool is never packed
+         or shipped. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.ModelBundler</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.ModelBundler</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Code Quality Configuration (mirrors DemaConsulting.Speech.csproj) -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
+  </ItemGroup>
+
+  <!-- The bundle definitions and license texts are read from beside the executable -->
+  <ItemGroup>
+    <None Include="bundles.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="licenses\*.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.ModelBundler.Tests" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

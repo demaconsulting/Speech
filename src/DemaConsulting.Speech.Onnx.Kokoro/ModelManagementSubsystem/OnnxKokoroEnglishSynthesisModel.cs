@@ -240,16 +240,25 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     /// </remarks>
     public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
 
-    /// <inheritdoc/>
+    /// <summary>
+    ///     The name of the <c>models</c>-release bundle that carries this model's unmodified vendor
+    ///     files (see <see cref="BundleContents"/>).
+    /// </summary>
+    internal const string BundleName = "kokoro-en-v1.0-int8-b1";
+
+    /// <summary>
+    ///     The vendor files of the <see cref="BundleName"/> bundle: the ONNX model graph plus this
+    ///     model's 29 verified English voice style vectors, each with its original upstream URL,
+    ///     SHA-256 pin and install path.
+    /// </summary>
     /// <remarks>
-    ///     Declares the ONNX model graph plus this model's 29 verified English voice style
-    ///     vectors. This model's phoneme vocabulary is not downloaded at all - it is embedded
-    ///     directly in this package (see <see cref="KokoroPhonemeVocabulary"/>), since it is small,
-    ///     fixed, and versioned together with this class's own token-id handling code. See the
-    ///     type-level remarks for the exact byte counts and SHA-256 provenance.
+    ///     This is the single source of truth for the per-file pins: <see cref="DownloadDescriptor"/>
+    ///     is built from it, and the non-shipped <c>DemaConsulting.Speech.ModelBundler</c> tool (which
+    ///     sees this member through <c>InternalsVisibleTo</c>) packs exactly these files into the
+    ///     bundle, so no SHA-256 is declared twice. Immutable and safe to share across threads.
     /// </remarks>
 #pragma warning disable S1075 // This model's download URLs are intentionally compiled-in, reviewed literals - the whole point of a catalog entry is to name specific, checksum-verified release assets.
-    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(
+    internal static SpeechModelDownloadDescriptor BundleContents { get; } = new(
     [
         new SpeechModelDownloadFile(
             new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model_quantized.onnx"),
@@ -373,6 +382,17 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
             "voices/bm_lewis.bin"),
     ]);
 #pragma warning restore S1075
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Declares the ONNX model graph plus this model's 29 verified English voice style
+    ///     vectors (the files of <see cref="BundleContents"/>). This model's phoneme vocabulary is
+    ///     not downloaded at all - it is embedded directly in this package (see
+    ///     <see cref="KokoroPhonemeVocabulary"/>), since it is small, fixed, and versioned together
+    ///     with this class's own token-id handling code. See the type-level remarks for the exact
+    ///     byte counts and SHA-256 provenance.
+    /// </remarks>
+    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = BundleContents;
 
     /// <inheritdoc/>
     AudioFormat ISynthesisModel.PreferredAudioFormat => AudioFormat.Mono(OnnxKokoroSynthesisEngine.SampleRate);
