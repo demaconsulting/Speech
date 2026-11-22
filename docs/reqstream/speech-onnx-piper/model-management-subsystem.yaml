@@ -4,7 +4,7 @@
 # These requirements describe the subsystem-level behavior of the SpeechOnnxPiper ModelManagementSubsystem,
 # decomposing the system-level requirements in docs/reqstream/speech-onnx-piper.yaml. The subsystem supplies the one
 # concrete synthesis model that implements the Speech library's ISynthesisModel contract
-# (OnnxPiperLibriTtsEnSynthesisModel, with the install helper PiperArchiveExtractor that is documented inside it), the
+# (OnnxPiperLibriTtsEnSynthesisModel, which installs the voice from its models-release bundle), the
 # reader of the voice configuration (PiperVoiceConfig) and the AddPiperModels() catalog-registration extension method
 # (SpeechModelCatalogPiperExtensions). Each requirement states one observable behavior.
 #
@@ -43,18 +43,19 @@ sections:
 
           - id: SpeechOnnxPiper-Models-DownloadAndInstall
             title: >-
-              The ModelManagementSubsystem shall declare the voice's download as one HTTPS archive pinned by its
-              SHA-256 and shall turn the downloaded archive into an installed voice that a backend can be created
-              from, keeping only the ONNX graph and the voice configuration.
+              The ModelManagementSubsystem shall declare the voice's download as one models-release bundle pinned by
+              its SHA-256, shall reject a downloaded bundle whose vendor files do not match their pins, and shall
+              create a backend that speaks from an installed voice.
             justification: |
               The download is the only way the voice reaches a machine, so its integrity is pinned, and the
-              installation has to produce exactly the two files the rest of the subsystem reads. The units that do
-              it (the model and the archive extraction it owns) are verified together, from archive to a voice that
+              installation must never accept altered files. The installed graph and configuration are what the rest
+              of the subsystem reads, so the units are verified together, from the bundle install to a voice that
               speaks.
             children:
               - SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-DownloadAndInstall
             tests:
-              - ModelManagementSubsystem_InstallThenCreateBackend_ArchiveBecomesAWorkingVoice
+              - ModelManagementSubsystem_Install_TamperedBundle_IsRejected
+              - ModelManagementSubsystem_CreateBackend_InstalledVoice_Speaks
 
           - id: SpeechOnnxPiper-Models-SpeakerSelection
             title: >-

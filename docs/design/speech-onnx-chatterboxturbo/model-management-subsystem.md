@@ -24,7 +24,7 @@ normalization. It contains the following units:
 catalog and throws `ArgumentNullException` for a null catalog. The model implements Speech's public
 `ISynthesisModel`. `ChatterboxTurboModelOptions` carries the voices (or a voice directory), the optional
 `ReferenceVoiceLibrary` and `IncludeStoreVoices` switch, an optional `ISpeechDiagnostics` sink, the
-precision variants, the end-of-sentence tag policy, the mood join silence, the intra-op thread count and
+end-of-sentence tag policy, the mood join silence, the intra-op thread count and
 generation limits; every option has a safe default and validates on assignment.
 
 ### Design
@@ -47,14 +47,13 @@ one corrupt clip fails only when it is chosen. Duplicate ids among the explicit 
 when the text is spoken in that mood; a voice without the mood uses its base clip. See
 *ReferenceVoiceLibrary* in the core ModelManagementSubsystem design for the pack, layout and merge rules.
 
-The model's catalog id is `chatterbox-turbo-onnx-en` for the default variants (fp16 language model, q4 auxiliary graphs)
-and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` otherwise, so different precision combinations install side by
-side. Every variant installs the four graphs, each an `.onnx` file plus its `.onnx_data` file (eight files), each with a
-pinned SHA-256 checksum, so every file is verified before use. The files are grouped into component bundles on the
-project's `models` GitHub release (one per language-model precision and one per auxiliary precision); a variant whose
-two bundles are both published (today the default) downloads those two zips and extracts them through Speech's
-`SpeechModelBundle`, and any other variant downloads its eight files individually from Hugging Face. The model download
-contains no voice files; voices come from the user folder or from the separately installed voice pack.
+The model's catalog id is `chatterbox-turbo-onnx-en`. It runs one fixed set of graphs, the half-precision language
+model with the 4-bit auxiliary graphs: four graphs, each an `.onnx` file plus its `.onnx_data` file (eight files), each
+with a pinned SHA-256 checksum, so every file is verified before use. The files come from two component bundles on the
+project's `models` GitHub release (one for the language model and one for the auxiliary graphs), which the model
+downloads and extracts through Speech's `SpeechModelBundle`; there is no other precision and no Hugging Face download.
+The model download contains no voice files; voices come from the user folder or from the separately installed voice
+pack.
 
 `CreateBackend` requires at least one voice, verifies the files exist, and constructs
 `OnnxChatterboxTurboNetworks`, the tokenizer from the embedded resource, and the synthesis engine,

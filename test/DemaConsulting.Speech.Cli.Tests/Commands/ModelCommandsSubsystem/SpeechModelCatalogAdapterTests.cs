@@ -88,7 +88,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         Assert.Contains(descriptors, d => d.Id == OnnxNemotronMultilingualRecognitionModel.ModelId);
         Assert.Contains(
             descriptors,
-            d => d.Id.StartsWith(OnnxChatterboxTurboEnglishSynthesisModel.BaseModelId, StringComparison.Ordinal));
+            d => d.Id == OnnxChatterboxTurboEnglishSynthesisModel.ModelId);
         Assert.All(descriptors, descriptor => Assert.Equal(SpeechModelState.NotDownloaded, descriptor.State));
     }
 
@@ -252,7 +252,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
             new SpeechModelStoreOptions { RootPathOverride = _testRoot },
             voicesDir: voicesDir);
         var model = adapter.Enumerate()
-            .First(d => d.Id.StartsWith(OnnxChatterboxTurboEnglishSynthesisModel.BaseModelId, StringComparison.Ordinal))
+            .First(d => d.Id == OnnxChatterboxTurboEnglishSynthesisModel.ModelId)
             .Model;
         var voiceChoices = Assert.IsType<ChoiceParameter>(
             model.Parameters.Single(p => p.Id == OnnxChatterboxTurboEnglishSynthesisModel.VoiceParameterId));

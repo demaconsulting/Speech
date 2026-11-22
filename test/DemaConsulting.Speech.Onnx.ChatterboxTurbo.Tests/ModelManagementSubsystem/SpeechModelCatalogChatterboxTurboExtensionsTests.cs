@@ -107,18 +107,16 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
         Assert.Empty(options.ReferenceVoices);
     }
 
-    /// <summary>Proves the registered model carries the selected precision variants' id and file set.</summary>
+    /// <summary>
+    ///     Proves the registered model is the single fixed model id that downloads its two bundles from the
+    ///     <c>models</c> release.
+    /// </summary>
     [Fact]
-    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed()
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelsReleaseDownload()
     {
         // Arrange
         using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
-        var options = new ChatterboxTurboModelOptions
-        {
-            LanguageModelVariant = ChatterboxTurboLanguageModelVariant.Fp32,
-            AuxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Fp16,
-            IncludeStoreVoices = false,
-        };
+        var options = new ChatterboxTurboModelOptions { IncludeStoreVoices = false };
 
         // Act
         catalog.AddChatterboxTurboModels(options);
@@ -126,8 +124,11 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
 
         // Assert
         var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(registered.Model);
-        Assert.Equal("chatterbox-turbo-onnx-en-lm-fp32-aux-fp16", registered.Id);
-        Assert.Equal(8, model.DownloadDescriptor.Files.Count);
+        Assert.Equal(OnnxChatterboxTurboEnglishSynthesisModel.ModelId, registered.Id);
+        Assert.Equal(2, model.DownloadDescriptor.Files.Count);
+        Assert.All(
+            model.DownloadDescriptor.Files,
+            file => Assert.StartsWith(SpeechModelBundle.ModelsReleaseBaseUri.AbsoluteUri, file.Uri.AbsoluteUri, StringComparison.Ordinal));
     }
 
     /// <summary>Proves the registered model offers the explicitly supplied voices.</summary>

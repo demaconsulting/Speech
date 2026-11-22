@@ -118,15 +118,19 @@ pull request process.
 
 Copyright (c) DEMA Consulting. The code is licensed under the MIT License; see [LICENSE][link-license]. Packages that
 embed third-party data, such as the English front end, carry their own `PACKAGE-LICENSE.md` and
-`THIRD-PARTY-NOTICES.md`, and every downloaded model has its own license, which it reports through the API. The Piper
-voice is licensed CC BY 4.0 and requires attribution of the LibriTTS-R corpus and the Piper project.
+`THIRD-PARTY-NOTICES.md`, and every downloaded model has its own license, which it reports through the API.
 
-The Kokoro, Nemotron and default Chatterbox Turbo models are redistributed, unmodified, as zip bundles on the project's
-[`models` release][link-models-release]. Each bundle carries the model's own `LICENSE`, a `NOTICE` with the required
-attribution and a `README.txt` describing its origin, and is installed with the model. The models keep their own
-licenses: Kokoro is Apache-2.0, the Nemotron weights are OpenMDW-1.1 (its ONNX conversion MIT), and Chatterbox Turbo is
-MIT (Copyright (c) 2025 Resemble AI). The Piper voice is not hosted there, pending a decision by the project owner,
-and still downloads from the sherpa-onnx release.
+The ONNX models (Kokoro, Nemotron, Chatterbox Turbo and the Piper voice) are redistributed, unmodified, as zip bundles
+on the project's [`models` release][link-models-release]. Each bundle carries the model's own `LICENSE`, a `NOTICE` with
+the required attribution and a `README.txt` describing its origin, and is installed with the model. The models keep
+their own licenses: Kokoro is Apache-2.0, the Nemotron weights are OpenMDW-1.1 (its ONNX conversion MIT), and Chatterbox
+Turbo is MIT (Copyright (c) 2025 Resemble AI).
+
+The Piper voice is licensed CC BY 4.0, as its model card declares, and requires attribution of the LibriTTS-R corpus
+(Koizumi et al., 2023; CC BY 4.0; [OpenSLR 141](https://www.openslr.org/141/)) and the Piper project (Rhasspy). Its
+model card also states that it was fine-tuned from the English Lessac medium voice, which was trained on the Blizzard
+Challenge 2013 Lessac data; that data is licensed for non-commercial research use only. Review the upstream terms and
+decide whether the voice fits your use.
 
 By contributing to this project, you agree that your contributions will be licensed under the MIT License.
 

@@ -1,16 +1,14 @@
+using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
+using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
-using SharpCompress.Common;
-using SharpCompress.Common.Tar.Headers;
-using SharpCompress.Compressors;
-using SharpCompress.Compressors.BZip2;
-using SharpCompress.Writers.Tar;
 
 namespace DemaConsulting.Speech.Onnx.Piper.Tests;
 
 /// <summary>
 ///     Shared fixtures of the Piper tests: the trimmed voice configuration, a tiny ONNX graph with the Piper input
-///     contract whose output echoes what the engine sent it, and <c>.tar.bz2</c> archives.
+///     contract whose output echoes what the engine sent it, the published bundle pin and tampered bundle zips.
 /// </summary>
 /// <remarks>
 ///     The echo graph's output is <c>[ids (N values), noise scale, length scale, noise width, speaker, N]</c>, so a test
@@ -24,6 +22,12 @@ internal static class PiperTestFixtures
 
     /// <summary>The ONNX element type id for int64.</summary>
     private const int Int64 = 7;
+
+    /// <summary>
+    ///     The SHA-256 of the published <c>piper-en-us-libritts-r-medium-20261122-fp32-b1.zip</c> asset on the
+    ///     <c>models</c> release, reproduced here (not read from the production class) so a changed pin fails a test.
+    /// </summary>
+    public const string BundleSha256 = "5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f";
 
     /// <summary>Gets the path of the trimmed copy of the real voice configuration (test data, CC BY 4.0, attribution inside).</summary>
     public static string TrimmedConfigPath { get; } = Path.Combine(AppContext.BaseDirectory, "TestData", "en_US-libritts_r-medium.onnx.trimmed.json");
@@ -98,26 +102,43 @@ internal static class PiperTestFixtures
     }
 
     /// <summary>
-    ///     Builds a <c>.tar.bz2</c> archive of the given (path, content) entries.
+    ///     Stages a well-formed bundle zip for <paramref name="bundle"/> whose <c>model.json</c> declares every vendor
+    ///     file at its compiled pin, but whose vendor entries hold other bytes, so only the extracted-bytes verification
+    ///     can reject it.
     /// </summary>
-    /// <param name="entries">The entries.</param>
-    /// <returns>The archive bytes.</returns>
-    public static byte[] BuildArchive(IReadOnlyList<(string Path, byte[] Content)> entries)
+    /// <param name="bundle">The bundle to imitate.</param>
+    /// <param name="directory">The staging directory to write <c>{bundle.FileName}</c> into (created when missing).</param>
+    public static void StageBundleWithWrongFiles(SpeechModelBundle bundle, string directory)
     {
-        using var buffer = new MemoryStream();
-        using (var bzip2 = new BZip2Stream(buffer, CompressionMode.Compress, decompressConcatenated: false))
+        var wrongBytes = "these are not the vendor bytes"u8.ToArray();
+        var manifest = JsonSerializer.SerializeToUtf8Bytes(new
         {
-            using var tar = new TarWriter(
-                bzip2,
-                new TarWriterOptions(CompressionType.None, finalizeArchiveOnClose: true, TarHeaderWriteFormat.USTAR));
-            foreach (var (path, content) in entries)
-            {
-                using var entry = new MemoryStream(content);
-                tar.Write(path, entry, modificationTime: null);
-            }
-        }
+            schemaVersion = 1,
+            bundle = bundle.Name,
+            files = bundle.Contents.Files
+                .Select(file => new { path = file.RelativeInstallPath, size = wrongBytes.Length, sha256 = file.Sha256Checksum })
+                .ToArray(),
+        });
 
-        return buffer.ToArray();
+        Directory.CreateDirectory(directory);
+        using var archive = ZipFile.Open(Path.Join(directory, bundle.FileName), ZipArchiveMode.Create);
+        WriteEntry(archive, "README.txt", "Test bundle."u8.ToArray());
+        WriteEntry(archive, "LICENSE", "Test license."u8.ToArray());
+        WriteEntry(archive, "model.json", manifest);
+        foreach (var file in bundle.Contents.Files)
+        {
+            WriteEntry(archive, file.RelativeInstallPath, wrongBytes);
+        }
+    }
+
+    /// <summary>Writes one stored entry into a zip being created.</summary>
+    /// <param name="archive">The archive in create mode.</param>
+    /// <param name="name">The entry name.</param>
+    /// <param name="content">The entry bytes.</param>
+    private static void WriteEntry(ZipArchive archive, string name, byte[] content)
+    {
+        using var stream = archive.CreateEntry(name, CompressionLevel.NoCompression).Open();
+        stream.Write(content, 0, content.Length);
     }
 
     private static void AddNode(List<byte> graph, string op, string[] inputs, string[] outputs, List<byte>? attribute = null)

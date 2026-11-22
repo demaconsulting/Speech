@@ -71,27 +71,26 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall describe the default
-                  precision variants as eight installed files, each with its original source URI,
-                  a SHA-256 checksum and a relative install path, downloaded as two SHA-256-pinned
-                  component bundles (one language-model and one auxiliary bundle) from the
-                  project's models release.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall describe its fp16
+                  language model and q4 auxiliary graphs as eight installed files, each with its
+                  original source URI, a SHA-256 checksum and a relative install path, downloaded
+                  only as two SHA-256-pinned component bundles (one language-model and one
+                  auxiliary bundle) from the project's models release.
                 justification: |
                   The model store verifies and installs exactly what the descriptor lists; hosting
                   the unmodified files on GitHub lets users behind a firewall that blocks Hugging
-                  Face install the default model, and component bundles let variants share files
-                  without duplicating them on the release.
+                  Face install the model, and one fixed set of graphs keeps the download minimal.
                 tests:
-                  - OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_DefaultVariant_ListsEightFiles
+                  - OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_ListsEightFiles
                   - OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle
-                  - OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Bundles_DeclareOneLmAndOneAuxBundle
                   - OnnxChatterboxTurboEnglishSynthesisModel_BundleContents_PinsEveryVendorFile
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-BundleInstall
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class's InstallAsync method shall
-                  extract a bundle-installed variant's downloaded bundles and shall fail when an
-                  extracted file does not match its pin.
+                  extract the model's two downloaded bundles and shall fail when an extracted file
+                  does not match its pin.
                 justification: |
                   The downloader hands the staged archives to the model's install hook; failing on a
                   mismatched file leaves the prior install untouched and never installs altered
@@ -99,32 +98,15 @@ sections:
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws
 
-              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-GraphLoading
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall support selectable
-                  language-model and auxiliary-graph precision variants, each combination having
-                  a distinct id and a complete file set, downloaded from the models release when
-                  both of its component bundles are published and otherwise as individual files
-                  from the upstream repository.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall load the installed fp16
+                  language-model graph and q4 auxiliary graphs.
                 justification: |
-                  Variants let a host trade download size against fidelity, and mixing files of
-                  different variants under one id would corrupt the installed model. A variant whose
-                  bundles are not yet published must keep working from its upstream source rather
-                  than fail.
+                  A backend that loaded other graphs than the installed ones would not match the
+                  installed files.
                 tests:
-                  - OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets
-                  - OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor
-
-              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VariantLoading
-                title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall load the graphs of the
-                  selected variant.
-                justification: |
-                  A backend that loaded another variant's graphs would not match the installed
-                  files.
-                tests:
-                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_Fp32Variant_UsesFp32Graph
-                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_AuxiliaryVariants_LoadMatchingGraphFiles
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
                 title: >-
@@ -289,16 +271,6 @@ sections:
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows
 
-              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
-                title: >-
-                  The ChatterboxTurboModelOptions class shall default to the Fp16 language-model
-                  variant and the Q4 auxiliary-graph variant.
-                justification: |
-                  A host that supplies no options gets the variants that preserve the inline
-                  audio tags at the smallest download.
-                tests:
-                  - ChatterboxTurboModelOptions_Defaults_LanguageModelVariantIsFp16AndAuxiliaryIsQ4
-
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsMaxNewTokens
                 title: >-
                   The ChatterboxTurboModelOptions class shall default the maximum number of new
@@ -381,15 +353,6 @@ sections:
                   Nothing outside the host's explicit choices is read or reported by default.
                 tests:
                   - ChatterboxTurboModelOptions_Defaults_NoDirectoryLibraryOrDiagnostics
-
-              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
-                title: >-
-                  The ChatterboxTurboModelOptions class shall throw an ArgumentOutOfRangeException
-                  when a variant is assigned an undefined value.
-                justification: |
-                  Invalid values fail at assignment rather than during synthesis.
-                tests:
-                  - ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsPolicyValidation
                 title: >-

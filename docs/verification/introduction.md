@@ -139,7 +139,7 @@ The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
-- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa and SpeechOnnxPiper model installs
+- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
 - **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by the Speech audio pipeline
 - **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx libraries
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application

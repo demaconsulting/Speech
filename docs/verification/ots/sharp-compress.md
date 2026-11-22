@@ -9,10 +9,8 @@ document.
 SharpCompress provides the managed BZip2 tar (`.tar.bz2`) decoder used by the SpeechSherpa
 library's internal `TarBz2ArchiveExtractor` helper, which every SpeechSherpa model relies on to
 unpack its downloaded archive after checksum verification. The Speech library itself no longer
-references this package, so the tests below live in `test/DemaConsulting.Speech.Sherpa.Tests`. The SpeechOnnxPiper
-library's `PiperArchiveExtractor` uses the same decoder for the downloaded voice archive; its extraction behavior
-(only the voice graph and its configuration are kept, a hostile entry path stays inside the install folder, a missing
-file is reported) is verified by the SpeechOnnxPiper model tests rather than given separate scenarios here.
+references this package, so the tests below live in `test/DemaConsulting.Speech.Sherpa.Tests`. No other library
+uses it: the SpeechOnnxPiper library installs its voice from a zip bundle and no longer references `SharpCompress`.
 
 ### Verification Approach
 

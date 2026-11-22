@@ -7,13 +7,13 @@ This document describes the verification design of the SpeechOnnxPiper system.
 SpeechOnnxPiper is verified through its public API, exactly as a host composes it, by system tests in
 `test/DemaConsulting.Speech.Onnx.Piper.Tests/SpeechOnnxPiperTests.cs`, and by a FileAssert test of the built package. A
 test registers the package's model in a real Speech `SpeechModelCatalog` with `AddPiperModels()`, takes the registered
-model from the catalog's enumeration, installs a downloaded archive, creates the backend with `CreateBackend` and
-synthesizes with it. What differs from production is only the graph: the tests use a tiny stand-in ONNX graph with the
-same four inputs as the Piper graph (`input`, `input_lengths`, `scales`, `sid`) whose output echoes what it was fed (the
-phoneme ids, the three scales, the speaker and the input length), so a test observes exactly what reached the voice
-without the real voice (about 78 MB). The voice configuration is a trimmed copy of the real one (its symbol table,
-sample rate, speaker count and inference scales). The text analysis, the phonemizer, the renderer, the symbol encoding,
-the installer and the execution-provider selector are the real ones.
+model from the catalog's enumeration, checks its `models`-release download, installs a staged bundle, creates the
+backend with `CreateBackend` and synthesizes with it. What differs from production is only the graph: the tests use a
+tiny stand-in ONNX graph with the same four inputs as the Piper graph (`input`, `input_lengths`, `scales`, `sid`) whose
+output echoes what it was fed (the phoneme ids, the three scales, the speaker and the input length), so a test observes
+exactly what reached the voice without the real voice (about 78 MB). The voice configuration is a trimmed copy of the
+real one (its symbol table, sample rate, speaker count and inference scales). The text analysis, the phonemizer, the
+renderer, the symbol encoding, the installer and the execution-provider selector are the real ones.
 
 Below the system level the units are verified in isolation and together (see *SpeechOnnxPiper ModelManagementSubsystem
 Verification* and *SpeechOnnxPiper SynthesisSubsystem Verification*), including golden corpora of the phoneme pipeline.
@@ -34,7 +34,7 @@ recorded in `docs/evaluation/phonemes-en/` and are not requirements evidence her
 - **Files**: the trimmed voice configuration (`TestData/en_US-libritts_r-medium.onnx.trimmed.json`, CC BY 4.0,
   attributed inside the file), the pinned pipeline golden (`TestData/piper-pipeline-golden.tsv`) and the golden corpora
   linked from the Phonemes.En and Kokoro test projects and the repository's data folder; the stand-in graph and the
-  `.tar.bz2` archives are built by the tests (`PiperTestFixtures`); no test needs network access or the real voice
+  tampered bundle zips are built by the tests (`PiperTestFixtures`); no test needs network access or the real voice
 - **Isolation**: every test uses its own scratch directory under the temporary folder and its own catalog and backend
 
 ## Acceptance Criteria
@@ -54,14 +54,17 @@ null catalog throws `ArgumentNullException`.
 
 ### Download and installation
 
-**Tests**: `SpeechOnnxPiper_VoiceDownload_IsPinnedBySha256`,
-`SpeechOnnxPiper_InstallAndLoad_ArchiveBecomesAWorkingVoice`
+**Tests**: `SpeechOnnxPiper_VoiceDownload_IsModelsReleaseBundlePinnedBySha256`,
+`SpeechOnnxPiper_InstallAndLoad_TamperedBundleIsRejectedAndInstalledVoiceSpeaks`
 
-The download descriptor has one HTTPS `.tar.bz2` file with the pinned SHA-256. Three staged archives are installed: a
-complete one (graph, configuration, a token table and an espeak-ng data file) leaves exactly the graph and the
-configuration in the install directory and a backend created from it speaks at 22,050 Hz with the framing ids; one whose
-graph entry is `../../evil.onnx` writes `evil.onnx` inside the install directory and nothing outside it; one with only
-the graph fails with `InvalidDataException`.
+The download descriptor has exactly one file, the zip
+`https://github.com/demaconsulting/Speech/releases/download/models/piper-en-us-libritts-r-medium-20261122-fp32-b1.zip`
+with the pinned SHA-256 `5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f` (so nothing comes from
+Hugging Face). A well-formed bundle whose `model.json` declares the compiled pins but whose vendor entries hold other
+bytes fails the installation with `InvalidDataException`. An installed voice (the stand-in graph and the configuration
+at the installed root, the layout both a bundle install and an earlier install from the sherpa-onnx archive leave)
+creates a backend that speaks at 22,050 Hz with the framing ids. The installation of a genuine bundle is exercised by
+the Speech library's `SpeechModelBundle` tests, and the real published bundle by the release smoke test.
 
 ### Voice configuration
 
@@ -119,5 +122,6 @@ A backend can be disposed twice, and synthesis after disposal throws `ObjectDisp
 
 The `.nupkg` carries `PACKAGE-LICENSE.md` and `THIRD-PARTY-NOTICES.md` at the package root and its nuspec names the
 license file. The text of the notices (the CC BY 4.0 attribution of the voice, the LibriTTS-R citation, the Piper
-project, the archive and its hash, the pointer to the notices of SpeechTextEn and SpeechPhonemesEn) is reviewed, not
-scanned.
+project, the lineage notice, the bundle and its hash, the pointer to the notices of SpeechTextEn and SpeechPhonemesEn)
+is reviewed; the test also checks that the notices name LibriTTS-R, Koizumi, Blizzard and the non-commercial
+restriction.

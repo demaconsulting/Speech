@@ -449,17 +449,27 @@ overrides:
     words:
       - tatoeba
   # The Piper package, its tests and its documents: the voice's project and speaker names (the Rhasspy project's
-  # voice repository and the Lessac voice the libritts_r voice was fine-tuned from, also named in the licensing overview
-  # as the reason the voice is not hosted) and an invented word that proves an out-of-dictionary word is still spoken
+  # voice repository and the Lessac voice the libritts_r voice was fine-tuned from, also named in the lineage notice of
+  # the README, the user guide, the licensing overview and the model bundler's README) and an invented word that proves
+  # an out-of-dictionary word is still spoken
   - filename: >-
-      {docs/technical_overview/licensing-and-provenance.md,src/DemaConsulting.Speech.Onnx.Piper/**,test/DemaConsulting.Speech.Onnx.Piper.Tests/**,docs/design/speech-onnx-piper.md,docs/design/speech-onnx-piper/**,docs/verification/speech-onnx-piper.md,docs/verification/speech-onnx-piper/**,docs/reqstream/speech-onnx-piper.yaml,docs/reqstream/speech-onnx-piper/**,.textlint.yaml}
+      {README.md,docs/user_guide/**,tools/ModelBundler/README.md,tools/ModelBundler/bundles.json,test/DemaConsulting.Speech.ModelBundler.Tests/**,.fileassert.yaml,docs/technical_overview/licensing-and-provenance.md,src/DemaConsulting.Speech.Onnx.Piper/**,test/DemaConsulting.Speech.Onnx.Piper.Tests/**,docs/design/speech-onnx-piper.md,docs/design/speech-onnx-piper/**,docs/verification/speech-onnx-piper.md,docs/verification/speech-onnx-piper/**,docs/reqstream/speech-onnx-piper.yaml,docs/reqstream/speech-onnx-piper/**,.textlint.yaml}
     words:
       - lessac
+      - openslr
       - rhasspy
       - zorblax
-  # The authors of the LibriTTS-R corpus, named in the Piper package notices because the voice's license (CC BY 4.0)
-  # requires the attribution and the corpus maintainers ask that the dataset paper is cited
-  - filename: '{src/DemaConsulting.Speech.Onnx.Piper/THIRD-PARTY-NOTICES.md,.textlint.yaml}'
+  # The verbatim Creative Commons Attribution 4.0 legal code that the model bundler ships in the Piper bundle's LICENSE:
+  # its own legal terms and its publisher's host name (the text must not be edited)
+  - filename: '{tools/ModelBundler/licenses/CC-BY-4.0.txt,.textlint.yaml}'
+    words:
+      - creativecommons
+      - generis
+      - sublicensable
+      - waivable
+  # The authors of the LibriTTS-R corpus, named in the Piper package notices and the Piper bundle's attribution because
+  # the voice's license (CC BY 4.0) requires the attribution and the corpus maintainers ask that the dataset paper is cited
+  - filename: '{src/DemaConsulting.Speech.Onnx.Piper/THIRD-PARTY-NOTICES.md,tools/ModelBundler/bundles.json,.textlint.yaml}'
     words:
       - ankur
       - bacchiani

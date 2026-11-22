@@ -67,15 +67,12 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.NotNull(profile);
     }
 
-    /// <summary>Proves the default variant installs the eight default-variant files, each with a SHA-256 checksum.</summary>
+    /// <summary>Proves the model installs its eight fixed files, each with a SHA-256 checksum.</summary>
     [Fact]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_DefaultVariant_ListsEightFiles()
+    public void OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_ListsEightFiles()
     {
-        // Arrange
-        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
-
         // Act
-        var files = model.InstalledFiles;
+        var files = OnnxChatterboxTurboEnglishSynthesisModel.InstalledFiles;
 
         // Assert
         Assert.Equal(8, files.Count);
@@ -93,8 +90,8 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves the default variant downloads exactly the two published component bundles from the project's
-    ///     <c>models</c> release, language model first, each at its pinned zip SHA-256.
+    ///     Proves the model downloads exactly the two component bundles from the project's <c>models</c> release,
+    ///     language model first, each at its pinned zip SHA-256, and nothing else.
     /// </summary>
     [Fact]
     public void OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle()
@@ -124,71 +121,31 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves the default variant declares one language-model bundle and one auxiliary bundle, whose contents
-    ///     together are exactly the eight files the variant installs.
+    ///     Proves the model declares one language-model bundle and one auxiliary bundle, whose contents together are
+    ///     exactly the eight files it installs.
     /// </summary>
     [Fact]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle()
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Bundles_DeclareOneLmAndOneAuxBundle()
     {
-        // Arrange
-        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
-        var published = OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles
-            .ToDictionary(bundle => bundle.FileName, StringComparer.Ordinal);
+        // Act
+        var bundles = OnnxChatterboxTurboEnglishSynthesisModel.Bundles;
 
-        // Act: map the descriptor's two zips back to their published bundles
-        var bundles = model.DownloadDescriptor.Files.Select(file => published[file.RelativeInstallPath]).ToList();
-
-        // Assert: one language-model bundle (2 files) then one auxiliary bundle (6 files), covering the variant
+        // Assert: one language-model bundle (2 files) then one auxiliary bundle (6 files), covering the model
         Assert.Equal(2, bundles.Count);
         Assert.Equal("chatterbox-turbo-lm-20261014-fp16-b1", bundles[0].Name);
         Assert.Equal(2, bundles[0].Contents.Files.Count);
         Assert.Equal("chatterbox-turbo-aux-20261014-int4-b1", bundles[1].Name);
         Assert.Equal(6, bundles[1].Contents.Files.Count);
         Assert.Equal(
-            model.InstalledFiles.Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}"),
+            OnnxChatterboxTurboEnglishSynthesisModel.InstalledFiles
+                .Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}"),
             bundles.SelectMany(bundle => bundle.Contents.Files)
                 .Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}"));
     }
 
     /// <summary>
-    ///     Proves a variant whose component bundles are not both published keeps today's per-file Hugging Face
-    ///     descriptor (its eight installed files) and installs with no post-processing.
-    /// </summary>
-    /// <param name="languageModel">The language-model variant.</param>
-    /// <param name="auxiliary">The auxiliary-graph variant.</param>
-    [Theory]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp16)]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp32)]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Q4)]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp16)]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp32)]
-    public async Task OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor(
-        ChatterboxTurboLanguageModelVariant languageModel,
-        ChatterboxTurboAuxiliaryModelVariant auxiliary)
-    {
-        // Arrange: a non-default variant and a staging directory holding one stand-in file
-        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
-            new ChatterboxTurboModelOptions { LanguageModelVariant = languageModel, AuxiliaryModelVariant = auxiliary });
-        var stagedFile = Path.Join(_root, "onnx", "stand-in.onnx");
-        var stagedBytes = new byte[] { 1, 2, 3 };
-        Directory.CreateDirectory(Path.GetDirectoryName(stagedFile)!);
-        await File.WriteAllBytesAsync(stagedFile, stagedBytes, TestContext.Current.CancellationToken);
-
-        // Act
-        var files = model.DownloadDescriptor.Files;
-        await model.InstallAsync(_root, TestContext.Current.CancellationToken);
-
-        // Assert: the eight installed files are downloaded individually from Hugging Face, and the install hook
-        // leaves the staged files untouched
-        Assert.Equal(8, files.Count);
-        Assert.Equal(model.InstalledFiles, files);
-        Assert.All(files, file => Assert.StartsWith("https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX/resolve/main/onnx/", file.Uri.AbsoluteUri));
-        Assert.Equal(stagedBytes, await File.ReadAllBytesAsync(stagedFile, TestContext.Current.CancellationToken));
-    }
-
-    /// <summary>
-    ///     Proves every component bundle (published or deferred) pins its vendor files: two language-model files or
-    ///     six auxiliary files, each with its original Hugging Face URL, a SHA-256 and an <c>onnx/</c> install path.
+    ///     Proves both component bundles pin their vendor files: two language-model files or six auxiliary files, each
+    ///     with its original Hugging Face URL (recorded as provenance only), a SHA-256 and an <c>onnx/</c> install path.
     /// </summary>
     [Fact]
     public void OnnxChatterboxTurboEnglishSynthesisModel_BundleContents_PinsEveryVendorFile()
@@ -198,11 +155,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Assert
         Assert.Equal(
-            [
-                "chatterbox-turbo-aux-20261014-fp16-b1", "chatterbox-turbo-aux-20261014-fp32-b1",
-                "chatterbox-turbo-aux-20261014-int4-b1", "chatterbox-turbo-lm-20261014-fp16-b1",
-                "chatterbox-turbo-lm-20261014-fp32-b1",
-            ],
+            ["chatterbox-turbo-aux-20261014-int4-b1", "chatterbox-turbo-lm-20261014-fp16-b1"],
             contents.Keys.Order(StringComparer.Ordinal));
         Assert.All(contents, entry =>
         {
@@ -217,7 +170,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
             });
         });
         Assert.All(
-            OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles,
+            OnnxChatterboxTurboEnglishSynthesisModel.Bundles,
             bundle => Assert.Same(contents[bundle.Name], bundle.Contents));
     }
 
@@ -228,10 +181,10 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
     [Fact]
     public async Task OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws()
     {
-        // Arrange: stage both default-variant bundles with every vendor file replaced by other bytes
+        // Arrange: stage both bundles with every vendor file replaced by other bytes
         var model = new OnnxChatterboxTurboEnglishSynthesisModel();
         var stagingDirectory = Path.Join(_root, "staging");
-        foreach (var bundle in OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles)
+        foreach (var bundle in OnnxChatterboxTurboEnglishSynthesisModel.Bundles)
         {
             StageBundleWithWrongFiles(bundle, stagingDirectory);
         }
@@ -239,36 +192,6 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         // Act / Assert: verification rejects the extracted bytes
         await Assert.ThrowsAsync<InvalidDataException>(
             () => model.InstallAsync(stagingDirectory, TestContext.Current.CancellationToken));
-    }
-
-    /// <summary>Proves every variant combination resolves to a distinct id and a complete checksum-backed file set.</summary>
-    [Fact]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets()
-    {
-        // Act
-        var models = (from lm in Enum.GetValues<ChatterboxTurboLanguageModelVariant>()
-                      from aux in Enum.GetValues<ChatterboxTurboAuxiliaryModelVariant>()
-                      select new OnnxChatterboxTurboEnglishSynthesisModel(
-                          new ChatterboxTurboModelOptions { LanguageModelVariant = lm, AuxiliaryModelVariant = aux })).ToList();
-        var fp32Fp16Id = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions
-        {
-            LanguageModelVariant = ChatterboxTurboLanguageModelVariant.Fp32,
-            AuxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Fp16,
-        }).Id;
-
-        // Assert
-        Assert.Equal(6, models.Select(model => model.Id).Distinct().Count());
-        Assert.All(models, model => Assert.Equal(8, model.InstalledFiles.Count));
-        Assert.All(models, model => Assert.All(
-            model.InstalledFiles,
-            file => Assert.Matches("^[0-9a-fA-F]{64}$", file.Sha256Checksum)));
-        Assert.All(models, model => Assert.Equal(
-            8,
-            model.InstalledFiles.Select(file => file.Sha256Checksum.ToLowerInvariant()).Distinct().Count()));
-        Assert.Equal(
-            6,
-            models.Select(model => string.Join('|', model.InstalledFiles.Select(file => file.RelativeInstallPath))).Distinct().Count());
-        Assert.Equal("chatterbox-turbo-onnx-en-lm-fp32-aux-fp16", fp32Fp16Id);
     }
 
     /// <summary>Proves no voice parameter is exposed without voices, and a voice choice is exposed with them.</summary>
@@ -385,18 +308,6 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal(["bad", "good"], choice.Options.Select(option => option.Value));
         var invalid = Assert.IsType<InvalidDataException>(firstUse);
         Assert.Contains("bad.wav", invalid.Message, StringComparison.Ordinal);
-    }
-
-    /// <summary>Proves the language-model variant default.</summary>
-    [Fact]
-    public void ChatterboxTurboModelOptions_Defaults_LanguageModelVariantIsFp16AndAuxiliaryIsQ4()
-    {
-        // Act
-        var options = new ChatterboxTurboModelOptions();
-
-        // Assert
-        Assert.Equal(ChatterboxTurboLanguageModelVariant.Fp16, options.LanguageModelVariant);
-        Assert.Equal(ChatterboxTurboAuxiliaryModelVariant.Q4, options.AuxiliaryModelVariant);
     }
 
     /// <summary>Proves the default cap on generated speech tokens.</summary>
@@ -634,82 +545,6 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal(ChatterboxTurboGraphFixture.PromptTokens.Length + 4 + 3, audio.Samples.Length);
     }
 
-    /// <summary>Proves a non-default language-model variant installs and loads from its own graph names.</summary>
-    [Fact]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_Fp32Variant_UsesFp32Graph()
-    {
-        // Arrange
-        InstallSynthetic(halfCache: false, "language_model");
-        var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions
-        {
-            ReferenceVoices = [Voice("a")],
-            LanguageModelVariant = ChatterboxTurboLanguageModelVariant.Fp32,
-            MaxNewTokens = 2,
-        });
-
-        // Act
-        using var backend = model.CreateBackend(_root);
-        var audio = backend.Generate("Hello.", 1.0f, 0);
-
-        // Assert
-        Assert.NotEmpty(audio.Samples);
-    }
-
-    /// <summary>
-    ///     Proves each language-model and auxiliary-graph combination loads exactly the graph files its file names
-    ///     select: only files with the expected names (and suffix) are installed, so a backend loads and synthesizes
-    ///     only when the model opens those names.
-    /// </summary>
-    /// <param name="languageModel">The language-model variant.</param>
-    /// <param name="auxiliary">The auxiliary-graph variant.</param>
-    /// <param name="languageModelName">The expected language-model graph base name.</param>
-    /// <param name="suffix">The expected auxiliary-graph suffix.</param>
-    [Theory]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp16, "language_model_fp16", "_fp16")]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp32, "language_model", "")]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp32, "language_model_fp16", "")]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp16, "language_model", "_fp16")]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_AuxiliaryVariants_LoadMatchingGraphFiles(
-        ChatterboxTurboLanguageModelVariant languageModel,
-        ChatterboxTurboAuxiliaryModelVariant auxiliary,
-        string languageModelName,
-        string suffix)
-    {
-        // Arrange
-        var halfAuxiliary = auxiliary == ChatterboxTurboAuxiliaryModelVariant.Fp16;
-        ChatterboxTurboGraphFixture.Write(
-            Path.Combine(_root, "onnx"),
-            languageModelName,
-            suffix,
-            halfCache: languageModel == ChatterboxTurboLanguageModelVariant.Fp16,
-            halfEmbeddings: halfAuxiliary,
-            halfAuxiliary: halfAuxiliary);
-        var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions
-        {
-            ReferenceVoices = [Voice("a")],
-            LanguageModelVariant = languageModel,
-            AuxiliaryModelVariant = auxiliary,
-            IntraOpThreads = 1,
-            MaxNewTokens = 2,
-        });
-
-        // Act: the backend loads only when the model opens the graph names its variants select, and
-        // synthesizes through them
-        using var backend = model.CreateBackend(_root);
-        var audio = backend.Generate("Hello.", 1.0f, 0);
-
-        // Assert
-        Assert.NotEmpty(audio.Samples);
-        Assert.Equal(
-            [
-                $"onnx/{languageModelName}.onnx", $"onnx/{languageModelName}.onnx_data",
-                $"onnx/embed_tokens{suffix}.onnx", $"onnx/embed_tokens{suffix}.onnx_data",
-                $"onnx/speech_encoder{suffix}.onnx", $"onnx/speech_encoder{suffix}.onnx_data",
-                $"onnx/conditional_decoder{suffix}.onnx", $"onnx/conditional_decoder{suffix}.onnx_data",
-            ],
-            model.InstalledFiles.Select(file => file.RelativeInstallPath));
-    }
-
     /// <summary>Proves sessions are disposed when backend creation fails after they were created.</summary>
     [Fact]
     public void OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows()
@@ -890,24 +725,6 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
         Assert.Equal(["alan_x", "alan-x", "zoe"], choice.Options.Select(option => option.Value));
         Assert.Equal(["Alan X", "Alan X (pack)", "Zoe"], choice.Options.Select(option => option.Label));
-    }
-
-    /// <summary>Proves undefined variant values are rejected when assigned to the options.</summary>
-    [Fact]
-    public void ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException()
-    {
-        // Arrange
-        var options = new ChatterboxTurboModelOptions();
-
-        // Act
-        var languageModel = Record.Exception(() => options.LanguageModelVariant = (ChatterboxTurboLanguageModelVariant)99);
-        var auxiliary = Record.Exception(() => options.AuxiliaryModelVariant = (ChatterboxTurboAuxiliaryModelVariant)99);
-
-        // Assert
-        Assert.IsType<ArgumentOutOfRangeException>(languageModel);
-        Assert.IsType<ArgumentOutOfRangeException>(auxiliary);
-        Assert.Equal(ChatterboxTurboLanguageModelVariant.Fp16, options.LanguageModelVariant);
-        Assert.Equal(ChatterboxTurboAuxiliaryModelVariant.Q4, options.AuxiliaryModelVariant);
     }
 
     /// <summary>Proves an undefined end-of-sentence tag policy is rejected when assigned and leaves the policy unchanged.</summary>

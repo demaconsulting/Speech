@@ -74,12 +74,11 @@ safety role.
 the one model instance and returns the same catalog. The model lists explicit, directory and library
 (user and pack) voices, decoded lazily.
 
-**Model install path:** Speech's downloader fetches and checksum-verifies what the model's download
-descriptor lists for the selected precision variants. When both of the variants' component bundles are
-published on the project's `models` GitHub release (today the default variant), that is the two bundle zips,
-which the model's `InstallAsync` extracts and verifies file by file through Speech's `SpeechModelBundle`;
-otherwise it is the eight files downloaded individually from Hugging Face, which need no extraction step.
-Either way the same eight files end up at the same install paths.
+**Model install path:** Speech's downloader fetches and checksum-verifies the two component bundle zips the
+model's download descriptor lists (the half-precision language model and the 4-bit auxiliary graphs) from the
+project's `models` GitHub release; the model's `InstallAsync` extracts and verifies them file by file through
+Speech's `SpeechModelBundle`, so the eight graph and weights files end up at their install paths under `onnx/`.
+The model has no other precision and never downloads from Hugging Face.
 
 **Backend construction path:** `CreateBackend` verifies the files exist, opens the four ONNX
 sessions, constructs the tokenizer and engine, and returns the engine; failures dispose any

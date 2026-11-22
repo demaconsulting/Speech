@@ -5,6 +5,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.ModelBundler.Tests;
 
@@ -45,8 +46,8 @@ public sealed partial class BundleDefinitionsTests
         var definitions = BundleDefinitions.Load(BundleDefinitions.GetDefaultPath());
         var contents = BundleCatalog.GetContents();
 
-        // Assert: the same seven bundle names
-        Assert.Equal(7, definitions.Count);
+        // Assert: the same five bundle names
+        Assert.Equal(5, definitions.Count);
         Assert.Equal(contents.Keys.Order(StringComparer.Ordinal), definitions.Select(definition => definition.Name).Order(StringComparer.Ordinal));
     }
 
@@ -71,6 +72,36 @@ public sealed partial class BundleDefinitionsTests
             ["OpenMDW-1.1", "MIT"],
             definitions["nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"].Licenses.Select(license => license.Name));
         Assert.Contains("Copyright (c) 2025 Resemble AI", definitions["chatterbox-turbo-lm-20261014-fp16-b1"].Licenses[0].Text, StringComparison.Ordinal);
+        var piper = definitions["piper-en-us-libritts-r-medium-20261122-fp32-b1"];
+        Assert.Equal("CC-BY-4.0", Assert.Single(piper.Licenses).Name);
+        Assert.Contains("Attribution 4.0 International", piper.Licenses[0].Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Validates that the Piper bundle's attribution and NOTICE credit LibriTTS-R, the Piper project and the
+    ///     Lessac voice with the research-only restriction of its Blizzard Challenge 2013 training data.
+    /// </summary>
+    [Fact]
+    public void BundleDefinitions_Load_ShippedPiperBundle_CarriesFullLineageAttribution()
+    {
+        // Arrange / Act: load the shipped Piper definition
+        var piper = BundleDefinitions.Load(BundleDefinitions.GetDefaultPath())
+            .Single(definition => definition.Name == "piper-en-us-libritts-r-medium-20261122-fp32-b1");
+        var notice = string.Join('\n', piper.NoticeLines);
+
+        // Assert: both the attribution and the notice name every part of the lineage
+        Assert.Equal(["piper-onnx-libritts-r-en-us-medium"], piper.ModelIds);
+        Assert.All(new[] { piper.Attribution, notice }, text =>
+        {
+            Assert.Contains("LibriTTS-R", text, StringComparison.Ordinal);
+            Assert.Contains("Koizumi", text, StringComparison.Ordinal);
+            Assert.Contains("openslr.org/141", text, StringComparison.Ordinal);
+            Assert.Contains("Piper project (Rhasspy", text, StringComparison.Ordinal);
+            Assert.Contains("lessac", text, StringComparison.Ordinal);
+            Assert.Contains("Blizzard Challenge 2013", text, StringComparison.Ordinal);
+            Assert.Contains("non-commercial research use only", text, StringComparison.Ordinal);
+            Assert.Contains("review the upstream terms", text, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>Validates that a name that is not the composition of its parts is rejected.</summary>
@@ -189,7 +220,8 @@ public sealed partial class BundleDefinitionsTests
     [Theory]
     [InlineData("kokoro-onnx-v1_0-en")]
     [InlineData("nemotron-3.5-asr-streaming-0.6b-onnx-int4")]
-    [InlineData("chatterbox-turbo-onnx-en-lm-fp32-aux-q4")]
+    [InlineData("chatterbox-turbo-onnx-en")]
+    [InlineData("piper-onnx-libritts-r-en-us-medium")]
     public void BundleDefinitions_Load_CatalogModelId_IsAccepted(string modelId)
     {
         // Arrange: a definition with a catalog-style model id
@@ -203,7 +235,7 @@ public sealed partial class BundleDefinitionsTests
         Assert.Equal([modelId], definition.ModelIds);
     }
 
-    /// <summary>Validates that Kokoro's and Nemotron's compiled bundle contents are their published bundles' contents.</summary>
+    /// <summary>Validates that Kokoro's, Nemotron's and Piper's compiled bundle contents are their published bundles' contents.</summary>
     [Fact]
     public void BundleCatalog_GetContents_SingleBundleModels_EqualPublishedBundleContents()
     {
@@ -217,34 +249,28 @@ public sealed partial class BundleDefinitionsTests
         var nemotron = Assert.Single(OnnxNemotronMultilingualRecognitionModel.Bundles);
         Assert.Equal(Describe(nemotron.Contents), Describe(contents[nemotron.Name]));
         Assert.Equal(11, contents["nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"].Files.Count);
+        var piper = Assert.Single(OnnxPiperLibriTtsEnSynthesisModel.Bundles);
+        Assert.Equal(Describe(piper.Contents), Describe(contents[piper.Name]));
+        Assert.Equal(3, contents["piper-en-us-libritts-r-medium-20261122-fp32-b1"].Files.Count);
     }
 
-    /// <summary>Validates that every Chatterbox Turbo variant installs exactly its language-model and auxiliary bundles' files.</summary>
-    /// <param name="languageModel">The language-model variant.</param>
-    /// <param name="auxiliary">The auxiliary-model variant.</param>
-    /// <param name="lmBundle">The expected language-model bundle.</param>
-    /// <param name="auxBundle">The expected auxiliary bundle.</param>
-    [Theory]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Q4, "chatterbox-turbo-lm-20261014-fp16-b1", "chatterbox-turbo-aux-20261014-int4-b1")]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp16, "chatterbox-turbo-lm-20261014-fp32-b1", "chatterbox-turbo-aux-20261014-fp16-b1")]
-    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp32, "chatterbox-turbo-lm-20261014-fp16-b1", "chatterbox-turbo-aux-20261014-fp32-b1")]
-    public void BundleCatalog_GetContents_ChatterboxVariant_EqualsVariantVendorFiles(
-        ChatterboxTurboLanguageModelVariant languageModel,
-        ChatterboxTurboAuxiliaryModelVariant auxiliary,
-        string lmBundle,
-        string auxBundle)
+    /// <summary>Validates that Chatterbox Turbo installs exactly its language-model and auxiliary bundles' files.</summary>
+    [Fact]
+    public void BundleCatalog_GetContents_Chatterbox_EqualsModelVendorFiles()
     {
-        // Arrange: the variant's model and the compiled contents
-        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
-            new ChatterboxTurboModelOptions { LanguageModelVariant = languageModel, AuxiliaryModelVariant = auxiliary });
+        // Arrange: the compiled contents
         var contents = BundleCatalog.GetContents();
 
         // Act: join the two component bundles
-        var joined = contents[lmBundle].Files.Concat(contents[auxBundle].Files).ToList();
+        var joined = contents["chatterbox-turbo-lm-20261014-fp16-b1"].Files
+            .Concat(contents["chatterbox-turbo-aux-20261014-int4-b1"].Files)
+            .ToList();
 
-        // Assert: the variant installs exactly those eight files, in that order, whichever source it downloads from
+        // Assert: the model's bundles hold exactly those eight files, in that order
         Assert.Equal(8, joined.Count);
-        Assert.Equal(Describe(VendorFilesOf(model)), Describe(new SpeechModelDownloadDescriptor(joined)));
+        Assert.Equal(
+            Describe(new SpeechModelDownloadDescriptor([.. OnnxChatterboxTurboEnglishSynthesisModel.Bundles.SelectMany(bundle => bundle.Contents.Files)])),
+            Describe(new SpeechModelDownloadDescriptor(joined)));
     }
 
     /// <summary>Validates that the published zip pins are exactly the packages' published bundles, so a rebuild reports MATCH.</summary>
@@ -254,7 +280,7 @@ public sealed partial class BundleDefinitionsTests
         // Arrange / Act: read the published pins
         var pins = BundleCatalog.GetPublishedChecksums();
 
-        // Assert: the four published bundles carry their released zip SHA-256s, and no deferred bundle has a pin
+        // Assert: every declared bundle is published and carries its released zip SHA-256
         Assert.Equal(
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -262,9 +288,10 @@ public sealed partial class BundleDefinitionsTests
                 ["nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"] = "733375bb604712afac6c4adbd6a9149ebc414fc9a5bee39ed3bdfc3c104048b2",
                 ["chatterbox-turbo-lm-20261014-fp16-b1"] = "2c2e05d62e18453fa8c726d57b8c970948f5d693400f303fc2e9dc97838a1584",
                 ["chatterbox-turbo-aux-20261014-int4-b1"] = "1981e10e65bb4f2954b99dee6c9b9e74242428cd87ed0dadf085ca6f8f229581",
+                ["piper-en-us-libritts-r-medium-20261122-fp32-b1"] = "5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f",
             }.OrderBy(entry => entry.Key, StringComparer.Ordinal),
             pins.OrderBy(entry => entry.Key, StringComparer.Ordinal));
-        Assert.All(pins.Keys, name => Assert.Contains(name, BundleCatalog.GetContents().Keys));
+        Assert.Equal(BundleCatalog.GetContents().Keys.Order(StringComparer.Ordinal), pins.Keys.Order(StringComparer.Ordinal));
     }
 
     /// <summary>Describes a descriptor as comparable strings (URL, pin and install path of each file, in order).</summary>
@@ -272,23 +299,6 @@ public sealed partial class BundleDefinitionsTests
     /// <returns>One string per file.</returns>
     private static List<string> Describe(SpeechModelDownloadDescriptor descriptor) =>
         [.. descriptor.Files.Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}")];
-
-    /// <summary>
-    ///     Gets the vendor files a Chatterbox Turbo variant installs, through its public API: the contents of the
-    ///     published bundles its descriptor names, or the descriptor's own files for a variant downloading them
-    ///     individually.
-    /// </summary>
-    /// <param name="model">The variant's model.</param>
-    /// <returns>The installed vendor files, in descriptor order.</returns>
-    private static SpeechModelDownloadDescriptor VendorFilesOf(OnnxChatterboxTurboEnglishSynthesisModel model)
-    {
-        var published = OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles
-            .ToDictionary(bundle => bundle.FileName, StringComparer.Ordinal);
-        var files = model.DownloadDescriptor.Files;
-        return files.All(file => published.ContainsKey(file.RelativeInstallPath))
-            ? new SpeechModelDownloadDescriptor([.. files.SelectMany(file => published[file.RelativeInstallPath].Contents.Files)])
-            : model.DownloadDescriptor;
-    }
 
     /// <summary>Writes a one-bundle definitions file and its license text.</summary>
     /// <param name="directory">The directory to write into (must exist).</param>

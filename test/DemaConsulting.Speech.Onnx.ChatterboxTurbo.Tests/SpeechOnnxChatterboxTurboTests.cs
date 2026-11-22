@@ -79,27 +79,28 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Equal(["a"], VoiceChoice(model).Options.Select(option => option.Value));
     }
 
-    /// <summary>Proves the registered model is a downloadable synthesis model with selectable precision variants and voices.</summary>
+    /// <summary>
+    ///     Proves the registered model is a downloadable synthesis model whose files come only from the project's
+    ///     <c>models</c> release, with its supplied voices.
+    /// </summary>
     [Fact]
-    public void SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableWithVariantsAndVoices()
+    public void SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableFromModelsReleaseWithVoices()
     {
         // Arrange
         using var catalog = NewCatalog();
+
+        // Act
         catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f), Voice("b", 0.5f)] });
         var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
 
-        // Act
-        var other = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions
-        {
-            ReferenceVoices = [Voice("a", 0.25f)],
-            LanguageModelVariant = ChatterboxTurboLanguageModelVariant.Fp32,
-        });
-
         // Assert
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
+        Assert.Equal("chatterbox-turbo-onnx-en", model.Id);
         Assert.NotEmpty(model.DownloadDescriptor.Files);
         Assert.All(model.DownloadDescriptor.Files, file => Assert.False(string.IsNullOrWhiteSpace(file.Sha256Checksum)));
-        Assert.NotEqual(model.Id, other.Id);
+        Assert.All(
+            model.DownloadDescriptor.Files,
+            file => Assert.StartsWith("https://github.com/demaconsulting/Speech/releases/download/models/", file.Uri.AbsoluteUri, StringComparison.Ordinal));
         Assert.Equal(["a", "b"], VoiceChoice(model).Options.Select(option => option.Value));
     }
 

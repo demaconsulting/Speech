@@ -39,25 +39,22 @@ sections:
 
       - id: SpeechOnnxPiper-Models-VoiceInstallation
         title: >-
-          The library shall download the voice as one HTTPS archive that is pinned by its SHA-256 and install it by
-          keeping only the ONNX graph and the voice configuration, placed directly in the install directory under
-          their bare file names, so that no entry path can leave the directory, no other file of the archive (the
-          espeak-ng data, the token table) is ever written, and the archive is deleted afterwards; an archive that
-          lacks either file shall fail the installation.
+          The library shall download the voice only from the project's models release, as one bundle pinned by its
+          SHA-256, and shall install it only when every vendor file in the bundle matches its own pinned SHA-256,
+          failing the installation otherwise; an installed voice (the graph and the configuration at the installed
+          root, including one installed by an earlier version) shall load and speak.
         tags: [system]
         justification: |
-          The voice's own Hugging Face files could not be reached when the package was developed, so the same
-          voice is taken from the archive that the sherpa-onnx project publishes, whose hash was verified and is
-          pinned. That archive also holds the espeak-ng data, which has a license of its own (GPL-3.0) and which
-          this package does not use, so it must never be written to the installed model. An archive entry is
-          untrusted input: where a file lands must not depend on the entry's path. A voice without its graph or
-          its configuration cannot speak, and a failed installation must say so instead of leaving a half-installed
-          model.
+          Hosts behind a firewall that blocks Hugging Face must still be able to install the voice, so it is
+          hosted on the project's own GitHub release, and the pins prove the files are the original, unmodified
+          vendor files. Tampered or damaged files must never reach the installed model, and a failed installation
+          must say so instead of leaving a half-installed model. A voice installed by an earlier version keeps the
+          same layout and must keep working without a reinstall.
         children:
           - SpeechOnnxPiper-Models-DownloadAndInstall
         tests:
-          - SpeechOnnxPiper_VoiceDownload_IsPinnedBySha256
-          - SpeechOnnxPiper_InstallAndLoad_ArchiveBecomesAWorkingVoice
+          - SpeechOnnxPiper_VoiceDownload_IsModelsReleaseBundlePinnedBySha256
+          - SpeechOnnxPiper_InstallAndLoad_TamperedBundleIsRejectedAndInstalledVoiceSpeaks
 
       - id: SpeechOnnxPiper-Models-VoiceConfiguration
         title: >-
@@ -178,13 +175,15 @@ sections:
           MIT AND CC-BY-4.0 and contains the MIT license text for the code and the license note of the voice it
           downloads, shall carry a third-party notice that
           gives the CC BY 4.0 attribution of the voice, cites the LibriTTS-R corpus, names the Piper project and the
-          archive the voice is taken from, and points to the notices of the text analysis and phonemization
-          packages; both files shall be packed at the package root and the nuspec shall name the license file.
+          bundle the voice is taken from, states the voice's lineage (fine-tuned from the Lessac voice, whose
+          Blizzard Challenge 2013 training data is licensed for non-commercial research use only), and points to the
+          notices of the text analysis and phonemization packages; both files shall be packed at the package root and the nuspec shall name the license file.
         tags: [system]
         justification: |
           The voice is licensed under CC BY 4.0, an attribution license, while the code is MIT: declaring the MIT
           License alone would misstate what a consumer receives. Attribution has to travel with the package, and the
-          corpus maintainers ask that their paper is cited. The package embeds none of the third-party data, so
+          corpus maintainers ask that their paper is cited. The voice's lineage carries a research-only restriction
+          upstream, so a consumer must be told about it to decide whether the voice fits their use. The package embeds none of the third-party data, so
           the notices of the text analysis and pronunciation data stay with the packages that carry them. The built
           package is inspected by a FileAssert test; the text of the notices is reviewed, not scanned, and this is not
           legal advice.

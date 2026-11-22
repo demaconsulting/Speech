@@ -5,9 +5,10 @@
 `OnnxPiperLibriTtsEnSynthesisModel` is verified by unit tests in
 `test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs` that
 never touch the network or the real voice. The declared facts and the speaker resolution are checked directly. The
-installer (`PiperArchiveExtractor`, which this unit owns) is checked with `.tar.bz2` archives that the tests build with
-`PiperTestFixtures`, including an archive with a hostile entry path, and the backend creation with a stand-in ONNX graph
-that has the four inputs of the Piper graph, written beside the trimmed copy of the real voice configuration.
+bundle and its three per-file pins are checked directly, the installation with a tampered bundle zip that the tests
+build with `PiperTestFixtures`, and the backend creation with a stand-in ONNX graph that has the four inputs of the
+Piper graph, written beside the trimmed copy of the real voice configuration (the layout of both a bundle install and an
+earlier install from the sherpa-onnx archive).
 
 #### Test Environment
 
@@ -23,13 +24,14 @@ license `CC BY 4.0` with `https://creativecommons.org/licenses/by/4.0/`, a prefe
 analyzer that is the same instance for every model instance and a capability profile that speaks the clauses of a
 sentence as one segment (and keeps a sentence end, a pause and the 300-character budget as boundaries); its only
 parameter is an integer from 0 to 903 with the default 0; the speaker values `7`, `7.0`, `7.4f` and `903` resolve to 7,
-7, 7 and 903 and `null`, 904, -1, NaN, infinity and the text `"7"` resolve to 0; the download descriptor has one HTTPS
-`.tar.bz2` file with the SHA-256 `10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c`; an installed
-archive leaves only the graph and the configuration and no archive; a hostile entry path stays inside the staging
-directory; an archive without the graph, without the configuration or with neither throws `InvalidDataException` and
-stays in place; a backend is created at 22,050 Hz and is an `IAnnotatedSynthesisBackend`; an empty directory argument, a
-configuration of one speaker, an empty configuration and a missing graph fail; and a model with an unavailable preferred
-provider falls back to the CPU and synthesizes.
+7, 7 and 903 and `null`, 904, -1, NaN, infinity and the text `"7"` resolve to 0; the bundle holds exactly
+`en_US-libritts_r-medium.onnx`, `en_US-libritts_r-medium.onnx.json` and `MODEL_CARD` with their pinned SHA-256 and their
+original `rhasspy/piper-voices` URLs; the download descriptor has one file, the
+`piper-en-us-libritts-r-medium-20261122-fp32-b1.zip` asset of the `models` release with the SHA-256
+`5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f`; a bundle whose vendor bytes differ from the pins
+throws `InvalidDataException`; a backend is created at 22,050 Hz and is an `IAnnotatedSynthesisBackend`; an empty
+directory argument, a configuration of one speaker, an empty configuration and a missing graph fail; and a model with an
+unavailable preferred provider falls back to the CPU and synthesizes.
 
 #### Test Scenarios
 
@@ -62,20 +64,22 @@ sentence of twelve clauses arrives in segments of at most 300 characters that re
 **Tests**: `OnnxPiperLibriTtsEnSynthesisModel_Parameters_AreTheSpeakerSelectionOnly`,
 `OnnxPiperLibriTtsEnSynthesisModel_ResolveSpeakerId_Value_ResolvesOrFallsBackToZero`
 
-##### Download descriptor
+##### Bundle and download descriptor
 
-**Test**: `OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_PinsOneHttpsArchive`
+**Tests**: `OnnxPiperLibriTtsEnSynthesisModel_BundleContents_PinsTheThreeVendorFiles`,
+`OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle`
+
+The bundle's contents are the three vendor files at the installed root, each with its exact SHA-256 and its original
+`https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts_r/medium/` URL (provenance only); the
+descriptor is the one zip on the `models` release with its pinned SHA-256.
 
 ##### Installation
 
-**Tests**: `OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ReleaseArchive_KeepsOnlyGraphAndConfiguration`,
-`OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_HostileEntryPath_StaysInsideInstalledDirectory`,
-`OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ArchiveMissingAFile_Throws`
+**Test**: `OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_BundleWithWrongFile_Throws`
 
-The first archive holds the graph, the configuration, `tokens.txt`, a model card and an espeak-ng data file in a folder;
-only the two wanted files remain, directly in the directory, with the graph's bytes intact. In the second, the entry
-`../../evil.onnx` lands as `evil.onnx` in the staging directory and not in its parent. The third is a theory over
-archives that hold only the graph, only the configuration or only the token table.
+A well-formed bundle zip whose `model.json` declares the compiled pins but whose vendor entries hold other bytes fails
+the installation with `InvalidDataException`; unsafe entry names, extra or missing entries and a genuine bundle's
+extraction are verified by the Speech library's `SpeechModelBundle` and `SpeechModelBundleInstaller` tests.
 
 ##### Backend creation
 

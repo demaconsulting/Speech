@@ -307,7 +307,7 @@ The following OTS items are also covered:
 - **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx family of
   libraries, including the Kokoro and Piper model packages
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
-- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa and SpeechOnnxPiper model installs
+- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
 - **CommunityToolkit.Mvvm** — MVVM change-notification and command source generators
 - **BuildMark** — build-notes documentation tool
@@ -440,9 +440,9 @@ that `Speech` neither references nor knows about, and two more, `SpeechTextEn` a
   reduced function words.
 - `SpeechOnnxPiper` (`DemaConsulting.Speech.Onnx.Piper`) supplies the Piper (VITS) English (US) `libritts_r` voice
   with 904 speakers as a text-to-speech model and engine in two subsystems, `ModelManagementSubsystem` (catalog
-  extension, model with its archive extractor, voice configuration reader) and `SynthesisSubsystem` (the engine and
-  the `PiperPhonemePipeline`). It depends on `Speech`, `SpeechOnnx`, `SpeechTextEn` and `SpeechPhonemesEn`, and on the
-  SharpCompress OTS package to extract the two voice files from the downloaded archive; it bundles no espeak-ng.
+  extension, model installed from its `models`-release bundle, voice configuration reader) and `SynthesisSubsystem`
+  (the engine and the `PiperPhonemePipeline`). It depends on `Speech`, `SpeechOnnx`, `SpeechTextEn` and
+  `SpeechPhonemesEn`; it bundles no espeak-ng.
 - `SpeechOnnxNemotronStt` (`DemaConsulting.Speech.Onnx.NemotronStt`) supplies a streaming
   Nemotron speech-recognition model and engine in two subsystems, `ModelManagementSubsystem`
   and `RecognitionSubsystem` (the engine, feature extractor, RNN-T decoder, endpoint detector, and
@@ -822,9 +822,7 @@ src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/
 ├── SpeechModelCatalogChatterboxTurboExtensions.cs         — `AddChatterboxTurboModels()` registration
 ├── ModelManagementSubsystem/
 │   ├── OnnxChatterboxTurboEnglishSynthesisModel.cs        — Voice-cloning synthesis model
-│   ├── ChatterboxTurboModelOptions.cs                     — Voices, variants, and tuning options
-│   ├── ChatterboxTurboLanguageModelVariant.cs             — Language-model precision variant enum
-│   ├── ChatterboxTurboAuxiliaryModelVariant.cs            — Auxiliary-graph precision variant enum
+│   ├── ChatterboxTurboModelOptions.cs                     — Voices and tuning options
 │   ├── ChatterboxTurboEndOfSentenceTagPolicy.cs           — End-of-sentence tag policy enum
 │   ├── ByteLevelBpeTokenizer.cs                           — Embedded byte-level BPE tokenizer
 │   └── ChatterboxTurboReferenceVoice.cs                   — Normalized reference clip
@@ -875,7 +873,6 @@ src/DemaConsulting.Speech.Onnx.Piper/
 ├── SpeechModelCatalogPiperExtensions.cs                   — `AddPiperModels()` registration
 ├── ModelManagementSubsystem/
 │   ├── OnnxPiperLibriTtsEnSynthesisModel.cs               — Piper libritts_r English (US) voice model
-│   ├── PiperArchiveExtractor.cs                           — Extracts only the voice and its configuration from the archive
 │   └── PiperVoiceConfig.cs                                — Voice configuration reader (symbol table, sample rate, scales)
 └── SynthesisSubsystem/
     ├── OnnxPiperSynthesisEngine.cs                        — Real ONNX Runtime synthesis backend
@@ -978,15 +975,16 @@ docs/evaluation/nemotron-stt/                              — Recorded evaluati
 ```
 
 The model bundling tool is a non-shipped, maintainer-only tool system (`ModelBundler`) that repackages the unmodified
-vendor files of the SpeechOnnxKokoro, SpeechOnnxNemotronStt and SpeechOnnxChatterboxTurbo packages into the bundles
-of the project's `models` release; its bundle zips are tool outputs under the git-ignored `artifacts/` folder:
+vendor files of the SpeechOnnxKokoro, SpeechOnnxNemotronStt, SpeechOnnxChatterboxTurbo and SpeechOnnxPiper packages into
+the bundles of the project's `models` release; its bundle zips are tool outputs under the git-ignored `artifacts/`
+folder:
 
 ```text
 tools/ModelBundler/
 ├── ModelBundler.csproj                                    — Non-packable net10.0 console project (DemaConsulting.Speech.ModelBundler)
 ├── README.md                                              — Commands, source order, bundle layout and the publishing order
 ├── bundles.json                                           — Bundle definitions: name parts, model ids, upstream, fixed date, licenses, attribution, NOTICE
-├── licenses/                                              — Committed license texts (Apache-2.0, MIT for Resemble AI and onnx-community, OpenMDW-1.1)
+├── licenses/                                              — Committed license texts (Apache-2.0, CC-BY-4.0, MIT for Resemble AI and onnx-community, OpenMDW-1.1)
 ├── Program.cs                                             — Entry point: the build, verify and upload commands
 ├── CommandLineOptions.cs                                  — Command-line parsing
 ├── BundleDefinitions.cs                                   — bundles.json loader and validation
@@ -1208,7 +1206,7 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   The bundle zips it writes, and their `SHA256SUMS` and release notes, are build outputs under `artifacts/` that are
   published on the `models` release and never committed.
 - **Small enums and value types** (for example `TaggedTextSpanKind` and the
-  ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
+  ChatterboxTurbo policy, tag and generation-result types) are listed in the `sourceRef`
   of the unit that owns or consumes them rather than modeled as separate units.
 - **View names** are prefixed with the system name for sibling systems; the core Speech
   system's views are unprefixed, and `DiagnosticsView`/`PortAudioView` name child subsystems

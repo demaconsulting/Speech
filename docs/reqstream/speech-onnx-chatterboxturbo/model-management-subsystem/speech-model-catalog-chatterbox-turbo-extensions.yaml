@@ -61,15 +61,16 @@ sections:
                 tests:
                   - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_OptionsObject_IsNotMutated
 
-              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
+              - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-RegistersModelsReleaseDownload
                 title: >-
                   The SpeechModelCatalogChatterboxTurboExtensions class shall register the model
-                  with the precision variants named by the supplied options.
+                  under its one id, chatterbox-turbo-onnx-en, downloading its two bundles from the
+                  project's models release.
                 justification: |
-                  A host selects variants through the options and expects the registered model to
-                  reflect them.
+                  A host registers the one model the package offers and expects it to install from
+                  the project's own release, which is reachable where Hugging Face is blocked.
                 tests:
-                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelsReleaseDownload
 
               - id: SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesVoices
                 title: >-

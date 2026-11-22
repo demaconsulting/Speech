@@ -7,14 +7,12 @@ namespace DemaConsulting.Speech.Onnx.Piper.Tests.ModelManagementSubsystem;
 
 /// <summary>
 ///     Behavior tests for <see cref="OnnxPiperLibriTtsEnSynthesisModel"/>: its catalog facts, the speaker parameter and
-///     its resolution, the download descriptor, the installer that keeps only the graph and the configuration of the
-///     release archive, and loading a backend from an installed directory (with a tiny stand-in graph, never the real
+///     its resolution, the <c>models</c>-release bundle and its pinned vendor files, the installer's rejection of a
+///     tampered bundle, and loading a backend from an installed directory (with a tiny stand-in graph, never the real
 ///     voice).
 /// </summary>
 public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
 {
-    private const string ArchiveFolder = "vits-piper-en_US-libritts_r-medium/";
-
     private readonly string _root = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Onnx.Piper.Tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>Initializes a scratch directory that no test shares.</summary>
@@ -285,9 +283,38 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         Assert.Equal(0, model.ResolveSpeakerId(null));
     }
 
-    /// <summary>Proves the download descriptor names one pinned HTTPS file (a non-empty SHA-256) that the installer unpacks.</summary>
+    /// <summary>
+    ///     Proves the bundle holds exactly the voice's three original <c>rhasspy/piper-voices</c> files (graph,
+    ///     configuration and model card), flat at the installed root, each with its original URL and SHA-256 pin.
+    /// </summary>
     [Fact]
-    public void OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_PinsOneHttpsArchive()
+    public void OnnxPiperLibriTtsEnSynthesisModel_BundleContents_PinsTheThreeVendorFiles()
+    {
+        // Arrange
+        var bundle = Assert.Single(OnnxPiperLibriTtsEnSynthesisModel.Bundles);
+
+        // Act
+        var files = bundle.Contents.Files;
+
+        // Assert
+        Assert.Equal(
+            [
+                "en_US-libritts_r-medium.onnx|10bb85e071d616fcf4071f369f1799d0491492ab3c5d552ec19fb548fac13195",
+                "en_US-libritts_r-medium.onnx.json|b471dc60d2d8335e819c393d196d6fbf792817f40051257b269878505bc9afb3",
+                "MODEL_CARD|0ccde6927e5bb4d743f4ea39618a9387ba18cca3351220a8a9cfdbc68b30fcb9",
+            ],
+            files.Select(file => $"{file.RelativeInstallPath}|{file.Sha256Checksum}"));
+        Assert.All(files, file => Assert.Equal(
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts_r/medium/" + file.RelativeInstallPath,
+            file.Uri.AbsoluteUri));
+    }
+
+    /// <summary>
+    ///     Proves the model downloads exactly one zip, the pinned
+    ///     <c>piper-en-us-libritts-r-medium-20261122-fp32-b1.zip</c> asset on the project's <c>models</c> release.
+    /// </summary>
+    [Fact]
+    public void OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle()
     {
         // Arrange
         var model = new OnnxPiperLibriTtsEnSynthesisModel();
@@ -296,76 +323,35 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModelTests : IDisposable
         var file = Assert.Single(model.DownloadDescriptor.Files);
 
         // Assert
-        Assert.Equal("https", file.Uri.Scheme);
-        Assert.EndsWith(".tar.bz2", file.Uri.AbsolutePath, StringComparison.Ordinal);
-        Assert.Equal("10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c", file.Sha256Checksum);
+        var bundle = Assert.Single(OnnxPiperLibriTtsEnSynthesisModel.Bundles);
+        Assert.Equal("piper-en-us-libritts-r-medium-20261122-fp32-b1", bundle.Name);
+        Assert.Equal(
+            new Uri("https://github.com/demaconsulting/Speech/releases/download/models/piper-en-us-libritts-r-medium-20261122-fp32-b1.zip"),
+            file.Uri);
+        Assert.Equal(PiperTestFixtures.BundleSha256, file.Sha256Checksum);
+        Assert.Equal("piper-en-us-libritts-r-medium-20261122-fp32-b1.zip", file.RelativeInstallPath);
     }
 
-    /// <summary>Proves the installer keeps only the graph and the configuration, flat in the installed directory, and removes the archive and everything else (the espeak-ng data, the token table).</summary>
+    /// <summary>
+    ///     Proves installing a well-formed bundle whose vendor bytes do not match the compiled pins throws
+    ///     <see cref="InvalidDataException"/>, so a tampered bundle is never installed.
+    /// </summary>
     [Fact]
-    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ReleaseArchive_KeepsOnlyGraphAndConfiguration()
+    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_BundleWithWrongFile_Throws()
     {
-        // Arrange
+        // Arrange: stage the model's bundle with every vendor file replaced by other bytes
         var model = new OnnxPiperLibriTtsEnSynthesisModel();
-        var archivePath = model.DownloadDescriptor.Files[0].ResolveStagedPath(_root);
-        await File.WriteAllBytesAsync(archivePath, PiperTestFixtures.BuildArchive(
-        [
-            (ArchiveFolder + "en_US-libritts_r-medium.onnx", [1, 2, 3]),
-            (ArchiveFolder + "en_US-libritts_r-medium.onnx.json", "{}"u8.ToArray()),
-            (ArchiveFolder + "tokens.txt", "a 1"u8.ToArray()),
-            (ArchiveFolder + "MODEL_CARD", "card"u8.ToArray()),
-            (ArchiveFolder + "espeak-ng-data/en_dict", "dict"u8.ToArray()),
-        ]), TestContext.Current.CancellationToken);
+        PiperTestFixtures.StageBundleWithWrongFiles(Assert.Single(OnnxPiperLibriTtsEnSynthesisModel.Bundles), _root);
 
-        // Act
-        await model.InstallAsync(_root, TestContext.Current.CancellationToken);
-
-        // Assert
-        var installed = Directory.GetFileSystemEntries(_root).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToList();
-        Assert.Equal(["en_US-libritts_r-medium.onnx", "en_US-libritts_r-medium.onnx.json"], installed);
-        Assert.Equal([1, 2, 3], await File.ReadAllBytesAsync(Path.Combine(_root, "en_US-libritts_r-medium.onnx"), TestContext.Current.CancellationToken));
-    }
-
-    /// <summary>Proves an entry path that tries to leave the installed directory still lands inside it, under its bare file name.</summary>
-    [Fact]
-    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_HostileEntryPath_StaysInsideInstalledDirectory()
-    {
-        // Arrange
-        var staging = Path.Combine(_root, "staging");
-        Directory.CreateDirectory(staging);
-        var model = new OnnxPiperLibriTtsEnSynthesisModel();
-        await File.WriteAllBytesAsync(model.DownloadDescriptor.Files[0].ResolveStagedPath(staging), PiperTestFixtures.BuildArchive(
-        [
-            ("../../evil.onnx", [9]),
-            ("x/en_US-libritts_r-medium.onnx.json", "{}"u8.ToArray()),
-        ]), TestContext.Current.CancellationToken);
-
-        // Act
-        await model.InstallAsync(staging, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Empty(Directory.GetFiles(_root, "evil.onnx", SearchOption.TopDirectoryOnly));
-        Assert.True(File.Exists(Path.Combine(staging, "evil.onnx")));
-    }
-
-    /// <summary>Proves an archive that lacks the graph or the configuration fails the install and is left in place for the downloader to discard.</summary>
-    [Theory]
-    [InlineData("en_US-libritts_r-medium.onnx")]
-    [InlineData("en_US-libritts_r-medium.onnx.json")]
-    [InlineData("tokens.txt")]
-    public async Task OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ArchiveMissingAFile_Throws(string onlyEntry)
-    {
-        // Arrange
-        var model = new OnnxPiperLibriTtsEnSynthesisModel();
-        var archivePath = model.DownloadDescriptor.Files[0].ResolveStagedPath(_root);
-        await File.WriteAllBytesAsync(archivePath, PiperTestFixtures.BuildArchive([(ArchiveFolder + onlyEntry, [1])]), TestContext.Current.CancellationToken);
-
-        // Act & Assert
+        // Act / Assert: verification rejects the extracted bytes
         await Assert.ThrowsAsync<InvalidDataException>(() => model.InstallAsync(_root, TestContext.Current.CancellationToken));
-        Assert.True(File.Exists(archivePath));
     }
 
-    /// <summary>Proves a backend is created from an installed directory (with a stand-in graph) at the voice's 22,050 Hz.</summary>
+    /// <summary>
+    ///     Proves a backend is created at the voice's 22,050 Hz from an installed directory that holds only the graph (a
+    ///     stand-in) and the configuration: the layout an earlier install from the sherpa-onnx archive left, with no model
+    ///     card and no bundle license files, so such an install keeps working.
+    /// </summary>
     [Fact]
     public void OnnxPiperLibriTtsEnSynthesisModel_CreateBackend_InstalledDirectory_ReturnsBackendAtVoiceRate()
     {

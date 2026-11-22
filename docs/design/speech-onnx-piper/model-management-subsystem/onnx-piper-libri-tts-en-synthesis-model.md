@@ -1,8 +1,8 @@
 ### OnnxPiperLibriTtsEnSynthesisModel
 
 **Purpose**: The production `ISynthesisModel` for the Piper English (US) voice `en_US-libritts_r-medium`, run directly
-through ONNX Runtime, with the installation of the voice's downloaded archive. It is one of the two public types of the
-package.
+through ONNX Runtime, with the installation of the voice from its `models`-release bundle. It is one of the two public
+types of the package.
 
 **Data Model**:
 
@@ -13,9 +13,15 @@ package.
   on first use and shared by every instance
 - `CapabilityProfile`: the shared `PiperCapabilityProfile` (internal helper of this unit, below)
 - `Parameters`: one `NumericParameter` for the speaker: integer, 0 to 903, step 1, default 0
-- `DownloadDescriptor`: one `SpeechModelDownloadFile`: the HTTPS URL of
-  `vits-piper-en_US-libritts_r-medium.tar.bz2` published by the sherpa-onnx project, the SHA-256
-  `10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c` and the install path of the archive
+- `BundleName` (internal) = `piper-en-us-libritts-r-medium-20261122-fp32-b1`
+- `BundleContents` (internal, static): the three vendor files, each with its original `rhasspy/piper-voices` URL
+  (`resolve/main/en/en_US/libritts_r/medium/`), SHA-256 pin and flat install path: `en_US-libritts_r-medium.onnx`
+  (`10bb85e0…c13195`), `en_US-libritts_r-medium.onnx.json` (`b471dc60…bc9afb3`) and `MODEL_CARD` (`0ccde692…68b30fcb9`).
+  It is the single source of the per-file pins; the non-shipped model bundler reads it through `InternalsVisibleTo`
+- `Bundles` (public, static): the one `SpeechModelBundle`, served from `SpeechModelBundle.ModelsReleaseBaseUri`, pinned
+  by the zip SHA-256 `5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f`, with `BundleContents` as its
+  contents
+- `DownloadDescriptor`: `SpeechModelBundle.CreateDescriptor(Bundles)`, the one zip
 - The preferred execution provider names given to the constructor (`null` for CPU only)
 
 **Key Methods**:
@@ -23,7 +29,10 @@ package.
 - **ResolveSpeakerId(parameterValues)**: the speaker from the `speaker` value; a boxed `double`, `int` or `float` is
   accepted and rounded to the nearest whole number (half away from zero); a missing bag, a missing value, a value of
   another type, a value that is not finite and a value outside 0 to 903 give speaker 0. It never throws
-- **InstallAsync(stagedFilesDirectory)**: hands the staged archive to `PiperArchiveExtractor`, described below
+- **InstallAsync(stagedFilesDirectory)**: delegates to `SpeechModelBundle.InstallAsync(Bundles, ...)`, which rejects an
+  unsafe entry name, an extra or missing file and any file whose SHA-256 differs from its pin, extracts the three
+  vendor files to the staged root, keeps the bundle's `LICENSE`, `NOTICE`, `README.txt` and `model.json` under
+  `licenses/piper-en-us-libritts-r-medium-20261122-fp32-b1/` and deletes the zip
 - **CreateBackend(installedModelDirectory)**: reads `en_US-libritts_r-medium.onnx.json` with `PiperVoiceConfig.Load`;
   throws `InvalidDataException` when the configuration is unusable or its sample rate is not 22,050 Hz or its number of
   speakers is below 904; builds the `PiperPhonemePipeline`; creates the session with
@@ -52,36 +61,30 @@ of the time against 90.6 percent (see `docs/evaluation/phonemes-en/renderers.md`
 utterances of 300 characters were also recognized with fewer word errors than the 200-character ones (*Listening Fixes
 3*). It needs nothing of the core library but its public chunking and plan types.
 
-**PiperArchiveExtractor (internal helper of this unit).** `ExtractAndDeleteAsync(archivePath, destinationDirectory)`
-reads the `.tar.bz2` archive with SharpCompress (the .NET base class library has no BZip2 decoder, which is the reason
-the package references it). It writes only the entries whose file name ends with `.onnx` or `.onnx.json`, and writes
-each directly into the destination directory under its bare file name (`Path.GetFileName` of the entry key): the
-archive's own folder structure plays no part in where a file lands, so a hostile entry path such as `../../evil.onnx`
-cannot leave the directory. Every other entry (the espeak-ng data, the token table, the model card) is skipped and never
-written. It throws `InvalidDataException` when the archive holds more than one file of a name or does not hold exactly
-one `.onnx` and one `.onnx.json` file, leaving the archive in place (the downloader discards the staging directory); on
-success it deletes the archive.
-
-**Voice Download decision (D4).** The voice's own distribution (Hugging Face) could not be reached from the development
-machine, so no file hash from it was verified. This unit therefore pins the verified sherpa-onnx archive of the same
-voice (see *SpeechOnnxPiper System Design*, *Voice Download*). If Hugging Face becomes reachable, switch the descriptor
-to two files pinned by revision and SHA-256, delete `InstallAsync` and `PiperArchiveExtractor` and drop the
-SharpCompress reference; `CreateBackend` and the engine would not change.
+**Voice files and earlier installs.** `CreateBackend` reads only the graph and the configuration; the model card is
+installed for provenance. The engine takes every voice fact from the configuration and never reads the graph's own
+metadata, so the vendor graph and the sherpa-onnx re-packaged graph of earlier installs (same inputs, added metadata)
+both work, and an earlier install, which holds only the graph and the configuration at the installed root, keeps
+working unchanged (see *SpeechOnnxPiper System Design*, *Voice Download*).
 
 **Speaker numbers.** LibriTTS-R publishes no speaker names, so the speakers are identified only by number and their
 quality differs; speaker 0 is the default and is not claimed to be the best.
 
-**License.** CC BY 4.0, from the voice's own model card (dataset OpenSLR 141). The license requires attribution when the
-voice is redistributed or when material made with it is shared where the license's attribution applies; the credit is in
-the package's `THIRD-PARTY-NOTICES.md` (see *SpeechOnnxPiper System Design*).
+**License.** CC BY 4.0, as declared by the voice's own model card (dataset OpenSLR 141). The license requires
+attribution when the voice is redistributed or when material made with it is shared where the license's attribution
+applies: LibriTTS-R (Koizumi et al., 2023; CC BY 4.0; OpenSLR 141) and the Piper project (Rhasspy). The model card also
+states that the voice was fine-tuned from the English Lessac medium voice, which was trained on the Blizzard Challenge
+2013 Lessac data, licensed for non-commercial research use only; the type's remarks, the `LicenseName` remarks, the
+package's `THIRD-PARTY-NOTICES.md` and the bundle's `NOTICE` carry this lineage notice, and consumers must review the
+upstream terms (see *SpeechOnnxPiper System Design*).
 
-**Error Handling**: `InvalidDataException` for an incomplete archive, an unusable configuration or a voice of another
-shape; `ArgumentException` for an empty path argument; a missing graph surfaces the ONNX Runtime error of the session
-creation.
+**Error Handling**: `InvalidDataException` for a bundle that fails verification, an unusable configuration or a voice of
+another shape; `ArgumentException` for an empty path argument; a missing graph surfaces the ONNX Runtime error of the
+session creation.
 
 **Dependencies**: `PiperVoiceConfig`, `PiperPhonemePipeline`, `OnnxPiperSynthesisEngine`,
-`OnnxExecutionProviderSelector`, `EnglishTextAnalyzer`, `DefaultModelCapabilityProfile` and `SentenceChunker` of the
-Speech library, SharpCompress.
+`OnnxExecutionProviderSelector`, `EnglishTextAnalyzer`, and `DefaultModelCapabilityProfile`, `SentenceChunker` and
+`SpeechModelBundle` of the Speech library.
 
 **Callers**: `SpeechModelCatalogPiperExtensions`, the Speech library's model store and synthesizer factory, and the
 tests.

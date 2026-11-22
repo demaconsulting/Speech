@@ -10,11 +10,11 @@ The SpeechOnnxPiper ModelManagementSubsystem is verified by deterministic tests 
   returns the same catalog (also when given a preferred provider name) and rejects a null catalog. This subsystem's
   documents fold this extension class in as its own review unit (there is no separate unit verification file), following
   the convention of the SpeechSherpa and SpeechOnnxKokoro systems
-- **`OnnxPiperLibriTtsEnSynthesisModel`** (with the archive installer it owns) and **`PiperVoiceConfig`** are verified
+- **`OnnxPiperLibriTtsEnSynthesisModel`** (with its bundle install) and **`PiperVoiceConfig`** are verified
   by their own unit tests (see their verification documents)
 - **The units together** are verified in `ModelManagementSubsystem/ModelManagementSubsystemTests.cs` over a tiny
-  stand-in ONNX graph that echoes what it is fed, so that the whole path from a downloaded archive to a speaking voice
-  is exercised: installation of a staged archive and creation of the backend from the installed directory, the speaker
+  stand-in ONNX graph that echoes what it is fed, so that the whole path from a downloaded bundle to a speaking voice
+  is exercised: rejection of a tampered bundle and creation of the backend from an installed directory, the speaker
   that the model resolves reaching the loaded voice, rejection of a voice configuration before the graph is loaded (the
   graph file in that test is not loadable, so a configuration check that came after the session creation would fail with
   another error), and the fallback of an unavailable preferred provider to the CPU for a model registered through the
@@ -26,16 +26,16 @@ The SpeechOnnxPiper ModelManagementSubsystem is verified by deterministic tests 
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Onnx.Piper.Tests`
 - **Isolation**: each test uses its own scratch directory under `Path.GetTempPath()`; no test needs network access or
-  the real voice. The archives and the stand-in graph are built by `PiperTestFixtures`
+  the real voice. The tampered bundles and the stand-in graph are built by `PiperTestFixtures`
 
 ### Acceptance Criteria
 
 The subsystem tests pass when: `AddPiperModels()` registers exactly one Synthesis-role model with the identifier
-`piper-onnx-libritts-r-en-us-medium`, returns the same catalog and throws `ArgumentNullException` for a null catalog; an
-archive with the graph, the configuration, a token table and an espeak-ng data file installs as exactly the graph and
-the configuration and a backend created from it at 22,050 Hz produces the framing ids; the speaker value 7 resolves to
-speaker 7 and runs the voice with speaker 7, while 5000 and a missing value resolve to speaker 0; a configuration with
-one speaker, with a 16,000 Hz sample rate, with a phoneme type other than espeak or without a phoneme map fails
+`piper-onnx-libritts-r-en-us-medium`, returns the same catalog and throws `ArgumentNullException` for a null catalog; a
+bundle whose vendor bytes differ from the compiled pins fails the installation with `InvalidDataException`, and a
+backend created at 22,050 Hz from an installed voice produces the framing ids; the speaker value 7 resolves to speaker 7
+and runs the voice with speaker 7, while 5000 and a missing value resolve to speaker 0; a configuration with one
+speaker, with a 16,000 Hz sample rate, with a phoneme type other than espeak or without a phoneme map fails
 `CreateBackend` with `InvalidDataException` although the graph beside it is not loadable; and a model registered with an
 unavailable provider name creates a working backend.
 
@@ -52,11 +52,13 @@ provider names; a null catalog throws.
 
 #### Download and installation
 
-**Test**: `ModelManagementSubsystem_InstallThenCreateBackend_ArchiveBecomesAWorkingVoice`
+**Tests**: `ModelManagementSubsystem_Install_TamperedBundle_IsRejected`,
+`ModelManagementSubsystem_CreateBackend_InstalledVoice_Speaks`
 
-A staged archive with the graph (the stand-in), the configuration, `tokens.txt` and an espeak-ng data file is installed;
-the install directory then holds exactly the two files, and `Generate("Hello there.")` on the created backend feeds ids
-that start with the begin id 1, end with the end id 2 and hold more than the framing.
+A staged bundle zip of the model's bundle name, whose `model.json` declares the three compiled pins but whose vendor
+entries hold other bytes, fails `InstallAsync` with `InvalidDataException`. An installed voice (the stand-in graph and
+the configuration at the installed root) creates a backend at 22,050 Hz, and `Generate("Hello there.")` feeds ids that
+start with the begin id 1, end with the end id 2 and hold more than the framing.
 
 #### Speaker selection
 
