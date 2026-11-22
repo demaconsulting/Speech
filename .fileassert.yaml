@@ -57,7 +57,7 @@ tests:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
 
   - name: Piper_Package_LicenseFilesPackaged
-    description: "Piper NuGet package, when it is packed (only for a pre-release version), ships its license file (MIT AND CC-BY-4.0) and its third-party notices (CC BY 4.0 attribution of the voice, LibriTTS-R citation) at the package root, names the license file in its nuspec, and exposes as public API only the voice model and the catalog extension"
+    description: "Piper NuGet package, when it is packed (only for a pre-release version), ships its license file (MIT AND CC-BY-4.0) and its third-party notices (CC BY 4.0 attribution of the voice, LibriTTS-R citation, Lessac lineage notice) at the package root, names the license file in its nuspec, and exposes as public API only the voice model and the catalog extension"
     tags: [api-docs]
     files:
       # Piper is packed only for a pre-release version (its Text.En and Phonemes.En dependency chain is
@@ -81,13 +81,15 @@ tests:
                 - contains: "Creative Commons Attribution 4.0 International (CC BY 4.0)"
                 - contains: "LibriTTS-R"
                 - contains: "Koizumi"
+                - contains: "Blizzard"
+                - contains: "non-commercial"
             - pattern: "DemaConsulting.Speech.Onnx.Piper.nuspec"
               min: 1
               max: 1
               text:
                 - contains: 'type="file">PACKAGE-LICENSE.md</license>'
-            # The public API is the voice model and the catalog extension; the voice configuration, archive
-            # extractor, phoneme pipeline and engine are internal.
+            # The public API is the voice model and the catalog extension; the voice configuration, phoneme
+            # pipeline and engine are internal.
             - pattern: "api/DemaConsulting.Speech.Onnx.Piper/SpeechModelCatalogPiperExtensions.md"
               min: 1
               max: 1

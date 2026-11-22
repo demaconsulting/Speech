@@ -16,7 +16,8 @@ end-to-end path through the Speech pipeline is covered by the system tests.
 Registration adds exactly one model with identity `chatterbox-turbo-onnx-en` and returns the same catalog
 instance; a null catalog throws `ArgumentNullException`; with no library in the options the model's voice
 choice lists the voices of the catalog store's user folder and the options object is left unmodified; the
-variants and voices named by the options are reflected by the registered model.
+registered model downloads its two bundles from the `models` release; the voices named by the options are reflected by
+the registered model.
 
 #### Test Scenarios
 
@@ -35,12 +36,12 @@ variants and voices named by the options are reflected by the registered model.
 This unit owns the verification of that test; the model unit and subsystem documents refer to it only by
 description.
 
-##### Variants from the options are composed
+##### The registered model downloads from the models release
 
-**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed`
+**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelsReleaseDownload`
 
-An Fp32 language model with Fp16 auxiliary graphs registers a model whose id names that variant and whose
-descriptor lists eight files.
+The registered model has the id `chatterbox-turbo-onnx-en`, and its descriptor lists exactly two files, both on the
+`models` release.
 
 ##### Explicit voices from the options are composed
 

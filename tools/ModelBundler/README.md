@@ -6,11 +6,13 @@ It packs each model's unmodified upstream files into a deterministic, SHA-256-pi
 uploads a build without ever replacing an existing asset.
 
 The vendor files, their original URLs and their SHA-256 pins come from the model packages' internal `BundleContents`
-members (Kokoro, NemotronStt and ChatterboxTurbo). The tool never declares a hash of its own. `bundles.json` declares
-everything else about each bundle:
+members (Kokoro, NemotronStt, ChatterboxTurbo and Piper). The tool never declares a hash of its own. `bundles.json`
+declares everything else about each bundle:
 
 - the name parts and the catalog model ids that install the bundle (each id must be one safe directory name: lowercase
-  letters and digits separated by single `.`, `_` or `-`)
+  letters and digits separated by single `.`, `_` or `-`). The ids are written into the bundle's `model.json` and
+  `README.txt`, so a published bundle's ids are frozen with its bytes: the two Chatterbox Turbo bundles still list the
+  precision-variant ids that were later removed from the catalog, and changing them would need a new bundle revision
 - the upstream repository and the pinned snapshot
 - the fixed bundle `date`, used in `README.txt` and for every zip timestamp (never the wall clock)
 - the licenses and their texts in `licenses/` (a text path must be relative, without `..` segments, and resolve inside
@@ -44,6 +46,20 @@ dotnet run --project tools/ModelBundler -c Release -- upload --input artifacts/m
      (a path that would resolve outside `{root}` fails the build before any file is read)
   2. the SHA-keyed cache `{cache}/{sha256}` (default `artifacts/model-bundler/cache`)
   3. a download of the file's original URL into the cache
+- To build from vendor files downloaded by hand (for example where the original host is blocked), seed the cache:
+  copy each file to `{cache}/{sha256}`, named by its lowercase SHA-256. The Piper bundle was built this way from the
+  three original `rhasspy/piper-voices` files:
+
+  ```pwsh
+  Get-ChildItem <folder> -File | ForEach-Object {
+    $sha = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    Copy-Item $_.FullName (Join-Path artifacts/model-bundler/cache $sha)
+  }
+  ```
+
+  Build the Piper bundle without `--source-store` unless the store holds a bundle install of it: a Piper voice installed
+  by an earlier version from the sherpa-onnx archive has a different graph, which fails its pin (by design).
+
 - Hashes every copy and uses it only when it equals the compiled pin. A copy that differs from its pin always fails the
   build; it never falls through to the next source.
 - `--skip-unavailable` skips, and reports, a bundle whose files cannot be found or downloaded.

@@ -27,9 +27,8 @@ and the model store (a scratch directory); nothing else is mocked and no real mo
 ### Acceptance Criteria
 
 The subsystem is accepted when every unit suite passes: the registration extension, the model
-metadata, descriptor (the default variant's two pinned `models`-release bundles, and the per-file Hugging Face
-download of a variant whose bundles are not yet published), variants, voices (explicit, directory, user folder and
-pack, with duplicate and label
+metadata, descriptor (the model's two pinned `models`-release bundles and nothing else), voices (explicit, directory,
+user folder and pack, with duplicate and label
 handling) and backend creation behave as documented, the tokenizer reproduces the reference ids, and
 reference voices (with lazy and mood clips) are normalized and validated.
 
@@ -91,35 +90,34 @@ Every voice, whatever its source rate and channel count, is mono 24 kHz, at leas
 
 #### Options validate on assignment
 
-**Tests**: `ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException`,
-`ChatterboxTurboModelOptions_EndOfSentenceTagPolicy_UndefinedValue_ThrowsArgumentOutOfRangeException`,
+**Tests**: `ChatterboxTurboModelOptions_EndOfSentenceTagPolicy_UndefinedValue_ThrowsArgumentOutOfRangeException`,
 `ChatterboxTurboModelOptions_Properties_OutOfRangeValues_ThrowArgumentOutOfRangeException` and
 `ChatterboxTurboModelOptions_ReferenceVoices_Null_ThrowsArgumentNullException`
 
-Undefined variants or end-of-sentence policy and out-of-range numbers throw `ArgumentOutOfRangeException`; a null voice
+An undefined end-of-sentence policy and out-of-range numbers throw `ArgumentOutOfRangeException`; a null voice
 list throws `ArgumentNullException`.
 
-#### Variant selection chooses the id, the files and the loaded graphs
+#### Backend creation loads the installed graphs
 
-**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets` and
-`OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_AuxiliaryVariants_LoadMatchingGraphFiles`
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`
 
-Each combination has its own id and file set, and backend creation loads exactly the selected graph files.
+Only the fp16 language-model graph and the q4 auxiliary graphs are installed (as synthetic graphs), and the backend
+loads and synthesizes through them.
 
-#### A variant installs from the models release only when both of its bundles are published
+#### The model installs only from the models release
 
 **Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle`,
-`OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle`,
-`OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor` and
+`OnnxChatterboxTurboEnglishSynthesisModel_Bundles_DeclareOneLmAndOneAuxBundle` and
 `OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws`
 
-The default variant downloads its language-model and auxiliary bundles from the `models` release and rejects a bundle
-whose files do not match their pins; every other variant keeps its eight per-file Hugging Face downloads.
+The model downloads its language-model and auxiliary bundles from the `models` release and nothing else, and rejects a
+bundle whose files do not match their pins.
 
-#### Variants and voices compose through the registration extension
+#### The registration extension composes the model and its voices
 
-**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_VariantsAndVoices_AreComposed`
+**Tests**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelsReleaseDownload` and
+`SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_ExplicitVoices_AreComposed`
 
-The cross-unit scenario: a real `SpeechModelCatalog` receives the model through `AddChatterboxTurboModels` with a
-non-default variant pair and explicit voices, and the registered model carries that variant's id, its eight-file
-descriptor and the supplied voice choice.
+The cross-unit scenario: a real `SpeechModelCatalog` receives the model through `AddChatterboxTurboModels`, and the
+registered model carries the id `chatterbox-turbo-onnx-en`, its two-bundle `models`-release descriptor and the supplied
+voice choice.

@@ -11,10 +11,11 @@ package ModelBundler_BundleCatalog {
             testFiles = ("test/DemaConsulting.Speech.ModelBundler.Tests/BundleDefinitionsTests.cs");
         }
 
-        // Reads the bundle contents of the three ONNX model packages.
+        // Reads the bundle contents of the four ONNX model packages.
         dependency BundleCatalog to Speech_SpeechModelDownloadDescriptor::SpeechModelDownloadDescriptor;
         dependency BundleCatalog to SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboEnglishSynthesisModel::OnnxChatterboxTurboEnglishSynthesisModel;
         dependency BundleCatalog to SpeechOnnxKokoro_OnnxKokoroEnglishSynthesisModel::OnnxKokoroEnglishSynthesisModel;
         dependency BundleCatalog to SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel::OnnxNemotronMultilingualRecognitionModel;
+        dependency BundleCatalog to SpeechOnnxPiper_OnnxPiperLibriTtsEnSynthesisModel::OnnxPiperLibriTtsEnSynthesisModel;
     }
 }

@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.Demo;
 ///     Parses this demo's own small set of launch-time command-line options, mirroring
 ///     <c>DemaConsulting.Speech.Cli</c>'s <c>--models-dir</c>/<c>--mirror-*</c> global options so
 ///     a user behind a network policy that blocks a model's public download host (for example
-///     <c>huggingface.co</c>) can redirect every model download to an internal mirror the same
+///     <c>github.com</c>) can redirect every model download to an internal mirror the same
 ///     way with either tool.
 /// </summary>
 /// <remarks>

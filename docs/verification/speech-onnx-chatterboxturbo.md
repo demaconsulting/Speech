@@ -18,7 +18,7 @@ level 0.25, 500 for 0.5) and the last three are the silence token, so the voice 
 pipeline is observable at the system boundary without a real model. The synthetic language model never emits
 the end-of-speech token, which makes the generation bound observable.
 
-Below the system level, the model's identity, download descriptor, variants and voices, the
+Below the system level, the model's identity, download descriptor and voices, the
 tokenizer (against golden ids generated from the real Hugging Face tokenizer), the reference-voice
 normalization, the ONNX networks (against synthetic graphs), the generation loop (against fake
 networks), the token selector and the tag-rendering capability profile are each verified
@@ -63,12 +63,13 @@ is owned by the extension unit's verification document, not by a system scenario
 Registers the model through the extension method on a real catalog; the same catalog is returned and the
 one model is enumerable as a synthesis model.
 
-### The registered model is a downloadable synthesis model with variants and voices
+### The registered model downloads from the models release and offers its voices
 
-**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableWithVariantsAndVoices`
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableFromModelsReleaseWithVoices`
 
-The model's role is synthesis, its download descriptor lists checksum-backed files, a non-default precision
-variant has a different id, and the voice choice lists the supplied voices.
+The model's role is synthesis, its id is `chatterbox-turbo-onnx-en`, its download descriptor lists only
+checksum-backed files on the project's `models` release (nothing from Hugging Face), and the voice choice lists the
+supplied voices.
 
 ### Text is tokenized without a tokenizer download
 

@@ -27,7 +27,7 @@ sections:
             children:
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-Registration
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-NullCatalog
-              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesOptions
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-RegistersModelsReleaseDownload
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ComposesVoices
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-OptionsNotMutated
 
@@ -85,24 +85,24 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ModelDownload
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall describe the
-              downloadable file set of the model for each selectable precision variant, from the
-              project's models release when the variant's component bundles are published.
+              downloadable file set of the model as its component bundles on the project's models
+              release, and nothing from any other host.
             justification: |
               The model store verifies and installs exactly what the descriptor lists, and the
               release is reachable where Hugging Face is blocked.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-BundleInstall
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
 
-          - id: SpeechOnnxChatterboxTurbo-Models-VariantLoading
+          - id: SpeechOnnxChatterboxTurbo-Models-GraphLoading
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall load the graphs of the
-              selected precision variant.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall load the model's
+              installed graphs (the fp16 language model and the q4 auxiliary graphs).
             justification: |
-              A backend that loaded another variant's graphs would not match the installed files.
+              A backend that loaded other graphs than the installed ones would not match the
+              installed files.
             children:
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VariantLoading
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-GraphLoading
 
           - id: SpeechOnnxChatterboxTurbo-Models-VoiceChoice
             title: >-
@@ -186,16 +186,6 @@ sections:
               Native sessions must never leak when construction fails.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendNoLeak
-
-          - id: SpeechOnnxChatterboxTurbo-Models-ModelOptions
-            title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall default the model
-              options to the fp16 language model and q4 auxiliary graphs.
-            justification: |
-              A host that supplies no options gets the variants that preserve the inline audio
-              tags at the smallest download.
-            children:
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsLimits
             title: >-
@@ -282,11 +272,10 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsValidation
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall reject an undefined
-              variant or end-of-sentence tag policy value when it is assigned.
+              end-of-sentence tag policy value when it is assigned.
             justification: |
               Invalid values fail at assignment rather than during synthesis.
             children:
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsPolicyValidation
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsRangeValidation

@@ -6,17 +6,6 @@ package SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboEnglishSynthesisModel {
     private import SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboNetworks::*;
     private import SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboSynthesisEngine::*;
 
-    enum def ChatterboxTurboAuxiliaryModelVariant {
-        enum Q4;
-        enum Fp16;
-        enum Fp32;
-    }
-
-    enum def ChatterboxTurboLanguageModelVariant {
-        enum Fp16;
-        enum Fp32;
-    }
-
     enum def ChatterboxTurboEndOfSentenceTagPolicy {
         enum MoveBeforeFinalWord;
         enum Suffix;
@@ -24,14 +13,14 @@ package SpeechOnnxChatterboxTurbo_OnnxChatterboxTurboEnglishSynthesisModel {
     }
 
     part def OnnxChatterboxTurboEnglishSynthesisModel {
-        doc /* The ISynthesisModel for Chatterbox Turbo English: identity, precision-variant file set with checksums
-             * (downloaded as one language-model and one auxiliary SHA-256-pinned bundle from the project's models
-             * release when both are published, extracted and verified through SpeechModelBundle, and otherwise as
-             * individual Hugging Face files), voice choice over caller-supplied reference voices, and backend construction from an installed model
-             * directory. Includes its ChatterboxTurboModelOptions and variant enums. */
+        doc /* The ISynthesisModel for Chatterbox Turbo English: identity, the fixed file set (the fp16 language model
+             * and the q4 auxiliary graphs) with checksums, downloaded as one language-model and one auxiliary
+             * SHA-256-pinned bundle from the project's models release and extracted and verified through
+             * SpeechModelBundle, voice choice over caller-supplied reference voices, and backend construction from an
+             * installed model directory. Includes its ChatterboxTurboModelOptions and tag-policy enum. */
 
         metadata info : SoftwareInfo {
-            sourceFiles = ("src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs", "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboModelOptions.cs", "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboAuxiliaryModelVariant.cs", "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboLanguageModelVariant.cs", "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs");
+            sourceFiles = ("src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs", "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboModelOptions.cs", "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs");
             testFiles = ("test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModelTests.cs");
             designFiles = ("docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md");
             verificationFiles = ("docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md");

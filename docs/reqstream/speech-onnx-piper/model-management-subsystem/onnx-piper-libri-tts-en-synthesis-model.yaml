@@ -2,11 +2,11 @@
 # Software Unit Requirements for OnnxPiperLibriTtsEnSynthesisModel
 #
 # These requirements describe the behavior of the OnnxPiperLibriTtsEnSynthesisModel unit: the production synthesis model
-# for the Piper English (US) voice en_US-libritts_r-medium, with the internal archive installer (PiperArchiveExtractor)
-# that it owns and documents. They decompose the parent SpeechOnnxPiper ModelManagementSubsystem requirements. Covered by
-# the OnnxPiperLibriTtsEnSynthesisModel_* tests in
-# test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs, which
-# build archives and a stand-in ONNX graph with PiperTestFixtures and never touch the network or the real voice.
+# for the Piper English (US) voice en_US-libritts_r-medium, installed from its models-release bundle. They decompose the
+# parent SpeechOnnxPiper ModelManagementSubsystem requirements. Covered by the OnnxPiperLibriTtsEnSynthesisModel_* tests
+# in test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs,
+# which build tampered bundles and a stand-in ONNX graph with PiperTestFixtures and never touch the network or the real
+# voice.
 
 sections:
   - title: SpeechOnnxPiper Requirements
@@ -59,24 +59,22 @@ sections:
 
               - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-DownloadAndInstall
                 title: >-
-                  The OnnxPiperLibriTtsEnSynthesisModel class shall declare a download of one HTTPS .tar.bz2 archive
-                  pinned by the SHA-256 10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c, and its
-                  installation shall write only the ONNX graph and the voice configuration of that archive, directly
-                  into the installed directory under their bare file names (so that an entry path cannot leave the
-                  directory), write no other entry of the archive, delete the archive, and fail with an invalid-data
-                  error, leaving the archive in place, when the archive lacks the graph or the configuration.
+                  The OnnxPiperLibriTtsEnSynthesisModel class shall declare a download of exactly one file, the
+                  bundle piper-en-us-libritts-r-medium-20261122-fp32-b1.zip on the project's models release, pinned
+                  by the SHA-256 5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f; shall pin the
+                  bundle's three vendor files (en_US-libritts_r-medium.onnx, en_US-libritts_r-medium.onnx.json and
+                  MODEL_CARD, installed at the installed root) by their SHA-256 with their original rhasspy/piper-voices
+                  URLs as provenance; and its installation shall fail with an invalid-data error when an extracted
+                  vendor file does not match its pin.
                 justification: |
-                  The hash is the integrity check of the only file the voice comes from. The archive of the
-                  sherpa-onnx project also holds the espeak-ng data, which has a license of its own and which this
-                  package never uses, so it must not be written; an archive entry is untrusted, so its path must not
-                  decide where a file lands; and a voice missing either file cannot be loaded, so the failure must
-                  be reported at installation. The archive is left in place on failure because the downloader
-                  discards the whole staging directory.
+                  The zip hash is the integrity check of the only file the voice comes from, and hosting it on the
+                  project's own release lets hosts that cannot reach Hugging Face install it. The per-file pins prove
+                  the extracted files are the original vendor files, byte for byte, and the original URLs document
+                  where they come from. Altered files must never be installed.
                 tests:
-                  - OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_PinsOneHttpsArchive
-                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ReleaseArchive_KeepsOnlyGraphAndConfiguration
-                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_HostileEntryPath_StaysInsideInstalledDirectory
-                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_ArchiveMissingAFile_Throws
+                  - OnnxPiperLibriTtsEnSynthesisModel_BundleContents_PinsTheThreeVendorFiles
+                  - OnnxPiperLibriTtsEnSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle
+                  - OnnxPiperLibriTtsEnSynthesisModel_InstallAsync_BundleWithWrongFile_Throws
 
               - id: SpeechOnnxPiper-Models-OnnxPiperLibriTtsEnSynthesisModel-BackendCreation
                 title: >-

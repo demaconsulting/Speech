@@ -5,13 +5,13 @@
 Verified by `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, which also owns the verification of
 `ChatterboxTurboModelOptions` (not a separate unit). Backend creation uses synthetic ONNX graphs written into a scratch
 install directory, and a static session-factory seam substitutes a derived session that records its own disposal,
-confirming no session is left open when backend creation fails. The language and the auxiliary-graph variants are
-checked by id and file name, and by synthesizing through each variant's graphs; the English language is a fixed property
-of the model (its display name is asserted) and the graphs' content is verified in the networks unit. The bundle
-tests read the public `PublishedBundles` and the internal `BundleContents` and `InstalledFiles` (through
-`InternalsVisibleTo`); the wrong-file test stages well-formed zips whose `model.json` declares every file at its
-compiled pin but whose entries hold other bytes. The installed-file and variant tests assert that every file has a
-non-empty 64-character hexadecimal SHA-256 checksum. The
+confirming no session is left open when backend creation fails. The fixed graphs (the fp16 language model and the q4
+auxiliary graphs) are checked by file name, and by synthesizing through synthetic graphs of exactly those names; the
+English language is a fixed property of the model (its display name is asserted) and the graphs' content is verified in
+the networks unit. The bundle tests read the public `Bundles` and the internal `BundleContents` and `InstalledFiles`
+(through `InternalsVisibleTo`); the wrong-file test stages well-formed zips whose `model.json` declares every file at
+its compiled pin but whose entries hold other bytes. The installed-file tests assert that every file has a non-empty
+64-character hexadecimal SHA-256 checksum. The
 invalid-graph test observes disposal through the public `Dispose(bool)` override point of the derived session, so it
 depends on no ONNX Runtime private state.
 
@@ -22,12 +22,11 @@ depends on no ONNX Runtime private state.
 
 #### Acceptance Criteria
 
-Metadata (including the display name) is as declared; the default variant installs eight files with
-checksums from two pinned component bundles (one language-model and one auxiliary bundle) on the project's
-`models` release; every component bundle pins its files with their original Hugging Face addresses; installing a
-bundle whose files do not match their pins throws `InvalidDataException`; a variant whose bundles are not both
-published keeps its eight per-file Hugging Face downloads and installs with no post-processing; every variant
-combination has a distinct id and complete file set; the voice choice reflects the
+Metadata (including the display name and the id `chatterbox-turbo-onnx-en`) is as declared; the model installs eight
+files with checksums from two pinned component bundles (one language-model and one auxiliary bundle) on the project's
+`models` release and downloads nothing else; both bundles pin their files with their original Hugging Face addresses
+(provenance only); installing a bundle whose files do not match their pins throws `InvalidDataException`; the voice
+choice reflects the
 supplied voices; duplicate explicit or directory ids are rejected; library voices (user folder and installed
 pack) follow explicit and directory voices, are loaded lazily, are skipped with an Info diagnostic when hidden
 and are disambiguated with a `(user)` or `(pack)` label suffix; `IncludeStoreVoices = false` ignores the
@@ -41,48 +40,25 @@ voices, with a missing file or with an invalid graph; options have safe defaults
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel`
 
-##### The default variant installs eight files
+##### The model installs eight files
 
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_DefaultVariant_ListsEightFiles`
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_ListsEightFiles`
 
-##### The default variant downloads its two pinned bundles from the models release
+##### The model downloads its two pinned bundles from the models release
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle`
 
-##### The default variant declares one language-model and one auxiliary bundle covering its files
+##### The model declares one language-model and one auxiliary bundle covering its files
 
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle`
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Bundles_DeclareOneLmAndOneAuxBundle`
 
-##### Every component bundle pins its vendor files
+##### Both component bundles pin their vendor files
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_BundleContents_PinsEveryVendorFile`
 
 ##### Installing a bundle whose files do not match their pins fails
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws`
-
-##### A variant without published bundles keeps its per-file descriptor
-
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor`
-
-For each of the five non-default variants, the descriptor is exactly the eight installed files on Hugging Face,
-and `InstallAsync` leaves a staged file untouched.
-
-##### Variants have distinct ids and complete file sets
-
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets`
-
-##### The fp32 variant loads the fp32 graph
-
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_Fp32Variant_UsesFp32Graph`
-
-##### Every auxiliary variant loads the matching graph files
-
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_AuxiliaryVariants_LoadMatchingGraphFiles`
-
-A theory over the Fp16 and Fp32 language models and the Q4, Fp16 and Fp32 auxiliary graphs: synthetic graphs
-are written with the matching file-name suffix, and the session hook plus the descriptor paths confirm that
-exactly the selected files were loaded.
 
 ##### Voice parameter reflects supplied voices
 
@@ -139,6 +115,9 @@ The damaged voice's first use fails naming its file, while another voice still s
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`
 
+Only synthetic graphs named like the fixed graphs (`language_model_fp16` and the `_q4` auxiliary graphs) are installed,
+so the backend loads and synthesizes only when the model opens exactly those graphs.
+
 ##### Backend creation fails without voices
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NoVoices_Throws`
@@ -159,7 +138,6 @@ and `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_EmptyDirectory_Throw
 ##### Options have safe defaults
 
 **Tests**, one per default:
-`ChatterboxTurboModelOptions_Defaults_LanguageModelVariantIsFp16AndAuxiliaryIsQ4`,
 `ChatterboxTurboModelOptions_Defaults_MaxNewTokensIs1024`,
 `ChatterboxTurboModelOptions_Defaults_MaxAudioTokensPerTextTokenIs25`,
 `ChatterboxTurboModelOptions_Defaults_MaxConsecutiveSpeechTokenRepeatsIs12`,
@@ -173,12 +151,11 @@ assigns 64 to prove the 1-to-6 range is a default and not a clamp),
 
 ##### Options validate on assignment
 
-**Tests**: `ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException`,
-`ChatterboxTurboModelOptions_EndOfSentenceTagPolicy_UndefinedValue_ThrowsArgumentOutOfRangeException`,
+**Tests**: `ChatterboxTurboModelOptions_EndOfSentenceTagPolicy_UndefinedValue_ThrowsArgumentOutOfRangeException`,
 `ChatterboxTurboModelOptions_Properties_OutOfRangeValues_ThrowArgumentOutOfRangeException` and
 `ChatterboxTurboModelOptions_ReferenceVoices_Null_ThrowsArgumentNullException`
 
-The undefined-value tests also assert the previous value is kept.
+The undefined-value test also asserts the previous value is kept.
 
 ##### Library voices merge after explicit and directory voices, first id wins
 

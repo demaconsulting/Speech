@@ -36,9 +36,11 @@ summary is not legal advice.
 
 ## Voices
 
-- **Piper.** The Piper LibriTTS-R voice is licensed CC BY 4.0 and requires attribution of the LibriTTS-R corpus and the
-  Piper project. Only the voice graph and its configuration are extracted from the downloaded archive; the espeak-ng
-  data in the archive is discarded and never installed.
+- **Piper.** The Piper LibriTTS-R voice is licensed CC BY 4.0, as its model card declares, and requires attribution of
+  the LibriTTS-R corpus (Koizumi et al., 2023; CC BY 4.0; <https://www.openslr.org/141/>) and the Piper project
+  (Rhasspy). Its model card also states that it was fine-tuned from the English Lessac medium voice, which was trained
+  on the Blizzard Challenge 2013 Lessac data; that data is licensed for non-commercial research use only. Consumers must
+  review the upstream terms and decide whether the voice fits their use.
 - **Kokoro.** The Kokoro v1.0 voice is licensed Apache-2.0, and the Kokoro package embeds its phoneme vocabulary under
   the same license.
 - **Chatterbox Turbo.** The Chatterbox Turbo graphs are licensed MIT, Copyright (c) 2025 Resemble AI. The package
@@ -66,10 +68,17 @@ The voices are downloaded on demand and verified by SHA-256; no model weights or
   1.1, which allows redistribution when its text and the notices of origin are kept; the int4 ONNX conversion by the
   onnx-community organization is tagged MIT. The bundle carries both texts and a notice naming both sources.
 - **Chatterbox Turbo** (`chatterbox-turbo-lm-20261014-fp16-b1` and `chatterbox-turbo-aux-20261014-int4-b1`): MIT,
-  Copyright (c) 2025 Resemble AI. The other precision variants are not hosted yet and still download from Hugging Face.
-- **Piper is not hosted.** The Piper LibriTTS-R voice is licensed CC BY 4.0, but its model card states that it was
-  fine-tuned from the Lessac voice, whose Blizzard 2013 training data is licensed for research purposes only. Whether
-  to host it is pending a decision by the project owner. Until then the Piper voice keeps downloading the sherpa-onnx
-  archive from the sherpa-onnx GitHub release, as before.
+  Copyright (c) 2025 Resemble AI. Only this one set of graphs (the half-precision language model with the 4-bit
+  auxiliary graphs) is offered; no other precision is downloaded from anywhere.
+- **Piper** (`piper-en-us-libritts-r-medium-20261122-fp32-b1`): the voice's three original `rhasspy/piper-voices`
+  files (the graph, its configuration and its `MODEL_CARD`), under the declared CC BY 4.0. The bundle carries the CC BY
+  4.0 legal code and a `NOTICE` with the complete attribution: LibriTTS-R (Koizumi et al., 2023; CC BY 4.0; OpenSLR
+  141), the Piper project (Rhasspy), and the lineage of the voice, fine-tuned from the English Lessac medium voice,
+  trained on the Blizzard Challenge 2013 Lessac data, which is licensed for non-commercial research use only. DEMA
+  Consulting hosts the voice with correct and complete attribution; consumers decide whether the license fits their
+  use.
+- **Every ONNX model comes from the release.** The Kokoro, Nemotron, Chatterbox Turbo and Piper packages download only
+  their `models` bundles; none falls back to Hugging Face. The Hugging Face URLs that remain in the packages are the
+  original source of each vendor file, recorded in the bundle's `model.json` and `README.txt` as provenance.
 - **Sherpa models and the voice pack.** The Sherpa models download their archives from the sherpa-onnx GitHub
   releases, and the CC0 reference-voice pack from its own GitHub release; neither is re-hosted.

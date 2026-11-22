@@ -65,7 +65,7 @@ await downloader.DownloadAsync("my-model", descriptor);
 ```
 
 A host whose network policy blocks the public hosts a model's own declared URI points at (for
-example a TLS-interception policy breaking `huggingface.co`) can redirect every model download
+example a TLS-interception policy breaking `github.com`) can redirect every model download
 through an internal mirror it controls instead, with no change to any model's own declared
 download descriptor:
 
@@ -180,10 +180,9 @@ license files are kept with the installed model, under `current/licenses/<bundle
 | `nemotron-3.5-asr-streaming-0.6b-onnx-int4` | `nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip` |
 | `chatterbox-turbo-onnx-en` | `chatterbox-turbo-lm-20261014-fp16-b1.zip` (language model) |
 | `chatterbox-turbo-onnx-en` | `chatterbox-turbo-aux-20261014-int4-b1.zip` (auxiliary graphs) |
+| `piper-onnx-libritts-r-en-us-medium` | `piper-en-us-libritts-r-medium-20261122-fp32-b1.zip` |
 
-The other Chatterbox Turbo variants (`chatterbox-turbo-onnx-en-lm-…-aux-…`) still download their eight files
-individually from Hugging Face until their bundles are published. The Piper model
-(`piper-onnx-libritts-r-en-us-medium`) and the four Sherpa models keep downloading their archives from the
+No ONNX model downloads from Hugging Face. The four Sherpa models keep downloading their archives from the
 sherpa-onnx GitHub releases, and the optional reference-voice pack comes from its own GitHub release.
 
 **Interrupted downloads resume.** If a download is interrupted (a dropped connection, a timeout, or the
@@ -204,17 +203,14 @@ model). The zip is deleted as soon as its files are extracted.
 `{mirror}/{model-id}/{file}`. For a bundled model the declared file is the bundle zip, so the mirror path is
 `{mirror}/{model-id}/{bundle}.zip`, for example
 `{mirror}/kokoro-onnx-v1_0-en/kokoro-en-v1.0-int8-b1.zip`. This is a **breaking change for existing
-mirrors** of these three models, which used to hold the individual vendor files: copy the bundle zips from
-the `models` release into each model's folder (the default Chatterbox Turbo model needs both of its zips).
-Mirrors for the Piper and Sherpa models, and for the non-default Chatterbox Turbo variants
-(`{mirror}/{model-id}/onnx/{file}`), are unchanged.
+mirrors** of these models, which used to hold the individual vendor files (or, for Piper, the sherpa-onnx
+archive): copy the bundle zips from the `models` release into each model's folder (the Chatterbox Turbo model needs
+both of its zips). Mirrors for the Sherpa models are unchanged.
 
 **Firewalled environments.** Allow outbound HTTPS to `github.com`, `release-assets.githubusercontent.com`
 and `objects.githubusercontent.com` (GitHub redirects release downloads to these hosts). That covers every
-bundled model, the Piper and Sherpa archives (sherpa-onnx GitHub releases) and the reference-voice pack. No
-Hugging Face access is needed, except for the non-default Chatterbox Turbo variants, which still download from
-`huggingface.co` until their bundles are published. Where GitHub itself is blocked, use a `DownloadMirror`
-laid out as described above.
+bundled model, the Sherpa archives (sherpa-onnx GitHub releases) and the reference-voice pack. No Hugging Face
+access is needed. Where GitHub itself is blocked, use a `DownloadMirror` laid out as described above.
 
 ### Text analysis for model authors
 

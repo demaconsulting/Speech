@@ -14,9 +14,10 @@ package SpeechOnnxPiper {
      * of numbers and abbreviations, the reading of each heteronym) and the phonemizer and espeak-style IPA renderer
      * of the sibling SpeechPhonemesEn system, encodes the phonemes with the voice's own symbol table, and builds its
      * inference session through the sibling SpeechOnnx system's execution-provider selector. The voice is installed
-     * from the sherpa-onnx project's .tar.bz2 archive of the same voice, pinned by its SHA-256, from which only the
-     * graph and the configuration are kept; SharpCompress reads that archive. SpeechTextEn and SpeechPhonemesEn are
-     * sibling systems whose own models are not part of this system, so they appear here only in this text.
+     * from a SHA-256-pinned zip bundle on the project's models release that holds the voice's original
+     * rhasspy/piper-voices files, unmodified, extracted and verified through the Speech library's SpeechModelBundle.
+     * SpeechTextEn and SpeechPhonemesEn are sibling systems whose own models are not part of this system, so they
+     * appear here only in this text.
      */
 
     part def SpeechOnnxPiperSystem {
@@ -32,6 +33,5 @@ package SpeechOnnxPiper {
         part modelManagementSubsystem : ModelManagementSubsystem;
         part synthesisSubsystem : SynthesisSubsystem;
         part microsoftMlOnnxRuntime : MicrosoftMlOnnxRuntime;
-        part sharpCompress : SharpCompress;
     }
 }

@@ -2940,7 +2940,6 @@ reviews:
       - "docs/design/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md"
       - "docs/verification/speech-onnx-piper/model-management-subsystem/onnx-piper-libri-tts-en-synthesis-model.md"
       - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModel.cs"
-      - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/PiperArchiveExtractor.cs"  # install helper of the same unit
       - "src/DemaConsulting.Speech.Onnx.Piper/ModelManagementSubsystem/PiperCapabilityProfile.cs"  # capability profile (sentence segments) of the same unit
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/ModelManagementSubsystem/OnnxPiperLibriTtsEnSynthesisModelTests.cs"
       - "test/DemaConsulting.Speech.Onnx.Piper.Tests/PiperTestFixtures.cs"
@@ -3131,8 +3130,6 @@ reviews:
       - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboModelOptions.cs"
-      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboAuxiliaryModelVariant.cs"
-      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboLanguageModelVariant.cs"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModelTests.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/DisposalTrackingInferenceSession.cs"

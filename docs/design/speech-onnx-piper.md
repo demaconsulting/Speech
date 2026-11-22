@@ -34,8 +34,8 @@ not claimed here.
 The library consists of two subsystems:
 
 - **ModelManagementSubsystem**: the `AddPiperModels()` catalog extension method, the `OnnxPiperLibriTtsEnSynthesisModel`
-  concrete `ISynthesisModel` (with the internal `PiperArchiveExtractor` that installs the downloaded archive) and
-  `PiperVoiceConfig`, the reader of the voice configuration - see *SpeechOnnxPiper ModelManagementSubsystem Design*
+  concrete `ISynthesisModel` (which installs the voice from its `models`-release bundle) and `PiperVoiceConfig`, the
+  reader of the voice configuration - see *SpeechOnnxPiper ModelManagementSubsystem Design*
 - **SynthesisSubsystem**: `PiperPhonemePipeline` (text to framed phoneme ids) and `OnnxPiperSynthesisEngine`, the
   implementation of Speech's public `ISynthesisBackend` and `IAnnotatedSynthesisBackend` seams over ONNX Runtime's
   managed API - see *SpeechOnnxPiper SynthesisSubsystem Design*
@@ -48,15 +48,16 @@ subsystems are small and live in one assembly.
 
 SpeechOnnxPiper exposes two public types: the catalog extension class and the one model class. It implements Speech's
 public `ISynthesisModel` model seam and its equally public `ISynthesisBackend` and `IAnnotatedSynthesisBackend` backend
-seams. The engine, the pipeline, the configuration reader and the archive extractor are internal; the test assembly sees
-them through `InternalsVisibleTo`. The assembly is not granted `InternalsVisibleTo` by the Speech library and behaves as
+seams. The engine, the pipeline and the configuration reader are internal; the test assembly sees them through
+`InternalsVisibleTo`, and the non-shipped model bundler sees the model's internal `BundleContents` (the vendor-file
+pins) the same way. The assembly is not granted `InternalsVisibleTo` by the Speech library and behaves as
 an ordinary external consumer of Speech's public API.
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
 | `SpeechModelCatalog.AddPiperModels(...)` | Inbound | Extension method | Throws only for a null catalog |
 | `OnnxPiperLibriTtsEnSynthesisModel` | Inbound | Public class | Stateless model declaration |
-| `ISynthesisModel.InstallAsync(...)` | Inbound | Public method call | `InvalidDataException` if incomplete |
+| `ISynthesisModel.InstallAsync(...)` | Inbound | Public method call | `InvalidDataException` if not verified |
 | `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Public method call | `InvalidDataException` if unusable |
 | `ISynthesisBackend`, `IAnnotatedSynthesisBackend` | Inbound | Public interfaces | One caller at a time; disposable |
 | `SpeechModelCatalog.AddModels(...)` | Outbound | Method call/return | Consumed; builder-phase only |
@@ -64,12 +65,12 @@ an ordinary external consumer of Speech's public API.
 | `EnglishPhonemizer`, `EspeakIpaRenderer` (SpeechPhonemesEn) | Outbound | Method calls | Immutable and thread-safe |
 | `OnnxExecutionProviderSelector.Create(...)` | Outbound | Static method call | Consumed building the session |
 | Microsoft.ML.OnnxRuntime managed API | Outbound | Method call/return | Non-CPU execution needs a native runtime |
-| SharpCompress reader API | Outbound | Method call/return | Consumed during installation only |
+| `SpeechModelBundle.InstallAsync(...)` | Outbound | Static method call | Consumed during installation only |
 
 ### Inference Contract
 
-The graph is the standard Piper (VITS) export, as the sherpa-onnx project converted it (the converted graph carries
-added metadata). A single forward pass takes four inputs and returns the waveform:
+The graph is the standard Piper (VITS) export, the original `rhasspy/piper-voices` file. A single forward pass takes
+four inputs and returns the waveform:
 
 | Input name | Type and shape | Content |
 | --- | --- | --- |
@@ -79,8 +80,11 @@ added metadata). A single forward pass takes four inputs and returns the wavefor
 | `sid` | `int64` `[1]` | The speaker |
 
 The output is the raw waveform at the voice configuration's sample rate. These names were read from the input metadata
-of the loaded real graph in a local check of the installed voice; the stand-in graph used by the tests has the same four
-inputs.
+of the loaded real graph; the stand-in graph used by the tests has the same four inputs. The engine reads every voice
+fact (the sample rate, the speaker count, the scales and the symbol table) from the `.onnx.json` configuration and never
+from the graph's own metadata, so it does not depend on the metadata that the sherpa-onnx re-packaged graph of earlier
+installs added. The vendor graph and that re-packaged graph have the same inputs and outputs, and with the noise turned
+off they produce the same waveform to within 2e-5 (less than one 16-bit sample step) for the same phoneme ids.
 
 ### Voice Facts
 
@@ -100,7 +104,7 @@ inputs.
 
 ## Dependencies
 
-SpeechOnnxPiper has four project dependencies and two NuGet dependencies:
+SpeechOnnxPiper has four project dependencies and one NuGet dependency:
 
 - **DemaConsulting.Speech** supplies the model and backend contracts, `SpeechModelCatalog` and the annotation type
 - **DemaConsulting.Speech.Onnx** (SpeechOnnx) supplies `OnnxExecutionProviderSelector`, which builds the session,
@@ -112,12 +116,10 @@ SpeechOnnxPiper has four project dependencies and two NuGet dependencies:
 - **Microsoft.ML.OnnxRuntime** supplies the managed ONNX Runtime API that the engine runs the session through. Following
   the SpeechOnnx convention this package never references an accelerated execution-provider package; a host that wants
   acceleration adds the matching native runtime itself and passes the provider name to `AddPiperModels`
-- **SharpCompress** supplies the BZip2 tar reader. The .NET base class library has no BZip2 decoder, and the voice is
-  published as a `.tar.bz2` archive (see *Voice Download*). It is used only by `PiperArchiveExtractor`
 
 Through SpeechTextEn the package also depends, transitively, on the part-of-speech package, which is pre-release; hence
 the pre-release-only packing guard (see *Release*). See *OTS Integration Design*, *Microsoft.ML.OnnxRuntime Design*,
-*SharpCompress Design*, *SpeechOnnx Design*, *SpeechTextEn Design* and *SpeechPhonemesEn Design* for details.
+*SpeechOnnx Design*, *SpeechTextEn Design* and *SpeechPhonemesEn Design* for details.
 
 ## Risk Control Measures
 
@@ -137,10 +139,11 @@ supplies a speech-synthesis model and backend with no clinical or safety role.
 **Model install path:**
 
 1. **Download**: Speech's `SpeechModelDownloader` fetches the one file of the model's `DownloadDescriptor`, the pinned
-   `.tar.bz2` archive, and verifies its SHA-256
-2. **Installation**: `InstallAsync` extracts from the archive only the `.onnx` graph and the `.onnx.json` configuration,
-   directly into the staged directory under their bare file names, requires exactly one of each, and deletes the
-   archive; the staged directory is then promoted to the installed location
+   bundle zip on the project's `models` release, and verifies its SHA-256
+2. **Installation**: `InstallAsync` hands the staged zip to Speech's `SpeechModelBundle`, which extracts the graph, the
+   configuration and the model card to the staged directory's root, checks each against its compiled SHA-256 pin, keeps
+   the bundle's license files under `licenses/piper-en-us-libritts-r-medium-20261122-fp32-b1/` and deletes the zip; the
+   staged directory is then promoted to the installed location
 
 **Backend construction path:**
 
@@ -168,22 +171,30 @@ supplies a speech-synthesis model and backend with no clinical or safety role.
 
 ## Voice Download
 
-The voice's own distribution is Hugging Face (`rhasspy/piper-voices`), whose files are the graph and the configuration.
-**Decision D4 (recorded here as the design decision of this package):** the Hugging Face host could not be reached from
-the machine on which this package was developed (the TLS connection failed and the API, the file tree and the model
-card could not be fetched), so no Hugging Face file hash could be verified and nothing from Hugging Face is pinned.
-The package instead takes the same voice from the archive that the sherpa-onnx project publishes for it,
-`vits-piper-en_US-libritts_r-medium.tar.bz2` (82,038,311 bytes, SHA-256
-`10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c`), whose hash was verified, and whose `MODEL_CARD`
-(read from the downloaded archive) states 904 speakers, the dataset OpenSLR 141 and the license CC BY 4.0. The archive
-also contains the espeak-ng data (GPL-3.0) and the sherpa-onnx token table, which this package does not use: only the
-graph and the configuration are extracted, so no espeak-ng data is ever written to the installed model.
+The voice's own distribution is Hugging Face (`rhasspy/piper-voices`, folder `en/en_US/libritts_r/medium`). DEMA
+Consulting redistributes its three original files, unmodified, as one bundle on the project's `models` GitHub release,
+`piper-en-us-libritts-r-medium-20261122-fp32-b1.zip` (78,627,157 bytes, SHA-256
+`5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f`), so a user needs no Hugging Face access:
 
-If Hugging Face becomes reachable and its files can be verified, the descriptor should be changed to two files (the
-graph and the configuration, each pinned by revision and SHA-256), the model's `InstallAsync` override removed,
-`PiperArchiveExtractor` deleted and the SharpCompress reference dropped. The engine and the configuration reader would
-not change; the graph's input names should be confirmed first (by loading the graph and reading its input metadata),
-because the sherpa-onnx conversion adds metadata and its hash differs from the Hugging Face file's.
+| File | Size (bytes) | SHA-256 |
+| --- | --- | --- |
+| `en_US-libritts_r-medium.onnx` | 78,580,914 | `10bb85e071d616fcf4071f369f1799d0491492ab3c5d552ec19fb548fac13195` |
+| `en_US-libritts_r-medium.onnx.json` | 20,123 | `b471dc60d2d8335e819c393d196d6fbf792817f40051257b269878505bc9afb3` |
+| `MODEL_CARD` | 279 | `0ccde6927e5bb4d743f4ea39618a9387ba18cca3351220a8a9cfdbc68b30fcb9` |
+
+The bundle adds the CC BY 4.0 legal code as `LICENSE`, a `NOTICE` with the full attribution and lineage (see *Package
+License Files*), a `README.txt` and a `model.json` recording each file's original URL. The model's internal
+`BundleContents` holds the three per-file pins and is the single source of truth: the runtime checks every extracted
+file against it, and the non-shipped `tools/ModelBundler` packs exactly these files. The bundle name's upstream
+release token is the snapshot date (`20261122`), not `v1.0.0`: `rhasspy/piper-voices` has a `v1.0.0` tag, but it could
+not be verified that the tag holds these exact files, so by the bundling rules the date the files were taken names the
+snapshot.
+
+**Earlier installs.** Earlier versions of this package installed the voice from the sherpa-onnx archive
+`vits-piper-en_US-libritts_r-medium.tar.bz2`, keeping only its graph (re-packaged by sherpa-onnx with added metadata)
+and its configuration (byte-identical to the vendor file). The installed layout (the graph and the configuration at the
+installed root) is unchanged and the model store's install check is manifest-based, so such an install keeps working
+with no migration; a reinstall replaces it with the vendor files, the model card and the license files.
 
 ## Unknown Symbols and Long Text
 
@@ -211,8 +222,11 @@ because the sherpa-onnx conversion adds metadata and its hash differs from the H
 - **This system owns its entire pipeline**: phonemization, symbol encoding and inference are this system's
   responsibility, built on the sibling text analysis and phonemization libraries, so the voice runs with no espeak-ng
 - **No accelerated execution-provider package reference**: only the base `Microsoft.ML.OnnxRuntime` package
-- **Metadata and download descriptors only**: no voice file is bundled or redistributed; a consumer fetches the voice
-  through Speech's download machinery on their own explicit action, and the model visibly declares its license
+- **Metadata and download descriptors only**: the package embeds no voice file; a consumer fetches the voice through
+  Speech's download machinery on their own explicit action, and the model visibly declares its license. DEMA Consulting
+  redistributes the unmodified upstream files (CC BY 4.0) as one bundle on the project's `models` GitHub release, with
+  the license text, the full attribution and lineage `NOTICE`, a `README.txt` and a `model.json` recording each file's
+  original source
 - **Honest limits**: the voice has 904 speakers of widely varying quality; the output differs from run to run (the model
   draws noise); the pronunciation approximates espeak-ng, it does not reproduce it; US English only
 
@@ -250,8 +264,11 @@ stable version skips the project and the other packages still pack.
 The package names a license file, `PACKAGE-LICENSE.md`, instead of a license expression, because the voice it downloads
 is under a license other than MIT. The file starts with the SPDX expression `MIT AND CC-BY-4.0`, contains the MIT
 license text for the code and states the CC BY 4.0 license of the voice. `THIRD-PARTY-NOTICES.md` gives the attribution
-that CC BY 4.0 requires: the voice, its license and link, the LibriTTS-R corpus citation (Koizumi et al.; OpenSLR
-resource 141), the Piper project, the sherpa-onnx archive the voice is taken from with its hash, the statement that the
-weights and the configuration are not changed, and a pointer to the notices of the SpeechTextEn and SpeechPhonemesEn
-packages, whose data this package does not reproduce. Both files are packed at the package root and the nuspec names the
-license file; they are packaging files, not software items, and the FileAssert test of the built package inspects them.
+that CC BY 4.0 requires: the voice, its license and link, the LibriTTS-R corpus citation (Koizumi et al., 2023; CC BY
+4.0; OpenSLR resource 141), the Piper project (Rhasspy), the lineage notice (the voice was fine-tuned from the English
+Lessac medium voice, trained on the Blizzard Challenge 2013 Lessac data, which is licensed for non-commercial research
+use only, so consumers must review the upstream terms), the `models`-release bundle the voice is taken from with its
+hash, the statement that the files are not changed, and a pointer to the notices of the SpeechTextEn and
+SpeechPhonemesEn packages, whose data this package does not reproduce. Both files are packed at the package root and the
+nuspec names the license file; they are packaging files, not software items, and the FileAssert test of the built
+package inspects them.
