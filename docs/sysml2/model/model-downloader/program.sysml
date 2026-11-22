@@ -3,7 +3,8 @@ package ModelDownloader_Program {
 
     part def Program {
         doc /* Hosts the CI-only model download command: builds the four sherpa-onnx models of the SpeechSherpa
-             * package and downloads each requested model id into the per-user model store with an extended transfer
+             * package and the ONNX Nemotron speech-to-text model of the SpeechOnnxNemotronStt package, and
+             * downloads each requested model id into the per-user model store with an extended transfer
              * timeout, one model at a time so one failure never prevents the later requests, so automated runs can
              * provision real speech models before the integration tests execute. */
 
@@ -11,8 +12,9 @@ package ModelDownloader_Program {
             sourceFiles = ("tools/ModelDownloader/Program.cs");
         }
 
-        // Builds the sherpa-onnx models and fetches each into the SpeechModelStore through the HTTP
-        // downloader.
+        // Builds the sherpa-onnx models and the ONNX Nemotron model and fetches each into the SpeechModelStore
+        // through the HTTP downloader.
+        dependency Program to SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel::OnnxNemotronMultilingualRecognitionModel;
         dependency Program to SpeechSherpa_SherpaOnnxKokoroEnglishSynthesisModel::SherpaOnnxKokoroEnglishSynthesisModel;
         dependency Program to SpeechSherpa_SherpaOnnxNemotronStreamingEnRecognitionModel::SherpaOnnxNemotronStreamingEnRecognitionModel;
         dependency Program to SpeechSherpa_SherpaOnnxVitsLibriTtsEnglishSynthesisModel::SherpaOnnxVitsLibriTtsEnglishSynthesisModel;

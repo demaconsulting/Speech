@@ -27,6 +27,7 @@ exceptions from the network propagate unchanged to the engine.
 
 **Dependencies**: `IRnntNetwork` only; the ONNX-backed `NemotronRnntNetwork` is a separate unit.
 
-**Callers**: `OnnxNemotronRecognitionEngine` decodes every encoder output through it and resets
-and disposes it with the engine; `OnnxNemotronMultilingualRecognitionModel.CreateBackend`
-constructs it over a `NemotronRnntNetwork`.
+**Callers**: `OnnxNemotronRecognitionEngine` decodes every encoder output frame through it, one
+frame per call so the endpoint detector sees each frame, and resets and disposes it with the
+engine; `OnnxNemotronMultilingualRecognitionModel.CreateBackend` constructs it over a
+`NemotronRnntNetwork`.

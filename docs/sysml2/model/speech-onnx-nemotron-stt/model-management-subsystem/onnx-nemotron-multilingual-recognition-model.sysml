@@ -1,6 +1,7 @@
 package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
     private import SoftwareItemMetadata::*;
     private import SpeechOnnxNemotronStt_NemotronEncoder::*;
+    private import SpeechOnnxNemotronStt_NemotronEngineOptions::*;
     private import SpeechOnnxNemotronStt_NemotronRnntGreedyDecoder::*;
     private import SpeechOnnxNemotronStt_NemotronRnntNetwork::*;
     private import SpeechOnnxNemotronStt_NemotronVocabulary::*;
@@ -8,9 +9,11 @@ package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
 
     part def OnnxNemotronMultilingualRecognitionModel {
         doc /* Real IRecognitionModel for NVIDIA Nemotron 3.5 ASR streaming 0.6B (int4 ONNX export). One catalog id
-             * with a language ChoiceParameter (en-US, en-GB); declares the eleven-file checksum-verified download
-             * descriptor; CreateBackend builds the encoder session through OnnxExecutionProviderSelector and the
-             * decoder and joint CPU sessions, and constructs the OnnxNemotronRecognitionEngine. */
+             * with a language ChoiceParameter (en-US, en-GB); declares the OpenMDW-1.1 license and the eleven-file
+             * checksum-verified download descriptor of the onnx-community int4 conversion; CreateBackend builds the
+             * encoder session through OnnxExecutionProviderSelector and the decoder and joint CPU sessions, and
+             * constructs the OnnxNemotronRecognitionEngine. An internal CreateBackend overload takes explicit
+             * NemotronEngineOptions, validating the blank penalty before reading any file, for the evaluation tool. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech.Onnx.NemotronStt/ModelManagementSubsystem/OnnxNemotronMultilingualRecognitionModel.cs");
@@ -23,6 +26,7 @@ package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
         // Declares the model contract and downloads, then builds the Nemotron engine, decoder, and
         // vocabulary.
         dependency OnnxNemotronMultilingualRecognitionModel to NemotronEncoder;
+        dependency OnnxNemotronMultilingualRecognitionModel to NemotronEngineOptions;
         dependency OnnxNemotronMultilingualRecognitionModel to NemotronRnntGreedyDecoder;
         dependency OnnxNemotronMultilingualRecognitionModel to NemotronRnntNetwork;
         dependency OnnxNemotronMultilingualRecognitionModel to NemotronVocabulary;

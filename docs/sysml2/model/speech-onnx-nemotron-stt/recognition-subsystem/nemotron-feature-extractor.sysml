@@ -2,9 +2,10 @@ package SpeechOnnxNemotronStt_NemotronFeatureExtractor {
     private import SoftwareItemMetadata::*;
 
     part def NemotronFeatureExtractor {
-        doc /* Streaming 128-band log-mel front end for the Nemotron encoder: 0.97 preemphasis, centered reflect
-             * padding, 512-point FFT of a 400-sample periodic Hann window, hop of 160 samples, Slaney mel filters.
-             * Streaming output equals one-shot output. */
+        doc /* Streaming 128-band log-mel front end reproducing NeMo's FilterbankFeatures inference path: 0.97
+             * preemphasis, a constant (zero) center pad of 256 samples, 512-point FFT of a 400-sample symmetric Hann
+             * window, hop of 160 samples, Slaney mel filters, and log(mel + 2^-24), giving len / 160 + 1 frames for
+             * len samples. Frames are emitted while streaming, and streaming output equals one-shot output. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronFeatureExtractor.cs");

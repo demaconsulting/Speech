@@ -3,7 +3,9 @@ package SpeechOnnxNemotronStt_NemotronVocabulary {
 
     part def NemotronVocabulary {
         doc /* Loads the model's vocab.txt, derives the encoder language id from the locale marker tokens and the
-             * RNN-T blank token id, and converts emitted token ids into normalized text. */
+             * RNN-T blank token id, tells whether a token starts a word (the SentencePiece word-boundary marker, used
+             * to split an over-long utterance only between words), and converts emitted token ids into normalized
+             * text. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech.Onnx.NemotronStt/ModelManagementSubsystem/NemotronVocabulary.cs");

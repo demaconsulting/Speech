@@ -19,4 +19,4 @@ recognition pipeline.
 **Dependencies**: `System.Math` only; no ONNX Runtime dependency.
 
 **Callers**: `OnnxNemotronRecognitionEngine` applies the dither to the `SilenceRunLimiter` output
-and resets it with the engine.
+and to every hop of silence it feeds as padding, and resets it with the engine.
