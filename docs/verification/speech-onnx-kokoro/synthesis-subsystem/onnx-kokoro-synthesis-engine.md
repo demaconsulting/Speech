@@ -20,18 +20,17 @@ One test, `Generate_RealInstalledModel_ProducesNonEmptyAudio`, additionally exer
 production model end-to-end - through `OnnxKokoroEnglishSynthesisModel.CreateBackend` and
 `Generate` together - synthesizing non-empty, real 24000 Hz audio for known English text. It is
 guarded by `Assert.Skip` and skips (rather than fails) when the real model is not installed in
-this environment: it checks that every one of the model's 30 declared download files exists under
+this environment: it checks that every one of the 30 vendor files of the model's bundle exists under
 the default installed-model directory, not merely that the directory itself is non-empty, so a
 partial/interrupted real install still skips rather than failing with a misleading error. This
 mirrors this repository's established Sherpa real-model-skip convention (see, for example,
 *SpeechSherpa SynthesisSubsystem Verification* and *SherpaOnnxRecognitionEngine Verification*,
 whose own real-model tests self-skip the same way). Following that same Sherpa precedent, this
 test is intentionally **not** linked in
-`docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml`: the CI
-model-download bootstrap (`tools/ModelDownloader`) does not provision this package's model, so the
-test would always skip in CI and could never serve as enforceable `--enforce` evidence there. It
-still runs and self-reports whenever a developer happens to have the real model installed
-locally, per `requirements-principles.md`'s "Tests MAY exist without a requirement" rule.
+`docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml`, per
+`requirements-principles.md`'s "Tests MAY exist without a requirement" rule. The CI model-download bootstrap
+(`tools/ModelDownloader`) provisions this package's model from its bundle on the project's `models` release, so
+the test runs in CI on every operating system, and it runs whenever a developer has the real model installed locally.
 
 #### Test Environment
 

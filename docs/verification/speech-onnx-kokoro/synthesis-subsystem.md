@@ -21,8 +21,8 @@ replacement, the reading of a heteronym), and a long segment is spoken in severa
 One additional test, `Generate_RealInstalledModel_ProducesNonEmptyAudio`, exercises the real production Kokoro
 model end-to-end - through `OnnxKokoroEnglishSynthesisModel.CreateBackend` and `ISynthesisBackend.Generate`
 together - producing real, non-empty 24000 Hz audio with audible (not near-zero) samples for known English text. It
-skips (rather than fails) when the real model is not installed in the running environment (checking every one of its
-30 declared download files, not merely a non-empty directory), mirroring this repository's established
+skips (rather than fails) when the real model is not installed in the running environment (checking every one of the
+30 vendor files of its bundle, not merely a non-empty directory), mirroring this repository's established
 SpeechSherpa real-model-skip convention. The system tests (`SpeechOnnxKokoroTests`) repeat these behaviors through
 the public API only (see *SpeechOnnxKokoro System Verification*).
 

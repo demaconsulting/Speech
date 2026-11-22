@@ -1,4 +1,6 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Kokoro;
+using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 using DemaConsulting.Speech.Sherpa;
@@ -171,8 +173,11 @@ internal static class Program
     ///     four models the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
     ///     <see cref="SpeechModelCatalogSherpaExtensions.AddSherpaModels"/> registers, plus the
     ///     ONNX Nemotron speech-to-text model that
-    ///     <see cref="SpeechModelCatalogNemotronSttExtensions.AddNemotronSttModels"/> registers
-    ///     (downloaded in CI so its real-model tests run instead of skipping).
+    ///     <see cref="SpeechModelCatalogNemotronSttExtensions.AddNemotronSttModels"/> registers and the
+    ///     ONNX Kokoro synthesis model that
+    ///     <see cref="SpeechModelCatalogKokoroExtensions.AddKokoroModels"/> registers (both downloaded in CI,
+    ///     as their bundles from the project's <c>models</c> release, so their real-model tests run instead
+    ///     of skipping).
     /// </summary>
     private static readonly IReadOnlyList<ISpeechModel> KnownModels =
     [
@@ -181,6 +186,7 @@ internal static class Program
         new SherpaOnnxVitsLibriTtsEnglishSynthesisModel(),
         new SherpaOnnxKokoroEnglishSynthesisModel(),
         new OnnxNemotronMultilingualRecognitionModel(),
+        new OnnxKokoroEnglishSynthesisModel(),
     ];
 
     /// <summary>
@@ -223,6 +229,12 @@ internal static class Program
         SpeechModelDownloader downloader)
     {
         Console.WriteLine($"Downloading model '{modelId}'...");
+
+        // Name every source so a CI log shows exactly which release asset or archive each model came from
+        foreach (var file in model.DownloadDescriptor.Files)
+        {
+            Console.WriteLine($"  from {file.Uri}");
+        }
 
         var progress = CreateProgressReporter(modelId);
         var result = await downloader.DownloadAsync(model, progress).ConfigureAwait(false);
