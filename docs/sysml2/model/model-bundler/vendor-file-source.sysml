@@ -4,7 +4,8 @@ package ModelBundler_VendorFileSource {
     part def VendorFileSource {
         doc /* Finds a local copy of each vendor file - the installed copy in the per-user model store for each of
              * the bundle's model ids, then the SHA-keyed cache, then an HTTPS download of the original URL into the
-             * cache - and hashes every copy against its compiled SHA-256 pin before use. A copy that differs from
+             * cache - and hashes every copy against its compiled SHA-256 pin before use. Every source-store path is
+             * confined beneath the store root (a model id must be one safe directory name). A copy that differs from
              * its pin always fails; a file no source holds is reported as unavailable. */
 
         metadata info : SoftwareInfo {

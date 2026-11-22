@@ -57,15 +57,20 @@ internal sealed record BundleDefinition(
 /// </summary>
 /// <remarks>
 ///     Validation is strict and eager so a malformed declaration never produces a bundle: every field is required,
-///     the name must equal its parts and the published naming rule, the date must be <c>yyyy-MM-dd</c>, and each
-///     license text file (relative to the definitions file) must exist. License texts are read as UTF-8 and normalized
-///     to LF line endings with one trailing newline, so a checkout's line-ending setting can never change a bundle's
-///     bytes. Stateless and thread-safe.
+///     the name must equal its parts and the published naming rule, the date must be <c>yyyy-MM-dd</c>, each model id
+///     must be a single safe directory name (it becomes a source-store path segment), and each license text file must
+///     be a relative path without <c>..</c> segments that resolves inside the definitions file's directory and
+///     exists, so a definition can never embed an arbitrary local file in a public bundle. License texts are read as
+///     UTF-8 and normalized to LF line endings with one trailing newline, so a checkout's line-ending setting can never
+///     change a bundle's bytes. Stateless and thread-safe.
 /// </remarks>
 internal static partial class BundleDefinitions
 {
     /// <summary>The definitions file name, which sits beside the executable.</summary>
     internal const string FileName = "bundles.json";
+
+    /// <summary>The path separators recognized in a license text path on every platform.</summary>
+    private static readonly char[] PathSeparators = ['/', '\\'];
 
     /// <summary>
     ///     Loads every bundle definition from a definitions file.
@@ -149,6 +154,14 @@ internal static partial class BundleDefinitions
 
         // Model ids, upstream source, licenses, attribution and notice are all required
         var modelIds = GetStrings(element, "modelIds", name);
+        var unsafeModelId = modelIds.FirstOrDefault(modelId => !ModelIdPattern().IsMatch(modelId));
+        if (unsafeModelId is not null)
+        {
+            throw new InvalidDataException(
+                $"The model id '{unsafeModelId}' of bundle '{name}' is not a single safe directory name "
+                + "(lowercase letters and digits separated by single '.', '_' or '-').");
+        }
+
         var upstream = GetObject(element, "upstream", name);
         var licenses = GetArray(element, "licenses", name).EnumerateArray()
             .Select(license => ParseLicense(license, name, directory))
@@ -178,12 +191,14 @@ internal static partial class BundleDefinitions
     /// <param name="bundleName">The bundle being parsed, for error messages.</param>
     /// <param name="directory">The directory the text file path is relative to.</param>
     /// <returns>The license with its normalized text.</returns>
-    /// <exception cref="InvalidDataException">Thrown when a field is missing or the text file is empty.</exception>
+    /// <exception cref="InvalidDataException">
+    ///     Thrown when a field is missing, the text file path escapes <paramref name="directory"/> or the text file is empty.
+    /// </exception>
     /// <exception cref="FileNotFoundException">Thrown when the text file does not exist.</exception>
     private static BundleLicense ParseLicense(JsonElement element, string bundleName, string directory)
     {
         var textFile = GetString(element, "textFile", bundleName);
-        var text = NormalizeText(File.ReadAllText(Path.Combine(directory, textFile)));
+        var text = NormalizeText(File.ReadAllText(ResolveLicensePath(directory, textFile, bundleName)));
         if (text.Trim().Length == 0)
         {
             throw new InvalidDataException($"The license text '{textFile}' of bundle '{bundleName}' is empty.");
@@ -194,6 +209,41 @@ internal static partial class BundleDefinitions
             GetString(element, "url", bundleName),
             GetString(element, "appliesTo", bundleName),
             text);
+    }
+
+    /// <summary>
+    ///     Resolves a license text file path, confining it to the definitions directory so a definition can never read
+    ///     an arbitrary local file into a public bundle.
+    /// </summary>
+    /// <param name="directory">The definitions directory the path is relative to.</param>
+    /// <param name="textFile">The declared relative path.</param>
+    /// <param name="bundleName">The bundle being parsed, for error messages.</param>
+    /// <returns>The full path of the text file, beneath <paramref name="directory"/>.</returns>
+    /// <exception cref="InvalidDataException">
+    ///     Thrown when the path is rooted, has a <c>..</c> segment or does not resolve beneath <paramref name="directory"/>.
+    /// </exception>
+    private static string ResolveLicensePath(string directory, string textFile, string bundleName)
+    {
+        // Reject the obvious escapes outright: a rooted path replaces the base, a '..' segment climbs out of it
+        if (Path.IsPathRooted(textFile) || textFile.Split(PathSeparators).Any(segment => segment == ".."))
+        {
+            throw new InvalidDataException(
+                $"The license text '{textFile}' of bundle '{bundleName}' must be a relative path without '..' segments.");
+        }
+
+        // Canonicalize and require the result to stay beneath the definitions directory (defense in depth)
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)) + Path.DirectorySeparatorChar;
+        var fullPath = Path.GetFullPath(Path.Combine(root, textFile));
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!fullPath.StartsWith(root, comparison))
+        {
+            throw new InvalidDataException(
+                $"The license text '{textFile}' of bundle '{bundleName}' resolves outside the definitions directory '{directory}'.");
+        }
+
+        return fullPath;
     }
 
     /// <summary>Gets a required, non-empty string property.</summary>
@@ -291,4 +341,13 @@ internal static partial class BundleDefinitions
     /// <returns>The compiled, culture-invariant, case-sensitive pattern.</returns>
     [GeneratedRegex(@"^[a-z0-9]+([.-][a-z0-9]+)*-(fp32|fp16|int8|int4)-b[1-9][0-9]*\z", RegexOptions.CultureInvariant)]
     private static partial Regex NamePattern();
+
+    /// <summary>
+    ///     The model id rule: lowercase letters and digits separated by single <c>.</c>, <c>_</c> or <c>-</c>
+    ///     characters, so an id is always one safe directory name in the source store (never <c>..</c>, a separator or
+    ///     a rooted path).
+    /// </summary>
+    /// <returns>The compiled, culture-invariant, case-sensitive pattern.</returns>
+    [GeneratedRegex(@"^[a-z0-9]+([._-][a-z0-9]+)*\z", RegexOptions.CultureInvariant)]
+    private static partial Regex ModelIdPattern();
 }

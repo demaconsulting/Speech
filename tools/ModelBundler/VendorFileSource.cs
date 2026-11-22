@@ -66,7 +66,9 @@ public sealed class VendorFileUnavailableException : Exception
 /// <remarks>
 ///     <para>
 ///     Sources are tried in a fixed order: (1) with a source store, the installed copy at
-///     <c>{store}/{modelId}/current/{path}</c> for each of the bundle's model ids in turn; (2) the SHA-keyed cache file
+///     <c>{store}/{modelId}/current/{path}</c> for each of the bundle's model ids in turn (each id must be one safe
+///     directory name and each candidate must resolve beneath the store root, or the resolution fails before any
+///     probe); (2) the SHA-keyed cache file
 ///     <c>{cache}/{sha256}</c>; (3) an HTTPS download of the file's original upstream URL into the cache. The first
 ///     copy found is hashed in full; a copy that fails its pin is an error and never falls through to the next source,
 ///     because altered bytes in any source must be investigated, not silently bypassed.
@@ -125,6 +127,10 @@ internal sealed class VendorFileSource
     /// <param name="cancellationToken">A token that aborts hashing or downloading.</param>
     /// <returns>The verified copy.</returns>
     /// <exception cref="InvalidDataException">Thrown when a copy is found but its SHA-256 differs from the pin.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown, with a source store, when a model id is not a single safe directory name or a store path would
+    ///     resolve outside the store root.
+    /// </exception>
     /// <exception cref="VendorFileUnavailableException">
     ///     Thrown when no source holds the file and the download fails (network, HTTP status or timeout).
     /// </exception>
@@ -139,16 +145,14 @@ internal sealed class VendorFileSource
         var entryName = GetEntryName(file);
         var pin = file.Sha256Checksum.ToLowerInvariant();
 
-        // 1. The installed copy of any model that uses the bundle
+        // 1. The installed copy of any model that uses the bundle; every candidate is confined to the store first
         if (_sourceStoreRoot is not null)
         {
-            foreach (var modelId in modelIds)
+            var candidates = modelIds.Select(modelId => GetStoreCandidate(modelId, entryName)).ToList();
+            var installed = candidates.FirstOrDefault(File.Exists);
+            if (installed is not null)
             {
-                var candidate = Path.Combine([_sourceStoreRoot, modelId, "current", .. entryName.Split('/')]);
-                if (File.Exists(candidate))
-                {
-                    return await VerifyAsync(file, entryName, candidate, VendorFileOrigin.SourceStore, cancellationToken).ConfigureAwait(false);
-                }
+                return await VerifyAsync(file, entryName, installed, VendorFileOrigin.SourceStore, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -162,6 +166,44 @@ internal sealed class VendorFileSource
         // 3. The original upstream URL, verified before it enters the cache
         await DownloadAsync(file, pin, cached, cancellationToken).ConfigureAwait(false);
         return new ResolvedVendorFile(file, entryName, cached, new FileInfo(cached).Length, VendorFileOrigin.Download);
+    }
+
+    /// <summary>
+    ///     Builds the source-store path of a vendor file for one model id, confined to the store root.
+    /// </summary>
+    /// <param name="modelId">The catalog model id, which must be one safe directory name.</param>
+    /// <param name="entryName">The normalized install path.</param>
+    /// <returns>The full path <c>{store}/{modelId}/current/{path}</c>, beneath the store root.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="modelId"/> is not a single safe directory name or the path resolves outside the
+    ///     store root.
+    /// </exception>
+    private string GetStoreCandidate(string modelId, string entryName)
+    {
+        // A model id is one directory name: never empty, '.', '..', rooted, or holding a separator or invalid character
+        if (string.IsNullOrWhiteSpace(modelId)
+            || modelId is "." or ".."
+            || Path.IsPathRooted(modelId)
+            || modelId.IndexOfAny(['/', '\\']) >= 0
+            || modelId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new ArgumentException($"The model id '{modelId}' is not a single safe directory name.", nameof(modelId));
+        }
+
+        // Canonicalize and require the candidate (including the install path) to stay beneath the store root
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_sourceStoreRoot!)) + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(Path.Combine([root, modelId, "current", .. entryName.Split('/')]));
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!candidate.StartsWith(root, comparison))
+        {
+            throw new ArgumentException(
+                $"The source-store path of '{entryName}' for model '{modelId}' resolves outside the store root '{_sourceStoreRoot}'.",
+                nameof(entryName));
+        }
+
+        return candidate;
     }
 
     /// <summary>Hashes an existing copy and accepts it only when it equals the pin.</summary>

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DemaConsulting.Speech.ModelBundler.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -26,9 +27,9 @@ public sealed partial class BundleDefinitionsTests
               "quant": "int8",
               "bundleRevision": 1,
               "date": "DATE",
-              "modelIds": [ "fixture-model-id" ],
+              "modelIds": [ "MODELID" ],
               "upstream": { "repository": "https://example.invalid/fixture", "revision": "main" },
-              "licenses": [ { "name": "MIT", "url": "https://opensource.org/license/mit", "appliesTo": "all", "textFile": "license.txt" } ],
+              "licenses": [ { "name": "MIT", "url": "https://opensource.org/license/mit", "appliesTo": "all", "textFile": "TEXTFILE" } ],
               "attribution": "Fixture.",
               "notice": [ "Fixture." ]
             }
@@ -78,7 +79,7 @@ public sealed partial class BundleDefinitionsTests
     {
         // Arrange: a definition named differently from its parts
         using var directory = new TemporaryDirectory();
-        var path = WriteDefinitions(directory, "other-model-r1-int8-b1", "2026-11-22", "MIT text\n");
+        var path = WriteDefinitions(directory.Path, "other-model-r1-int8-b1", "2026-11-22", "MIT text\n");
 
         // Act / Assert: the definition is rejected
         Assert.Throws<InvalidDataException>(() => BundleDefinitions.Load(path));
@@ -90,7 +91,7 @@ public sealed partial class BundleDefinitionsTests
     {
         // Arrange: a definition with a wall-clock style date
         using var directory = new TemporaryDirectory();
-        var path = WriteDefinitions(directory, TestBundles.Name, "22/11/2026", "MIT text\n");
+        var path = WriteDefinitions(directory.Path, TestBundles.Name, "22/11/2026", "MIT text\n");
 
         // Act / Assert: the definition is rejected
         Assert.Throws<InvalidDataException>(() => BundleDefinitions.Load(path));
@@ -102,13 +103,104 @@ public sealed partial class BundleDefinitionsTests
     {
         // Arrange: a license file checked out with CRLF line endings
         using var directory = new TemporaryDirectory();
-        var path = WriteDefinitions(directory, TestBundles.Name, "2026-11-22", "Line one\r\nLine two\r\n\r\n");
+        var path = WriteDefinitions(directory.Path, TestBundles.Name, "2026-11-22", "Line one\r\nLine two\r\n\r\n");
 
         // Act: load it
         var definition = Assert.Single(BundleDefinitions.Load(path));
 
         // Assert: LF only, one trailing newline
         Assert.Equal("Line one\nLine two\n", definition.Licenses[0].Text);
+    }
+
+    /// <summary>Validates that a license text path climbing out of the definitions directory is rejected.</summary>
+    /// <param name="textFile">The traversing license text path.</param>
+    [Theory]
+    [InlineData("../secret.txt")]
+    [InlineData("licenses/../../secret.txt")]
+    [InlineData("licenses\\..\\..\\secret.txt")]
+    public void BundleDefinitions_Load_LicenseTextFileTraversesUp_ThrowsInvalidDataException(string textFile)
+    {
+        // Arrange: a readable file just outside the definitions directory
+        using var directory = new TemporaryDirectory();
+        File.WriteAllText(directory.Combine("secret.txt"), "Not a license.\n");
+        Directory.CreateDirectory(directory.Combine("definitions", "licenses"));
+        var path = WriteDefinitions(directory.Combine("definitions"), TestBundles.Name, "2026-11-22", "MIT text\n", textFile);
+
+        // Act / Assert: the path is rejected as invalid data, never read
+        var exception = Assert.Throws<InvalidDataException>(() => BundleDefinitions.Load(path));
+        Assert.Contains(textFile, exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that a rooted license text path, which would replace the definitions directory, is rejected.</summary>
+    [Fact]
+    public void BundleDefinitions_Load_RootedLicenseTextFile_ThrowsInvalidDataException()
+    {
+        // Arrange: an existing file outside the definitions directory, named by its absolute path
+        using var outside = new TemporaryDirectory();
+        var secret = outside.Combine("secret.txt");
+        File.WriteAllText(secret, "Not a license.\n");
+        using var directory = new TemporaryDirectory();
+        var path = WriteDefinitions(directory.Path, TestBundles.Name, "2026-11-22", "MIT text\n", secret);
+
+        // Act / Assert: the path is rejected as invalid data, never read
+        Assert.Throws<InvalidDataException>(() => BundleDefinitions.Load(path));
+    }
+
+    /// <summary>Validates that a license text in a subdirectory of the definitions directory is accepted.</summary>
+    [Fact]
+    public void BundleDefinitions_Load_LicenseTextFileInSubdirectory_LoadsText()
+    {
+        // Arrange: the license text under licenses/, as the shipped definitions declare
+        using var directory = new TemporaryDirectory();
+        Directory.CreateDirectory(directory.Combine("licenses"));
+        File.WriteAllText(directory.Combine("licenses", "MIT.txt"), "Nested text\n");
+        var path = WriteDefinitions(directory.Path, TestBundles.Name, "2026-11-22", "MIT text\n", "licenses/MIT.txt");
+
+        // Act: load it
+        var definition = Assert.Single(BundleDefinitions.Load(path));
+
+        // Assert: the nested text is read
+        Assert.Equal("Nested text\n", definition.Licenses[0].Text);
+    }
+
+    /// <summary>Validates that a model id that is not one safe directory name is rejected.</summary>
+    /// <param name="modelId">The unsafe model id.</param>
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("..")]
+    [InlineData("/absolute")]
+    [InlineData("C:\\absolute")]
+    [InlineData("nested/model")]
+    [InlineData("Upper-Case")]
+    [InlineData("double--separator")]
+    public void BundleDefinitions_Load_UnsafeModelId_ThrowsInvalidDataException(string modelId)
+    {
+        // Arrange: a definition whose model id could escape the source store
+        using var directory = new TemporaryDirectory();
+        var path = WriteDefinitions(directory.Path, TestBundles.Name, "2026-11-22", "MIT text\n", modelId: modelId);
+
+        // Act / Assert: the definition is rejected
+        var exception = Assert.Throws<InvalidDataException>(() => BundleDefinitions.Load(path));
+        Assert.Contains(modelId, exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Validates that the model ids of the shipped catalog forms are accepted.</summary>
+    /// <param name="modelId">A catalog-style model id.</param>
+    [Theory]
+    [InlineData("kokoro-onnx-v1_0-en")]
+    [InlineData("nemotron-3.5-asr-streaming-0.6b-onnx-int4")]
+    [InlineData("chatterbox-turbo-onnx-en-lm-fp32-aux-q4")]
+    public void BundleDefinitions_Load_CatalogModelId_IsAccepted(string modelId)
+    {
+        // Arrange: a definition with a catalog-style model id
+        using var directory = new TemporaryDirectory();
+        var path = WriteDefinitions(directory.Path, TestBundles.Name, "2026-11-22", "MIT text\n", modelId: modelId);
+
+        // Act: load it
+        var definition = Assert.Single(BundleDefinitions.Load(path));
+
+        // Assert: the id is kept
+        Assert.Equal([modelId], definition.ModelIds);
     }
 
     /// <summary>Validates that Kokoro's and Nemotron's compiled bundle contents are their published bundles' contents.</summary>
@@ -199,16 +291,30 @@ public sealed partial class BundleDefinitionsTests
     }
 
     /// <summary>Writes a one-bundle definitions file and its license text.</summary>
-    /// <param name="directory">The directory to write into.</param>
+    /// <param name="directory">The directory to write into (must exist).</param>
     /// <param name="name">The bundle name.</param>
     /// <param name="date">The bundle date text.</param>
     /// <param name="licenseText">The license file content.</param>
+    /// <param name="textFile">The declared license text path (the written <c>license.txt</c> by default).</param>
+    /// <param name="modelId">The declared model id.</param>
     /// <returns>The definitions file path.</returns>
-    private static string WriteDefinitions(TemporaryDirectory directory, string name, string date, string licenseText)
+    private static string WriteDefinitions(
+        string directory,
+        string name,
+        string date,
+        string licenseText,
+        string textFile = "license.txt",
+        string modelId = TestBundles.ModelId)
     {
-        File.WriteAllText(directory.Combine("license.txt"), licenseText);
-        var path = directory.Combine(BundleDefinitions.FileName);
-        File.WriteAllText(path, Template.Replace("NAME", name, StringComparison.Ordinal).Replace("DATE", date, StringComparison.Ordinal));
+        File.WriteAllText(Path.Combine(directory, "license.txt"), licenseText);
+        var path = Path.Combine(directory, BundleDefinitions.FileName);
+        File.WriteAllText(
+            path,
+            Template
+                .Replace("NAME", name, StringComparison.Ordinal)
+                .Replace("DATE", date, StringComparison.Ordinal)
+                .Replace("TEXTFILE", JsonEncodedText.Encode(textFile).ToString(), StringComparison.Ordinal)
+                .Replace("MODELID", JsonEncodedText.Encode(modelId).ToString(), StringComparison.Ordinal));
         return path;
     }
 

@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.ModelBundler.Tests;
 
 /// <summary>
 ///     Unit tests for <see cref="VendorFileSource"/>: the source order (store, cache, download), the fallback across
-///     model ids, and the pin check on every source.
+///     model ids, the pin check on every source, and the confinement of store paths to the store root.
 /// </summary>
 public sealed class VendorFileSourceTests
 {
@@ -127,6 +127,56 @@ public sealed class VendorFileSourceTests
         await Assert.ThrowsAsync<InvalidDataException>(
             () => source.ResolveAsync(Weights, [TestBundles.ModelId], TestContext.Current.CancellationToken));
         Assert.Empty(Directory.GetFiles(directory.Combine("cache")));
+    }
+
+    /// <summary>Validates that a model id climbing out of the source store is rejected before any probe or download.</summary>
+    [Fact]
+    public async Task VendorFileSource_ResolveAsync_ModelIdTraversesOutOfStore_ThrowsArgumentException()
+    {
+        // Arrange: a genuine copy sits beside (outside) the store, reachable only through '../outside'
+        using var directory = new TemporaryDirectory();
+        Directory.CreateDirectory(directory.Combine("store"));
+        TestBundles.WriteStore(directory.Path, "outside");
+        using var handler = new FakeHttpMessageHandler();
+        handler.Serve(TestBundles.WeightsUri, TestBundles.WeightsBytes);
+        var source = new VendorFileSource(directory.Combine("store"), directory.Combine("cache"), new HttpClient(handler, false));
+
+        // Act / Assert: the id is rejected, the outside copy is never used and nothing is downloaded
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => source.ResolveAsync(Weights, ["../outside"], TestContext.Current.CancellationToken));
+        Assert.Empty(handler.Requests);
+    }
+
+    /// <summary>Validates that a rooted model id, which would replace the store root, is rejected.</summary>
+    [Fact]
+    public async Task VendorFileSource_ResolveAsync_RootedModelId_ThrowsArgumentException()
+    {
+        // Arrange: a genuine copy outside the store, named by its absolute path
+        using var directory = new TemporaryDirectory();
+        Directory.CreateDirectory(directory.Combine("store"));
+        TestBundles.WriteStore(directory.Path, "outside");
+        using var handler = new FakeHttpMessageHandler();
+        var source = new VendorFileSource(directory.Combine("store"), directory.Combine("cache"), new HttpClient(handler, false));
+
+        // Act / Assert: the id is rejected and nothing is downloaded
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => source.ResolveAsync(Weights, [directory.Combine("outside")], TestContext.Current.CancellationToken));
+        Assert.Empty(handler.Requests);
+    }
+
+    /// <summary>Validates that an unsafe model id anywhere in the list fails even when an earlier id holds the file.</summary>
+    [Fact]
+    public async Task VendorFileSource_ResolveAsync_UnsafeLaterModelId_ThrowsBeforeProbing()
+    {
+        // Arrange: the first model is installed, the second id is a traversal
+        using var directory = new TemporaryDirectory();
+        TestBundles.WriteStore(directory.Combine("store"), TestBundles.ModelId);
+        using var handler = new FakeHttpMessageHandler();
+        var source = new VendorFileSource(directory.Combine("store"), directory.Combine("cache"), new HttpClient(handler, false));
+
+        // Act / Assert: every id is validated before any store probe
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => source.ResolveAsync(Weights, [TestBundles.ModelId, ".."], TestContext.Current.CancellationToken));
     }
 
     /// <summary>Validates that a file no source holds and the server cannot serve is reported as unavailable.</summary>

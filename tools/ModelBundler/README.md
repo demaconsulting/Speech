@@ -9,10 +9,12 @@ The vendor files, their original URLs and their SHA-256 pins come from the model
 members (Kokoro, NemotronStt and ChatterboxTurbo). The tool never declares a hash of its own. `bundles.json` declares
 everything else about each bundle:
 
-- the name parts and the catalog model ids that install the bundle
+- the name parts and the catalog model ids that install the bundle (each id must be one safe directory name: lowercase
+  letters and digits separated by single `.`, `_` or `-`)
 - the upstream repository and the pinned snapshot
 - the fixed bundle `date`, used in `README.txt` and for every zip timestamp (never the wall clock)
-- the licenses and their texts in `licenses/`
+- the licenses and their texts in `licenses/` (a text path must be relative, without `..` segments, and resolve inside
+  the tool's directory, so no other local file can be embedded in a bundle)
 - the attribution and the `NOTICE` text
 
 ## Commands
@@ -39,6 +41,7 @@ dotnet run --project tools/ModelBundler -c Release -- upload --input artifacts/m
 
 - Finds each vendor file in this order:
   1. with `--source-store`, the installed copy `{root}/{modelId}/current/{path}`, trying each model id of the bundle
+     (a path that would resolve outside `{root}` fails the build before any file is read)
   2. the SHA-keyed cache `{cache}/{sha256}` (default `artifacts/model-bundler/cache`)
   3. a download of the file's original URL into the cache
 - Hashes every copy and uses it only when it equals the compiled pin. A copy that differs from its pin always fails the
