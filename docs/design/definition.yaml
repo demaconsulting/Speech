@@ -195,6 +195,7 @@ input-files:
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-endpoint-detector.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md
   - docs/design/speech-text-en.md

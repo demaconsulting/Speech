@@ -80,6 +80,7 @@ package SpeechDesignViews {
         expose SpeechProofreader_TextSubsystem::TextSubsystem;
         expose ModelDownloader::ModelDownloaderSystem;
         expose KokoroOnnxBenchmark::KokoroOnnxBenchmarkSystem;
+        expose SpeechSttEvaluation::SpeechSttEvaluationSystem;
         expose OtsDependencies::PortAudioSharp2;
         expose OtsDependencies::SystemNumericsTensors;
         expose OtsDependencies::MicrosoftMlOnnxRuntime;
@@ -358,5 +359,9 @@ package SpeechDesignViews {
 
     view KokoroOnnxBenchmarkView {
         expose KokoroOnnxBenchmark::KokoroOnnxBenchmarkSystem;
+    }
+
+    view SpeechSttEvaluationView {
+        expose SpeechSttEvaluation::SpeechSttEvaluationSystem;
     }
 }

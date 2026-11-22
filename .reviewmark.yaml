@@ -53,6 +53,11 @@ needs-review:
   - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/*.tsv"    # Piper golden test data
   - "test/DemaConsulting.Speech.Onnx.Piper.Tests/TestData/*.json"   # Piper voice configuration test data (trimmed real configuration)
   - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/TestData/*.tsv"   # Kokoro golden test data
+  - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/TestData/*.tsv"  # NemotronStt golden feature values (NeMo-formula reference)
+  - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/TestData/*.md"   # NemotronStt golden data recipe and provenance
+  - "data/stt-en/**/*.md"                                           # STT evaluation data README and attribution (LibriSpeech CC BY 4.0, CC0 poem)
+  - "data/stt-en/MANIFEST.tsv"                                      # STT evaluation data manifest (SHA-256 pins and reference transcripts)
+  - "tools/DemaConsulting.Speech.SttEvaluation/README.md"           # STT evaluation tool commands, gates and the no-third-party-output rule
   - "!**/obj/**"                  # Exclude build output
   - "!**/bin/**"                  # Exclude build output
   - "!**/generated/**"            # Exclude generated output
@@ -1632,8 +1637,6 @@ reviews:
       - "src/DemaConsulting.Speech.Sherpa/RecognitionSubsystem/SherpaOnnxRecognitionEngine.cs"
       - "test/DemaConsulting.Speech.Sherpa.Tests/RecognitionSubsystem/SherpaOnnxRecognitionEngineTests.cs"
       - "test/DemaConsulting.Speech.Sherpa.Tests/RecognitionSubsystem/SherpaOnnxRecognitionEngineAccuracyTests.cs"
-      - "test/DemaConsulting.Speech.Sherpa.Tests/RecognitionSubsystem/WordErrorRateCalculator.cs"
-      - "test/DemaConsulting.Speech.Sherpa.Tests/RecognitionSubsystem/WordErrorRateCalculatorTests.cs"
 
   # SpeechSherpa-SynthesisSubsystem Review (one per subsystem)
   - id: SpeechSherpa-SynthesisSubsystem
@@ -3199,6 +3202,7 @@ reviews:
       - "docs/reqstream/speech-onnx-nemotron-stt.yaml"               # system requirements
       - "docs/design/speech-onnx-nemotron-stt.md"                    # system design
       - "docs/verification/speech-onnx-nemotron-stt.md"              # system verification
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/SpeechOnnxNemotronSttTests.cs"  # real-model system tests
 
   # SpeechOnnxNemotronStt-Design Review (one per system)
   - id: SpeechOnnxNemotronStt-Design
@@ -3365,6 +3369,25 @@ reviews:
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronFeatureExtractor.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronFeatureExtractorTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/TestData/nemotron-features-golden.tsv"  # golden values of the NeMo formula
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/TestData/NOTICE.md"                     # recipe and provenance of the golden values
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronEndpointDetector Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronEndpointDetector
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronEndpointDetector Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-endpoint-detector.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-endpoint-detector.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-endpoint-detector.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEndpointDetector.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEndpointDetectorTests.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntGreedyDecoder Review (one per unit)
   - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntGreedyDecoder
@@ -3417,6 +3440,25 @@ reviews:
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/DitherNoiseTests.cs"
+
+  # SpeechOnnxNemotronStt-EvaluationTools Review (the non-shipped evaluation tool and its data)
+  # The STT evaluation tool (tools/DemaConsulting.Speech.SttEvaluation) measures the ONNX Nemotron model on the
+  # segregated, license-tracked data in data/stt-en; its WER calculator, data set, transcriber and gates are compiled
+  # into the NemotronStt tests. Neither the tool nor the data is shipped; they are reviewed here so that the accuracy
+  # gates and the evaluated defaults have a reviewed origin.
+  - id: SpeechOnnxNemotronStt-EvaluationTools
+    title: Review that the SpeechOnnxNemotronStt Evaluation Tool and Test Data are Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+    paths:
+      - "data/stt-en/README.md"                                      # data rules, selection rule and archive pin
+      - "data/stt-en/ATTRIBUTION.md"                                 # LibriSpeech CC BY 4.0 and CC0 poem attribution
+      - "data/stt-en/MANIFEST.tsv"                                   # SHA-256 pins and reference transcripts
+      - "docs/evaluation/nemotron-stt/README.md"                     # measured record and the blank-penalty decision
+      - "tools/DemaConsulting.Speech.SttEvaluation/README.md"        # commands, gates and the no-third-party-output rule
+      - "tools/DemaConsulting.Speech.SttEvaluation/**/*.cs"          # tool and shared evaluation sources
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/Evaluation/*.cs"  # tests of the shared evaluation sources
 
   # SpeechTextEn-Architecture Review (one per system)
   - id: SpeechTextEn-Architecture

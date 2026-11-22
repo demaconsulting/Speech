@@ -94,3 +94,15 @@ sections:
                   an error.
                 tests:
                   - Detokenize_Empty_ReturnsEmpty
+
+              - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-StartsWord
+                title: >-
+                  The NemotronVocabulary class shall report whether a token id starts a new
+                  word, being true only for a token that begins with the SentencePiece
+                  word-boundary marker and false for continuation pieces, marker tokens, the
+                  blank token, and ids outside the vocabulary.
+                justification: |
+                  An utterance that reaches the maximum length is split between words, which
+                  requires knowing where the last word begins in the emitted tokens.
+                tests:
+                  - NemotronVocabulary_StartsWord_Tokens_DetectsWordBoundaryMarker

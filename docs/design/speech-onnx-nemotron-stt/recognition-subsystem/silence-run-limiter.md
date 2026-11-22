@@ -39,5 +39,6 @@ cannot map to a session state transition without a Speech contract change.
 **Dependencies**: `System.Math` only; no ONNX Runtime dependency.
 
 **Callers**: `OnnxNemotronRecognitionEngine` processes every `AcceptSamples` input through the
-limiter, reads `LoudSamples` and `QuietRunSamples` to
-detect speech and input-clock quiet, and resets or flushes it with the engine.
+limiter one limiter frame at a time, reads `LoudSamples` to detect speech, `QuietRunSamples` to
+pad a partial chunk once a quiet run reaches the cap, and `DroppedSamples` to credit the removed
+quiet input to the endpoint detector, and flushes or resets it with the engine.

@@ -15,8 +15,8 @@ following units:
 - **OnnxNemotronMultilingualRecognitionModel**: a real, concrete `IRecognitionModel` for the
   `onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4` export, declaring a `language`
   `ChoiceParameter` and owning the eleven-file download descriptor
-- **NemotronVocabulary**: loads `vocab.txt`, derives the language id and the blank id, and
-  detokenizes emitted token ids into text
+- **NemotronVocabulary**: loads `vocab.txt`, derives the language id and the blank id, tells
+  whether a token starts a word, and detokenizes emitted token ids into text
 
 ### Interfaces
 
@@ -56,8 +56,10 @@ format. It declares exactly one tunable parameter, a `language` `ChoiceParameter
 SHA-256 checksum and an install path equal to its file name, so each `.onnx.data` external-data
 file sits beside its `.onnx` under the identical base name as ONNX Runtime requires; no file needs
 post-download extraction, so the model needs no `InstallAsync` override. See
-`onnx-nemotron-multilingual-recognition-model.md` for the full detail, including the license note.
+`onnx-nemotron-multilingual-recognition-model.md` for the full detail, including the license note
+(OpenMDW-1.1) and the internal `CreateBackend` overload that takes explicit engine options.
 
 `NemotronVocabulary` reads `vocab.txt` (one token per line, line index equals token id) and
-exposes the blank id, the locale-to-language-id lookup, and detokenization; see
-`nemotron-vocabulary.md`.
+exposes the blank id, the locale-to-language-id lookup, the word-start test `StartsWord` (used by
+the recognition engine to split an over-long utterance only between words), and detokenization;
+see `nemotron-vocabulary.md`.

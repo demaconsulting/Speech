@@ -17,9 +17,11 @@ parameter, and download descriptor, and builds the recognition backend from an i
 - **Id / DisplayName / Role / AudioTagSupport / AudioFormat**: `Id` equals `ModelId`, which is
   also the download mirror's one folder name (mirror layout `<mirror>/<modelId>/<file>`);
   `Role = Recognition`; `AudioTagSupport = None`; `AudioFormat` is mono 16000 Hz.
-- **LicenseName / LicenseUrl**: `"MIT and NVIDIA Open Model License"` (the upstream model is
-  dual-licensed and both apply) with the NVIDIA Open Model License URL, the license with
-  substantive terms.
+- **LicenseName / LicenseUrl**: `"OpenMDW-1.1"` with `https://openmdw.ai/license/1-1/`, the
+  license of the model weights stated on the upstream model card of
+  `nvidia/nemotron-3.5-asr-streaming-0.6b` (checked on the live card on 2026-11-21). The files
+  are the `onnx-community` int4 ONNX conversion, downloaded unchanged; that repository's MIT tag
+  covers only the conversion artifacts, and the weights remain under the OpenMDW License.
 - **Parameters**: exactly one `ChoiceParameter` with id `language`, options `en-US` (default) and
   `en-GB`.
 - **DownloadDescriptor**: eleven HTTPS files served from the repository's `resolve/main` path,
@@ -42,12 +44,24 @@ parameter, and download descriptor, and builds the recognition backend from an i
   `NemotronEncoder`, a `NemotronRnntGreedyDecoder` over a `NemotronRnntNetwork`, and the
   vocabulary. If any step fails, the sessions already created are disposed before the exception
   propagates, since no engine exists yet to own them. The `IRecognitionModel.CreateBackend`
-  overload without a parameter bag uses the default language.
+  overload without a parameter bag uses the default language, and the public overload with a
+  parameter bag uses the default engine options.
+- **CreateBackend(installedModelDirectory, parameterValues, engineOptions)** (internal): the
+  overload both public overloads delegate to. It validates its arguments before reading any file:
+  `ArgumentException` for a null or empty directory, `ArgumentNullException` for null options,
+  and `ArgumentOutOfRangeException` (through `NemotronRnntNetwork.ValidateBlankPenalty`) for a
+  negative or non-finite `BlankPenalty`. It passes `engineOptions.BlankPenalty` to the
+  `NemotronRnntNetwork` and the whole options record to the engine. It is internal so the engine
+  constants stay out of the public API; the assembly's `InternalsVisibleTo` entry for the
+  non-shipped evaluation tool (`DemaConsulting.Speech.SttEvaluation`) lets the tool measure
+  alternative settings, such as the blank penalty or the endpoint rules, on the real model.
 
 **Error Handling**: `CreateBackend` throws `ArgumentException` for a null or empty installed
-directory, and propagates `FileNotFoundException`/`DirectoryNotFoundException` and ONNX Runtime
-exceptions for missing or unusable files; the Speech library's `SpeechRecognizerFactory` degrades
-any such exception to the honest unavailable recognizer.
+directory, `ArgumentNullException` for null engine options, `ArgumentOutOfRangeException` for an
+invalid blank penalty or other invalid engine option, and propagates
+`FileNotFoundException`/`DirectoryNotFoundException` and ONNX Runtime exceptions for missing or
+unusable files; the Speech library's `SpeechRecognizerFactory` degrades any such exception to the
+honest unavailable recognizer.
 
 **Execution Providers**: the encoder honors the preferred execution provider names with a probe
 inference and CPU fallback; only CPU execution has been verified - DirectML and other GPU
@@ -56,9 +70,11 @@ networks always run on the CPU.
 
 **Dependencies**: `Microsoft.ML.OnnxRuntime`; `OnnxExecutionProviderSelector` from the sibling
 SpeechOnnx system; `NemotronVocabulary`; `OnnxNemotronRecognitionEngine`, `NemotronEncoder`,
-`NemotronRnntGreedyDecoder`, and `NemotronRnntNetwork` from the RecognitionSubsystem; and the
-Speech library's `IRecognitionModel`, parameter, and download-descriptor types.
+`NemotronRnntGreedyDecoder`, `NemotronRnntNetwork`, and `NemotronEngineOptions` from the
+RecognitionSubsystem; and the Speech library's `IRecognitionModel`, parameter, and
+download-descriptor types.
 
 **Callers**: `SpeechModelCatalogNemotronSttExtensions.AddNemotronSttModels` constructs and registers the
 instance; the Speech library's `SpeechRecognizerFactory` and `SpeechModelDownloader` consume it
-through the generic model contract.
+through the generic model contract; the non-shipped ModelDownloader and evaluation tools construct
+it directly (the evaluation tool also through the internal options overload).

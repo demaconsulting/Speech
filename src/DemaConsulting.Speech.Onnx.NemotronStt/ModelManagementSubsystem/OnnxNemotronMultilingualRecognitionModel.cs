@@ -33,10 +33,11 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 ///     <see cref="Languages"/>. An unrecognized or missing selection degrades to <c>en-US</c>.
 ///     </para>
 ///     <para>
-///     <b>License</b>: the model is dual-licensed under the MIT License and the NVIDIA Open
-///     Model License and both apply, so <see cref="LicenseName"/> names both. The single
-///     <see cref="LicenseUrl"/> points at the NVIDIA Open Model License, the one with
-///     substantive terms (the MIT License is the standard text).
+///     <b>License</b>: NVIDIA publishes the model weights (<c>nvidia/nemotron-3.5-asr-streaming-0.6b</c>)
+///     under the OpenMDW License Agreement 1.1, so <see cref="LicenseName"/> is
+///     <c>OpenMDW-1.1</c> and <see cref="LicenseUrl"/> points at its text. The int4 ONNX
+///     conversion is downloaded unchanged from the <c>onnx-community</c> Hugging Face
+///     organization; that repository's MIT tag covers only the conversion, not the weights.
 ///     </para>
 ///     <para>
 ///     <b>Execution providers</b>: the encoder honors the preferred execution provider names with
@@ -111,10 +112,10 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
     ///     <inheritdoc/>
     ///     See the type-level remarks' "License" paragraph.
     /// </summary>
-    public string LicenseName => "MIT and NVIDIA Open Model License";
+    public string LicenseName => "OpenMDW-1.1";
 
     /// <inheritdoc/>
-    public Uri? LicenseUrl { get; } = new("https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/");
+    public Uri? LicenseUrl { get; } = new("https://openmdw.ai/license/1-1/");
 
     /// <inheritdoc/>
     public SpeechModelRole Role => SpeechModelRole.Recognition;
@@ -179,9 +180,38 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
     /// </remarks>
     public IRecognitionBackend CreateBackend(
         string installedModelDirectory,
-        IReadOnlyDictionary<string, object>? parameterValues)
+        IReadOnlyDictionary<string, object>? parameterValues) =>
+        CreateBackend(installedModelDirectory, parameterValues, new NemotronEngineOptions());
+
+    /// <summary>
+    ///     Builds a loaded <see cref="OnnxNemotronRecognitionEngine"/> with explicit engine
+    ///     options, as <see cref="CreateBackend(string, IReadOnlyDictionary{string, object})"/>
+    ///     does with the documented defaults.
+    /// </summary>
+    /// <param name="installedModelDirectory">The installed model directory.</param>
+    /// <param name="parameterValues">The parameter bag; may contain <see cref="LanguageParameterId"/>.</param>
+    /// <param name="engineOptions">
+    ///     The engine options, including the blank penalty handed to the RNN-T network. Must not
+    ///     be <see langword="null"/>.
+    /// </param>
+    /// <returns>The loaded backend.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="installedModelDirectory"/> is null or empty.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="engineOptions"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <see cref="NemotronEngineOptions.BlankPenalty"/> is negative or not finite.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the vocabulary does not declare the selected locale.</exception>
+    /// <remarks>
+    ///     Internal so the engine constants stay out of the public API; the evaluation tool uses
+    ///     it to measure alternative settings (for example the blank penalty) on the real model.
+    ///     The options are validated before any file is read or session created.
+    /// </remarks>
+    internal IRecognitionBackend CreateBackend(
+        string installedModelDirectory,
+        IReadOnlyDictionary<string, object>? parameterValues,
+        NemotronEngineOptions engineOptions)
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
+        ArgumentNullException.ThrowIfNull(engineOptions);
+        NemotronRnntNetwork.ValidateBlankPenalty(engineOptions.BlankPenalty);
 
         var vocabulary = NemotronVocabulary.Load(ResolvePath(installedModelDirectory, VocabularyPath));
         var language = ResolveLanguage(parameterValues);
@@ -207,7 +237,7 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
             jointSession = new InferenceSession(ResolvePath(installedModelDirectory, JointPath), options);
 
             // The network takes ownership of the decoder and joint sessions once it exists.
-            network = new NemotronRnntNetwork(decoderSession, jointSession, vocabulary.BlankId);
+            network = new NemotronRnntNetwork(decoderSession, jointSession, vocabulary.BlankId, engineOptions.BlankPenalty);
             decoderSession = null;
             jointSession = null;
             NemotronRnntGreedyDecoder? greedyDecoder = new NemotronRnntGreedyDecoder(network);
@@ -217,7 +247,7 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
             {
                 encoder = new NemotronEncoder(encoderSession, languageId);
                 encoderSession = null;
-                var engine = new OnnxNemotronRecognitionEngine(encoder, greedyDecoder, vocabulary);
+                var engine = new OnnxNemotronRecognitionEngine(encoder, greedyDecoder, vocabulary, engineOptions);
                 encoder = null;
                 greedyDecoder = null;
                 return engine;

@@ -20,8 +20,8 @@ sections:
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-BlankPenalty
                 title: >-
                   The NemotronRnntNetwork class shall prefer the best non-blank token over the
-                  blank token unless the blank token's score exceeds it by more than a fixed
-                  penalty of 3.0, and shall not penalize any non-blank token.
+                  blank token unless the blank token's score exceeds it by more than the blank
+                  penalty, and shall not penalize any non-blank token.
                 justification: |
                   The model is under-confident on quiet, isolated words and otherwise emits
                   blank for them; the penalty recovers those words.
@@ -30,6 +30,32 @@ sections:
                   - SelectToken_BlankBeyondPenalty_ReturnsBlank
                   - SelectToken_NonBlankIds_AreNotPenalized
                   - PredictToken_ScoreEqualsBlank_AppliesPenalty
+                  - NemotronRnntNetwork_SelectToken_ZeroPenalty_PrefersHighestLogit
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-ConfigurablePenalty
+                title: >-
+                  The NemotronRnntNetwork class shall apply the blank penalty it is created
+                  with, a penalty of zero selecting the highest-scoring token, and shall apply
+                  its default blank penalty when none is given.
+                justification: |
+                  The penalty trades recovered quiet words against early or repeated words, so
+                  it is a tuning value the evaluation tool varies. The default, 1.0, was chosen
+                  by a sweep from 0 to 3 in steps of 0.5 over the committed evaluation data
+                  (recorded in docs/evaluation/nemotron-stt/README.md).
+                tests:
+                  - NemotronRnntNetwork_PredictToken_ZeroPenalty_ReturnsBlankWhenBlankScoresHighest
+                  - PredictToken_ScoreEqualsBlank_AppliesPenalty
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-PenaltyValidation
+                title: >-
+                  The NemotronRnntNetwork class shall throw ArgumentOutOfRangeException for a
+                  blank penalty that is negative or not finite.
+                justification: |
+                  A negative penalty would favor blank and drop words, and a non-finite one
+                  would make token selection meaningless; either is a configuration error that
+                  must surface immediately.
+                tests:
+                  - NemotronRnntNetwork_Constructor_NegativeOrNonFiniteBlankPenalty_ThrowsArgumentOutOfRangeException
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntNetwork-PrimedPrediction
                 title: >-

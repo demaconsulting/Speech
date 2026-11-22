@@ -2,6 +2,7 @@ package SpeechOnnxNemotronStt_RecognitionSubsystem {
     private import SoftwareItemMetadata::*;
     private import SpeechOnnxNemotronStt_DitherNoise::*;
     private import SpeechOnnxNemotronStt_NemotronEncoder::*;
+    private import SpeechOnnxNemotronStt_NemotronEndpointDetector::*;
     private import SpeechOnnxNemotronStt_NemotronEngineOptions::*;
     private import SpeechOnnxNemotronStt_NemotronFeatureExtractor::*;
     private import SpeechOnnxNemotronStt_NemotronRnntGreedyDecoder::*;
@@ -12,7 +13,7 @@ package SpeechOnnxNemotronStt_RecognitionSubsystem {
     part def RecognitionSubsystem {
         doc /* The real ONNX-Runtime-backed implementation of Speech's public IRecognitionBackend seam over the
              * Nemotron encoder, decoder, and joint graphs, together with the streaming feature extractor, RNN-T
-             * greedy decoder, and leading-silence limiter and dither units it composes. */
+             * greedy decoder, decode-clock endpoint detector, and leading-silence limiter and dither units it composes. */
 
         metadata info : SoftwareInfo {
             designFiles = ("docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md");
@@ -25,6 +26,7 @@ package SpeechOnnxNemotronStt_RecognitionSubsystem {
         part nemotronEncoder : NemotronEncoder;
         part nemotronRnntNetwork : NemotronRnntNetwork;
         part nemotronRnntGreedyDecoder : NemotronRnntGreedyDecoder;
+        part nemotronEndpointDetector : NemotronEndpointDetector;
         part silenceRunLimiter : SilenceRunLimiter;
         part ditherNoise : DitherNoise;
         part nemotronEngineOptions : NemotronEngineOptions;

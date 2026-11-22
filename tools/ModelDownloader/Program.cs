@@ -1,4 +1,6 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.NemotronStt;
+using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 
@@ -167,7 +169,10 @@ internal static class Program
     /// <summary>
     ///     The compiled-in known models this CI bootstrap tool can download, mirroring the exact
     ///     four models the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
-    ///     <see cref="SpeechModelCatalogSherpaExtensions.AddSherpaModels"/> registers.
+    ///     <see cref="SpeechModelCatalogSherpaExtensions.AddSherpaModels"/> registers, plus the
+    ///     ONNX Nemotron speech-to-text model that
+    ///     <see cref="SpeechModelCatalogNemotronSttExtensions.AddNemotronSttModels"/> registers
+    ///     (downloaded in CI so its real-model tests run instead of skipping).
     /// </summary>
     private static readonly IReadOnlyList<ISpeechModel> KnownModels =
     [
@@ -175,6 +180,7 @@ internal static class Program
         new SherpaOnnxNemotronStreamingEnRecognitionModel(),
         new SherpaOnnxVitsLibriTtsEnglishSynthesisModel(),
         new SherpaOnnxKokoroEnglishSynthesisModel(),
+        new OnnxNemotronMultilingualRecognitionModel(),
     ];
 
     /// <summary>

@@ -24,11 +24,20 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 internal sealed class NemotronRnntNetwork : IRnntNetwork
 {
     /// <summary>
-    ///     Score penalty applied to the blank token. The model is under-confident on quiet,
-    ///     isolated microphone words and otherwise emits blank for them; values above about 4
-    ///     cause repeated or spurious tokens.
+    ///     The default score penalty applied to the blank token (1.0), chosen by measurement with
+    ///     the speech-to-text evaluation tool.
     /// </summary>
-    public const float BlankPenalty = 3.0f;
+    /// <remarks>
+    ///     The model is under-confident on quiet, isolated words and emits blank for them with no
+    ///     penalty, while a large penalty makes it emit words early and then repeat them (such as
+    ///     "Sun sunset" after background noise). A sweep of 0 to 3 in steps of 0.5 over the
+    ///     committed evaluation data (<c>docs/evaluation/nemotron-stt/README.md</c>) gave the
+    ///     lowest LibriSpeech-subset word error rate at 0.5 and 1.0 (3.39%, against 4.82% at 3.0);
+    ///     1.0 is the default because it also finalizes exactly one result per LibriSpeech
+    ///     utterance and gives the lowest word error rate on the paused and continuous scenarios,
+    ///     while quiet speech differs from 0.5 by one word. No value invented any words.
+    /// </remarks>
+    public const float DefaultBlankPenalty = 1.0f;
 
     /// <summary>The prediction-network hidden size.</summary>
     private const int DecoderHidden = 640;
@@ -102,18 +111,32 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
     /// <param name="decoder">The decoder session; ownership transfers to this instance.</param>
     /// <param name="joint">The joint session; ownership transfers to this instance.</param>
     /// <param name="blankId">The RNN-T blank token id.</param>
+    /// <param name="blankPenalty">
+    ///     The score subtracted from the blank token before greedy selection (default
+    ///     <see cref="DefaultBlankPenalty"/>); must be finite and not negative. Zero is plain
+    ///     greedy decoding.
+    /// </param>
     /// <param name="encoderHiddenSize">The encoder output frame size.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="decoder"/> or <paramref name="joint"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="blankPenalty"/> is negative or not finite.</exception>
+    /// <remarks>
+    ///     The arguments are validated before ownership of the sessions is taken, so on an
+    ///     exception the caller still owns (and disposes) both sessions.
+    /// </remarks>
     public NemotronRnntNetwork(
         InferenceSession decoder,
         InferenceSession joint,
         int blankId,
+        float blankPenalty = DefaultBlankPenalty,
         int encoderHiddenSize = NemotronEncoder.EncoderHiddenSize)
     {
         ArgumentNullException.ThrowIfNull(decoder);
         ArgumentNullException.ThrowIfNull(joint);
+        ValidateBlankPenalty(blankPenalty);
         _decoder = decoder;
         _joint = joint;
         BlankId = blankId;
+        BlankPenalty = blankPenalty;
         _encoderFrame = new float[encoderHiddenSize];
 
         _targetValue = OrtValue.CreateTensorValueFromMemory(_target, [1, 1]);
@@ -127,6 +150,9 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
 
     /// <inheritdoc/>
     public int BlankId { get; }
+
+    /// <summary>Gets the score subtracted from the blank token before greedy selection.</summary>
+    public float BlankPenalty { get; }
 
     /// <summary>
     ///     Creates the session options used for the decoder and joint sessions: one intra-op
@@ -180,22 +206,44 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
             _jointInputs,
             JointOutputNames);
 
-        return SelectToken(results[0].GetTensorDataAsSpan<float>(), BlankId);
+        return SelectToken(results[0].GetTensorDataAsSpan<float>(), BlankId, BlankPenalty);
     }
 
     /// <summary>
-    ///     Selects the arg-max token after subtracting <see cref="BlankPenalty"/> from the blank score.
+    ///     Checks that a blank penalty is usable: finite and not negative.
+    /// </summary>
+    /// <param name="blankPenalty">The penalty to check.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="blankPenalty"/> is negative or not finite.</exception>
+    /// <remarks>
+    ///     A negative penalty would favor blank and suppress words, and a non-finite one would make
+    ///     every comparison meaningless, so both are configuration errors rather than tuning
+    ///     choices.
+    /// </remarks>
+    internal static void ValidateBlankPenalty(float blankPenalty)
+    {
+        if (!float.IsFinite(blankPenalty) || blankPenalty < 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(blankPenalty),
+                blankPenalty,
+                "The blank penalty must be a finite, non-negative number.");
+        }
+    }
+
+    /// <summary>
+    ///     Selects the arg-max token after subtracting <paramref name="blankPenalty"/> from the blank score.
     /// </summary>
     /// <param name="logits">The joint network logits over the vocabulary.</param>
     /// <param name="blankId">The RNN-T blank token id.</param>
+    /// <param name="blankPenalty">The score subtracted from the blank logit (zero for plain greedy selection).</param>
     /// <returns>The index of the highest penalized score (the first on ties).</returns>
-    internal static int SelectToken(ReadOnlySpan<float> logits, int blankId)
+    internal static int SelectToken(ReadOnlySpan<float> logits, int blankId, float blankPenalty)
     {
         var best = 0;
         var bestValue = float.NegativeInfinity;
         for (var i = 0; i < logits.Length; i++)
         {
-            var value = i == blankId ? logits[i] - BlankPenalty : logits[i];
+            var value = i == blankId ? logits[i] - blankPenalty : logits[i];
             if (value > bestValue)
             {
                 bestValue = value;

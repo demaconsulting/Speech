@@ -87,11 +87,20 @@
 
   <!-- Test Data Files -->
   <ItemGroup>
-    <!-- Real-speech WAV fixture (and its licensing/attribution NOTICE.md) consumed by
-         SherpaOnnxRecognitionEngineAccuracyTests; copied next to the built test assembly so the
-         path resolved via AppContext.BaseDirectory at test run time is always valid regardless of
-         the working directory the test host was launched from. -->
-    <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Real-speech WAV fixture consumed by SherpaOnnxRecognitionEngine(Accuracy)Tests, linked from
+         the segregated STT data folder (attribution and license in data/stt-en/ATTRIBUTION.md) and
+         copied next to the built test assembly so the path resolved via AppContext.BaseDirectory
+         at test run time is always valid regardless of the working directory the test host was
+         launched from. -->
+    <None Include="..\..\data\stt-en\crossing-the-bar-16k-mono.wav" Link="TestData\crossing-the-bar-16k-mono.wav" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Shared Evaluation Code.
+       The word error rate calculator is owned by the non-shipped STT evaluation tool and compiled
+       into this test assembly (the Phonemes.En tests use the same pattern for their tool code), so
+       the accuracy tests and the tool score transcripts with one implementation. -->
+  <ItemGroup>
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\WordErrorRateCalculator.cs" Link="Linked\WordErrorRateCalculator.cs" />
   </ItemGroup>
 
 </Project>

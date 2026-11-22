@@ -73,6 +73,10 @@
   <!-- Test Fixtures -->
   <ItemGroup>
     <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The real-speech recording lives once, with its attribution, in the segregated STT data
+         folder (data/stt-en/ATTRIBUTION.md); it is linked to its former TestData location so the
+         tests resolve it beside the test assembly unchanged. -->
+    <None Include="..\..\data\stt-en\crossing-the-bar-16k-mono.wav" Link="TestData\crossing-the-bar-16k-mono.wav" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

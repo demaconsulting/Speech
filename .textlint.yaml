@@ -472,6 +472,19 @@ overrides:
       - yatabe
       - yifan
       - zhang
+  # The STT evaluation data folder: the authors and the conference of the LibriSpeech corpus, named in its attribution
+  # because the corpus license (CC BY 4.0) requires it, and the hosting names of the CC0 poem recording
+  - filename: '{data/stt-en/**,.textlint.yaml}'
+    words:
+      - freesound
+      - guoguo
+      - icassp
+      - khudanpur
+      - panayotov
+      - povey
+      - sanjeev
+      - vassil
+      - voxserv
   # The Phonemes.En package, its tests and tools, its documents and its data: terms of the pronunciation domain,
   # word-ending fragments of the sound rules (the suffix of a stem change, not prose), the magic number of the
   # lexicon image, invented and out-of-dictionary test words (a name, a brand, a spelling that proves the

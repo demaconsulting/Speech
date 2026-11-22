@@ -206,6 +206,7 @@ includes:
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-endpoint-detector.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-encoder.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-network.yaml

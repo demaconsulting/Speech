@@ -117,4 +117,56 @@ public sealed class NemotronRnntNetworkTests
         Assert.Throws<ArgumentNullException>(() => new NemotronRnntNetwork(null!, session, Blank));
         Assert.Throws<ArgumentNullException>(() => new NemotronRnntNetwork(session, null!, Blank));
     }
+
+    /// <summary>Proves a configured blank penalty reaches the production joint output selection.</summary>
+    [Fact]
+    public void NemotronRnntNetwork_PredictToken_ZeroPenalty_ReturnsBlankWhenBlankScoresHighest()
+    {
+        // Arrange: a network whose joint score 18 is the blank id, with no blank penalty
+        using var network = new NemotronRnntNetwork(
+            new InferenceSession(NemotronNetworkFixture.BuildDecoder()),
+            new InferenceSession(NemotronNetworkFixture.BuildJoint()),
+            blankId: 18,
+            blankPenalty: 0f);
+        network.Reset();
+        network.Advance(5);
+
+        // Act: predict the token for a frame whose top score is the blank id
+        var token = network.PredictToken(Frame());
+
+        // Assert: without a penalty the blank wins and the configured penalty is exposed
+        Assert.Equal(18, token);
+        Assert.Equal(0f, network.BlankPenalty);
+    }
+
+    /// <summary>Proves a zero penalty selects the plain arg-max token, even when that is blank.</summary>
+    [Fact]
+    public void NemotronRnntNetwork_SelectToken_ZeroPenalty_PrefersHighestLogit()
+    {
+        // Arrange: logits where blank (index 2) leads by half the default penalty
+        var logits = new[] { 0.0f, 5.0f, 5.0f + (NemotronRnntNetwork.DefaultBlankPenalty / 2) };
+
+        // Act: select with no penalty and with the default penalty
+        var plain = NemotronRnntNetwork.SelectToken(logits, 2, 0f);
+        var penalized = NemotronRnntNetwork.SelectToken(logits, 2, NemotronRnntNetwork.DefaultBlankPenalty);
+
+        // Assert: plain greedy keeps blank; the default penalty prefers the close non-blank token
+        Assert.Equal(2, plain);
+        Assert.Equal(1, penalized);
+    }
+
+    /// <summary>Proves negative or non-finite blank penalties are rejected before the sessions are taken.</summary>
+    [Theory]
+    [InlineData(-0.5f)]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    public void NemotronRnntNetwork_Constructor_NegativeOrNonFiniteBlankPenalty_ThrowsArgumentOutOfRangeException(float penalty)
+    {
+        // Arrange: valid sessions
+        using var decoder = new InferenceSession(NemotronNetworkFixture.BuildDecoder());
+        using var joint = new InferenceSession(NemotronNetworkFixture.BuildJoint());
+
+        // Act / Assert: the penalty is rejected
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NemotronRnntNetwork(decoder, joint, Blank, penalty));
+    }
 }

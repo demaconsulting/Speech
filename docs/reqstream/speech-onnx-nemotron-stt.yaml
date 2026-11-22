@@ -9,9 +9,12 @@
 # as its own package, and is versioned as part of this repository. The Speech library never
 # depends on it.
 #
-# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests - see the subsystem/unit-level
-# reqstream files under docs/reqstream/speech-onnx-nemotron-stt/ for the full tests: lists these
-# system requirements decompose into.
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests: the accuracy, segmentation,
+# silence, and session requirements link the real-model system tests in
+# SpeechOnnxNemotronSttTests.cs, which run in CI on every operating system against the model the
+# workflow downloads; see the subsystem/unit-level reqstream files under
+# docs/reqstream/speech-onnx-nemotron-stt/ for the full tests: lists these system requirements
+# decompose into.
 
 sections:
   - title: SpeechOnnxNemotronStt Requirements
@@ -49,11 +52,13 @@ sections:
         title: >-
           The library shall provide a real, downloadable, checksum-verified, ONNX-Runtime-backed
           streaming recognition model implementing the Speech library's IRecognitionModel
-          contract.
+          contract and declaring the license that governs the model.
         tags: [system]
         justification: |
           A host needs a real, checksum-verified, installable recognition model to perform
-          offline speech-to-text with this model family at all.
+          offline speech-to-text with this model family at all, and must be able to show its
+          users the license of the model weights it downloads (OpenMDW-1.1, as named on the
+          upstream NVIDIA model card).
         children:
           - SpeechOnnxNemotronStt-Models-RealRecognitionModel
           - SpeechOnnxNemotronStt-Models-DownloadDescriptor
@@ -147,18 +152,118 @@ sections:
           - Extract_Chunked_EqualsOneShot
           - Decode_Tokens_AreCollectedAndAdvanced
 
-      - id: SpeechOnnxNemotronStt-Recognition-QuietWordRecovery
+      - id: SpeechOnnxNemotronStt-Recognition-Accuracy
         title: >-
-          The library shall recover quiet, isolated words that the model would otherwise leave
-          not transcribed.
+          The library shall transcribe English speech with a corpus word error rate of at most
+          6% on the committed LibriSpeech test-clean subset, each utterance streamed on its own,
+          and at most 10% on the committed "Crossing the Bar" recitation streamed as one
+          recording.
         tags: [system]
         justification: |
-          The model is under-confident on quiet, isolated words and otherwise emits nothing for
-          them.
+          A host needs a recognizer whose accuracy is measured and protected against
+          regression. The thresholds are shared with the speech-to-text evaluation tool so the
+          automated tests and the tool's check apply the same gates to the same license-tracked
+          recordings.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-FeatureExtraction
+          - SpeechOnnxNemotronStt-Recognition-BlankPenalty
+          - SpeechOnnxNemotronStt-Models-EngineOptionsBackend
+        tests:
+          - SpeechOnnxNemotronStt_Transcribe_LibriSpeechSubset_WordErrorRateWithinGate
+          - SpeechOnnxNemotronStt_Transcribe_CrossingTheBar_WordErrorRateWithinGate
+
+      - id: SpeechOnnxNemotronStt-Recognition-UtteranceSegmentation
+        title: >-
+          The library shall report one final result per utterance when utterances are separated
+          by pauses of about 1.5 seconds or more, each committed during the pause that follows
+          it and holding only that utterance's words.
+        tags: [system]
+        justification: |
+          A host acting on each sentence (dictation, commands) needs every utterance finalized
+          promptly when the speaker pauses, neither merged with its neighbor nor split.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-EndpointAfterSpeech
+          - SpeechOnnxNemotronStt-Recognition-EndpointWithinBlock
+          - SpeechOnnxNemotronStt-Recognition-EndpointConfiguration
+        tests:
+          - SpeechOnnxNemotronStt_Transcribe_PausedUtterances_FinalizesEachUtterance
+
+      - id: SpeechOnnxNemotronStt-Recognition-NoInventedWords
+        title: >-
+          The library shall add no words after the last spoken word of an utterance, whether
+          the input ends with the speech or continues with trailing silence before the stream
+          is flushed.
+        tags: [system]
+        justification: |
+          Words invented after the speaker stopped are a visible, misleading error that a host
+          cannot detect; the end of a stream and the silence after speech must be decoded as
+          silence.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-SilencePadding
+          - SpeechOnnxNemotronStt-Recognition-FlushResult
+        tests:
+          - SpeechOnnxNemotronStt_Transcribe_LibriSpeechSubset_AddsNoInventedWords
+          - SpeechOnnxNemotronStt_Transcribe_TrailingSilenceThenFlush_AddsNoInventedWords
+
+      - id: SpeechOnnxNemotronStt-Recognition-SilenceProducesNoText
+        title: >-
+          The library shall report no text, provisional or final, for input that is only
+          digital silence or quiet noise, however long.
+        tags: [system]
+        justification: |
+          An open microphone in a quiet room must not produce text; any text reported for
+          silence would be invented.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-SilenceNeverEndpoints
+          - SpeechOnnxNemotronStt-Recognition-EndpointLongSilence
+          - SpeechOnnxNemotronStt-Recognition-FlushNothing
+        tests:
+          - SpeechOnnxNemotronStt_Transcribe_SilenceOnly_ReportsNoText
+
+      - id: SpeechOnnxNemotronStt-Recognition-MaximumUtteranceLength
+        title: >-
+          The library shall split continuous speech longer than 20 seconds into several final
+          results, each committed at most about 20 seconds after the previous one, without
+          losing words at the splits.
+        tags: [system]
+        justification: |
+          A speaker who never pauses must still see committed text at a bounded interval, and
+          the split must not cost accuracy.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-EndpointMaximumUtterance
+          - SpeechOnnxNemotronStt-Models-VocabularyWordBoundaries
+        tests:
+          - SpeechOnnxNemotronStt_Transcribe_ContinuousSpeechBeyondMaximum_FinalizesAtMostEveryTwentySeconds
+
+      - id: SpeechOnnxNemotronStt-Recognition-ResumedSpeechKeepsWords
+        title: >-
+          The library shall report every word of speech that resumes after an utterance was
+          finalized exactly once, losing none of its opening words and repeating none of the
+          finalized utterance.
+        tags: [system]
+        justification: |
+          A speaker often resumes shortly after a pause; the opening words of the next
+          sentence must not be dropped, and asking for further results without new audio must
+          not repeat text already reported.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-EndpointKeepsModelState
+          - SpeechOnnxNemotronStt-Recognition-ClosingPunctuation
+        tests:
+          - SpeechOnnxNemotronStt_Transcribe_SpeechResumingAfterEndpoint_KeepsEveryWordExactlyOnce
+          - SpeechOnnxNemotronStt_TryDecodeAndTryFlush_NoNewAudioAfterEndpoint_ReportNothing
+
+      - id: SpeechOnnxNemotronStt-Recognition-QuietWordRecovery
+        title: >-
+          The library shall recognize quiet speech, including quiet, isolated words that the
+          model would otherwise leave not transcribed.
+        tags: [system]
+        justification: |
+          Microphones are often far from the speaker, and the model is under-confident on
+          quiet, isolated words and otherwise emits nothing for them.
         children:
           - SpeechOnnxNemotronStt-Recognition-BlankPenalty
         tests:
-          - SelectToken_BlankWithinPenalty_PrefersNonBlank
+          - SpeechOnnxNemotronStt_Transcribe_QuietSpeech_RecoversWords
 
       - id: SpeechOnnxNemotronStt-Recognition-ProvisionalText
         title: >-
@@ -177,34 +282,31 @@ sections:
 
       - id: SpeechOnnxNemotronStt-Recognition-FinalText
         title: >-
-          The library shall report final text for an utterance when the stream ends or the
-          speaker stops, and never for silence alone.
+          The library shall report final text for an utterance when the stream ends, including
+          an utterance abandoned without trailing silence, or when the speaker pauses after it.
         tags: [system]
         justification: |
           A host needs a final transcript of each utterance, including the last words buffered
-          when the stream ends.
+          when the stream ends (for example when a push-to-talk button is released).
         children:
           - SpeechOnnxNemotronStt-Recognition-FlushResult
-          - SpeechOnnxNemotronStt-Recognition-FlushNothing
-          - SpeechOnnxNemotronStt-Recognition-QuietEndpointing
-          - SpeechOnnxNemotronStt-Recognition-EmptyChunkEndpointing
-          - SpeechOnnxNemotronStt-Recognition-QuietEndpointingInsideBlock
-          - SpeechOnnxNemotronStt-Recognition-SilenceNeverEndpoints
+          - SpeechOnnxNemotronStt-Recognition-EndpointAfterSpeech
         tests:
-          - TryFlush_PartialAudio_ReturnsFinalText
-          - TryDecode_QuietAfterSpeech_EndpointsAndResets
+          - SpeechOnnxNemotronStt_TryFlush_AbandonedUtterance_RecoversTrailingWords
+          - SpeechOnnxNemotronStt_Transcribe_TrailingSilenceThenFlush_AddsNoInventedWords
 
       - id: SpeechOnnxNemotronStt-Recognition-SessionIsolation
         title: >-
           The library shall start each recognition session from a clean state, inheriting no
-          audio or model state from an earlier session.
+          audio, text, or model state from an earlier session.
         tags: [system]
         justification: |
-          The Speech library reuses a backend across sessions.
+          The Speech library reuses a backend across sessions, and words of an abandoned
+          utterance must never surface in the next session.
         children:
           - SpeechOnnxNemotronStt-Recognition-SessionReset
         tests:
-          - Reset_AfterAudio_NextStreamMatchesFreshEngine
+          - SpeechOnnxNemotronStt_Reset_AbandonedUtterance_DoesNotBleedIntoNextSession
 
       - id: SpeechOnnxNemotronStt-Recognition-ModelResourceRelease
         title: >-
@@ -220,13 +322,13 @@ sections:
 
       - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceMitigation
         title: >-
-          The library shall keep transcription working when audio begins with long digital
-          silence or very low-level noise, by truncating long quiet runs.
+          The library shall keep the opening words of speech that follows long digital silence
+          or quiet noise, and add no stray words for that silence or noise.
         tags: [system]
         justification: |
           The Nemotron model emits nothing, or garbage, when a stream opens with a long run of
-          digital silence or very low noise. Truncating long quiet runs to a short fixed length
-          keeps context while preventing that failure.
+          digital silence or very low noise, as an open microphone often does before the
+          speaker starts talking.
         children:
           - SpeechOnnxNemotronStt-Recognition-LeadingSilenceLimiting
           - SpeechOnnxNemotronStt-Recognition-SilenceAdaptiveThreshold
@@ -234,8 +336,10 @@ sections:
           - SpeechOnnxNemotronStt-Recognition-SilenceLimiterClockAndReset
           - SpeechOnnxNemotronStt-Recognition-SilenceCalibrationFlow
           - SpeechOnnxNemotronStt-Recognition-SilenceNonAdaptive
+          - SpeechOnnxNemotronStt-Recognition-EndpointLongSilence
         tests:
-          - Process_DigitalSilence_TruncatesToCap
+          - SpeechOnnxNemotronStt_Transcribe_LeadingSilenceBeforeSpeech_KeepsPhraseWithoutStrayWords
+          - SpeechOnnxNemotronStt_Transcribe_QuietNoiseBeforeSpeech_KeepsOpeningWords
 
       - id: SpeechOnnxNemotronStt-Recognition-SpeechPreservedWhenLimiting
         title: >-

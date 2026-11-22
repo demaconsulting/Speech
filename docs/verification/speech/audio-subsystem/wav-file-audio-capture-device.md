@@ -3,15 +3,17 @@
 #### Verification Approach
 
 Verified through direct unit tests in `WavFileAudioCaptureDeviceTests.cs`, reusing the existing
-`crossing-the-bar-16k-mono.wav` test fixture (16 kHz mono 16-bit PCM) already present in
-`TestData/` for the fixture-based scenarios, plus small ad hoc files (including files written
+`crossing-the-bar-16k-mono.wav` recording (16 kHz mono 16-bit PCM) of the segregated speech data
+folder `data/stt-en/`, linked into the test output's `TestData/` for the fixture-based scenarios,
+plus small ad hoc files (including files written
 through `WavFileAudioPlaybackDevice`) for negative/format-rejection scenarios, rather than
 authoring new binary fixtures.
 
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
-- **Fixture**: `test/DemaConsulting.Speech.Tests/TestData/crossing-the-bar-16k-mono.wav`
+- **Fixture**: `data/stt-en/crossing-the-bar-16k-mono.wav` (attribution and license in
+  `data/stt-en/ATTRIBUTION.md`), linked as `TestData/crossing-the-bar-16k-mono.wav`
 - No additional setup beyond the standard test runner.
 
 #### Acceptance Criteria

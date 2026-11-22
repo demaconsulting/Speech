@@ -5,19 +5,23 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 ///     trained with.
 /// </summary>
 /// <remarks>
-///     Pipeline (identical to the reference spike's <c>features()</c>): pre-emphasis
-///     <c>y[n] = x[n] - 0.97 * x[n-1]</c> (<c>y[0] = x[0]</c>); centered framing with a 256-sample
-///     reflect pad on both ends; a 512-point FFT of each frame multiplied by a 400-sample periodic
-///     Hann window centered in the 512 samples; power spectrum; a 128-band Slaney-scale mel
-///     filterbank (0 to 8000 Hz, Slaney area normalization); and <c>log(mel + 1e-10)</c> with no
-///     further normalization. The hop is 160 samples (10 ms).
+///     Pipeline (the semantics of NeMo's <c>FilterbankFeatures</c> inference path, with this
+///     model's settings): pre-emphasis <c>y[n] = x[n] - 0.97 * x[n-1]</c> (<c>y[0] = x[0]</c>);
+///     centered framing with a 256-sample <i>constant (zero)</i> pad on both ends, as PyTorch's
+///     centered short-time Fourier transform with <c>pad_mode="constant"</c>; a 512-point FFT of
+///     each frame multiplied by a 400-sample <i>symmetric</i> Hann window (<c>periodic_window=False</c>)
+///     centered in the 512 samples; power spectrum; a 128-band Slaney-scale mel filterbank (0 to
+///     8000 Hz, Slaney area normalization); and <c>log(mel + 2^-24)</c> - NeMo's default additive
+///     log guard, matching the model's <c>genai_config.json</c> <c>log_eps</c> - with no further
+///     normalization. The hop is 160 samples (10 ms). NeMo's training-time dither is not part of
+///     this unit; the recognition engine adds its own seeded dither before extraction.
 ///     <para>
 ///     The extractor is incremental: samples can be supplied in blocks of any size and the
-///     produced frames equal those of a one-shot computation over the concatenated input. The
-///     left reflect pad needs the first 257 samples, so no frame is emitted before then;
-///     <see cref="Flush"/> applies the right reflect pad and emits the remaining frames. An input
-///     shorter than 257 samples is zero-extended to 257 at flush, since a reflect pad cannot be
-///     formed from fewer.
+///     produced frames equal those of a one-shot computation over the concatenated input. Frame
+///     <c>i</c> is centered on input sample <c>160 * i</c> and is emitted once the 256 samples
+///     after its center have arrived; <see cref="Flush"/> applies the right zero pad and emits
+///     the remaining frames, giving <c>len / 160 + 1</c> frames for <c>len</c> samples, as NeMo
+///     does.
 ///     </para>
 /// </remarks>
 internal sealed class NemotronFeatureExtractor
@@ -40,10 +44,13 @@ internal sealed class NemotronFeatureExtractor
     /// <summary>The pre-emphasis coefficient.</summary>
     public const double PreEmphasis = 0.97;
 
-    /// <summary>The value added to the mel energy before the logarithm.</summary>
-    public const double LogEpsilon = 1e-10;
+    /// <summary>
+    ///     The value added to the mel energy before the logarithm: 2^-24, NeMo's default
+    ///     <c>log_zero_guard_value</c> and the model's <c>genai_config.json</c> <c>log_eps</c>.
+    /// </summary>
+    public const double LogEpsilon = 5.9604644775390625E-08;
 
-    /// <summary>The reflect pad applied to each end (half the FFT size).</summary>
+    /// <summary>The zero pad applied to each end (half the FFT size).</summary>
     private const int Pad = FftSize / 2;
 
     /// <summary>The number of frequency bins of the real FFT.</summary>
@@ -73,9 +80,6 @@ internal sealed class NemotronFeatureExtractor
     /// <summary>The power spectrum working buffer.</summary>
     private readonly double[] _power = new double[Bins];
 
-    /// <summary>The first <see cref="Pad"/>+1 pre-emphasized samples, held until the left pad can be formed.</summary>
-    private readonly List<float> _head = [];
-
     /// <summary>The pre-emphasized samples of the framing buffer (the padded signal from the next frame start).</summary>
     private float[] _buffer = new float[FftSize * 8];
 
@@ -94,10 +98,7 @@ internal sealed class NemotronFeatureExtractor
     /// <summary>The number of raw samples accepted so far.</summary>
     private long _samplesAccepted;
 
-    /// <summary>The last <see cref="Pad"/>+1 pre-emphasized samples, used to form the right reflect pad.</summary>
-    private readonly float[] _tail = new float[Pad + 1];
-
-    /// <summary>Whether the left pad has been formed and framing has started.</summary>
+    /// <summary>Whether the left zero pad has been placed and framing has started.</summary>
     private bool _started;
 
     /// <summary>Gets the number of finished frames waiting to be dequeued.</summary>
@@ -108,13 +109,11 @@ internal sealed class NemotronFeatureExtractor
     /// </summary>
     public void Reset()
     {
-        _head.Clear();
         _bufferLength = 0;
         _frameCount = 0;
         _previousSample = 0;
         _samplesAccepted = 0;
         _started = false;
-        Array.Clear(_tail);
     }
 
     /// <summary>
@@ -123,12 +122,19 @@ internal sealed class NemotronFeatureExtractor
     /// <param name="samples">Mono samples at 16 kHz in [-1, 1].</param>
     public void Accept(ReadOnlySpan<float> samples)
     {
+        // The stream starts with the left zero pad, so frame 0 is centered on the first sample
+        if (!_started && !samples.IsEmpty)
+        {
+            AppendZeros(Pad);
+            _started = true;
+        }
+
         for (var i = 0; i < samples.Length; i++)
         {
             var x = samples[i];
             var y = _samplesAccepted == 0 ? x : (float)(x - (PreEmphasis * _previousSample));
             _previousSample = x;
-            AppendEmphasized(y);
+            AppendRaw(y);
             _samplesAccepted++;
         }
 
@@ -136,9 +142,14 @@ internal sealed class NemotronFeatureExtractor
     }
 
     /// <summary>
-    ///     Applies the right reflect pad and queues every remaining frame. After this call the
+    ///     Applies the right zero pad and queues every remaining frame. After this call the
     ///     extractor should be <see cref="Reset"/> before accepting more audio.
     /// </summary>
+    /// <remarks>
+    ///     Used for one-shot extraction. The streaming recognition engine never calls it: it
+    ///     completes its chunks with dithered silence audio instead, as a live stream would
+    ///     continue.
+    /// </remarks>
     public void Flush()
     {
         if (_samplesAccepted == 0)
@@ -146,19 +157,7 @@ internal sealed class NemotronFeatureExtractor
             return;
         }
 
-        // Too short for a reflect pad: zero-extend to Pad + 1 samples, which starts framing.
-        while (!_started)
-        {
-            AppendEmphasized(0f);
-        }
-
-        // Right reflect pad: padded[len + Pad + j] = y[len - 2 - j]. _tail holds the last Pad+1
-        // emphasized samples in order, so y[len - 1 - k] = _tail[Pad - k].
-        for (var j = 0; j < Pad; j++)
-        {
-            AppendRaw(_tail[Pad - (j + 1)]);
-        }
-
+        AppendZeros(Pad);
         EmitReadyFrames();
     }
 
@@ -178,35 +177,13 @@ internal sealed class NemotronFeatureExtractor
         _frameCount -= count;
     }
 
-    /// <summary>Appends one pre-emphasized sample, forming the left reflect pad on the 257th.</summary>
-    private void AppendEmphasized(float y)
+    /// <summary>Appends <paramref name="count"/> zero samples of the center pad to the framing buffer.</summary>
+    /// <param name="count">The number of zeros.</param>
+    private void AppendZeros(int count)
     {
-        // Maintain the sliding window of the last Pad + 1 emphasized samples.
-        Array.Copy(_tail, 1, _tail, 0, Pad);
-        _tail[Pad] = y;
-
-        if (_started)
+        for (var i = 0; i < count; i++)
         {
-            AppendRaw(y);
-            return;
-        }
-
-        _head.Add(y);
-        if (_head.Count == Pad + 1)
-        {
-            // Left reflect pad: padded[i] = y[Pad - i] for i in [0, Pad).
-            for (var i = 0; i < Pad; i++)
-            {
-                AppendRaw(_head[Pad - i]);
-            }
-
-            foreach (var sample in _head)
-            {
-                AppendRaw(sample);
-            }
-
-            _head.Clear();
-            _started = true;
+            AppendRaw(0f);
         }
     }
 
@@ -318,13 +295,13 @@ internal sealed class NemotronFeatureExtractor
         }
     }
 
-    /// <summary>Builds the periodic Hann window (scipy <c>get_window("hann", 400, fftbins=True)</c>).</summary>
+    /// <summary>Builds the symmetric Hann window (<c>torch.hann_window(400, periodic=False)</c>, NeMo's <c>periodic_window=False</c>).</summary>
     private static double[] BuildWindow()
     {
         var window = new double[WindowLength];
         for (var n = 0; n < WindowLength; n++)
         {
-            window[n] = 0.5 - (0.5 * Math.Cos(2.0 * Math.PI * n / WindowLength));
+            window[n] = 0.5 - (0.5 * Math.Cos(2.0 * Math.PI * n / (WindowLength - 1)));
         }
 
         return window;

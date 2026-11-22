@@ -5,7 +5,9 @@ package SpeechOnnxNemotronStt_NemotronRnntNetwork {
 
     part def NemotronRnntNetwork {
         doc /* ONNX-backed decoder and joint networks implementing the IRnntNetwork seam used by the RNN-T greedy
-             * decoder. */
+             * decoder. Greedy selection subtracts a configurable blank penalty from the blank logit, validated finite
+             * and not negative before the sessions are taken over; the default 1.0 was chosen by a sweep from 0 to
+             * 3 with the evaluation tool. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs");

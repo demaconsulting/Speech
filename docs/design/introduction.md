@@ -202,7 +202,8 @@ any of them:
   catalog extension, the Nemotron recognition model class, and the vocabulary loader
 - **RecognitionSubsystem (Subsystem of SpeechOnnxNemotronStt)** — `OnnxNemotronRecognitionEngine`
   with its streaming feature extractor, cache-aware encoder (`NemotronEncoder`), decoder and joint
-  network (`NemotronRnntNetwork`), RNN-T greedy decoder, and silence-run limiter
+  network (`NemotronRnntNetwork`), RNN-T greedy decoder, decode-clock endpoint detector
+  (`NemotronEndpointDetector`), and silence-run limiter
 - **SpeechOnnxChatterboxTurbo (System)** — The `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
   library, a concrete ONNX Runtime-backed voice-cloning text-to-speech model and engine
   implementing Speech's `ISynthesisModel`/`ISynthesisBackend` seam, with its own embedded
@@ -442,8 +443,11 @@ that `Speech` neither references nor knows about, and two more, `SpeechTextEn` a
   SharpCompress OTS package to extract the two voice files from the downloaded archive; it bundles no espeak-ng.
 - `SpeechOnnxNemotronStt` (`DemaConsulting.Speech.Onnx.NemotronStt`) supplies a streaming
   Nemotron speech-recognition model and engine in two subsystems, `ModelManagementSubsystem`
-  and `RecognitionSubsystem` (the engine, feature extractor, RNN-T decoder, and silence limiter).
-  It depends on `Speech` and `SpeechOnnx`.
+  and `RecognitionSubsystem` (the engine, feature extractor, RNN-T decoder, endpoint detector, and
+  silence limiter). It depends on `Speech` and `SpeechOnnx`. The non-shipped evaluation tool that
+  measures it (`tools/DemaConsulting.Speech.SttEvaluation`) is modeled as its own tool system,
+  `SpeechSttEvaluation`, while its evaluation data and records are tool inputs and outputs rather
+  than software items; see *Modeling Scope and Exclusions*.
 - `SpeechOnnxChatterboxTurbo` (`DemaConsulting.Speech.Onnx.ChatterboxTurbo`) supplies a
   voice-cloning text-to-speech model and engine in two subsystems, `ModelManagementSubsystem`
   (catalog extension, model and options, tokenizer, reference voice) and `SynthesisSubsystem`
@@ -943,8 +947,29 @@ src/DemaConsulting.Speech.Onnx.NemotronStt/
     ├── NemotronRnntNetwork.cs                             — Decoder and joint networks
     ├── NemotronFeatureExtractor.cs                        — Streaming log-mel features
     ├── NemotronRnntGreedyDecoder.cs                       — RNN-T greedy decoding
+    ├── NemotronEndpointDetector.cs                        — Decode-clock endpoint rules (with NemotronEndpointRules and NemotronEndpointReason)
     ├── DitherNoise.cs                                     — Dither noise source
     └── SilenceRunLimiter.cs                               — Leading-silence mitigation
+```
+
+The speech-to-text evaluation tool is a non-shipped tool system (`SpeechSttEvaluation`) that measures the
+SpeechOnnxNemotronStt library; its data and evaluation record are inputs and outputs of the tool, not software items:
+
+```text
+tools/DemaConsulting.Speech.SttEvaluation/
+├── DemaConsulting.Speech.SttEvaluation.csproj             — Non-packable net10.0 console project
+├── README.md                                              — Commands, scenarios, metrics, gates and output rules
+├── Program.cs                                             — Entry point: the evaluate command, its options and the known models
+├── ToolPaths.cs                                           — Repository root, data folder and the artifacts-only output folder (shared: linked into the tests)
+├── EvaluationRunner.cs                                    — Scenario construction (with EvaluationScenarios) and per-model evaluation
+├── EvaluationReport.cs                                    — Gate results, console summary and the report files under artifacts/
+├── EngineOptionOverrides.cs                               — --engine-option parameters and internal ONNX Nemotron engine options
+├── WordErrorRateCalculator.cs                             — Word alignment and word error rate (shared: linked into the tests)
+├── SttDataSet.cs                                          — Manifest-verified loader of data/stt-en (shared: linked into the tests)
+├── SttTranscriber.cs                                      — Session-like streaming of a recording through a backend (shared: linked into the tests)
+└── SttEvaluationGates.cs                                  — The accuracy gates of --check and the real-model tests (shared: linked into the tests)
+data/stt-en/                                               — README (rules, selection rule), ATTRIBUTION.md, MANIFEST.tsv pins, 24 LibriSpeech FLAC files and the poem WAV
+docs/evaluation/nemotron-stt/                              — Recorded evaluation results, including the blank-penalty sweep
 ```
 
 The SpeechTextEn library's folder structure likewise mirrors its software structure:
@@ -1139,6 +1164,15 @@ The SysML2 model intentionally follows these rules; they are not omissions:
   `data/phonemes-en/MANIFEST.tsv`; the measurements are recorded in `docs/evaluation/phonemes-en/`. They are described
   by *SpeechPhonemesEn Design* and its subsystems (the data provenance section), have no software item of their own,
   and the CMU Pronouncing Dictionary is data, not an OTS item.
+- **SpeechOnnxNemotronStt evaluation data and records are tool inputs and outputs, not software items.** The English
+  speech recordings in `data/stt-en/` (24 LibriSpeech `test-clean` utterances under CC BY 4.0 and the CC0 poem
+  recitation, attributed in `ATTRIBUTION.md` and pinned by SHA-256 in `MANIFEST.tsv`) and the evaluation record in
+  `docs/evaluation/nemotron-stt/` have no requirement, design or SysML2 part of their own; they are described in the
+  *Evaluation Tool and Test Data* section of *SpeechOnnxNemotronStt System Design*, and the data is never packed. The
+  evaluation tool itself (`tools/DemaConsulting.Speech.SttEvaluation`) is modeled as a non-shipped tool system,
+  `SpeechSttEvaluation`, like `ModelDownloader` and `SpeechPhonemesEnTools`: it has unit parts for its source
+  files but no requirements or verification documents of its own, and its shared sources are covered by the
+  `Evaluation/` tests of the SpeechOnnxNemotronStt test project.
 - **Small enums and value types** (for example `TaggedTextSpanKind` and the
   ChatterboxTurbo variant, policy, tag and generation-result types) are listed in the `sourceRef`
   of the unit that owns or consumes them rather than modeled as separate units.

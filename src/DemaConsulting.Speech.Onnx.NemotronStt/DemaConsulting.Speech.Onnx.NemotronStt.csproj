@@ -90,6 +90,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DemaConsulting.Speech.Onnx.NemotronStt.Tests" />
+    <!-- The non-shipped STT evaluation tool builds backends with explicit engine options
+         (blank penalty, endpoint rules, flush tail) to measure alternatives on the real model. -->
+    <InternalsVisibleTo Include="DemaConsulting.Speech.SttEvaluation" />
   </ItemGroup>
 
   <ItemGroup>

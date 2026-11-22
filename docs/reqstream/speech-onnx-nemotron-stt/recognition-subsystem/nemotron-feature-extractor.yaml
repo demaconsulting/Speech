@@ -17,22 +17,25 @@ sections:
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-LogMel
                 title: >-
                   The NemotronFeatureExtractor class shall compute 128-band natural-log mel
-                  features from 16 kHz mono audio that reproduce a reference computation of a
-                  known signal.
+                  features from 16 kHz mono audio with the NeMo front-end formula the model was
+                  trained with (0.97 pre-emphasis, 512-point FFT of a 400-sample symmetric Hann
+                  window every 160 samples, constant zero center padding, Slaney-normalized mel
+                  filterbank from 0 Hz to 8000 Hz, and a 2^-24 log guard), matching
+                  independently computed reference values to within 1e-3.
                 justification: |
                   The encoder was trained on exactly this front end; any deviation silently
                   degrades recognition accuracy, so the numerical pipeline must be pinned
-                  against a reference.
+                  against reference values computed independently of the implementation.
                 tests:
-                  - Extract_GoldenSignal_MatchesReference
+                  - NemotronFeatureExtractor_Extract_GoldenSignals_MatchNeMoReference
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-SilenceFloor
                 title: >-
-                  The NemotronFeatureExtractor class shall produce the natural log of the
-                  additive log floor for every band of digital silence.
+                  The NemotronFeatureExtractor class shall produce the natural log of the 2^-24
+                  log guard for every band of digital silence.
                 justification: |
-                  The log floor keeps silence finite rather than negative infinity, and the
-                  floor value is part of the front end the encoder was trained on.
+                  The log guard keeps silence finite rather than negative infinity, and the
+                  guard value is part of the front end the encoder was trained on.
                 tests:
                   - Extract_Silence_IsLogEpsilon
 
@@ -46,6 +49,17 @@ sections:
                 tests:
                   - Extract_Chunked_EqualsOneShot
 
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEmission
+                title: >-
+                  The NemotronFeatureExtractor class shall make each frame available as soon as
+                  the audio its analysis window covers has been accepted, without waiting for a
+                  flush.
+                justification: |
+                  A streaming recognizer must decode while the speaker is still talking, so
+                  frames cannot be held back until the end of the stream.
+                tests:
+                  - NemotronFeatureExtractor_Accept_StreamingInput_EmitsFramesWithoutFlush
+
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Reset
                 title: >-
                   The NemotronFeatureExtractor class shall reproduce the same frames for the
@@ -57,14 +71,15 @@ sections:
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Flush
                 title: >-
-                  The NemotronFeatureExtractor class's Flush method shall produce the final
-                  frames of the accepted audio, including for input shorter than one analysis
+                  The NemotronFeatureExtractor class's Flush method shall complete the accepted
+                  audio with constant zero padding so that N accepted samples yield N / 160 + 1
+                  frames in total (integer division), including input shorter than one analysis
                   window.
                 justification: |
-                  The last audio of an utterance must reach the encoder, including utterances
-                  shorter than one analysis window.
+                  The last audio of an utterance must reach the encoder, and the frame count
+                  must match the NeMo front end the model was trained with.
                 tests:
-                  - Flush_VeryShortInput_ProducesFrames
+                  - NemotronFeatureExtractor_Flush_InputLength_ProducesNeMoFrameCount
 
               - id: SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-FlushNoAudio
                 title: >-

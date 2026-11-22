@@ -19,6 +19,9 @@ public sealed class OnnxNemotronRecognitionEngineTests
     /// <summary>A tiny vocabulary: unk, "hello", "world", blank.</summary>
     private static readonly string[] Words = ["<unk>", "\u2581hello", "\u2581world", "<blank>"];
 
+    /// <summary>The id of the "." token in the vocabulary of <see cref="CreateWithPunctuation"/>.</summary>
+    private const int PeriodToken = 2;
+
     /// <summary>Builds a speech-level tone.</summary>
     private static float[] Tone(double seconds)
     {
@@ -58,6 +61,69 @@ public sealed class OnnxNemotronRecognitionEngineTests
         return results;
     }
 
+    /// <summary>Builds digital silence.</summary>
+    /// <param name="seconds">The duration.</param>
+    /// <returns>The zero samples.</returns>
+    private static float[] Silence(double seconds) => new float[(int)(seconds * Rate)];
+
+    /// <summary>Joins audio pieces into one block.</summary>
+    /// <param name="pieces">The pieces in order.</param>
+    /// <returns>The concatenated samples.</returns>
+    private static float[] Join(params float[][] pieces) => pieces.SelectMany(p => p).ToArray();
+
+    /// <summary>
+    ///     Creates an engine around loudness-reacting fakes: a 7-frame encoder (like the real model)
+    ///     and a network that says "hello", then "world", on each quiet-to-loud transition.
+    /// </summary>
+    /// <param name="options">The engine options, or <see langword="null"/> for the defaults.</param>
+    /// <returns>The engine and its fakes.</returns>
+    private static (OnnxNemotronRecognitionEngine Engine, LoudnessFakeEncoder Encoder, LoudnessFakeNetwork Network) CreateLoudness(
+        NemotronEngineOptions? options = null)
+    {
+        var encoder = new LoudnessFakeEncoder();
+        var network = new LoudnessFakeNetwork(Blank, 1, 2);
+        var engine = new OnnxNemotronRecognitionEngine(
+            encoder,
+            new NemotronRnntGreedyDecoder(network),
+            new NemotronVocabulary(Words),
+            options);
+        return (engine, encoder, network);
+    }
+
+    /// <summary>
+    ///     Creates an engine whose scripted network says the two-piece word "hel" + "lo" on every
+    ///     encoder frame, for the maximum-length rule.
+    /// </summary>
+    /// <param name="maxUtteranceMs">The maximum utterance length rule.</param>
+    /// <returns>The engine and its network.</returns>
+    private static (OnnxNemotronRecognitionEngine Engine, FakeRnntNetwork Network) CreateContinuousWords(int maxUtteranceMs)
+    {
+        var script = Enumerable.Repeat(new[] { 1, 2, Blank }, 400).SelectMany(t => t).ToArray();
+        var network = new FakeRnntNetwork(Blank, script);
+        var engine = new OnnxNemotronRecognitionEngine(
+            new FakeNemotronEncoder(),
+            new NemotronRnntGreedyDecoder(network),
+            new NemotronVocabulary(["<unk>", "\u2581hel", "lo", "<blank>"]),
+            new NemotronEngineOptions(Endpoint: new NemotronEndpointRules(MaxUtteranceMs: maxUtteranceMs)));
+        return (engine, network);
+    }
+
+    /// <summary>
+    ///     Creates an engine whose vocabulary also holds a period token, for the handling of
+    ///     punctuation emitted after an endpoint.
+    /// </summary>
+    /// <param name="script">The scripted tokens.</param>
+    /// <returns>The engine and its network.</returns>
+    private static (OnnxNemotronRecognitionEngine Engine, FakeRnntNetwork Network) CreateWithPunctuation(params int[] script)
+    {
+        var network = new FakeRnntNetwork(Blank, script);
+        var engine = new OnnxNemotronRecognitionEngine(
+            new FakeNemotronEncoder(),
+            new NemotronRnntGreedyDecoder(network),
+            new NemotronVocabulary(["<unk>", "\u2581hello", ".", "<blank>"]));
+        return (engine, network);
+    }
+
     /// <summary>Proves a decoded chunk yields a provisional result with the detokenized text.</summary>
     [Fact]
     public void TryDecode_SpeechChunk_ReportsProvisionalText()
@@ -86,8 +152,9 @@ public sealed class OnnxNemotronRecognitionEngineTests
         engine.AcceptSamples(Tone(1));
         Drain(engine);
 
-        // Act: feed another second of audio that leaves the utterance text unchanged
-        engine.AcceptSamples(Tone(1));
+        // Act: feed another half second of audio that leaves the utterance text unchanged (short
+        // enough that the trailing blank frames stay below the 1.2 s endpoint rule)
+        engine.AcceptSamples(Tone(0.5));
 
         // Assert: nothing new is reported
         Assert.Empty(Drain(engine));
@@ -190,50 +257,6 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.Equal(encoderWithout.EncodeCalls + 1, encoderWith.EncodeCalls);
     }
 
-    /// <summary>Proves a long quiet run after speech finalizes the utterance and resets the model.</summary>
-    [Fact]
-    public void TryDecode_QuietAfterSpeech_EndpointsAndResets()
-    {
-        // Arrange: an engine scripted to emit "hello", remembering the network reset count
-        var (engine, encoder, network) = Create(null, 1, Blank);
-        var resetsBefore = network.ResetCount;
-
-        // Act: feed one second of speech followed by three seconds of digital silence
-        engine.AcceptSamples(Tone(1));
-        engine.AcceptSamples(new float[3 * Rate]);
-        var results = Drain(engine);
-
-        // Assert: a provisional and then a final result, with the model state reset
-        Assert.Equal(2, results.Count);
-        Assert.False(results[0].IsFinal);
-        Assert.True(results[1].IsFinal);
-        Assert.Equal("hello", results[1].Text);
-        Assert.True(encoder.ResetCount >= 1);
-        Assert.True(network.ResetCount > resetsBefore);
-    }
-
-    /// <summary>Proves a quiet run inside a single large block still splits the utterance.</summary>
-    [Fact]
-    public void TryDecode_QuietInsideOneBlock_SplitsUtterance()
-    {
-        // Arrange: an engine plus a reference engine that sees only speech and silence
-        var (engine, encoder, network) = Create(null, 1, Blank);
-        var (reference, referenceEncoder, _) = Create(null, 1, Blank);
-        var resetsBefore = network.ResetCount;
-        reference.AcceptSamples(Tone(1).Concat(new float[3 * Rate]).ToArray());
-        Drain(reference);
-
-        // Act: deliver speech, silence, and more speech as a single block
-        engine.AcceptSamples(Tone(1).Concat(new float[3 * Rate]).Concat(Tone(1)).ToArray());
-        var results = Drain(engine);
-
-        // Assert: the utterance was finalized at the silence and the later speech was still encoded
-        var final = Assert.Single(results, r => r.IsFinal);
-        Assert.Equal("hello", final.Text);
-        Assert.True(network.ResetCount > resetsBefore);
-        Assert.True(encoder.EncodeCalls > referenceEncoder.EncodeCalls);
-    }
-
     /// <summary>Proves a partial chunk is completed with silence once the quiet cap is reached, before the endpoint.</summary>
     [Fact]
     public void TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint()
@@ -241,12 +264,12 @@ public sealed class OnnxNemotronRecognitionEngineTests
         // Arrange: an engine scripted to emit "hello"
         var (engine, _, _) = Create(null, 1, Blank);
 
-        // Act: feed 0.3 s of speech (a partial chunk) and then one second of silence
+        // Act: feed 0.3 s of speech (a partial chunk) and then 0.8 s of silence
         engine.AcceptSamples(Tone(0.3));
-        engine.AcceptSamples(new float[Rate]);
+        engine.AcceptSamples(new float[(int)(0.8 * Rate)]);
         var results = Drain(engine);
 
-        // Assert: the text is reported once as provisional, before the 2500 ms endpoint
+        // Assert: the text is reported once as provisional, before the 1.2 s endpoint
         var result = Assert.Single(results);
         Assert.Equal("hello", result.Text);
         Assert.False(result.IsFinal);
@@ -285,21 +308,310 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.Equal(0, encoder.ResetCount);
     }
 
-    /// <summary>Proves consecutive token-free chunks after text finalize without resetting model state.</summary>
+    /// <summary>Proves silence after speech finalizes the utterance by the decode-clock rule without resetting the model.</summary>
     [Fact]
-    public void TryDecode_EmptyChunksAfterText_FinalizesKeepingState()
+    public void OnnxNemotronRecognitionEngine_TryDecode_SilenceAfterSpeech_FinalizesWithoutModelReset()
     {
-        // Arrange: an engine that finalizes after one token-free chunk
-        var options = new NemotronEngineOptions(EndpointEmptyChunks: 1);
-        var (engine, encoder, _) = Create(options, 1, Blank);
+        // Arrange: an engine scripted to emit "hello", remembering the network reset count
+        var (engine, encoder, network) = Create(null, 1, Blank);
+        var resetsBefore = network.ResetCount;
 
-        // Act: feed four seconds of audio so text exists and later chunks produce no tokens
+        // Act: feed one second of speech followed by three seconds of digital silence
+        engine.AcceptSamples(Tone(1));
+        engine.AcceptSamples(Silence(3));
+        var results = Drain(engine);
+
+        // Assert: a provisional and then a final result, with the encoder and decoder state kept
+        Assert.Equal(2, results.Count);
+        Assert.False(results[0].IsFinal);
+        Assert.True(results[1].IsFinal);
+        Assert.Equal("hello", results[1].Text);
+        Assert.Equal(0, encoder.ResetCount);
+        Assert.Equal(resetsBefore, network.ResetCount);
+    }
+
+    /// <summary>Proves paused speech delivered as one block yields one final per utterance.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_PausedSpeechInOneBlock_ReportsOneFinalPerUtterance()
+    {
+        // Arrange: an engine around loudness-reacting fakes
+        var (engine, encoder, _) = CreateLoudness();
+
+        // Act: two half-second utterances separated and followed by 1.5 s pauses, as one block
+        engine.AcceptSamples(Join(Tone(0.5), Silence(1.5), Tone(0.5), Silence(1.5)));
+        var finals = Drain(engine).Where(r => r.IsFinal).Select(r => r.Text).ToList();
+
+        // Assert: each utterance has its own final and the model was never reset
+        Assert.Equal(["hello", "world"], finals);
+        Assert.Equal(0, encoder.ResetCount);
+    }
+
+    /// <summary>Proves a pause shorter than the after-speech rule keeps one utterance.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_ShortPauseBelowRule_KeepsOneUtterance()
+    {
+        // Arrange: an engine around loudness-reacting fakes
+        var (engine, _, _) = CreateLoudness();
+
+        // Act: two short utterances separated by a 0.6 s pause, then flush
+        engine.AcceptSamples(Join(Tone(0.3), Silence(0.6), Tone(0.3)));
+        var finalsBeforeFlush = Drain(engine).Count(r => r.IsFinal);
+        engine.TryFlush(out var result);
+
+        // Assert: nothing was finalized at the pause; the flush returns both words as one final
+        Assert.Equal(0, finalsBeforeFlush);
+        Assert.Equal("hello world", result!.Text);
+    }
+
+    /// <summary>Proves steady audio that yields no new tokens finalizes after the trailing blank frames reach the rule.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_SteadyAudioWithoutNewTokens_FinalizesAfterTrailingBlanks()
+    {
+        // Arrange: an engine scripted to emit "hello" once and then only blanks
+        var (engine, encoder, _) = Create(null, 1, Blank);
+
+        // Act: feed four seconds of a steady tone that never reads as quiet
         engine.AcceptSamples(Tone(4));
         var results = Drain(engine);
 
-        // Assert: a final result was reported and the encoder state was kept
+        // Assert: the text was finalized (blank frames are trailing silence) and the encoder state kept
         Assert.Contains(results, r => r.IsFinal && r.Text == "hello");
         Assert.Equal(0, encoder.ResetCount);
+    }
+
+    /// <summary>Proves custom endpoint rules change when the utterance is finalized.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_CustomEndpointRules_FinalizesAtConfiguredSilence()
+    {
+        // Arrange: one engine with a 400 ms after-speech rule and one with the defaults
+        var custom = Create(new NemotronEngineOptions(Endpoint: new NemotronEndpointRules(TrailingSilenceAfterSpeechMs: 400)), 1, Blank).Engine;
+        var standard = Create(null, 1, Blank).Engine;
+
+        // Act: feed both 0.3 s of speech and 0.6 s of silence
+        custom.AcceptSamples(Join(Tone(0.3), Silence(0.6)));
+        standard.AcceptSamples(Join(Tone(0.3), Silence(0.6)));
+        var customResults = Drain(custom);
+        var standardResults = Drain(standard);
+
+        // Assert: only the engine with the short rule has finalized
+        Assert.Contains(customResults, r => r.IsFinal && r.Text == "hello");
+        Assert.DoesNotContain(standardResults, r => r.IsFinal);
+    }
+
+    /// <summary>Proves speech after an endpoint is decoded with the kept model state and no token is lost or repeated.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_SpeechAfterEndpoint_KeepsEveryToken()
+    {
+        // Arrange: an engine around loudness-reacting fakes
+        var (engine, encoder, network) = CreateLoudness();
+        var resetsBefore = network.ResetCount;
+
+        // Act: an utterance and a 2 s pause, drained; then another utterance and pause
+        engine.AcceptSamples(Join(Tone(0.5), Silence(2)));
+        var first = Drain(engine);
+        engine.AcceptSamples(Join(Tone(0.5), Silence(2)));
+        var second = Drain(engine);
+        var flushed = engine.TryFlush(out _);
+
+        // Assert: each utterance's word appears exactly once in its own final, with no model reset
+        Assert.Equal("hello", Assert.Single(first, r => r.IsFinal).Text);
+        Assert.Equal("world", Assert.Single(second, r => r.IsFinal).Text);
+        Assert.False(flushed);
+        Assert.Equal(2, network.Emitted);
+        Assert.Equal(0, encoder.ResetCount);
+        Assert.Equal(resetsBefore, network.ResetCount);
+    }
+
+    /// <summary>
+    ///     Proves that closing punctuation the model emits after an endpoint has finalized the
+    ///     sentence never becomes a final of its own.
+    /// </summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_PunctuationAfterEndpoint_ReportsNoPunctuationOnlyFinal()
+    {
+        // Arrange: "hello" finalized by the endpoint, then the network emits a late "."
+        var (engine, network) = CreateWithPunctuation(1, Blank);
+        engine.AcceptSamples(Join(Tone(1), Silence(3)));
+        var finals = Drain(engine).Where(r => r.IsFinal).Select(r => r.Text).ToList();
+        network.Enqueue(PeriodToken, Blank);
+
+        // Act: flush, which decodes the silence tail where the "." is emitted
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: only the sentence was finalized; the late punctuation produced nothing
+        Assert.Equal(["hello"], finals);
+        Assert.False(flushed, $"Unexpected flushed text: {result?.Text}");
+    }
+
+    /// <summary>
+    ///     Proves that closing punctuation emitted after an endpoint does not open the next
+    ///     segment, while the words that follow it are kept.
+    /// </summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_PunctuationBeforeNextWords_StartsSegmentWithWord()
+    {
+        // Arrange: "hello" finalized by the endpoint, then a late "." followed by the next word
+        var (engine, network) = CreateWithPunctuation(1, Blank);
+        engine.AcceptSamples(Join(Tone(1), Silence(3)));
+        Drain(engine);
+        network.Enqueue(PeriodToken, 1, Blank);
+
+        // Act: more speech, then flush
+        engine.AcceptSamples(Tone(0.5));
+        Drain(engine);
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: the new segment starts with its word, without the previous sentence's period
+        Assert.True(flushed);
+        Assert.Equal("hello", result!.Text);
+    }
+
+    /// <summary>Proves continuous speech beyond the maximum utterance length is split into several finals without losing words.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_ContinuousTokensBeyondMaximum_SplitsUtterance()
+    {
+        // Arrange: a 3 s maximum and a network that says "hello" on every 280 ms frame
+        var (engine, network) = CreateContinuousWords(3000);
+
+        // Act: ten seconds of continuous speech, then flush the rest
+        engine.AcceptSamples(Tone(10));
+        var finals = Drain(engine).Where(r => r.IsFinal).Select(r => r.Text).ToList();
+        engine.TryFlush(out var rest);
+        finals.Add(rest!.Text);
+
+        // Assert: several finals, none much longer than 3 s of words, and every word kept exactly once
+        var words = finals.SelectMany(f => f.Split(' ')).ToList();
+        Assert.True(finals.Count >= 3, $"Expected at least 3 finals, got {finals.Count}.");
+        Assert.All(finals, f => Assert.True(f.Split(' ').Length <= 12, $"Final too long: {f}"));
+        Assert.Equal(network.Advanced.Count / 2, words.Count);
+    }
+
+    /// <summary>Proves the maximum-length split never cuts a word made of several tokens.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryDecode_MaximumLengthSplit_KeepsWordsWhole()
+    {
+        // Arrange: a 1 s maximum and a network that says the two-piece word "hel" + "lo" on every frame
+        var (engine, _) = CreateContinuousWords(1000);
+
+        // Act: five seconds of continuous speech
+        engine.AcceptSamples(Tone(5));
+        var finals = Drain(engine).Where(r => r.IsFinal).Select(r => r.Text).ToList();
+
+        // Assert: there are several finals and every word in them is the whole word
+        Assert.True(finals.Count >= 2, $"Expected at least 2 finals, got {finals.Count}.");
+        Assert.All(finals.SelectMany(f => f.Split(' ')), word => Assert.Equal("hello", word));
+    }
+
+    /// <summary>Proves silence alone never produces text, through decoding and flushing.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_SilenceOnly_ReportsNoText()
+    {
+        // Arrange: an engine around loudness-reacting fakes
+        var (engine, _, network) = CreateLoudness();
+
+        // Act: five seconds of digital silence, then flush
+        engine.AcceptSamples(Silence(5));
+        var decoded = Drain(engine);
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: no result at all and no word was ever predicted
+        Assert.Empty(decoded);
+        Assert.False(flushed);
+        Assert.Null(result);
+        Assert.Equal(0, network.Emitted);
+    }
+
+    /// <summary>Proves the flush padding is silence: a pause followed by the flush adds no invented word.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_SpeechThenSilence_AddsNoWordsFromPadding()
+    {
+        // Arrange: an engine around loudness-reacting fakes (all-zero log-mel padding would read
+        // as a new loud sound after the pause and produce a second word)
+        var (engine, _, network) = CreateLoudness();
+
+        // Act: half a second of speech, a 0.3 s pause (below the limiter cap), then flush
+        engine.AcceptSamples(Join(Tone(0.5), Silence(0.3)));
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: the final holds only the spoken word
+        Assert.True(flushed);
+        Assert.Equal("hello", result!.Text);
+        Assert.Equal(1, network.Emitted);
+    }
+
+    /// <summary>Proves the partial chunk and the tail chunk are completed with silence-level features, never zero rows.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_TryFlush_PartialChunk_PadsWithSilenceFeatures()
+    {
+        // Arrange: an engine around loudness-reacting fakes
+        var (engine, encoder, _) = CreateLoudness();
+
+        // Act: a fifth of a second of speech (a partial chunk), then flush
+        engine.AcceptSamples(Tone(0.2));
+        engine.TryFlush(out _);
+
+        // Assert: two chunks were encoded and every row after the speech is at silence level
+        Assert.Equal(2, encoder.EncodeCalls);
+        Assert.Equal(2 * NemotronEngineOptions.ChunkFrames, encoder.RowMaxima.Count);
+        Assert.All(encoder.RowMaxima.Skip(25), max => Assert.True(max < -10f, $"Padding row max {max} is not silence."));
+    }
+
+    /// <summary>
+    ///     Proves that silence padding which begins inside an encoder frame never counts as input
+    ///     time: the after-speech endpoint is reported only once the real input after the word's
+    ///     frame reaches the rule, whichever feature row the padding starts on.
+    /// </summary>
+    /// <param name="toneSeconds">The length of the word, which moves the padding start across the rows of an encoder frame.</param>
+    [Theory]
+    [InlineData(0.30)]
+    [InlineData(0.32)]
+    [InlineData(0.34)]
+    [InlineData(0.36)]
+    public void OnnxNemotronRecognitionEngine_TryDecode_PaddingInsideEncoderFrame_DoesNotAdvanceEndpointClock(double toneSeconds)
+    {
+        // Arrange: loudness fakes decode the word on the first encoder frame (8 feature rows),
+        // and silence is fed in 20 ms blocks like a capture device delivers it
+        var (engine, _, _) = CreateLoudness();
+        const int block = Rate / 50;
+        const int wordFrameSamples = 8 * NemotronFeatureExtractor.HopLength;
+        const int ruleSamples = 1200 * Rate / 1000;
+        var word = Tone(toneSeconds);
+
+        // Act: the word, then silence until the utterance is final (the quiet cap pads the
+        // partial chunk on the way, starting inside an encoder frame)
+        engine.AcceptSamples(word);
+        var fed = word.Length;
+        var finalized = false;
+        while (!finalized && fed < 5 * Rate)
+        {
+            engine.AcceptSamples(new float[block]);
+            fed += block;
+            finalized = Drain(engine).Any(r => r.IsFinal);
+        }
+
+        // Assert: the final came only after the rule's duration of input following the word's frame
+        Assert.True(finalized);
+        Assert.True(fed >= wordFrameSamples + ruleSamples, $"Finalized after {fed} input samples.");
+    }
+
+    /// <summary>Proves invalid engine options are rejected.</summary>
+    [Fact]
+    public void OnnxNemotronRecognitionEngine_Constructor_InvalidOptions_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange: valid collaborators
+        var vocabulary = new NemotronVocabulary(Words);
+
+        // Act / Assert: a negative tail chunk count and a negative endpoint rule are rejected
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxNemotronRecognitionEngine(
+            new FakeNemotronEncoder(),
+            new NemotronRnntGreedyDecoder(new FakeRnntNetwork(Blank)),
+            vocabulary,
+            new NemotronEngineOptions(FlushTailChunks: -1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxNemotronRecognitionEngine(
+            new FakeNemotronEncoder(),
+            new NemotronRnntGreedyDecoder(new FakeRnntNetwork(Blank)),
+            vocabulary,
+            new NemotronEngineOptions(Endpoint: new NemotronEndpointRules(TrailingSilenceAfterSpeechMs: -1))));
     }
 
     /// <summary>Proves Reset returns the engine to the start-of-stream state: a new stream gives the same results as a fresh engine.</summary>

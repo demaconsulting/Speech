@@ -71,4 +71,36 @@
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
   </ItemGroup>
 
+  <!-- Shared Evaluation Code.
+       The word error rate calculator, data-set reader, streaming transcriber and accuracy gates
+       are owned by the non-shipped STT evaluation tool and compiled into this test assembly (the
+       Phonemes.En tests use the same pattern for their tool code), so the tests and the tool
+       measure with one implementation. The tool's path rules are compiled in as well so that
+       the artifacts-only output rule is tested. -->
+  <ItemGroup>
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\WordErrorRateCalculator.cs" Link="Linked\WordErrorRateCalculator.cs" />
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttDataSet.cs" Link="Linked\SttDataSet.cs" />
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttTranscriber.cs" Link="Linked\SttTranscriber.cs" />
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\SttEvaluationGates.cs" Link="Linked\SttEvaluationGates.cs" />
+    <Compile Include="..\..\tools\DemaConsulting.Speech.SttEvaluation\ToolPaths.cs" Link="Linked\ToolPaths.cs" />
+  </ItemGroup>
+
+  <!-- Real-Model System Tests.
+       The system tests decode several minutes of audio with the real, installed model. They are
+       compiled for net10.0 only: the engine logic is covered on every target framework by the
+       fake-based unit tests, and repeating the real-model decoding once per framework would only
+       multiply the CI time. -->
+  <ItemGroup>
+    <Compile Remove="SpeechOnnxNemotronSttTests.cs" Condition="'$(TargetFramework)' != 'net10.0'" />
+  </ItemGroup>
+
+  <!-- Test Data Files.
+       The segregated STT evaluation data (license-tracked in data/stt-en/ATTRIBUTION.md, pinned by
+       data/stt-en/MANIFEST.tsv) is copied beside the test assembly under TestData/stt-en. -->
+  <ItemGroup>
+    <None Include="..\..\data\stt-en\**" LinkBase="TestData\stt-en" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Feature-extractor golden values (provenance and recipe in TestData/NOTICE.md). -->
+    <None Include="TestData\*.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

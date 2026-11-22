@@ -13,8 +13,10 @@ xUnit v3 under the .NET SDK, in `test/DemaConsulting.Speech.Onnx.NemotronStt.Tes
 
 Language ids are the ordinals among the `<unk>` and locale tokens; unknown locales are reported
 as absent; the blank id is the blank token's index or the last index; detokenization maps the
-word marker to a space, strips locale markers, collapses whitespace, and trims; an empty
-vocabulary is rejected; and a vocabulary file loads one token per line.
+word marker to a space, strips locale markers, collapses whitespace, and trims; only a token that
+begins with the word-boundary marker starts a word (continuation pieces, marker tokens, the blank,
+and ids outside the vocabulary do not); an empty vocabulary is rejected; and a vocabulary file
+loads one token per line.
 
 #### Test Scenarios
 
@@ -41,6 +43,15 @@ vocabulary is rejected; and a vocabulary file loads one token per line.
 ##### Detokenize of nothing returns an empty string
 
 **Test**: `Detokenize_Empty_ReturnsEmpty`
+
+##### Word starts are detected from the word-boundary marker
+
+**Scenario**: a vocabulary of `<unk>`, a word-start piece, a continuation piece, a locale marker,
+and the blank token, queried for every id plus one id below and two ids above the vocabulary.
+
+**Expected**: only the word-start piece starts a word.
+
+**Test**: `NemotronVocabulary_StartsWord_Tokens_DetectsWordBoundaryMarker`
 
 ##### Empty vocabulary is rejected
 

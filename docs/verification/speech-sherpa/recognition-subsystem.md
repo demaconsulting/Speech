@@ -22,7 +22,8 @@ environment, so their evidence is only produced on a machine where the models ar
 - **Dependencies**: The real native sherpa-onnx runtime and the real, already-installed streaming
   Zipformer and Nemotron models (self-skipping when absent); no network access and no physical
   audio hardware
-- **Fixture**: `test/DemaConsulting.Speech.Sherpa.Tests/TestData/crossing-the-bar-16k-mono.wav`
+- **Fixture**: `data/stt-en/crossing-the-bar-16k-mono.wav` (attribution and license in
+  `data/stt-en/ATTRIBUTION.md`), linked into the test output as `TestData/crossing-the-bar-16k-mono.wav`
 
 ### Unit-Level Test Scenarios
 
