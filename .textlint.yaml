@@ -101,6 +101,8 @@ words:
   - feff
   - fftbins
   - filterbank
+  # Behind a firewall, as in the user guide's note on firewalled environments
+  - firewalled
   - hann
   # The magic bytes (HETW) of the heteronym model file format
   - hetw
@@ -447,10 +449,10 @@ overrides:
     words:
       - tatoeba
   # The Piper package, its tests and its documents: the voice's project and speaker names (the Rhasspy project's
-  # voice repository and the Lessac voice the libritts_r voice was fine-tuned from) and an invented word that proves
-  # an out-of-dictionary word is still spoken
+  # voice repository and the Lessac voice the libritts_r voice was fine-tuned from, also named in the licensing overview
+  # as the reason the voice is not hosted) and an invented word that proves an out-of-dictionary word is still spoken
   - filename: >-
-      {src/DemaConsulting.Speech.Onnx.Piper/**,test/DemaConsulting.Speech.Onnx.Piper.Tests/**,docs/design/speech-onnx-piper.md,docs/design/speech-onnx-piper/**,docs/verification/speech-onnx-piper.md,docs/verification/speech-onnx-piper/**,docs/reqstream/speech-onnx-piper.yaml,docs/reqstream/speech-onnx-piper/**,.textlint.yaml}
+      {docs/technical_overview/licensing-and-provenance.md,src/DemaConsulting.Speech.Onnx.Piper/**,test/DemaConsulting.Speech.Onnx.Piper.Tests/**,docs/design/speech-onnx-piper.md,docs/design/speech-onnx-piper/**,docs/verification/speech-onnx-piper.md,docs/verification/speech-onnx-piper/**,docs/reqstream/speech-onnx-piper.yaml,docs/reqstream/speech-onnx-piper/**,.textlint.yaml}
     words:
       - lessac
       - rhasspy

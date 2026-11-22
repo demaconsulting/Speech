@@ -78,7 +78,10 @@ subcommand.
 
 If a model's public download host (for example `huggingface.co`) is blocked by network policy,
 `--mirror-url <url>` redirects every model download to an internal mirror instead, serving the
-exact files from `{mirror-url}/{modelId}/{relativeInstallPath}`. `--mirror-user`/
+exact files from `{mirror-url}/{modelId}/{relativeInstallPath}`. A model installed from a bundle on the project's
+`models` release declares the bundle zip as its file, so the mirror serves the zip itself at
+`{mirror-url}/{modelId}/{bundle}.zip` (for example `{mirror-url}/kokoro-onnx-v1_0-en/kokoro-en-v1.0-int8-b1.zip`);
+copy the zips from the release into the mirror. `--mirror-user`/
 `--mirror-password` add HTTP Basic authentication (both required together); `--mirror-bearer-token`
 adds bearer-token authentication instead (mutually exclusive with the Basic credential pair). A
 credentialed mirror must use `https://`, unless its host is loopback (`localhost` or a loopback IP

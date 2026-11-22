@@ -249,8 +249,12 @@ the voice was trained with, not espeak-ng itself, so some words, stress and redu
 output.
 
 **Downloads.** Neither voice is bundled. `SpeechModelCatalog.DownloadAsync` (or `speech-cli download <id>`) fetches
-Kokoro from the `onnx-community/Kokoro-82M-v1.0-ONNX` repository and the Piper voice from the sherpa-onnx project's
-release archive of the same voice, each verified by SHA-256. For Piper the archive is about 82 MB; only the voice graph
+Kokoro as one bundle, `kokoro-en-v1.0-int8-b1.zip` (about 108 MB), from the project's `models` release on GitHub: the
+unchanged files of the `onnx-community/Kokoro-82M-v1.0-ONNX` repository with their Apache-2.0 license, a notice and a
+`README.txt`. The Piper voice comes from the sherpa-onnx project's GitHub release archive of the same voice. Each
+download is verified by SHA-256, and every file extracted from the Kokoro bundle is verified against its own pin. A
+download mirror serves Kokoro at `<mirror>/kokoro-onnx-v1_0-en/kokoro-en-v1.0-int8-b1.zip` (see "Model downloads,
+mirrors and firewalled environments" in Usage). For Piper the archive is about 82 MB; only the voice graph
 and its configuration file are extracted and the rest of the archive (it also contains espeak-ng data, a different
 license) is discarded, so the installed model holds two files.
 
@@ -323,9 +327,14 @@ requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
 ### Model variants and generation
 
 The first voice is the default and the `voice` choice parameter selects another. The default
-download is the fp16 language model with q4 helper graphs (eight files, roughly 1.1 GB);
+download is the fp16 language model with q4 helper graphs (eight files, roughly 1.1 GB), fetched as two
+bundles from the project's `models` release on GitHub (`chatterbox-turbo-lm-20261014-fp16-b1.zip` and
+`chatterbox-turbo-aux-20261014-int4-b1.zip`, the unchanged MIT-licensed files with their license, a notice and a
+`README.txt`); a download mirror serves both zips from `<mirror>/chatterbox-turbo-onnx-en/`.
 `LanguageModelVariant` and `AuxiliaryModelVariant` choose other precisions, each with its own model
-id. It runs on the CPU only. It renders the laugh, clear-throat and gasp tags natively (via the internal
+id; those variants still download their eight files individually from Hugging Face (`huggingface.co`)
+until their bundles are published. It runs on the CPU only. It renders the laugh, clear-throat and gasp tags
+natively (via the internal
 `[laugh]`, `[clear throat]` and `[gasp]` tokens, which are not tags you type), renders
 sighs and pauses as silence and omits every other tag except the mood tags below;
 `EndOfSentenceTagPolicy` controls whether a

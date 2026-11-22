@@ -147,8 +147,10 @@ recognition model through `AddNemotronSttModels()`: `OnnxNemotronMultilingualRec
 (`nemotron-3.5-asr-streaming-0.6b-onnx-int4`, an int4 ONNX export of about 790 MB of NVIDIA's
 `nemotron-3.5-asr-streaming-0.6b`, whose weights NVIDIA releases under the **OpenMDW License
 Agreement 1.1** (`OpenMDW-1.1`), a permissive license that asks you to keep its license and origin
-notices when you redistribute the model; the files are downloaded unchanged from the
-`onnx-community` conversion on Hugging Face). It declares one
+notices when you redistribute the model). The unchanged files of the `onnx-community` int4 conversion are
+downloaded as one bundle from the project's `models` release on GitHub
+(`nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip`), which also carries the OpenMDW-1.1 and MIT texts and a
+notice of origin. It declares one
 `language` choice parameter (`en-US` by default, or `en-GB`) that you pass like any other model
 parameter, for example `--stt-param language=en-GB` with `speech-cli recognize`. Its engine runs
 entirely on ONNX Runtime, keeps the decoder and joint networks on a single non-spinning CPU
@@ -158,7 +160,8 @@ dither. It reports an utterance as final after 1.2 seconds of silence following 
 speech that runs on without a pause into finals at most about 20 seconds apart (between words, so
 no word is lost) and never produces text from silence alone. At the end of the audio it decodes
 only silence, so it does not invent words after the last spoken word. A download
-mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`. See
+mirror serves its bundle from
+`<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip`. See
 "Synthesizing Speech" below for the production synthesis models.
 
 ## Reading WAV and FLAC files
