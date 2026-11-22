@@ -102,38 +102,6 @@
       ]
     },
     {
-      "name": "chatterbox-turbo-lm-20261014-fp32-b1",
-      "model": "chatterbox-turbo-lm",
-      "upstreamRelease": "20261014",
-      "quant": "fp32",
-      "bundleRevision": 1,
-      "date": "2026-11-22",
-      "modelIds": [
-        "chatterbox-turbo-onnx-en-lm-fp32-aux-q4",
-        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp16",
-        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp32"
-      ],
-      "upstream": {
-        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
-        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
-      },
-      "licenses": [
-        {
-          "name": "MIT",
-          "url": "https://opensource.org/license/mit",
-          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
-          "textFile": "licenses/MIT-ResembleAI.txt"
-        }
-      ],
-      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
-      "notice": [
-        "Chatterbox Turbo (ONNX) - full-precision language model",
-        "Copyright (c) 2025 Resemble AI",
-        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
-        "Licensed under the MIT License (see LICENSE)."
-      ]
-    },
-    {
       "name": "chatterbox-turbo-aux-20261014-int4-b1",
       "model": "chatterbox-turbo-aux",
       "upstreamRelease": "20261014",
@@ -165,65 +133,45 @@
       ]
     },
     {
-      "name": "chatterbox-turbo-aux-20261014-fp16-b1",
-      "model": "chatterbox-turbo-aux",
-      "upstreamRelease": "20261014",
-      "quant": "fp16",
-      "bundleRevision": 1,
-      "date": "2026-11-22",
-      "modelIds": [
-        "chatterbox-turbo-onnx-en-lm-fp16-aux-fp16",
-        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp16"
-      ],
-      "upstream": {
-        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
-        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
-      },
-      "licenses": [
-        {
-          "name": "MIT",
-          "url": "https://opensource.org/license/mit",
-          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
-          "textFile": "licenses/MIT-ResembleAI.txt"
-        }
-      ],
-      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
-      "notice": [
-        "Chatterbox Turbo (ONNX) - half-precision embedding, speech encoder and conditional decoder",
-        "Copyright (c) 2025 Resemble AI",
-        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
-        "Licensed under the MIT License (see LICENSE)."
-      ]
-    },
-    {
-      "name": "chatterbox-turbo-aux-20261014-fp32-b1",
-      "model": "chatterbox-turbo-aux",
-      "upstreamRelease": "20261014",
+      "name": "piper-en-us-libritts-r-medium-20261122-fp32-b1",
+      "model": "piper-en-us-libritts-r-medium",
+      "upstreamRelease": "20261122",
       "quant": "fp32",
       "bundleRevision": 1,
       "date": "2026-11-22",
       "modelIds": [
-        "chatterbox-turbo-onnx-en-lm-fp16-aux-fp32",
-        "chatterbox-turbo-onnx-en-lm-fp32-aux-fp32"
+        "piper-onnx-libritts-r-en-us-medium"
       ],
       "upstream": {
-        "repository": "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
-        "revision": "main (snapshot pinned by SHA-256 on 2026-10-14)"
+        "repository": "https://huggingface.co/rhasspy/piper-voices",
+        "revision": "main (snapshot pinned by SHA-256 on 2026-11-22)"
       },
       "licenses": [
         {
-          "name": "MIT",
-          "url": "https://opensource.org/license/mit",
-          "appliesTo": "model weights and ONNX graphs (ResembleAI/chatterbox-turbo-ONNX)",
-          "textFile": "licenses/MIT-ResembleAI.txt"
+          "name": "CC-BY-4.0",
+          "url": "https://creativecommons.org/licenses/by/4.0/",
+          "appliesTo": "the Piper voice en_US-libritts_r-medium (declared in its MODEL_CARD; see NOTICE for the attribution and the lineage)",
+          "textFile": "licenses/CC-BY-4.0.txt"
         }
       ],
-      "attribution": "Chatterbox Turbo by Resemble AI (https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX), Copyright (c) 2025 Resemble AI, licensed under the MIT License.",
+      "attribution": "Piper voice en_US-libritts_r-medium by the Piper project (Rhasspy; https://github.com/rhasspy/piper; voices at https://huggingface.co/rhasspy/piper-voices), licensed under CC BY 4.0 as declared in its MODEL_CARD. Trained on LibriTTS-R: Yuma Koizumi, Heiga Zen, Shigeki Karita, Yifan Ding, Kohei Yatabe, Nobuyuki Morioka, Michiel Bacchiani, Yu Zhang, Wei Han and Ankur Bapna, \"LibriTTS-R: A Restored Multi-Speaker Text-to-Speech Corpus\", 2023 (CC BY 4.0; https://www.openslr.org/141/). Lineage: the voice was fine-tuned from the English lessac medium Piper voice, which was trained on the Blizzard Challenge 2013 Lessac data (Voice Factory International and Lessac Technologies; https://www.cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html). That data is licensed for non-commercial research use only; consumers must review the upstream terms and decide whether the voice fits their use.",
       "notice": [
-        "Chatterbox Turbo (ONNX) - full-precision embedding, speech encoder and conditional decoder",
-        "Copyright (c) 2025 Resemble AI",
-        "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX",
-        "Licensed under the MIT License (see LICENSE)."
+        "Piper voice en_US-libritts_r-medium (904 speakers, 22,050 Hz)",
+        "By the Piper project (Rhasspy): https://github.com/rhasspy/piper",
+        "Original files: https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/libritts_r/medium",
+        "License: Creative Commons Attribution 4.0 International (CC BY 4.0), as declared in the voice's MODEL_CARD (see LICENSE).",
+        "Training data: LibriTTS-R (OpenSLR SLR141, https://www.openslr.org/141/, licensed CC BY 4.0):",
+        "Yuma Koizumi, Heiga Zen, Shigeki Karita, Yifan Ding, Kohei Yatabe, Nobuyuki Morioka, Michiel Bacchiani,",
+        "Yu Zhang, Wei Han and Ankur Bapna, \"LibriTTS-R: A Restored Multi-Speaker Text-to-Speech Corpus\", 2023.",
+        "LibriTTS-R is a sound-quality-improved version of LibriTTS (https://www.openslr.org/60/).",
+        "Lineage notice: the voice's MODEL_CARD states that it was \"Fine-tuned from English lessac medium on",
+        "train-clean-360\". The English lessac medium Piper voice",
+        "(https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/lessac/medium) was trained on the",
+        "Blizzard Challenge 2013 Lessac data (audio book recordings of Voice Factory International, Inc. and",
+        "associated data of Lessac Technologies, Inc.), which is licensed for non-commercial research use only:",
+        "https://www.cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html",
+        "DEMA Consulting hosts this voice with its declared license and this attribution.",
+        "Consumers must review the upstream terms and decide whether the voice fits their use."
       ]
     }
   ]

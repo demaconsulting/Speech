@@ -1,4 +1,3 @@
-using System.Text;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -6,14 +5,13 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 namespace DemaConsulting.Speech.Onnx.Piper.Tests.ModelManagementSubsystem;
 
 /// <summary>
-///     Subsystem-level tests of the Piper ModelManagementSubsystem: the units working together (the model, its archive
-///     installer, the voice configuration, the phoneme pipeline and the synthesis engine they build) from a downloaded
-///     archive to audio, with a tiny stand-in graph that echoes what it is fed and never the real voice.
+///     Subsystem-level tests of the Piper ModelManagementSubsystem: the units working together (the model, its bundle
+///     install, the voice configuration, the phoneme pipeline and the synthesis engine they build) from a downloaded
+///     bundle and an installed voice to audio, with a tiny stand-in graph that echoes what it is fed and never the real
+///     voice.
 /// </summary>
 public sealed class ModelManagementSubsystemTests : IDisposable
 {
-    private const string ArchiveFolder = "vits-piper-en_US-libritts_r-medium/";
-
     private readonly string _root = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Onnx.Piper.Tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>Initializes a scratch directory that no test shares.</summary>
@@ -36,31 +34,39 @@ public sealed class ModelManagementSubsystemTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves a downloaded release archive becomes a working voice: the installer keeps only the graph and the
-    ///     configuration, deletes the archive, and a backend created from the installed directory speaks.
+    ///     Proves a downloaded bundle whose vendor bytes differ from the compiled pins is rejected by the install, so
+    ///     altered voice files never reach the installed directory.
     /// </summary>
     [Fact]
-    public async Task ModelManagementSubsystem_InstallThenCreateBackend_ArchiveBecomesAWorkingVoice()
+    public async Task ModelManagementSubsystem_Install_TamperedBundle_IsRejected()
     {
         // Arrange
         ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel();
-        var archivePath = model.DownloadDescriptor.Files[0].ResolveStagedPath(_root);
-        await File.WriteAllBytesAsync(archivePath, PiperTestFixtures.BuildArchive(
-        [
-            (ArchiveFolder + "en_US-libritts_r-medium.onnx", PiperTestFixtures.BuildEchoModel()),
-            (ArchiveFolder + "en_US-libritts_r-medium.onnx.json", Encoding.UTF8.GetBytes(PiperTestFixtures.TrimmedConfigJson)),
-            (ArchiveFolder + "tokens.txt", "a 1"u8.ToArray()),
-            (ArchiveFolder + "espeak-ng-data/en_dict", "dict"u8.ToArray()),
-        ]), TestContext.Current.CancellationToken);
+        PiperTestFixtures.StageBundleWithWrongFiles(Assert.Single(OnnxPiperLibriTtsEnSynthesisModel.Bundles), _root);
 
         // Act
-        await model.InstallAsync(_root, TestContext.Current.CancellationToken);
+        var exception = await Record.ExceptionAsync(() => model.InstallAsync(_root, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(exception);
+    }
+
+    /// <summary>
+    ///     Proves an installed voice (the graph and the configuration at the installed root) becomes a backend that
+    ///     speaks at the voice's 22,050 Hz, framing the phoneme ids as the voice expects.
+    /// </summary>
+    [Fact]
+    public void ModelManagementSubsystem_CreateBackend_InstalledVoice_Speaks()
+    {
+        // Arrange
+        ISynthesisModel model = new OnnxPiperLibriTtsEnSynthesisModel();
+        PiperTestFixtures.WriteInstalledEchoVoice(_root);
+
+        // Act
         using var backend = model.CreateBackend(_root);
         var echo = PiperTestFixtures.DecodeEcho(backend.Generate("Hello there.", 1.0f, 0));
 
         // Assert
-        var installed = Directory.GetFileSystemEntries(_root).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToList();
-        Assert.Equal(["en_US-libritts_r-medium.onnx", "en_US-libritts_r-medium.onnx.json"], installed);
         Assert.Equal(22050, backend.SampleRate);
         Assert.Equal(1, echo.Ids[0]);
         Assert.Equal(2, echo.Ids[^1]);

@@ -2,6 +2,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.ModelBundler;
 
@@ -19,14 +20,15 @@ internal static class BundleCatalog
     /// <summary>
     ///     Gets the compiled vendor files of every bundle the model packages declare, keyed by bundle name (ordinal).
     /// </summary>
-    /// <returns>A new dictionary of the seven bundles' contents.</returns>
+    /// <returns>A new dictionary of the five bundles' contents.</returns>
     public static IReadOnlyDictionary<string, SpeechModelDownloadDescriptor> GetContents()
     {
-        // Kokoro and Nemotron each ship one bundle; Chatterbox Turbo ships one bundle per component variant
+        // Kokoro, Nemotron and Piper each ship one bundle; Chatterbox Turbo ships a language-model and an auxiliary bundle
         var contents = new Dictionary<string, SpeechModelDownloadDescriptor>(StringComparer.Ordinal)
         {
             [OnnxKokoroEnglishSynthesisModel.BundleName] = OnnxKokoroEnglishSynthesisModel.BundleContents,
             [OnnxNemotronMultilingualRecognitionModel.BundleName] = OnnxNemotronMultilingualRecognitionModel.BundleContents,
+            [OnnxPiperLibriTtsEnSynthesisModel.BundleName] = OnnxPiperLibriTtsEnSynthesisModel.BundleContents,
         };
         foreach (var (name, files) in OnnxChatterboxTurboEnglishSynthesisModel.BundleContents)
         {
@@ -42,15 +44,14 @@ internal static class BundleCatalog
     ///     (<c>UPDATE CATALOG</c>).
     /// </summary>
     /// <remarks>
-    ///     Taken from the packages' public bundle lists: Kokoro's and Nemotron's <c>Bundles</c> and Chatterbox Turbo's
-    ///     <c>PublishedBundles</c> (each bundle's <c>Name</c> to its <c>Sha256Checksum</c>). A declared bundle that is
-    ///     not published yet (a deferred Chatterbox Turbo component) has no pin, so its build reports
-    ///     <c>UPDATE CATALOG</c>.
+    ///     Taken from the packages' public <c>Bundles</c> lists (each bundle's <c>Name</c> to its
+    ///     <c>Sha256Checksum</c>).
     /// </remarks>
     /// <returns>A new dictionary of the published zip pins (lowercase hexadecimal).</returns>
     public static IReadOnlyDictionary<string, string> GetPublishedChecksums() =>
         OnnxKokoroEnglishSynthesisModel.Bundles
             .Concat(OnnxNemotronMultilingualRecognitionModel.Bundles)
-            .Concat(OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles)
+            .Concat(OnnxPiperLibriTtsEnSynthesisModel.Bundles)
+            .Concat(OnnxChatterboxTurboEnglishSynthesisModel.Bundles)
             .ToDictionary(bundle => bundle.Name, bundle => bundle.Sha256Checksum, StringComparer.Ordinal);
 }

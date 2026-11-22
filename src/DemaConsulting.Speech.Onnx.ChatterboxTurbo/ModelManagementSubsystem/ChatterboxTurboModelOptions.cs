@@ -4,15 +4,14 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
 /// <summary>
-///     Caller-supplied configuration for the Chatterbox Turbo model: graph variants, CPU threads, generation
-///     guards, sentence-final tag policy and the reference voices.
+///     Caller-supplied configuration for the Chatterbox Turbo model: CPU threads, generation guards, sentence-final
+///     tag policy and the reference voices.
 /// </summary>
 /// <remarks>
 ///     Every property has a safe default, so <c>new ChatterboxTurboModelOptions { ReferenceVoices = ... }</c>
-///     is the minimal useful configuration. Invalid values are rejected when set. The 4-bit and 8-bit
-///     language-model graphs are not representable by design (see
-///     <see cref="ChatterboxTurboLanguageModelVariant"/>). Instances are not thread-safe while being
-///     configured; treat them as immutable once passed to the catalog.
+///     is the minimal useful configuration. Invalid values are rejected when set. The graphs are fixed (the
+///     half-precision language model with the 4-bit auxiliary graphs), so there is no precision option. Instances are
+///     not thread-safe while being configured; treat them as immutable once passed to the catalog.
 /// </remarks>
 public sealed class ChatterboxTurboModelOptions
 {
@@ -33,12 +32,6 @@ public sealed class ChatterboxTurboModelOptions
 
     /// <summary>The largest default intra-op thread count; more threads do not speed this workload up.</summary>
     private const int DefaultThreadCeiling = 6;
-
-    /// <summary>Backing field for <see cref="LanguageModelVariant"/>.</summary>
-    private ChatterboxTurboLanguageModelVariant _languageModelVariant = ChatterboxTurboLanguageModelVariant.Fp16;
-
-    /// <summary>Backing field for <see cref="AuxiliaryModelVariant"/>.</summary>
-    private ChatterboxTurboAuxiliaryModelVariant _auxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Q4;
 
     /// <summary>Backing field for <see cref="EndOfSentenceTagPolicy"/>.</summary>
     private ChatterboxTurboEndOfSentenceTagPolicy _endOfSentenceTagPolicy =
@@ -64,38 +57,6 @@ public sealed class ChatterboxTurboModelOptions
 
     /// <summary>Gets the default intra-op thread count: half the logical processors, between one and six.</summary>
     public static int DefaultIntraOpThreads => Math.Min(DefaultThreadCeiling, Math.Max(1, Environment.ProcessorCount / 2));
-
-    /// <summary>Gets or sets the language-model precision. Defaults to <see cref="ChatterboxTurboLanguageModelVariant.Fp16"/>.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined variant.</exception>
-    public ChatterboxTurboLanguageModelVariant LanguageModelVariant
-    {
-        get => _languageModelVariant;
-        set
-        {
-            if (!Enum.IsDefined(value))
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "The language model variant is not defined.");
-            }
-
-            _languageModelVariant = value;
-        }
-    }
-
-    /// <summary>Gets or sets the auxiliary-graph precision. Defaults to <see cref="ChatterboxTurboAuxiliaryModelVariant.Q4"/>.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined variant.</exception>
-    public ChatterboxTurboAuxiliaryModelVariant AuxiliaryModelVariant
-    {
-        get => _auxiliaryModelVariant;
-        set
-        {
-            if (!Enum.IsDefined(value))
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "The auxiliary model variant is not defined.");
-            }
-
-            _auxiliaryModelVariant = value;
-        }
-    }
 
     /// <summary>Gets or sets the intra-op CPU thread count used by every graph; must be positive.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value below one.</exception>

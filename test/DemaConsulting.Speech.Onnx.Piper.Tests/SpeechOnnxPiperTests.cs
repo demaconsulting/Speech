@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Nodes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Piper.SynthesisSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
@@ -8,14 +9,13 @@ namespace DemaConsulting.Speech.Onnx.Piper.Tests;
 
 /// <summary>
 ///     System-level tests of the whole Piper package as a host uses it: <c>SpeechModelCatalog.AddPiperModels()</c>, the
-///     registered model, the install of its downloaded archive, and the backend that <c>CreateBackend</c> returns,
+///     registered model, its <c>models</c>-release download and install, and the backend that <c>CreateBackend</c> returns,
 ///     over a tiny stand-in graph that echoes what it is fed (<c>[ids, noise scale, length scale, noise width, speaker,
 ///     N]</c>) and the trimmed copy of the real voice configuration; the real ~78 MB voice is never needed. Only the
 ///     report of a symbol that the voice's table lacks reads an internal member of the engine.
 /// </summary>
 public sealed class SpeechOnnxPiperTests : IDisposable
 {
-    private const string ArchiveFolder = "vits-piper-en_US-libritts_r-medium/";
     private const string Sentence = "The cat sat on the mat, and the dog barked.";
 
     private readonly string _root = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Onnx.Piper.Tests", Guid.NewGuid().ToString("N"));
@@ -64,67 +64,43 @@ public sealed class SpeechOnnxPiperTests : IDisposable
         Assert.Throws<ArgumentNullException>(() => ((SpeechModelCatalog)null!).AddPiperModels());
     }
 
-    /// <summary>Proves the voice is downloaded as one HTTPS archive that is pinned by its SHA-256.</summary>
+    /// <summary>
+    ///     Proves the voice is downloaded as one zip from the project's <c>models</c> release, pinned by its SHA-256, and
+    ///     never from Hugging Face.
+    /// </summary>
     [Fact]
-    public void SpeechOnnxPiper_VoiceDownload_IsPinnedBySha256()
+    public void SpeechOnnxPiper_VoiceDownload_IsModelsReleaseBundlePinnedBySha256()
     {
         // Act
         var file = Assert.Single(_model.DownloadDescriptor.Files);
 
         // Assert
-        Assert.Equal("https", file.Uri.Scheme);
-        Assert.EndsWith(".tar.bz2", file.Uri.AbsolutePath, StringComparison.Ordinal);
-        Assert.Equal("10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c", file.Sha256Checksum);
+        Assert.Equal(
+            "https://github.com/demaconsulting/Speech/releases/download/models/piper-en-us-libritts-r-medium-20261122-fp32-b1.zip",
+            file.Uri.AbsoluteUri);
+        Assert.Equal(PiperTestFixtures.BundleSha256, file.Sha256Checksum);
     }
 
     /// <summary>
-    ///     Proves an installed archive keeps only the graph and the configuration, directly in the install directory
-    ///     (an entry that tries to leave it stays inside), deletes the archive, and becomes a voice that speaks; and that
-    ///     an archive without both files fails the install.
+    ///     Proves a downloaded bundle whose vendor bytes differ from the compiled pins fails the install, and that an
+    ///     installed voice (graph and configuration at the installed root) loads and speaks.
     /// </summary>
     [Fact]
-    public async Task SpeechOnnxPiper_InstallAndLoad_ArchiveBecomesAWorkingVoice()
+    public async Task SpeechOnnxPiper_InstallAndLoad_TamperedBundleIsRejectedAndInstalledVoiceSpeaks()
     {
         // Arrange
-        var good = Path.Combine(_root, "good");
-        var hostile = Path.Combine(_root, "hostile", "staging");
-        var incomplete = Path.Combine(_root, "incomplete");
-        foreach (var directory in new[] { good, hostile, incomplete })
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var graph = PiperTestFixtures.BuildEchoModel();
-        var config = Encoding.UTF8.GetBytes(PiperTestFixtures.TrimmedConfigJson);
-        await File.WriteAllBytesAsync(_model.DownloadDescriptor.Files[0].ResolveStagedPath(good), PiperTestFixtures.BuildArchive(
-        [
-            (ArchiveFolder + "en_US-libritts_r-medium.onnx", graph),
-            (ArchiveFolder + "en_US-libritts_r-medium.onnx.json", config),
-            (ArchiveFolder + "tokens.txt", "a 1"u8.ToArray()),
-            (ArchiveFolder + "espeak-ng-data/en_dict", "dict"u8.ToArray()),
-        ]), TestContext.Current.CancellationToken);
-        await File.WriteAllBytesAsync(_model.DownloadDescriptor.Files[0].ResolveStagedPath(hostile), PiperTestFixtures.BuildArchive(
-        [
-            ("../../evil.onnx", graph),
-            ("x/en_US-libritts_r-medium.onnx.json", config),
-        ]), TestContext.Current.CancellationToken);
-        await File.WriteAllBytesAsync(_model.DownloadDescriptor.Files[0].ResolveStagedPath(incomplete), PiperTestFixtures.BuildArchive(
-            [(ArchiveFolder + "en_US-libritts_r-medium.onnx", graph)]), TestContext.Current.CancellationToken);
+        var tampered = Path.Combine(_root, "tampered");
+        var installed = Path.Combine(_root, "installed");
+        PiperTestFixtures.StageBundleWithWrongFiles(Assert.Single(OnnxPiperLibriTtsEnSynthesisModel.Bundles), tampered);
+        PiperTestFixtures.WriteInstalledEchoVoice(installed);
 
         // Act
-        await _model.InstallAsync(good, TestContext.Current.CancellationToken);
-        await _model.InstallAsync(hostile, TestContext.Current.CancellationToken);
-        using var backend = _model.CreateBackend(good);
+        var installFailure = await Record.ExceptionAsync(() => _model.InstallAsync(tampered, TestContext.Current.CancellationToken));
+        using var backend = _model.CreateBackend(installed);
         var echo = PiperTestFixtures.DecodeEcho(backend.Generate("Hello there.", 1.0f, 0));
 
         // Assert
-        Assert.Equal(
-            ["en_US-libritts_r-medium.onnx", "en_US-libritts_r-medium.onnx.json"],
-            Directory.GetFileSystemEntries(good).Select(Path.GetFileName).Order(StringComparer.Ordinal));
-        Assert.Equal(["en_US-libritts_r-medium.onnx.json", "evil.onnx"], Directory.GetFileSystemEntries(hostile).Select(Path.GetFileName).Order(StringComparer.Ordinal));
-        Assert.Empty(Directory.GetFiles(_root, "evil.onnx", SearchOption.TopDirectoryOnly));
-        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(hostile)!, "evil.onnx", SearchOption.TopDirectoryOnly));
-        await Assert.ThrowsAsync<InvalidDataException>(() => _model.InstallAsync(incomplete, TestContext.Current.CancellationToken));
+        Assert.IsType<InvalidDataException>(installFailure);
         Assert.Equal(22050, backend.SampleRate);
         Assert.Equal(1, echo.Ids[0]);
         Assert.Equal(2, echo.Ids[^1]);

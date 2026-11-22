@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.NemotronStt\DemaConsulting.Speech.Onnx.NemotronStt.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Piper\DemaConsulting.Speech.Onnx.Piper.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.ChatterboxTurbo\DemaConsulting.Speech.Onnx.ChatterboxTurbo.csproj" />
   </ItemGroup>
 

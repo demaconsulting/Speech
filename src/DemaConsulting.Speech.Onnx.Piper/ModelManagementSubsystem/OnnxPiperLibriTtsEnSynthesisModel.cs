@@ -25,13 +25,23 @@ namespace DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 ///     904 speakers of widely varying quality; speaker 0 is the default.
 ///     </para>
 ///     <para>
-///     <b>Download</b>: the voice is installed from the SHA-256-pinned archive that the sherpa-onnx project publishes for
-///     it (<c>vits-piper-en_US-libritts_r-medium.tar.bz2</c>, 82,038,311 bytes). The archive also contains the
-///     espeak-ng data (GPL-3.0) and the sherpa-onnx token table, which this class does not use: only the graph
-///     (<c>en_US-libritts_r-medium.onnx</c>) and the voice configuration (<c>en_US-libritts_r-medium.onnx.json</c>)
-///     are extracted (<see cref="InstallAsync"/>), so no espeak-ng data is ever written to the installed model. The
-///     voice's own distribution (Hugging Face, <c>rhasspy/piper-voices</c>) could not be reached from this repository's
-///     development machine to verify its file hashes, so this archive is the one whose hash was verified.
+///     <b>Download</b>: the voice is installed from one bundle on this project's <c>models</c> GitHub release
+///     (<see cref="Bundles"/>, <c>piper-en-us-libritts-r-medium-20261122-fp32-b1.zip</c>), so a user needs no Hugging
+///     Face access. The zip holds the voice's three original files from <c>rhasspy/piper-voices</c>
+///     (<see cref="BundleContents"/>: the graph <c>en_US-libritts_r-medium.onnx</c>, the voice configuration
+///     <c>en_US-libritts_r-medium.onnx.json</c> and the <c>MODEL_CARD</c>), unmodified, together with the CC BY 4.0
+///     <c>LICENSE</c>, a <c>NOTICE</c> with the full attribution and lineage, a <c>README.txt</c> and a
+///     <c>model.json</c> that records each file's original URL. The zip is pinned by its SHA-256 and every extracted file
+///     is checked again against its own pin. A configured download mirror serves the zip at
+///     <c>{mirror}/piper-onnx-libritts-r-en-us-medium/piper-en-us-libritts-r-medium-20261122-fp32-b1.zip</c>.
+///     </para>
+///     <para>
+///     <b>Graph compatibility</b>: the engine reads the sample rate, the speaker count, the inference scales and the
+///     symbol table from the <c>.onnx.json</c> voice configuration only, and feeds the graph through the standard Piper
+///     input names (<c>input</c>, <c>input_lengths</c>, <c>scales</c>, <c>sid</c>); it never reads the graph's own
+///     metadata. A voice installed by an earlier version of this package from the sherpa-onnx re-packaged archive (whose
+///     graph carries added metadata, with the same voice configuration) therefore keeps working unchanged, and a
+///     reinstall moves it to the original vendor graph.
 ///     </para>
 ///     <para>
 ///     <b>Speaker selection</b>: the voice has 904 speakers identified only by number (0-903); LibriTTS-R publishes no
@@ -40,11 +50,15 @@ namespace DemaConsulting.Speech.Onnx.Piper.ModelManagementSubsystem;
 ///     argument, applied through the voice's length scale.
 ///     </para>
 ///     <para>
-///     <b>License</b>: CC BY 4.0, confirmed from the voice's own <c>MODEL_CARD</c> in the archive (dataset
+///     <b>License</b>: CC BY 4.0, as declared by the voice's own <c>MODEL_CARD</c> (dataset
 ///     <c>http://www.openslr.org/141/</c>, license CC BY 4.0). It is an attribution license: a redistribution of the
 ///     voice, or of audio it generates where the license's attribution applies, must credit the LibriTTS-R corpus
-///     (Koizumi et al.; OpenSLR resource 141) and the Piper project the voice was trained with. The required
-///     credit is in this package's <c>THIRD-PARTY-NOTICES.md</c>.
+///     (Koizumi et al., 2023; CC BY 4.0; OpenSLR resource 141) and the Piper project (Rhasspy) the voice was trained
+///     with. <b>Lineage</b>: the same model card states that the voice was fine-tuned from the English <c>lessac</c>
+///     medium voice, which was trained on the Blizzard Challenge 2013 Lessac data; that data is licensed for
+///     non-commercial research use only. Consumers must review the upstream terms and decide whether the voice fits
+///     their use. The full credit and the lineage notice are in this package's <c>THIRD-PARTY-NOTICES.md</c> and in the
+///     bundle's <c>NOTICE</c>, which is installed with the voice under <c>licenses/</c>.
 ///     </para>
 /// </remarks>
 public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
@@ -55,14 +69,23 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
     /// <summary>The parameter id of the numeric speaker selection.</summary>
     public const string SpeakerParameterId = "speaker";
 
-    /// <summary>The relative install path of the downloaded archive, before it is unpacked.</summary>
-    private const string ArchiveRelativeInstallPath = "vits-piper-en_US-libritts_r-medium.tar.bz2";
-
     /// <summary>The install path of the ONNX graph.</summary>
     private const string ModelFileName = "en_US-libritts_r-medium.onnx";
 
     /// <summary>The install path of the voice configuration.</summary>
     private const string ConfigFileName = "en_US-libritts_r-medium.onnx.json";
+
+    /// <summary>The install path of the voice's model card (installed for provenance; the engine does not read it).</summary>
+    private const string ModelCardFileName = "MODEL_CARD";
+
+    /// <summary>
+    ///     The Hugging Face resolve URL prefix of the voice's folder in <c>rhasspy/piper-voices</c>: the original source
+    ///     of the vendor files, recorded in the bundle's <c>model.json</c> and <c>README.txt</c>. The runtime never
+    ///     downloads from it; it downloads the bundle from the <c>models</c> release.
+    /// </summary>
+#pragma warning disable S1075 // The vendor files' original URLs are intentionally compiled-in, reviewed literals.
+    private const string VoiceSourceUrl = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/libritts_r/medium/";
+#pragma warning restore S1075
 
     /// <summary>The output sample rate of the voice, in Hz (the configuration is checked against it).</summary>
     private const int PreferredSampleRate = 22050;
@@ -122,7 +145,10 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
 
     /// <summary>
     ///     <inheritdoc/>
-    ///     See the type-level remarks' "License" paragraph.
+    ///     The declared license of the voice. See the type-level remarks' "License" paragraph for the required attribution
+    ///     (LibriTTS-R, Piper) and the lineage notice (fine-tuned from the English <c>lessac</c> medium voice, trained on
+    ///     the Blizzard Challenge 2013 Lessac data, which is licensed for non-commercial research use only; consumers must
+    ///     review the upstream terms).
     /// </summary>
     public string LicenseName => "CC BY 4.0";
 
@@ -168,37 +194,86 @@ public sealed class OnnxPiperLibriTtsEnSynthesisModel : ISynthesisModel
     /// </remarks>
     IModelCapabilityProfile ISynthesisModel.CapabilityProfile => PiperCapabilityProfile.Instance;
 
-    /// <inheritdoc/>
+    /// <summary>
+    ///     The name of the <c>models</c>-release bundle that carries this voice's unmodified vendor files (see
+    ///     <see cref="BundleContents"/>). The upstream release token is the snapshot date: the voice has no verifiable
+    ///     upstream version tag, so the date the files were taken from <c>rhasspy/piper-voices</c> names the snapshot.
+    /// </summary>
+    internal const string BundleName = "piper-en-us-libritts-r-medium-20261122-fp32-b1";
+
+    /// <summary>
+    ///     The vendor files of the <see cref="BundleName"/> bundle: the voice's graph, its configuration and its model
+    ///     card, each with its original upstream URL, SHA-256 pin and install path (flat, at the installed root).
+    /// </summary>
     /// <remarks>
-    ///     One file: the sherpa-onnx release archive of the voice, which <see cref="InstallAsync"/> unpacks (only the
-    ///     graph and the configuration are kept). See the type-level remarks for why this archive and not the voice's
-    ///     own Hugging Face files.
+    ///     This is the single source of truth for the per-file pins: <see cref="Bundles"/> uses it as the bundle's
+    ///     contents (so the installer checks every extracted file against these pins), and the non-shipped
+    ///     <c>DemaConsulting.Speech.ModelBundler</c> tool (which sees this member through <c>InternalsVisibleTo</c>)
+    ///     packs exactly these files into the bundle, so no SHA-256 is declared twice. The pins are the SHA-256 of the
+    ///     original <c>rhasspy/piper-voices</c> files (78,580,914, 20,123 and 279 bytes). Immutable and safe to share
+    ///     across threads.
     /// </remarks>
-#pragma warning disable S1075 // This model's download URL is intentionally a compiled-in, reviewed literal: a catalog entry names one specific, checksum-verified release asset.
-    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(
+    internal static SpeechModelDownloadDescriptor BundleContents { get; } = new(
     [
         new SpeechModelDownloadFile(
-            new Uri("https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2"),
-            "10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c",
-            ArchiveRelativeInstallPath),
+            new Uri(VoiceSourceUrl + ModelFileName),
+            "10bb85e071d616fcf4071f369f1799d0491492ab3c5d552ec19fb548fac13195",
+            ModelFileName),
+        new SpeechModelDownloadFile(
+            new Uri(VoiceSourceUrl + ConfigFileName),
+            "b471dc60d2d8335e819c393d196d6fbf792817f40051257b269878505bc9afb3",
+            ConfigFileName),
+        new SpeechModelDownloadFile(
+            new Uri(VoiceSourceUrl + ModelCardFileName),
+            "0ccde6927e5bb4d743f4ea39618a9387ba18cca3351220a8a9cfdbc68b30fcb9",
+            ModelCardFileName),
     ]);
-#pragma warning restore S1075
+
+    /// <summary>
+    ///     The <c>models</c>-release bundle this voice installs from: one zip holding the unmodified files of
+    ///     <see cref="BundleContents"/>, pinned by the zip's own SHA-256.
+    /// </summary>
+    /// <remarks>
+    ///     Public so a host or a mirror administrator can list exactly which zip (name, URL and SHA-256) this model
+    ///     downloads. The zip pin is the published asset's checksum; the bundle bytes are reproducible, so the pin never
+    ///     changes for this bundle revision. Declared after <see cref="BundleContents"/> because static initializers run
+    ///     in textual order. Immutable and safe to share across threads.
+    /// </remarks>
+    public static IReadOnlyList<SpeechModelBundle> Bundles { get; } =
+    [
+        new SpeechModelBundle(
+            new Uri(SpeechModelBundle.ModelsReleaseBaseUri, BundleName + ".zip"),
+            "5196a8aa97f9053e0bdbbc2299007d48d55f37a74e88199869daebb710d8bd0f",
+            BundleContents),
+    ];
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Declares the single zip of <see cref="Bundles"/>; <see cref="InstallAsync"/> then extracts the graph, the voice
+    ///     configuration and the model card (the files of <see cref="BundleContents"/>).
+    /// </remarks>
+    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = SpeechModelBundle.CreateDescriptor(Bundles);
 
     /// <inheritdoc/>
     AudioFormat ISynthesisModel.PreferredAudioFormat => AudioFormat.Mono(PreferredSampleRate);
 
-    /// <inheritdoc/>
+    /// <summary>
+    ///     Extracts and verifies the downloaded bundle of <see cref="Bundles"/> in the staging directory, leaving the
+    ///     vendor files at the installed root and the bundle's license files under
+    ///     <c>licenses/piper-en-us-libritts-r-medium-20261122-fp32-b1/</c>.
+    /// </summary>
+    /// <param name="stagedFilesDirectory">The staging directory holding the downloaded, checksum-verified zip.</param>
+    /// <param name="cancellationToken">A token to observe while extracting.</param>
+    /// <returns>A task that completes once the bundle is extracted and the zip is deleted.</returns>
     /// <remarks>
-    ///     Keeps only <c>en_US-libritts_r-medium.onnx</c> and <c>en_US-libritts_r-medium.onnx.json</c> from the archive,
-    ///     placed directly in the installed directory, and deletes the archive.
+    ///     Delegates to <see cref="SpeechModelBundle.InstallAsync"/>, which rejects any unsafe entry name, any extra or
+    ///     missing file, and any file whose SHA-256 differs from its pin in <see cref="BundleContents"/>; an exception
+    ///     here leaves no partial install.
     /// </remarks>
-    public Task InstallAsync(string stagedFilesDirectory, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(stagedFilesDirectory);
-
-        var archivePath = DownloadDescriptor.Files[0].ResolveStagedPath(stagedFilesDirectory);
-        return PiperArchiveExtractor.ExtractAndDeleteAsync(archivePath, stagedFilesDirectory, cancellationToken);
-    }
+    /// <exception cref="ArgumentException">Thrown when <paramref name="stagedFilesDirectory"/> is null or empty.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the zip or one of its files fails verification.</exception>
+    public Task InstallAsync(string stagedFilesDirectory, CancellationToken cancellationToken = default) =>
+        SpeechModelBundle.InstallAsync(Bundles, stagedFilesDirectory, cancellationToken);
 
     /// <summary>
     ///     Builds a loaded <see cref="OnnxPiperSynthesisEngine"/>: reads the voice configuration, then creates the ONNX

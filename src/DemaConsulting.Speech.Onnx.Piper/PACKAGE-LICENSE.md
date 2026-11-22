@@ -54,4 +54,9 @@ CC BY 4.0 is an attribution license: if you redistribute the voice, or share mat
 with it in a way that the license's attribution requirement covers, you must give the credit that is
 reproduced in `THIRD-PARTY-NOTICES.md`.
 
-See `THIRD-PARTY-NOTICES.md` for the attribution and the provenance of the voice.
+**Lineage.** The voice's model card states that it was fine-tuned from the English `lessac` medium
+voice, which was trained on the Blizzard Challenge 2013 Lessac data. That data is licensed for
+non-commercial research use only. You must review the upstream terms and decide whether the voice
+fits your use.
+
+See `THIRD-PARTY-NOTICES.md` for the attribution, the lineage and the provenance of the voice.
