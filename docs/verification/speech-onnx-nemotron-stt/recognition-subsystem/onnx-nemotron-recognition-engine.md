@@ -134,6 +134,18 @@ encoder state is kept.
 
 **Test**: `OnnxNemotronRecognitionEngine_TryDecode_SteadyAudioWithoutNewTokens_FinalizesAfterTrailingBlanks`
 
+##### Padding inside an encoder frame does not count as input time
+
+**Scenario**: with the loudness-reacting fakes (seven output frames of eight feature rows), a word
+of 0.30, 0.32, 0.34 or 0.36 s, then silence in 20 ms blocks until the utterance is final; the
+quiet cap pads the partial chunk from a feature row inside an encoder frame (each word length
+puts the padding start on a different row).
+
+**Expected**: the final is reported only after at least 1.2 s of input following the word's
+encoder frame, so the padding rows of the mixed frame never advanced the trailing-silence clock.
+
+**Test**: `OnnxNemotronRecognitionEngine_TryDecode_PaddingInsideEncoderFrame_DoesNotAdvanceEndpointClock`
+
 ##### Custom endpoint rules apply
 
 **Scenario**: one engine with a 400 ms after-speech rule and one with the defaults each receive

@@ -71,9 +71,14 @@ in absolute feature-frame positions:
   decoded blank frames plus about 1.1 s of credited removed silence.
 - **Padding ranges**: whenever the engine feeds synthetic silence (dithered digital silence
   straight into the extractor, bypassing the limiter), it opens a padding range at the current
-  position and closes it when real audio next arrives (a flush tail stays open). An encoder frame
-  whose first feature position lies in a padding range is reported with `AdvancePaddingFrame`, so
-  a token on it still counts as speech but its duration advances neither endpoint clock.
+  position and closes it when real audio next arrives (a flush tail stays open). Padding often
+  starts inside an encoder frame (one frame covers 8 feature rows), so the engine counts the rows
+  of each frame that lie in padding ranges: a frame with only padding rows is reported with
+  `AdvancePaddingFrame` (a token on it still counts as speech, its duration advances neither
+  endpoint clock), and a mixed frame is reported with `AdvanceFrame` for the duration of its real
+  rows only. Removed-silence marks that fall inside a frame's rows are credited after that frame:
+  its single token decision cannot be split, and tokens lag the audio, so a token decoded on the
+  frame holding the boundary belongs to the speech before the removed silence.
 
 Padding is applied in two places, and is never all-zero log-mel rows: when a quiet run after
 speech reaches the limiter's 400 ms cap, the partial chunk is completed (no further audio will

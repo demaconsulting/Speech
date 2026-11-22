@@ -556,6 +556,44 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.All(encoder.RowMaxima.Skip(25), max => Assert.True(max < -10f, $"Padding row max {max} is not silence."));
     }
 
+    /// <summary>
+    ///     Proves that silence padding which begins inside an encoder frame never counts as input
+    ///     time: the after-speech endpoint is reported only once the real input after the word's
+    ///     frame reaches the rule, whichever feature row the padding starts on.
+    /// </summary>
+    /// <param name="toneSeconds">The length of the word, which moves the padding start across the rows of an encoder frame.</param>
+    [Theory]
+    [InlineData(0.30)]
+    [InlineData(0.32)]
+    [InlineData(0.34)]
+    [InlineData(0.36)]
+    public void OnnxNemotronRecognitionEngine_TryDecode_PaddingInsideEncoderFrame_DoesNotAdvanceEndpointClock(double toneSeconds)
+    {
+        // Arrange: loudness fakes decode the word on the first encoder frame (8 feature rows),
+        // and silence is fed in 20 ms blocks like a capture device delivers it
+        var (engine, _, _) = CreateLoudness();
+        const int block = Rate / 50;
+        const int wordFrameSamples = 8 * NemotronFeatureExtractor.HopLength;
+        const int ruleSamples = 1200 * Rate / 1000;
+        var word = Tone(toneSeconds);
+
+        // Act: the word, then silence until the utterance is final (the quiet cap pads the
+        // partial chunk on the way, starting inside an encoder frame)
+        engine.AcceptSamples(word);
+        var fed = word.Length;
+        var finalized = false;
+        while (!finalized && fed < 5 * Rate)
+        {
+            engine.AcceptSamples(new float[block]);
+            fed += block;
+            finalized = Drain(engine).Any(r => r.IsFinal);
+        }
+
+        // Assert: the final came only after the rule's duration of input following the word's frame
+        Assert.True(finalized);
+        Assert.True(fed >= wordFrameSamples + ruleSamples, $"Finalized after {fed} input samples.");
+    }
+
     /// <summary>Proves invalid engine options are rejected.</summary>
     [Fact]
     public void OnnxNemotronRecognitionEngine_Constructor_InvalidOptions_ThrowsArgumentOutOfRangeException()

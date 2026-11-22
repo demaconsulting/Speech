@@ -444,17 +444,33 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         }
     }
 
-    /// <summary>Determines whether the feature frame at <paramref name="position"/> is padding, forgetting ranges already passed.</summary>
-    /// <param name="position">The absolute feature-frame index; calls must not go backwards.</param>
-    /// <returns><see langword="true"/> when the frame lies in a padding range.</returns>
-    private bool IsPadding(long position)
+    /// <summary>
+    ///     Counts the padding rows among the feature rows <paramref name="start"/> (inclusive) to
+    ///     <paramref name="end"/> (exclusive), forgetting ranges already passed.
+    /// </summary>
+    /// <param name="start">The first absolute feature-frame index; calls must not go backwards.</param>
+    /// <param name="end">The absolute feature-frame index after the last row.</param>
+    /// <returns>The number of rows in the span that lie in a padding range (0 to <c>end - start</c>).</returns>
+    private long CountPaddingRows(long start, long end)
     {
-        while (_paddingRanges.Count > 0 && _paddingRanges[0].End <= position)
+        while (_paddingRanges.Count > 0 && _paddingRanges[0].End <= start)
         {
             _paddingRanges.RemoveAt(0);
         }
 
-        return _paddingRanges.Count > 0 && _paddingRanges[0].Start <= position;
+        // Ranges are ordered and disjoint, so sum the overlaps until one starts past the span
+        var count = 0L;
+        foreach (var range in _paddingRanges)
+        {
+            if (range.Start >= end)
+            {
+                break;
+            }
+
+            count += Math.Min(range.End, end) - Math.Max(range.Start, start);
+        }
+
+        return count;
     }
 
     /// <summary>Decodes every complete chunk, credits removed silence, checks the endpoint, and reports changed text.</summary>
@@ -490,13 +506,17 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         var output = _encoder.Encode(_chunkInput, EncoderFrames, out var outputFrames);
         if (outputFrames > 0)
         {
-            // Each output frame stands for an equal share of the chunk's input duration
+            // Each output frame stands for an equal share of the chunk's feature rows and input duration
             var hidden = _encoder.HiddenSize;
             var frameSamples = (long)NemotronEngineOptions.ChunkFrames * NemotronFeatureExtractor.HopLength / outputFrames;
             for (var k = 0; k < outputFrames; k++)
             {
-                // Removed silence recorded before this frame's features comes first
+                // Removed silence recorded at or before this frame's first row comes first. Silence
+                // removed inside the frame's rows is credited after the frame: the frame's token
+                // decision cannot be split, and tokens lag the audio, so a token decoded on the
+                // frame holding the boundary belongs to the speech before the removed silence
                 var featureStart = chunkStart + ((long)k * NemotronEngineOptions.ChunkFrames / outputFrames);
+                var featureEnd = chunkStart + ((long)(k + 1) * NemotronEngineOptions.ChunkFrames / outputFrames);
                 CreditDroppedSilence(featureStart);
 
                 // Decode the frame and tell the detector whether it held speech; closing
@@ -508,13 +528,17 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
                     emitted = DropLeadingClosingPunctuation();
                 }
 
-                if (IsPadding(featureStart))
+                // Only the frame's real rows advance the endpoint clocks: padding often starts
+                // inside a frame, and its synthetic rows must never count as input time
+                var rows = featureEnd - featureStart;
+                var realRows = rows - CountPaddingRows(featureStart, featureEnd);
+                if (realRows <= 0)
                 {
                     _detector.AdvancePaddingFrame(emitted);
                 }
                 else
                 {
-                    _detector.AdvanceFrame(frameSamples, emitted);
+                    _detector.AdvanceFrame(frameSamples * realRows / rows, emitted);
                 }
 
                 CheckEndpoint();

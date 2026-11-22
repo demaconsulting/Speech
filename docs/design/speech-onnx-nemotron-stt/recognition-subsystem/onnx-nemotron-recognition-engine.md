@@ -66,13 +66,15 @@ marks and padding ranges are consumed in order.
 - **DecodeChunk()** (private): copies the pre-encode carry into the encoder input, dequeues 56
   feature frames after it, carries the chunk's last nine frames forward, and encodes the 65-frame
   input. Each of the `n` output frames stands for `56 * 160 / n` input samples (1280 samples, 80
-  ms, for the real model's seven frames). For output frame `k`, whose first feature position is
-  `chunkStart + k * 56 / n`, it credits the marks at or before that position, decodes the frame
-  alone (`Decode(frame, 1, hidden, tokens)`), drops leading closing punctuation when the
-  utterance was empty before the frame, reports the frame to the detector
-  (`AdvancePaddingFrame` when the position lies in a padding range, otherwise `AdvanceFrame`),
-  and applies the detector's decision. After the last frame it credits the marks at or before the
-  chunk end.
+  ms, for the real model's seven frames). For output frame `k`, which covers the feature rows
+  `chunkStart + k * 56 / n` up to `chunkStart + (k + 1) * 56 / n`, it credits the marks at or
+  before its first row, decodes the frame alone (`Decode(frame, 1, hidden, tokens)`), drops
+  leading closing punctuation when the utterance was empty before the frame, reports the frame to
+  the detector (`AdvancePaddingFrame` when every row lies in a padding range, otherwise
+  `AdvanceFrame` with the duration of its real rows only, so padding that starts inside the frame
+  never counts as input time), and applies the detector's decision. Marks inside the frame's rows
+  are credited before the next frame, after this frame's token decision. After the last frame it
+  credits the marks at or before the chunk end.
 - **DropLeadingClosingPunctuation()** (private): removes the tokens at the start of a segment
   whose text is only sentence-closing punctuation (Latin `.,;:!?`, the ellipsis, the CJK and
   full-width forms, and the Unicode closing brackets and final quotes); the frame counts as speech

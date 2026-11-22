@@ -124,17 +124,20 @@ sections:
                 title: >-
                   The OnnxNemotronRecognitionEngine class shall report the utterance text as a
                   final result when its endpoint detector reports an endpoint, measuring each
-                  decoded encoder frame at its input duration and counting the quiet input the
-                  limiter removed at the point in the stream where it was removed.
+                  decoded encoder frame at the input duration of its real (not padding) feature
+                  rows and counting the quiet input the limiter removed at the point in the stream
+                  where it was removed.
                 justification: |
                   The utterance boundary must follow the audio the model actually decoded: a
                   frame without new words is trailing silence whether the input was silent or
-                  steady noise, and a pause the limiter shortened must still count at its real
-                  length so an utterance ends about 1.2 s after its last word.
+                  steady noise, a pause the limiter shortened must still count at its real
+                  length so an utterance ends about 1.2 s after its last word, and synthetic
+                  padding, which often starts inside an encoder frame, must never count as input.
                 tests:
                   - OnnxNemotronRecognitionEngine_TryDecode_SilenceAfterSpeech_FinalizesWithoutModelReset
                   - OnnxNemotronRecognitionEngine_TryDecode_ShortPauseBelowRule_KeepsOneUtterance
                   - OnnxNemotronRecognitionEngine_TryDecode_SteadyAudioWithoutNewTokens_FinalizesAfterTrailingBlanks
+                  - OnnxNemotronRecognitionEngine_TryDecode_PaddingInsideEncoderFrame_DoesNotAdvanceEndpointClock
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EndpointKeepsModelState
                 title: >-
