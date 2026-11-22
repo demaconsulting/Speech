@@ -72,23 +72,48 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall describe the default
-                  precision variants as eight downloadable files, each with a source URI, a
-                  SHA-256 checksum and a relative install path.
+                  precision variants as eight installed files, each with its original source URI,
+                  a SHA-256 checksum and a relative install path, downloaded as two SHA-256-pinned
+                  component bundles (one language-model and one auxiliary bundle) from the
+                  project's models release.
                 justification: |
-                  The model store verifies and installs exactly what the descriptor lists.
+                  The model store verifies and installs exactly what the descriptor lists; hosting
+                  the unmodified files on GitHub lets users behind a firewall that blocks Hugging
+                  Face install the default model, and component bundles let variants share files
+                  without duplicating them on the release.
                 tests:
-                  - OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_DefaultVariant_ListsEightFiles
+                  - OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_DefaultVariant_ListsEightFiles
+                  - OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle
+                  - OnnxChatterboxTurboEnglishSynthesisModel_BundleContents_PinsEveryVendorFile
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-BundleInstall
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class's InstallAsync method shall
+                  extract a bundle-installed variant's downloaded bundles and shall fail when an
+                  extracted file does not match its pin.
+                justification: |
+                  The downloader hands the staged archives to the model's install hook; failing on a
+                  mismatched file leaves the prior install untouched and never installs altered
+                  model files.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall support selectable
                   language-model and auxiliary-graph precision variants, each combination having
-                  a distinct id and a complete file set.
+                  a distinct id and a complete file set, downloaded from the models release when
+                  both of its component bundles are published and otherwise as individual files
+                  from the upstream repository.
                 justification: |
                   Variants let a host trade download size against fidelity, and mixing files of
-                  different variants under one id would corrupt the installed model.
+                  different variants under one id would corrupt the installed model. A variant whose
+                  bundles are not yet published must keep working from its upstream source rather
+                  than fail.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets
+                  - OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VariantLoading
                 title: >-
@@ -237,7 +262,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendMissingFile
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
-                  reporting the missing file, when a model file is missing.
+                  reporting the missing file, when any of the variant's installed model files is
+                  missing.
                 justification: |
                   An incomplete install must be reported precisely, before any session is created.
                 tests:

@@ -14,17 +14,21 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 ///     sherpa-onnx-backed Nemotron model.
 /// </summary>
 /// <remarks>
-///     <b>Download provenance</b>: files are published at
-///     <c>https://huggingface.co/onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4</c> and
-///     resolved through its <c>resolve/main/...</c> URLs below. The SHA-256 checksums and sizes in
-///     <see cref="DownloadDescriptor"/> were computed directly against the downloaded files, not
+///     <b>Download provenance</b>: the files are originally published at
+///     <c>https://huggingface.co/onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4</c>, and their
+///     <c>resolve/main/...</c> URLs are recorded below. The SHA-256 checksums and sizes in
+///     <see cref="BundleContents"/> were computed directly against the downloaded files, not
 ///     copied from a third-party listing. Eleven files (about 790 MB) are installed: the encoder,
 ///     decoder and joint graphs, each with its external-data file (<c>*.onnx.data</c>, which must
 ///     sit beside its <c>.onnx</c> under the identical base name for ONNX Runtime to find it), the
-///     vocabulary, and the tokenizer/configuration files that document the export.
+///     vocabulary, and the tokenizer/configuration files that document the export. They are
+///     downloaded, unmodified, as one bundle from this project's <c>models</c> GitHub release
+///     (<see cref="Bundles"/>, <c>nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip</c>), so a user
+///     needs no Hugging Face access; the zip is pinned by its own SHA-256 and every extracted file is
+///     checked again against its pin in <see cref="BundleContents"/>.
 ///     <para>
 ///     <b>One catalog entry, a language parameter</b>: the download mirror layout is
-///     <c>&lt;mirror&gt;/&lt;model id&gt;/&lt;file&gt;</c>, so the model id must equal the mirror's one
+///     <c>&lt;mirror&gt;/&lt;model id&gt;/&lt;bundle&gt;.zip</c>, so the model id must equal the mirror's one
 ///     folder name, and every locale shares the same ~790 MB of files. This model therefore
 ///     exposes one catalog id with a <c>language</c> <see cref="ChoiceParameter"/> (<c>en-US</c>
 ///     default, <c>en-GB</c>) rather than one id per locale. The encoder's <c>lang_id</c> is
@@ -37,7 +41,9 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 ///     under the OpenMDW License Agreement 1.1, so <see cref="LicenseName"/> is
 ///     <c>OpenMDW-1.1</c> and <see cref="LicenseUrl"/> points at its text. The int4 ONNX
 ///     conversion is downloaded unchanged from the <c>onnx-community</c> Hugging Face
-///     organization; that repository's MIT tag covers only the conversion, not the weights.
+///     organization; that repository's MIT tag covers only the conversion, not the weights. The
+///     bundle ships the OpenMDW-1.1 and MIT texts and a <c>NOTICE</c> with the files, installed under
+///     <c>licenses/&lt;bundle&gt;/</c>.
 ///     </para>
 ///     <para>
 ///     <b>Execution providers</b>: the encoder honors the preferred execution provider names with
@@ -149,8 +155,9 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
     ///     with its original <c>resolve/main</c> URL, SHA-256 pin and install path.
     /// </summary>
     /// <remarks>
-    ///     This is the single source of truth for the per-file pins: <see cref="DownloadDescriptor"/>
-    ///     is built from it, and the non-shipped <c>DemaConsulting.Speech.ModelBundler</c> tool (which
+    ///     This is the single source of truth for the per-file pins: <see cref="Bundles"/> uses it as
+    ///     the bundle's contents (so the installer checks every extracted file against these pins), and
+    ///     the non-shipped <c>DemaConsulting.Speech.ModelBundler</c> tool (which
     ///     sees this member through <c>InternalsVisibleTo</c>) packs exactly these files into the
     ///     bundle, so no SHA-256 is declared twice. Byte sizes: encoder.onnx 2,677,548;
     ///     encoder.onnx.data 690,089,984; decoder.onnx 4,696; decoder.onnx.data 59,785,216; joint.onnx
@@ -174,11 +181,50 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
     ]);
 #pragma warning restore S1075
 
+    /// <summary>
+    ///     The <c>models</c>-release bundle this model installs from: one zip holding the unmodified
+    ///     files of <see cref="BundleContents"/>, pinned by the zip's own SHA-256.
+    /// </summary>
+    /// <remarks>
+    ///     Public so a host or a mirror administrator can list exactly which zip (name, URL and
+    ///     SHA-256) this model downloads. The zip also carries the OpenMDW-1.1 and MIT license texts, a
+    ///     <c>NOTICE</c>, a <c>README.txt</c> and a <c>model.json</c> that records each file's original
+    ///     URL. The bundle bytes are reproducible, so the pin never changes for this bundle revision.
+    ///     Declared after <see cref="BundleContents"/> because static initializers run in textual
+    ///     order. Immutable and safe to share across threads.
+    /// </remarks>
+    public static IReadOnlyList<SpeechModelBundle> Bundles { get; } =
+    [
+        new SpeechModelBundle(
+            new Uri(SpeechModelBundle.ModelsReleaseBaseUri, BundleName + ".zip"),
+            "733375bb604712afac6c4adbd6a9149ebc414fc9a5bee39ed3bdfc3c104048b2",
+            BundleContents),
+    ];
+
     /// <inheritdoc/>
     /// <remarks>
-    ///     The eleven files of <see cref="BundleContents"/>, whose remarks list each file's byte size.
+    ///     The single zip of <see cref="Bundles"/>; <see cref="InstallAsync"/> extracts the eleven
+    ///     files of <see cref="BundleContents"/>, whose remarks list each file's byte size.
     /// </remarks>
-    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = BundleContents;
+    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = SpeechModelBundle.CreateDescriptor(Bundles);
+
+    /// <summary>
+    ///     Extracts and verifies the downloaded bundle of <see cref="Bundles"/> in the staging
+    ///     directory, leaving the eleven vendor files at the install root and the bundle's license
+    ///     files under <c>licenses/nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1/</c>.
+    /// </summary>
+    /// <param name="stagedFilesDirectory">The staging directory holding the downloaded, checksum-verified zip.</param>
+    /// <param name="cancellationToken">A token to observe while extracting.</param>
+    /// <returns>A task that completes once the bundle is extracted and the zip is deleted.</returns>
+    /// <remarks>
+    ///     Delegates to <see cref="SpeechModelBundle.InstallAsync"/>, which rejects any unsafe entry
+    ///     name, any extra or missing file, and any file whose SHA-256 differs from its pin in
+    ///     <see cref="BundleContents"/>; an exception here leaves no partial install.
+    /// </remarks>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="stagedFilesDirectory"/> is null or empty.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the zip or one of its files fails verification.</exception>
+    public Task InstallAsync(string stagedFilesDirectory, CancellationToken cancellationToken = default) =>
+        SpeechModelBundle.InstallAsync(Bundles, stagedFilesDirectory, cancellationToken);
 
     /// <inheritdoc/>
     public IRecognitionBackend CreateBackend(string installedModelDirectory) =>

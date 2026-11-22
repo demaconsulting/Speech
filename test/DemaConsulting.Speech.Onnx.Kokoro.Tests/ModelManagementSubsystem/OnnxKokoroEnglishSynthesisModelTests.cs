@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text.Json;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
@@ -10,7 +12,8 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.ModelManagementSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="OnnxKokoroEnglishSynthesisModel"/>, proving its declared catalog
-///     metadata, 30-file download descriptor shape, speaker-id resolution, and
+///     metadata, its <c>models</c>-release bundle and the bundle's 30 pinned vendor files, speaker-id
+///     resolution, and
 ///     <see cref="OnnxKokoroEnglishSynthesisModel.CreateBackend"/> wiring - the latter against a
 ///     tiny, hand-built ONNX test fixture and synthetic voice style-vector files, never the real
 ///     ~88 MiB production model/voices download.
@@ -18,7 +21,7 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.ModelManagementSubsystem;
 public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
 {
     /// <summary>
-    ///     This package's own declared voice subset, in <see cref="OnnxKokoroEnglishSynthesisModel.DownloadDescriptor"/>
+    ///     This package's own declared voice subset, in bundle-contents
     ///     /speaker-id order, reproduced here (not reflected out of the production class) so a
     ///     test failure clearly shows which declared order assumption broke.
     /// </summary>
@@ -110,18 +113,18 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that this model declares exactly 30 download files (one ONNX model graph plus
+    ///     Proves that this model's bundle holds exactly 30 vendor files (one ONNX model graph plus
     ///     29 voice style-vector files) at the paths
     ///     <see cref="OnnxKokoroEnglishSynthesisModel.CreateBackend"/> resolves.
     /// </summary>
     [Fact]
-    public void OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresModelGraphAndEveryVoiceFile()
+    public void OnnxKokoroEnglishSynthesisModel_BundleContents_DeclaresModelGraphAndEveryVoiceFile()
     {
         // Arrange
-        var model = new OnnxKokoroEnglishSynthesisModel();
+        var bundle = Assert.Single(OnnxKokoroEnglishSynthesisModel.Bundles);
 
         // Act
-        var files = model.DownloadDescriptor.Files;
+        var files = bundle.Contents.Files;
 
         // Assert
         Assert.Equal(30, files.Count);
@@ -133,27 +136,72 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that every declared download file uses HTTPS, carries a well-formed
-    ///     64-character hexadecimal SHA-256 checksum, and has a unique relative install path.
+    ///     Proves that every vendor file of the bundle records its original HTTPS source on the
+    ///     <c>onnx-community/Kokoro-82M-v1.0-ONNX</c> repository, carries a well-formed
+    ///     64-character hexadecimal SHA-256 pin, and has a unique relative install path.
     /// </summary>
     [Fact]
-    public void OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_FilesHaveHttpsChecksumAndUniquePaths()
+    public void OnnxKokoroEnglishSynthesisModel_BundleContents_PinsEveryVendorFile()
     {
         // Arrange
-        var model = new OnnxKokoroEnglishSynthesisModel();
+        var bundle = Assert.Single(OnnxKokoroEnglishSynthesisModel.Bundles);
 
         // Act
-        var files = model.DownloadDescriptor.Files;
+        var files = bundle.Contents.Files;
 
         // Assert
         foreach (var file in files)
         {
             Assert.Equal("https", file.Uri.Scheme);
+            Assert.StartsWith(
+                "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/",
+                file.Uri.AbsoluteUri,
+                StringComparison.Ordinal);
             Assert.Equal(64, file.Sha256Checksum.Length);
             Assert.True(file.Sha256Checksum.All(char.IsAsciiHexDigit));
         }
 
         Assert.Equal(files.Count, files.Select(file => file.RelativeInstallPath).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    /// <summary>
+    ///     Proves that the model downloads exactly one zip, the pinned
+    ///     <c>kokoro-en-v1.0-int8-b1.zip</c> asset on the project's <c>models</c> release.
+    /// </summary>
+    [Fact]
+    public void OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle()
+    {
+        // Arrange
+        var model = new OnnxKokoroEnglishSynthesisModel();
+
+        // Act
+        var file = Assert.Single(model.DownloadDescriptor.Files);
+
+        // Assert
+        var bundle = Assert.Single(OnnxKokoroEnglishSynthesisModel.Bundles);
+        Assert.Equal("kokoro-en-v1.0-int8-b1", bundle.Name);
+        Assert.Equal(
+            new Uri("https://github.com/demaconsulting/Speech/releases/download/models/kokoro-en-v1.0-int8-b1.zip"),
+            file.Uri);
+        Assert.Equal("c61bb8da1433020071782071fe7f2eb6c9d03d41b9b9672f6b1201b4afd61e9c", file.Sha256Checksum);
+        Assert.Equal("kokoro-en-v1.0-int8-b1.zip", file.RelativeInstallPath);
+    }
+
+    /// <summary>
+    ///     Proves that installing a well-formed bundle whose vendor bytes do not match the compiled
+    ///     pins throws <see cref="InvalidDataException"/>, so a tampered bundle is never installed.
+    /// </summary>
+    [Fact]
+    public async Task OnnxKokoroEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws()
+    {
+        // Arrange: stage the model's bundle with every vendor file replaced by other bytes
+        var model = new OnnxKokoroEnglishSynthesisModel();
+        var stagingDirectory = Path.Join(_testRoot, "staging");
+        StageBundleWithWrongFiles(Assert.Single(OnnxKokoroEnglishSynthesisModel.Bundles), stagingDirectory);
+
+        // Act / Assert: verification rejects the extracted bytes
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => model.InstallAsync(stagingDirectory, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -400,5 +448,45 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         {
             OnnxKokoroEnglishSynthesisModel.SessionFactory = null;
         }
+    }
+
+    /// <summary>
+    ///     Stages a well-formed bundle zip for <paramref name="bundle"/> whose <c>model.json</c>
+    ///     declares every vendor file at its compiled pin, but whose vendor entries hold other
+    ///     bytes - so only the extracted-bytes verification can reject it.
+    /// </summary>
+    /// <param name="bundle">The bundle to imitate.</param>
+    /// <param name="directory">The staging directory to write <c>{bundle.FileName}</c> into.</param>
+    private static void StageBundleWithWrongFiles(SpeechModelBundle bundle, string directory)
+    {
+        var wrongBytes = "these are not the vendor bytes"u8.ToArray();
+        var manifest = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schemaVersion = 1,
+            bundle = bundle.Name,
+            files = bundle.Contents.Files
+                .Select(file => new { path = file.RelativeInstallPath, size = wrongBytes.Length, sha256 = file.Sha256Checksum })
+                .ToArray(),
+        });
+
+        Directory.CreateDirectory(directory);
+        using var archive = ZipFile.Open(Path.Join(directory, bundle.FileName), ZipArchiveMode.Create);
+        WriteEntry(archive, "README.txt", "Test bundle."u8.ToArray());
+        WriteEntry(archive, "LICENSE", "Test license."u8.ToArray());
+        WriteEntry(archive, "model.json", manifest);
+        foreach (var file in bundle.Contents.Files)
+        {
+            WriteEntry(archive, file.RelativeInstallPath, wrongBytes);
+        }
+    }
+
+    /// <summary>Writes one stored entry into a zip being created.</summary>
+    /// <param name="archive">The archive in create mode.</param>
+    /// <param name="name">The entry name.</param>
+    /// <param name="content">The entry bytes.</param>
+    private static void WriteEntry(ZipArchive archive, string name, byte[] content)
+    {
+        using var stream = archive.CreateEntry(name, CompressionLevel.NoCompression).Open();
+        stream.Write(content, 0, content.Length);
     }
 }

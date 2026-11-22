@@ -17,7 +17,8 @@ The SpeechOnnxKokoro ModelManagementSubsystem is verified through deterministic 
   `speech-model-catalog-kokoro-extensions.md`), matching the sibling SpeechSherpa system's
   established convention for its own catalog extension method
 - **`OnnxKokoroEnglishSynthesisModel`**: its declared identity, license, 29-voice
-  `ChoiceParameter`, 30-file download descriptor, preferred audio format, speaker-id resolution
+  `ChoiceParameter`, `models`-release bundle and its 30 pinned vendor files, the rejection of a bundle whose
+  files do not match their pins, preferred audio format, speaker-id resolution
   (including every declared voice plus unknown-value/missing-key/null-bag fallback), the shared English text
   analysis (one instance for all models, different reading annotations for the noun and the verb of `record`), and an
   end-to-end `CreateBackend` + `Generate` test against a fake ONNX fixture and 29 synthetic
@@ -48,8 +49,9 @@ model tests exercise the model together with the engine it constructs.
 A SpeechOnnxKokoro ModelManagementSubsystem test run passes when: `AddKokoroModels()` returns the
 same catalog instance and registers exactly the one shipped model with its expected role and
 throws `ArgumentNullException` for a null catalog; `OnnxKokoroEnglishSynthesisModel` declares its
-documented identity, license, and 29-voice parameter, its 30-file download descriptor with
-well-formed SHA-256 checksums and unique install paths, and its mono 24000 Hz preferred audio
+documented identity, license, and 29-voice parameter, its one pinned `models`-release bundle whose 30 vendor
+files carry well-formed SHA-256 checksums and unique install paths, an `InstallAsync` that rejects a bundle
+whose files do not match their pins, and its mono 24000 Hz preferred audio
 format; `ResolveSpeakerId` resolves every declared voice to its declaration-order index and falls
 back to the default voice's index for an unknown value, a missing key, or a `null` bag;
 `CreateBackend` throws `ArgumentException` for an empty installed directory and, for a valid

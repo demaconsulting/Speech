@@ -213,7 +213,7 @@ public sealed class SpeechOnnxKokoroTests : IClassFixture<SpeechOnnxKokoroTests.
                 Path.Join(onnxDirectory, "model_quantized.onnx"));
 
             // The declared voice files, in declaration (speaker id) order
-            foreach (var file in new OnnxKokoroEnglishSynthesisModel().DownloadDescriptor.Files)
+            foreach (var file in OnnxKokoroEnglishSynthesisModel.Bundles.SelectMany(bundle => bundle.Contents.Files))
             {
                 if (!file.RelativeInstallPath.StartsWith("voices/", StringComparison.Ordinal))
                 {

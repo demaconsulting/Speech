@@ -13,14 +13,17 @@ this class supplies the shared English text analysis (`TextAnalyzer`) and constr
 of preferred execution provider names (`_preferredExecutionProviderNames`), forwarded unchanged to
 `OnnxExecutionProviderSelector.Create`. `ModelId = "kokoro-onnx-v1_0-en"`. `VoiceParameterId =
 "voice"`. `SharedAnalyzer` is one lazily created Text.En `EnglishTextAnalyzer` (annotations: normalization
-and reading) shared by all instances. `DownloadDescriptor` declares 30 individual HTTPS files: the `int8` ONNX
+and reading) shared by all instances. `BundleContents` (internal) declares the 30 vendor files: the `int8` ONNX
 graph variant
 (`onnx/model_quantized.onnx`, 92,361,116 bytes) and 29 voice style-vector `.bin` files (one per
 declared English voice, each an exact `(510, 256)` float32 array - 522,240 bytes - except the
-bundled default blend voice `af`, which is `(512, 256)` - 524,288 bytes), each with an
+bundled default blend voice `af`, which is `(512, 256)` - 524,288 bytes), each with its original
+`resolve/main` Hugging Face address and an
 independently-computed SHA-256 checksum recorded directly in this class's own source, fetched
 through a locally configured download mirror because the development sandbox could not reach
-Hugging Face directly.
+Hugging Face directly. `BundleName = "kokoro-en-v1.0-int8-b1"`. The public static `Bundles` holds
+one `SpeechModelBundle`: `{SpeechModelBundle.ModelsReleaseBaseUri}kokoro-en-v1.0-int8-b1.zip`
+pinned by its zip SHA-256, with `BundleContents` as its contents.
 
 **Key Methods**:
 
@@ -34,8 +37,15 @@ Hugging Face directly.
   canonical `https://www.apache.org/licenses/LICENSE-2.0` full text, matching the license family
   of the sherpa-onnx v0.19 Kokoro variant (both trace back to the same upstream
   `hexgrad/Kokoro-82M` model lineage).
-- **DownloadDescriptor**: the 30-file descriptor described above; `ModelRelativeInstallPath =
+- **DownloadDescriptor**: `SpeechModelBundle.CreateDescriptor(Bundles)` - the one zip of the bundle,
+  installed at its file name in the staging directory; `ModelRelativeInstallPath =
   "onnx/model_quantized.onnx"`.
+- **InstallAsync(stagedFilesDirectory, cancellationToken)** *(public)*: delegates to
+  `SpeechModelBundle.InstallAsync(Bundles, ...)`, which rejects unsafe entry names, extra or missing
+  entries and any file whose SHA-256 differs from its `BundleContents` pin (throwing
+  `InvalidDataException`), extracts the vendor files to their install paths, copies the bundle's
+  `LICENSE`, `NOTICE`, `README.txt` and `model.json` to `licenses/kokoro-en-v1.0-int8-b1/` and deletes
+  the zip. A failure leaves no partial install, because the downloader abandons the staging directory.
 - **ISynthesisModel.CreateBackend(installedModelDirectory)** *(public)*: builds the ONNX Runtime
   session via `OnnxExecutionProviderSelector.Create(modelPath, _preferredExecutionProviderNames,
   OnnxKokoroSynthesisEngine.RunProbeInference)`, so every accelerated candidate the selector tries
@@ -80,8 +90,8 @@ speaks American pronunciations in its own voice quality (for example the `r` in 
 listening quality has not been evaluated separately; British English phonemes are deferred. The same caveat is
 in the type remarks of the class and in the package README.
 Adding a further English voice later is purely additive: download and verify its `.bin` file, add
-one `VoiceOrder`/`VoiceLabels` entry and one `DownloadDescriptor` file entry; no other code in this
-class needs to change.
+one `VoiceOrder`/`VoiceLabels` entry and one `BundleContents` file entry, and publish a new bundle revision
+(the next `-bN`) whose zip pin replaces the one in `Bundles`; no other code in this class needs to change.
 
 **Style Vectors Indexed by Utterance Length**: each voice's `.bin` file is a flattened `(rows,
 256)` float32 array, and the row selected for one utterance depends on that utterance's own
@@ -95,15 +105,16 @@ was chosen over the `fp16` variant (163,234,740 bytes) because the fp16 graph ov
 graph produced none in a 150-sentence probe, runs at the same speed (real-time factor about 0.27
 on CPU), and downloads about 71 MB less.
 
-**Dependencies**: `ISynthesisModel`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`,
+**Dependencies**: `ISynthesisModel`, `SpeechModelBundle`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`,
 `ChoiceParameter`, `ChoiceParameterOption`, `OnnxExecutionProviderSelector` (the sibling SpeechOnnx
 system's shared helper), `OnnxKokoroSynthesisEngine`, `KokoroPhonemePipeline`, `KokoroPhonemeVocabulary`,
 `EnglishTextAnalyzer` and `TextEnAnnotationSelection` (Text.En), `ISynthesisBackend`, Microsoft.ML.OnnxRuntime's
 `InferenceSession`.
 
 **Callers**: `SpeechModelCatalogKokoroExtensions.AddKokoroModels` (registers this instance through
-`SpeechModelCatalog.AddModels`); `SpeechModelDownloader` (fetches and checksum-verifies every
-declared file; this class needs no `InstallAsync` override); the Speech library's
+`SpeechModelCatalog.AddModels`); `SpeechModelDownloader` (fetches and checksum-verifies the
+bundle zip, then calls `InstallAsync`); the non-shipped `ModelBundler` tool (reads `BundleName` and
+`BundleContents` through `InternalsVisibleTo` to build the bundle); the Speech library's
 `DefaultSynthesisBackendFactory` (invokes the public `CreateBackend` member); `SynthesisSession`
 (consumes the public `ResolveSpeakerId` member once per synthesized segment); and hosts or
 composition code that read `PreferredAudioFormat` before engine construction.

@@ -111,25 +111,23 @@ public sealed partial class BundleDefinitionsTests
         Assert.Equal("Line one\nLine two\n", definition.Licenses[0].Text);
     }
 
-    /// <summary>Validates that Kokoro's and Nemotron's compiled bundle contents are their download descriptors.</summary>
+    /// <summary>Validates that Kokoro's and Nemotron's compiled bundle contents are their published bundles' contents.</summary>
     [Fact]
-    public void BundleCatalog_GetContents_SingleBundleModels_EqualDownloadDescriptors()
+    public void BundleCatalog_GetContents_SingleBundleModels_EqualPublishedBundleContents()
     {
         // Arrange / Act: read the compiled contents
         var contents = BundleCatalog.GetContents();
 
-        // Assert: the bundle files are exactly the files each model downloads today (no duplicated pins)
-        Assert.Equal(
-            Describe(new OnnxKokoroEnglishSynthesisModel().DownloadDescriptor),
-            Describe(contents["kokoro-en-v1.0-int8-b1"]));
+        // Assert: the bundle files are exactly the files each model's published bundle installs (no duplicated pins)
+        var kokoro = Assert.Single(OnnxKokoroEnglishSynthesisModel.Bundles);
+        Assert.Equal(Describe(kokoro.Contents), Describe(contents[kokoro.Name]));
         Assert.Equal(30, contents["kokoro-en-v1.0-int8-b1"].Files.Count);
-        Assert.Equal(
-            Describe(new OnnxNemotronMultilingualRecognitionModel().DownloadDescriptor),
-            Describe(contents["nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"]));
+        var nemotron = Assert.Single(OnnxNemotronMultilingualRecognitionModel.Bundles);
+        Assert.Equal(Describe(nemotron.Contents), Describe(contents[nemotron.Name]));
         Assert.Equal(11, contents["nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"].Files.Count);
     }
 
-    /// <summary>Validates that every Chatterbox Turbo variant downloads exactly its language-model and auxiliary bundles' files.</summary>
+    /// <summary>Validates that every Chatterbox Turbo variant installs exactly its language-model and auxiliary bundles' files.</summary>
     /// <param name="languageModel">The language-model variant.</param>
     /// <param name="auxiliary">The auxiliary-model variant.</param>
     /// <param name="lmBundle">The expected language-model bundle.</param>
@@ -138,7 +136,7 @@ public sealed partial class BundleDefinitionsTests
     [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Q4, "chatterbox-turbo-lm-20261014-fp16-b1", "chatterbox-turbo-aux-20261014-int4-b1")]
     [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp16, "chatterbox-turbo-lm-20261014-fp32-b1", "chatterbox-turbo-aux-20261014-fp16-b1")]
     [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp32, "chatterbox-turbo-lm-20261014-fp16-b1", "chatterbox-turbo-aux-20261014-fp32-b1")]
-    public void BundleCatalog_GetContents_ChatterboxVariant_EqualsVariantDownloadDescriptor(
+    public void BundleCatalog_GetContents_ChatterboxVariant_EqualsVariantVendorFiles(
         ChatterboxTurboLanguageModelVariant languageModel,
         ChatterboxTurboAuxiliaryModelVariant auxiliary,
         string lmBundle,
@@ -152,9 +150,29 @@ public sealed partial class BundleDefinitionsTests
         // Act: join the two component bundles
         var joined = contents[lmBundle].Files.Concat(contents[auxBundle].Files).ToList();
 
-        // Assert: the variant downloads exactly those eight files, in that order
+        // Assert: the variant installs exactly those eight files, in that order, whichever source it downloads from
         Assert.Equal(8, joined.Count);
-        Assert.Equal(Describe(model.DownloadDescriptor), Describe(new SpeechModelDownloadDescriptor(joined)));
+        Assert.Equal(Describe(VendorFilesOf(model)), Describe(new SpeechModelDownloadDescriptor(joined)));
+    }
+
+    /// <summary>Validates that the published zip pins are exactly the packages' published bundles, so a rebuild reports MATCH.</summary>
+    [Fact]
+    public void BundleCatalog_GetPublishedChecksums_ListsEveryPublishedBundle()
+    {
+        // Arrange / Act: read the published pins
+        var pins = BundleCatalog.GetPublishedChecksums();
+
+        // Assert: the four published bundles carry their released zip SHA-256s, and no deferred bundle has a pin
+        Assert.Equal(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["kokoro-en-v1.0-int8-b1"] = "c61bb8da1433020071782071fe7f2eb6c9d03d41b9b9672f6b1201b4afd61e9c",
+                ["nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1"] = "733375bb604712afac6c4adbd6a9149ebc414fc9a5bee39ed3bdfc3c104048b2",
+                ["chatterbox-turbo-lm-20261014-fp16-b1"] = "2c2e05d62e18453fa8c726d57b8c970948f5d693400f303fc2e9dc97838a1584",
+                ["chatterbox-turbo-aux-20261014-int4-b1"] = "1981e10e65bb4f2954b99dee6c9b9e74242428cd87ed0dadf085ca6f8f229581",
+            }.OrderBy(entry => entry.Key, StringComparer.Ordinal),
+            pins.OrderBy(entry => entry.Key, StringComparer.Ordinal));
+        Assert.All(pins.Keys, name => Assert.Contains(name, BundleCatalog.GetContents().Keys));
     }
 
     /// <summary>Describes a descriptor as comparable strings (URL, pin and install path of each file, in order).</summary>
@@ -162,6 +180,23 @@ public sealed partial class BundleDefinitionsTests
     /// <returns>One string per file.</returns>
     private static List<string> Describe(SpeechModelDownloadDescriptor descriptor) =>
         [.. descriptor.Files.Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}")];
+
+    /// <summary>
+    ///     Gets the vendor files a Chatterbox Turbo variant installs, through its public API: the contents of the
+    ///     published bundles its descriptor names, or the descriptor's own files for a variant downloading them
+    ///     individually.
+    /// </summary>
+    /// <param name="model">The variant's model.</param>
+    /// <returns>The installed vendor files, in descriptor order.</returns>
+    private static SpeechModelDownloadDescriptor VendorFilesOf(OnnxChatterboxTurboEnglishSynthesisModel model)
+    {
+        var published = OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles
+            .ToDictionary(bundle => bundle.FileName, StringComparer.Ordinal);
+        var files = model.DownloadDescriptor.Files;
+        return files.All(file => published.ContainsKey(file.RelativeInstallPath))
+            ? new SpeechModelDownloadDescriptor([.. files.SelectMany(file => published[file.RelativeInstallPath].Contents.Files)])
+            : model.DownloadDescriptor;
+    }
 
     /// <summary>Writes a one-bundle definitions file and its license text.</summary>
     /// <param name="directory">The directory to write into.</param>

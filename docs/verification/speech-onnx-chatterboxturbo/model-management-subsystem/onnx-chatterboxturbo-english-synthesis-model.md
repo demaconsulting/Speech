@@ -7,8 +7,11 @@ Verified by `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, which also owns 
 install directory, and a static session-factory seam substitutes a derived session that records its own disposal,
 confirming no session is left open when backend creation fails. The language and the auxiliary-graph variants are
 checked by id and file name, and by synthesizing through each variant's graphs; the English language is a fixed property
-of the model (its display name is asserted) and the graphs' content is verified in the networks unit. The default
-descriptor and variant tests assert that every file has a non-empty 64-character hexadecimal SHA-256 checksum. The
+of the model (its display name is asserted) and the graphs' content is verified in the networks unit. The bundle
+tests read the public `PublishedBundles` and the internal `BundleContents` and `InstalledFiles` (through
+`InternalsVisibleTo`); the wrong-file test stages well-formed zips whose `model.json` declares every file at its
+compiled pin but whose entries hold other bytes. The installed-file and variant tests assert that every file has a
+non-empty 64-character hexadecimal SHA-256 checksum. The
 invalid-graph test observes disposal through the public `Dispose(bool)` override point of the derived session, so it
 depends on no ONNX Runtime private state.
 
@@ -19,8 +22,12 @@ depends on no ONNX Runtime private state.
 
 #### Acceptance Criteria
 
-Metadata (including the display name) is as declared; the default descriptor lists eight files with
-checksums; every variant combination has a distinct id and complete file set; the voice choice reflects the
+Metadata (including the display name) is as declared; the default variant installs eight files with
+checksums from two pinned component bundles (one language-model and one auxiliary bundle) on the project's
+`models` release; every component bundle pins its files with their original Hugging Face addresses; installing a
+bundle whose files do not match their pins throws `InvalidDataException`; a variant whose bundles are not both
+published keeps its eight per-file Hugging Face downloads and installs with no post-processing; every variant
+combination has a distinct id and complete file set; the voice choice reflects the
 supplied voices; duplicate explicit or directory ids are rejected; library voices (user folder and installed
 pack) follow explicit and directory voices, are loaded lazily, are skipped with an Info diagnostic when hidden
 and are disambiguated with a `(user)` or `(pack)` label suffix; `IncludeStoreVoices = false` ignores the
@@ -34,9 +41,32 @@ voices, with a missing file or with an invalid graph; options have safe defaults
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel`
 
-##### Default descriptor lists eight files
+##### The default variant installs eight files
 
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_DefaultVariant_ListsEightFiles`
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_DefaultVariant_ListsEightFiles`
+
+##### The default variant downloads its two pinned bundles from the models release
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle`
+
+##### The default variant declares one language-model and one auxiliary bundle covering its files
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle`
+
+##### Every component bundle pins its vendor files
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_BundleContents_PinsEveryVendorFile`
+
+##### Installing a bundle whose files do not match their pins fails
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws`
+
+##### A variant without published bundles keeps its per-file descriptor
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor`
+
+For each of the five non-default variants, the descriptor is exactly the eight installed files on Hugging Face,
+and `InstallAsync` leaves a staged file untouched.
 
 ##### Variants have distinct ids and complete file sets
 

@@ -33,7 +33,8 @@ The SpeechOnnxNemotronStt ModelManagementSubsystem is verified through determini
 
 A SpeechOnnxNemotronStt ModelManagementSubsystem test run passes when: `AddNemotronSttModels()` returns
 the same catalog instance and registers exactly the one model; the model declares its documented
-identity, license (`OpenMDW-1.1`), 11-file download descriptor, and `language` parameter;
+identity, license (`OpenMDW-1.1`), one pinned `models`-release bundle carrying the eleven pinned files, and
+`language` parameter; installing a bundle whose files do not match their pins fails;
 `CreateBackend` fails with a clear exception for an empty directory, missing files, and a
 vocabulary lacking the selected locale; the engine-options overload rejects null options and an
 invalid blank penalty before reading any file; and `NemotronVocabulary` loads tokens, derives

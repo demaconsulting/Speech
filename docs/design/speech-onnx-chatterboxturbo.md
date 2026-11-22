@@ -74,9 +74,12 @@ safety role.
 the one model instance and returns the same catalog. The model lists explicit, directory and library
 (user and pack) voices, decoded lazily.
 
-**Model install path:** Speech's downloader fetches and checksum-verifies the files of the selected
-precision variants into the install directory; the file list is defined by the model's download
-descriptor, and no extraction step is needed.
+**Model install path:** Speech's downloader fetches and checksum-verifies what the model's download
+descriptor lists for the selected precision variants. When both of the variants' component bundles are
+published on the project's `models` GitHub release (today the default variant), that is the two bundle zips,
+which the model's `InstallAsync` extracts and verifies file by file through Speech's `SpeechModelBundle`;
+otherwise it is the eight files downloaded individually from Hugging Face, which need no extraction step.
+Either way the same eight files end up at the same install paths.
 
 **Backend construction path:** `CreateBackend` verifies the files exist, opens the four ONNX
 sessions, constructs the tokenizer and engine, and returns the engine; failures dispose any
@@ -98,7 +101,9 @@ already-opened sessions before rethrowing.
 
 - **Speech must never depend on SpeechOnnxChatterboxTurbo**: the dependency is one-way
 - **No bundled audio or weights**: voices come from the host, the user folder or the installed voice
-  pack, and model files are downloaded on the host's explicit action
+  pack, and model files are downloaded on the host's explicit action. DEMA Consulting redistributes the
+  unmodified MIT-licensed model files as component bundles on the project's `models` GitHub release, with the
+  license text (Copyright (c) 2025 Resemble AI), a `NOTICE`, a `README.txt` and a `model.json`
 - **CPU only**: the model is run on the ONNX Runtime CPU provider; no accelerated provider is
   referenced
 - **Bounded generation**: generation never loops unboundedly and never throws for hitting a bound

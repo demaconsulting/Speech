@@ -27,7 +27,9 @@ and the model store (a scratch directory); nothing else is mocked and no real mo
 ### Acceptance Criteria
 
 The subsystem is accepted when every unit suite passes: the registration extension, the model
-metadata, descriptor, variants, voices (explicit, directory, user folder and pack, with duplicate and label
+metadata, descriptor (the default variant's two pinned `models`-release bundles, and the per-file Hugging Face
+download of a variant whose bundles are not yet published), variants, voices (explicit, directory, user folder and
+pack, with duplicate and label
 handling) and backend creation behave as documented, the tokenizer reproduces the reference ids, and
 reference voices (with lazy and mood clips) are normalized and validated.
 
@@ -103,6 +105,16 @@ list throws `ArgumentNullException`.
 `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_AuxiliaryVariants_LoadMatchingGraphFiles`
 
 Each combination has its own id and file set, and backend creation loads exactly the selected graph files.
+
+#### A variant installs from the models release only when both of its bundles are published
+
+**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle`,
+`OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle`,
+`OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor` and
+`OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws`
+
+The default variant downloads its language-model and auxiliary bundles from the `models` release and rejects a bundle
+whose files do not match their pins; every other variant keeps its eight per-file Hugging Face downloads.
 
 #### Variants and voices compose through the registration extension
 

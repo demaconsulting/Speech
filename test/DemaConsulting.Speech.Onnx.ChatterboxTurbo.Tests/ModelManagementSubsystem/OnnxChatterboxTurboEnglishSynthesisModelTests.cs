@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text.Json;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -65,15 +67,15 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.NotNull(profile);
     }
 
-    /// <summary>Proves the default download descriptor lists the eight default-variant files, each with a SHA-256 checksum.</summary>
+    /// <summary>Proves the default variant installs the eight default-variant files, each with a SHA-256 checksum.</summary>
     [Fact]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_DefaultVariant_ListsEightFiles()
+    public void OnnxChatterboxTurboEnglishSynthesisModel_InstalledFiles_DefaultVariant_ListsEightFiles()
     {
         // Arrange
         var model = new OnnxChatterboxTurboEnglishSynthesisModel();
 
         // Act
-        var files = model.DownloadDescriptor.Files;
+        var files = model.InstalledFiles;
 
         // Assert
         Assert.Equal(8, files.Count);
@@ -88,6 +90,155 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.All(files, file => Assert.StartsWith("https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX/", file.Uri.AbsoluteUri));
         Assert.All(files, file => Assert.Matches("^[0-9a-fA-F]{64}$", file.Sha256Checksum));
         Assert.Equal(8, files.Select(file => file.Sha256Checksum.ToLowerInvariant()).Distinct().Count());
+    }
+
+    /// <summary>
+    ///     Proves the default variant downloads exactly the two published component bundles from the project's
+    ///     <c>models</c> release, language model first, each at its pinned zip SHA-256.
+    /// </summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_IsModelsReleaseBundle()
+    {
+        // Arrange
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
+
+        // Act
+        var files = model.DownloadDescriptor.Files;
+
+        // Assert
+        Assert.Equal(
+            [
+                "https://github.com/demaconsulting/Speech/releases/download/models/chatterbox-turbo-lm-20261014-fp16-b1.zip",
+                "https://github.com/demaconsulting/Speech/releases/download/models/chatterbox-turbo-aux-20261014-int4-b1.zip",
+            ],
+            files.Select(file => file.Uri.AbsoluteUri));
+        Assert.Equal(
+            [
+                "2c2e05d62e18453fa8c726d57b8c970948f5d693400f303fc2e9dc97838a1584",
+                "1981e10e65bb4f2954b99dee6c9b9e74242428cd87ed0dadf085ca6f8f229581",
+            ],
+            files.Select(file => file.Sha256Checksum));
+        Assert.Equal(
+            ["chatterbox-turbo-lm-20261014-fp16-b1.zip", "chatterbox-turbo-aux-20261014-int4-b1.zip"],
+            files.Select(file => file.RelativeInstallPath));
+    }
+
+    /// <summary>
+    ///     Proves the default variant declares one language-model bundle and one auxiliary bundle, whose contents
+    ///     together are exactly the eight files the variant installs.
+    /// </summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Variant_DeclaresOneLmAndOneAuxBundle()
+    {
+        // Arrange
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
+        var published = OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles
+            .ToDictionary(bundle => bundle.FileName, StringComparer.Ordinal);
+
+        // Act: map the descriptor's two zips back to their published bundles
+        var bundles = model.DownloadDescriptor.Files.Select(file => published[file.RelativeInstallPath]).ToList();
+
+        // Assert: one language-model bundle (2 files) then one auxiliary bundle (6 files), covering the variant
+        Assert.Equal(2, bundles.Count);
+        Assert.Equal("chatterbox-turbo-lm-20261014-fp16-b1", bundles[0].Name);
+        Assert.Equal(2, bundles[0].Contents.Files.Count);
+        Assert.Equal("chatterbox-turbo-aux-20261014-int4-b1", bundles[1].Name);
+        Assert.Equal(6, bundles[1].Contents.Files.Count);
+        Assert.Equal(
+            model.InstalledFiles.Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}"),
+            bundles.SelectMany(bundle => bundle.Contents.Files)
+                .Select(file => $"{file.Uri.AbsoluteUri}|{file.Sha256Checksum}|{file.RelativeInstallPath}"));
+    }
+
+    /// <summary>
+    ///     Proves a variant whose component bundles are not both published keeps today's per-file Hugging Face
+    ///     descriptor (its eight installed files) and installs with no post-processing.
+    /// </summary>
+    /// <param name="languageModel">The language-model variant.</param>
+    /// <param name="auxiliary">The auxiliary-graph variant.</param>
+    [Theory]
+    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp16)]
+    [InlineData(ChatterboxTurboLanguageModelVariant.Fp16, ChatterboxTurboAuxiliaryModelVariant.Fp32)]
+    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Q4)]
+    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp16)]
+    [InlineData(ChatterboxTurboLanguageModelVariant.Fp32, ChatterboxTurboAuxiliaryModelVariant.Fp32)]
+    public async Task OnnxChatterboxTurboEnglishSynthesisModel_UnpublishedVariant_KeepsPerFileDescriptor(
+        ChatterboxTurboLanguageModelVariant languageModel,
+        ChatterboxTurboAuxiliaryModelVariant auxiliary)
+    {
+        // Arrange: a non-default variant and a staging directory holding one stand-in file
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { LanguageModelVariant = languageModel, AuxiliaryModelVariant = auxiliary });
+        var stagedFile = Path.Join(_root, "onnx", "stand-in.onnx");
+        var stagedBytes = new byte[] { 1, 2, 3 };
+        Directory.CreateDirectory(Path.GetDirectoryName(stagedFile)!);
+        await File.WriteAllBytesAsync(stagedFile, stagedBytes, TestContext.Current.CancellationToken);
+
+        // Act
+        var files = model.DownloadDescriptor.Files;
+        await model.InstallAsync(_root, TestContext.Current.CancellationToken);
+
+        // Assert: the eight installed files are downloaded individually from Hugging Face, and the install hook
+        // leaves the staged files untouched
+        Assert.Equal(8, files.Count);
+        Assert.Equal(model.InstalledFiles, files);
+        Assert.All(files, file => Assert.StartsWith("https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX/resolve/main/onnx/", file.Uri.AbsoluteUri));
+        Assert.Equal(stagedBytes, await File.ReadAllBytesAsync(stagedFile, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves every component bundle (published or deferred) pins its vendor files: two language-model files or
+    ///     six auxiliary files, each with its original Hugging Face URL, a SHA-256 and an <c>onnx/</c> install path.
+    /// </summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_BundleContents_PinsEveryVendorFile()
+    {
+        // Act
+        var contents = OnnxChatterboxTurboEnglishSynthesisModel.BundleContents;
+
+        // Assert
+        Assert.Equal(
+            [
+                "chatterbox-turbo-aux-20261014-fp16-b1", "chatterbox-turbo-aux-20261014-fp32-b1",
+                "chatterbox-turbo-aux-20261014-int4-b1", "chatterbox-turbo-lm-20261014-fp16-b1",
+                "chatterbox-turbo-lm-20261014-fp32-b1",
+            ],
+            contents.Keys.Order(StringComparer.Ordinal));
+        Assert.All(contents, entry =>
+        {
+            Assert.Equal(entry.Key.Contains("-lm-", StringComparison.Ordinal) ? 2 : 6, entry.Value.Files.Count);
+            Assert.All(entry.Value.Files, file =>
+            {
+                Assert.Equal(
+                    "https://huggingface.co/ResembleAI/chatterbox-turbo-ONNX/resolve/main/" + file.RelativeInstallPath,
+                    file.Uri.AbsoluteUri);
+                Assert.Matches("^[0-9a-f]{64}$", file.Sha256Checksum);
+                Assert.StartsWith("onnx/", file.RelativeInstallPath, StringComparison.Ordinal);
+            });
+        });
+        Assert.All(
+            OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles,
+            bundle => Assert.Same(contents[bundle.Name], bundle.Contents));
+    }
+
+    /// <summary>
+    ///     Proves installing well-formed bundles whose vendor bytes do not match the compiled pins throws
+    ///     <see cref="InvalidDataException"/>, so a tampered bundle is never installed.
+    /// </summary>
+    [Fact]
+    public async Task OnnxChatterboxTurboEnglishSynthesisModel_InstallAsync_BundleWithWrongFile_Throws()
+    {
+        // Arrange: stage both default-variant bundles with every vendor file replaced by other bytes
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
+        var stagingDirectory = Path.Join(_root, "staging");
+        foreach (var bundle in OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles)
+        {
+            StageBundleWithWrongFiles(bundle, stagingDirectory);
+        }
+
+        // Act / Assert: verification rejects the extracted bytes
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => model.InstallAsync(stagingDirectory, TestContext.Current.CancellationToken));
     }
 
     /// <summary>Proves every variant combination resolves to a distinct id and a complete checksum-backed file set.</summary>
@@ -107,16 +258,16 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Assert
         Assert.Equal(6, models.Select(model => model.Id).Distinct().Count());
-        Assert.All(models, model => Assert.Equal(8, model.DownloadDescriptor.Files.Count));
+        Assert.All(models, model => Assert.Equal(8, model.InstalledFiles.Count));
         Assert.All(models, model => Assert.All(
-            model.DownloadDescriptor.Files,
+            model.InstalledFiles,
             file => Assert.Matches("^[0-9a-fA-F]{64}$", file.Sha256Checksum)));
         Assert.All(models, model => Assert.Equal(
             8,
-            model.DownloadDescriptor.Files.Select(file => file.Sha256Checksum.ToLowerInvariant()).Distinct().Count()));
+            model.InstalledFiles.Select(file => file.Sha256Checksum.ToLowerInvariant()).Distinct().Count()));
         Assert.Equal(
             6,
-            models.Select(model => string.Join('|', model.DownloadDescriptor.Files.Select(file => file.RelativeInstallPath))).Distinct().Count());
+            models.Select(model => string.Join('|', model.InstalledFiles.Select(file => file.RelativeInstallPath))).Distinct().Count());
         Assert.Equal("chatterbox-turbo-onnx-en-lm-fp32-aux-fp16", fp32Fp16Id);
     }
 
@@ -556,7 +707,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
                 $"onnx/speech_encoder{suffix}.onnx", $"onnx/speech_encoder{suffix}.onnx_data",
                 $"onnx/conditional_decoder{suffix}.onnx", $"onnx/conditional_decoder{suffix}.onnx_data",
             ],
-            model.DownloadDescriptor.Files.Select(file => file.RelativeInstallPath));
+            model.InstalledFiles.Select(file => file.RelativeInstallPath));
     }
 
     /// <summary>Proves sessions are disposed when backend creation fails after they were created.</summary>
@@ -933,5 +1084,45 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         writer.Write("data"u8.ToArray());
         writer.Write(Samples * 2);
         writer.Write(new byte[Samples * 2]);
+    }
+
+    /// <summary>
+    ///     Stages a well-formed bundle zip for <paramref name="bundle"/> whose <c>model.json</c> declares every vendor
+    ///     file at its compiled pin, but whose vendor entries hold other bytes - so only the extracted-bytes
+    ///     verification can reject it.
+    /// </summary>
+    /// <param name="bundle">The bundle to imitate.</param>
+    /// <param name="directory">The staging directory to write <c>{bundle.FileName}</c> into.</param>
+    private static void StageBundleWithWrongFiles(SpeechModelBundle bundle, string directory)
+    {
+        var wrongBytes = "these are not the vendor bytes"u8.ToArray();
+        var manifest = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schemaVersion = 1,
+            bundle = bundle.Name,
+            files = bundle.Contents.Files
+                .Select(file => new { path = file.RelativeInstallPath, size = wrongBytes.Length, sha256 = file.Sha256Checksum })
+                .ToArray(),
+        });
+
+        Directory.CreateDirectory(directory);
+        using var archive = ZipFile.Open(Path.Join(directory, bundle.FileName), ZipArchiveMode.Create);
+        WriteEntry(archive, "README.txt", "Test bundle."u8.ToArray());
+        WriteEntry(archive, "LICENSE", "Test license."u8.ToArray());
+        WriteEntry(archive, "model.json", manifest);
+        foreach (var file in bundle.Contents.Files)
+        {
+            WriteEntry(archive, file.RelativeInstallPath, wrongBytes);
+        }
+    }
+
+    /// <summary>Writes one stored entry into a zip being created.</summary>
+    /// <param name="archive">The archive in create mode.</param>
+    /// <param name="name">The entry name.</param>
+    /// <param name="content">The entry bytes.</param>
+    private static void WriteEntry(ZipArchive archive, string name, byte[] content)
+    {
+        using var stream = archive.CreateEntry(name, CompressionLevel.NoCompression).Open();
+        stream.Write(content, 0, content.Length);
     }
 }

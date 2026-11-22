@@ -16,7 +16,7 @@ shared English text analysis, and the SynthesisSubsystem's `KokoroPhonemePipelin
 - **OnnxKokoroEnglishSynthesisModel**: a real, concrete `ISynthesisModel`, backing the bare ONNX
   export `onnx-community/Kokoro-82M-v1.0-ONNX` (Apache-2.0), declaring 29 American/British
   English voices as a `ChoiceParameter`, supplying the shared English text analysis (`TextAnalyzer`) and
-  owning the download descriptor for the ONNX model graph and every voice's style-vector file
+  owning the `models`-release bundle that carries the ONNX model graph and every voice's style-vector file
 - **KokoroPhonemeVocabulary**: loads Kokoro v1.0's own character-level IPA phoneme vocabulary from
   an embedded copy of its `tokenizer.json`, and converts a phoneme string into the integer token
   id sequence the ONNX model expects
@@ -57,11 +57,14 @@ bespoke override). It declares exactly one tunable parameter - a `voice` `Choice
 options spanning its verified American and British English voices, deliberately excluding the
 model's remaining 25 non-English voices because this package's phonemization only handles English text.
 The British voices speak American phonemes in their own voice quality (see *SpeechOnnxKokoro System Design*).
-Its `DownloadDescriptor` names 30 individual HTTPS files (the ONNX
-model graph plus 29 voice style-vector `.bin` files), each with an independently-computed SHA-256
-checksum and its own relative install path - unlike SpeechSherpa's archive-based models, none of
-these files needs post-download extraction, so this class needs no `InstallAsync` override at all
-(the interface's no-op default applies). `CreateBackend(installedModelDirectory)` builds the ONNX
+Its `DownloadDescriptor` names one HTTPS file: the SHA-256-pinned `kokoro-en-v1.0-int8-b1.zip`
+bundle on the project's `models` GitHub release (the public static `Bundles` list). The bundle's
+contents are 30 vendor files (the ONNX model graph plus 29 voice style-vector `.bin` files), each
+with its original Hugging Face address, an independently-computed SHA-256 checksum and its own
+relative install path. Its `InstallAsync` override delegates to Speech's
+`SpeechModelBundle.InstallAsync`, which extracts the files, verifies each against its pin and
+deletes the zip, so the installed layout is unchanged from the earlier per-file download.
+`CreateBackend(installedModelDirectory)` builds the ONNX
 Runtime session via `OnnxExecutionProviderSelector.Create`, reads every declared voice's
 style-vector file into memory keyed by its resolved integer speaker id, and constructs
 `OnnxKokoroSynthesisEngine` from the session, a `KokoroPhonemePipeline` over a fresh

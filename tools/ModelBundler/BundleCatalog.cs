@@ -42,11 +42,15 @@ internal static class BundleCatalog
     ///     (<c>UPDATE CATALOG</c>).
     /// </summary>
     /// <remarks>
-    ///     Empty until the packages switch their downloads to bundles: no package publishes a bundle pin yet. The step
-    ///     that adds the packages' public bundle lists adds them here (each bundle's <c>Name</c> to its
-    ///     <c>Sha256Checksum</c>).
+    ///     Taken from the packages' public bundle lists: Kokoro's and Nemotron's <c>Bundles</c> and Chatterbox Turbo's
+    ///     <c>PublishedBundles</c> (each bundle's <c>Name</c> to its <c>Sha256Checksum</c>). A declared bundle that is
+    ///     not published yet (a deferred Chatterbox Turbo component) has no pin, so its build reports
+    ///     <c>UPDATE CATALOG</c>.
     /// </remarks>
     /// <returns>A new dictionary of the published zip pins (lowercase hexadecimal).</returns>
     public static IReadOnlyDictionary<string, string> GetPublishedChecksums() =>
-        new Dictionary<string, string>(StringComparer.Ordinal);
+        OnnxKokoroEnglishSynthesisModel.Bundles
+            .Concat(OnnxNemotronMultilingualRecognitionModel.Bundles)
+            .Concat(OnnxChatterboxTurboEnglishSynthesisModel.PublishedBundles)
+            .ToDictionary(bundle => bundle.Name, bundle => bundle.Sha256Checksum, StringComparer.Ordinal);
 }

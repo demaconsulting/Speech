@@ -9,8 +9,10 @@ package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
 
     part def OnnxNemotronMultilingualRecognitionModel {
         doc /* Real IRecognitionModel for NVIDIA Nemotron 3.5 ASR streaming 0.6B (int4 ONNX export). One catalog id
-             * with a language ChoiceParameter (en-US, en-GB); declares the OpenMDW-1.1 license and the eleven-file
-             * checksum-verified download descriptor of the onnx-community int4 conversion; CreateBackend builds the
+             * with a language ChoiceParameter (en-US, en-GB); declares the OpenMDW-1.1 license and downloads one
+             * SHA-256-pinned bundle from the project's models release (Bundles) carrying the eleven pinned files of the
+             * onnx-community int4 conversion, which its InstallAsync extracts and verifies through SpeechModelBundle;
+             * CreateBackend builds the
              * encoder session through OnnxExecutionProviderSelector and the decoder and joint CPU sessions, and
              * constructs the OnnxNemotronRecognitionEngine. An internal CreateBackend overload takes explicit
              * NemotronEngineOptions, validating the blank penalty before reading any file, for the evaluation tool. */
@@ -35,6 +37,7 @@ package SpeechOnnxNemotronStt_OnnxNemotronMultilingualRecognitionModel {
         dependency OnnxNemotronMultilingualRecognitionModel to Speech_AudioFormat::AudioFormat;
         dependency OnnxNemotronMultilingualRecognitionModel to Speech_RecognitionBackend::RecognitionBackend;
         dependency OnnxNemotronMultilingualRecognitionModel to Speech_SpeechModelContract::SpeechModelContract;
+        dependency OnnxNemotronMultilingualRecognitionModel to Speech_SpeechModelBundle::SpeechModelBundle;
         dependency OnnxNemotronMultilingualRecognitionModel to Speech_SpeechModelDescriptorEnums::SpeechModelDescriptorEnums;
         dependency OnnxNemotronMultilingualRecognitionModel to Speech_SpeechModelDownloadDescriptor::SpeechModelDownloadDescriptor;
         dependency OnnxNemotronMultilingualRecognitionModel to Speech_SpeechModelDownloadFile::SpeechModelDownloadFile;
