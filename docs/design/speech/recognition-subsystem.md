@@ -136,9 +136,11 @@ abandoned native thread to finish on its own; it never blocks indefinitely on a 
 A graceful `StopAsync` does not start that deadline when the stop begins: it waits for as long as the pump keeps
 making progress (a counter advanced after every decoded block and the flush) and requests cancellation only after a
 whole abandon interval with no progress. A slow but working recognizer therefore always finishes draining queued
-audio and flushing the final result, while a truly stuck native call is still abandoned. A canceled `StopAsync`
-requests cancellation immediately and switches the pump to discarding (see *RecognitionSession*), which is the only
-path on which captured audio is discarded.
+audio and flushing the final result, while a truly stuck native call is still abandoned. The same abandon interval
+bounds the stop's wait for a capture callback or device unsubscribe that does not return. A canceled `StopAsync`
+requests cancellation immediately and switches the pump to discarding (see *RecognitionSession*), which is the one
+deliberate way to discard captured audio; otherwise audio is lost only through an abandonment of something stuck,
+which is always reported as a warning diagnostic.
 
 #### Backpressure policy
 

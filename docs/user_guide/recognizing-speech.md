@@ -100,10 +100,11 @@ Points worth knowing:
 - **`StopAsync` does not lose the tail of an utterance.** It stops capture, decodes all audio
   already captured, flushes the recognizer so the last word is finalized, and buffers every final
   result before it returns, so all of them are enumerable via `GetResultsAsync` by the time
-  `StopAsync` returns. Only cancellation discards: if the token passed to `StopAsync` is canceled,
+  `StopAsync` returns. Cancellation discards: if the token passed to `StopAsync` is canceled,
   audio not yet decoded is dropped, no flush is performed, and the call ends with
   `OperationCanceledException`. Pass no token (or `CancellationToken.None`) when you want the
-  answer.
+  answer. (A stop never hangs on a stuck audio driver or recognizer: after a couple of seconds
+  with no progress it gives up on the stuck part and reports a warning diagnostic.)
 - **Dispose the session (and eventually the engine).** A real session holds a capture-device
   subscription and the engine's exclusivity lease; disposal releases both and implies `StopAsync`.
   Disposal is idempotent, and disposing the unavailable fallback is a safe no-op. A session is

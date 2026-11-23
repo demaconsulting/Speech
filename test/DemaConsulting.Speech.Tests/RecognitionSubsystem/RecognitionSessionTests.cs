@@ -1653,6 +1653,50 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that a capture device whose unsubscribe blocks - a decorating device waiting for
+    ///     a block it is dispatching to a stuck handler - cannot hang a stop: the unsubscribe is
+    ///     abandoned after the abandon interval with a warning, and the session still converges.
+    /// </summary>
+    [Fact(Timeout = 60000)]
+    public async Task RecognitionSession_StopAsync_DeviceUnsubscribeBlocks_StillConvergesAndReportsWarning()
+    {
+        // Arrange: a running session over a device whose unsubscribe blocks until released
+        using var releaseUnsubscribe = new ManualResetEvent(false);
+        var device = new BlockingUnsubscribeCaptureDevice(releaseUnsubscribe);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var worker = new DedicatedWorker(
+            abandonTimeout: TimeSpan.FromMilliseconds(50),
+            diagnostics: diagnostics,
+            diagnosticsCategory: "RecognitionSubsystem");
+        var engine = new FakeRecognitionEngine();
+        await using var session = CreateSession(engine, device, diagnostics: diagnostics, worker: worker);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        device.Raise([0.1f]);
+
+        try
+        {
+            // Act: stop while the unsubscribe cannot return
+            await session.StopAsync(TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            // Assert: the session converged, the block captured before the stop was recognized,
+            // and the abandoned unsubscribe was reported
+            Assert.Equal(RecognitionSessionState.Stopped, session.State);
+            Assert.Equal(1, engine.AcceptSamplesCallCount);
+            Assert.Equal(1, device.StopCallCount);
+            diagnostics.Received().Report(
+                SpeechDiagnosticLevel.Warning,
+                "RecognitionSubsystem",
+                Arg.Is<string>(message => message.Contains("Unsubscribing from the capture device", StringComparison.Ordinal)));
+        }
+        finally
+        {
+            // Cleanup: let the abandoned unsubscribe finish
+            releaseUnsubscribe.Set();
+        }
+    }
+
+    /// <summary>
     ///     Builds a substitute capture device reporting itself available with the given capture
     ///     format.
     /// </summary>

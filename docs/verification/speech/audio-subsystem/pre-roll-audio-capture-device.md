@@ -18,17 +18,15 @@ pre-roll content exact. The unavailable case uses the library's own
 
 #### Acceptance Criteria
 
-Tests pass when audio captured while stopped is delivered as the first block of the next run and
-before any live block; only the newest pre-roll duration is delivered, oldest first, in whole
-interleaved frames; audio delivered in one run is never delivered again; a non-zero pre-roll
-starts the underlying device once and never stops it between runs, while a zero pre-roll stops it
-on every `Stop` and delivers nothing captured while stopped; disposal stops the underlying device
-once and leaves the device unavailable and unable to start; the default pre-roll is 300 ms and the
-reported format is the underlying device's; blocks the underlying device raises during its own first
-start are delivered; unsubscribing while a block is being raised waits for it to be delivered and later
-audio becomes pre-roll; a finite WAV file source is rejected; invalid constructor arguments throw the documented
-exceptions; and an unavailable underlying device is reported as unavailable and rejected by
-`Start`.
+Tests pass when audio captured while stopped is delivered as the first block of the next run and before any live block;
+only the newest pre-roll duration is delivered, oldest first, in whole interleaved frames; audio delivered in one run is
+never delivered again; a non-zero pre-roll starts the underlying device once and never stops it between runs, while a
+zero pre-roll stops it on every `Stop` and delivers nothing captured while stopped; disposal stops the underlying device
+once and leaves the device unavailable and unable to start; the default pre-roll is 300 ms and the reported format is
+the underlying device's; blocks the underlying device raises during its own first start are delivered; unsubscribing
+while a block is being raised waits for it to be delivered and later audio becomes pre-roll; stop and dispose never wait
+for a stuck subscriber; a finite WAV file source is rejected; invalid constructor arguments throw the documented
+exceptions; and an unavailable underlying device is reported as unavailable and rejected by `Start`.
 
 #### Test Scenarios
 
@@ -79,6 +77,13 @@ exceptions; and an unavailable underlying device is reported as unavailable and 
 A subscriber blocks inside its first block while another thread unsubscribes it; the unsubscribe
 has not returned while the block is still being raised, the block is delivered exactly once, and a
 block captured afterwards is the next run's pre-roll.
+
+##### Stop and Dispose: Never Wait for a Stuck Subscriber
+
+**Test**: `PreRollAudioCaptureDevice_StopAndDispose_WhileHandlerStuck_ReturnWithoutWaiting`
+
+With a subscriber stuck inside a block, `Stop` and `Dispose` both return, and the underlying device
+is released.
 
 ##### Constructor: Finite File Source Is Rejected
 

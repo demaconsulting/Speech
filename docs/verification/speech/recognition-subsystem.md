@@ -222,6 +222,7 @@ converges.
 `RecognitionSession_WavFileSource_CanceledStop_StuckBackend_StillConverges`,
 `RecognitionSession_WavFileSource_StopDuringStart_GracefulStopRecognizesWholeFile`,
 `RecognitionSession_StopAsync_CallbackStuckPastAbandonInterval_CompletesAndReportsWarning`,
+`RecognitionSession_StopAsync_DeviceUnsubscribeBlocks_StillConvergesAndReportsWarning`,
 `RecognitionSession_StopAsync_CanceledWhileDeviceStartNeverReturns_StillConverges`,
 `RecognitionSession_StopAsync_ThenNextSessionOnSameBackend_StartsFromResetBackend`
 
@@ -232,7 +233,8 @@ resets the backend only after the flush; that a block whose capture callback is 
 accepted is still recognized; that a canceled stop (before or during the call) decodes no further queued block and
 performs no flush, and that a canceled stop of a file source with a stuck backend still converges; that a graceful stop
 racing a file's start still recognizes the whole file; that a stop neither hangs on a capture callback stuck past the
-abandon interval nor, when canceled, on a device start that never returns, reporting a warning in both cases; and that
+abandon interval or a device unsubscribe that does not return nor, when canceled, on a device start that never returns,
+reporting a warning in each case; and that
 the next session over the same backend starts after the previous session's flush and reset. No test asserts on elapsed
 time. The progress-based abandon check (a slow but progressing drain is never abandoned) cannot be proven without
 timing, so it is covered by design review; its abandon branch is covered by the cooperative-cancel-then-abandon

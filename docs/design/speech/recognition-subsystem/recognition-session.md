@@ -49,7 +49,7 @@ final-drain decode, and the flush) and a discard flag set only by a canceled `St
   and starts the shared background teardown, whose graceful order is: wait for an in-progress
   device start to return (a file source, or a pre-roll device replaying its buffer, delivers
   session audio from inside `Start()`, so a stop that races a file's start still recognizes the
-  whole file); stop accepting captured audio (`StopAcceptingFrames`: unsubscribe from
+  whole file); stop accepting captured audio (`StopAcceptingFramesAsync`: unsubscribe from
   `FrameCaptured`, close the acceptance gate, wait for any callback already running to queue its
   block, then complete the queue - see `OnFrameCaptured`); drain every queued block through the
   backend, drain any results the per-block cap left behind,
@@ -77,7 +77,9 @@ final-drain decode, and the flush) and a discard flag set only by a canceled `St
   the earlier design - let a caller observe the stop as complete while the pump was still decoding
   queued audio, losing the final result.
 
-  Cancellation is the only way a stop discards audio. A token already canceled when `StopAsync` is
+  Cancellation is the way a stop discards audio on purpose; the only other way a stop loses audio
+  is a reported abandonment of something stuck (see `StopAcceptingFramesAsync` under
+  `OnFrameCaptured`, and the pump watchdog above). A token already canceled when `StopAsync` is
   called sets the discard flag under the state lock before teardown starts, so not one more
   queued block is decoded; a token canceled while the caller is waiting sets it as the caller's
   wait ends. Either way the pump drops every remaining block without decoding it, skips the final
@@ -105,13 +107,15 @@ final-drain decode, and the flush) and a discard flag set only by a canceled `St
   block, and enqueues it - for a live source through the lossless, capped queue described above,
   for a file source with backpressure; nothing else. Because unsubscribing does not wait for a
   callback already running, the callback and teardown share a barrier: the callback counts itself
-  in an in-flight counter and then checks an "accepting" flag; `StopAcceptingFrames` unsubscribes,
-  clears the flag, and completes the queue only after the in-flight count reaches zero. Both steps
-  are full fences, so a block whose callback was already running is still queued and recognized,
-  and a block that arrives after the gate closed is dropped. The wait is bounded by the abandon
-  interval; a callback still running after it (a host handler blocked in the diagnostics sink, for
-  example) is reported as a warning, because a block it may still be delivering is then not
-  recognized.
+  in an in-flight counter and then checks an "accepting" flag; `StopAcceptingFramesAsync`
+  unsubscribes, clears the flag, and completes the queue only after the in-flight count reaches
+  zero. Both steps are full fences, so a block whose callback was already running is still queued
+  and recognized, and a block that arrives after the gate closed is dropped. The unsubscribe runs
+  on another thread, because a decorating device's unsubscribe waits for a block it is
+  dispatching. Both the unsubscribe and the in-flight wait are bounded by the abandon interval; a
+  callback or unsubscribe still running after it (a stuck driver, or a host handler blocked in the
+  diagnostics sink, for example) is abandoned and reported as a warning, because a block it may
+  still be delivering is then not recognized - the same treatment as a stuck recognizer call.
 - **PumpLoop(...)**: Runs on the `DedicatedWorker` pump thread. Converts each block through
   `AudioFrameResampler`, feeds it to the backend, then polls the backend for results and writes
   them into the `RecognitionResultBuffer`. Each result's text is passed through the owning model's

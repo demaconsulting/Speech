@@ -90,7 +90,11 @@ public interface IRecognitionSession : IAsyncDisposable
     ///     that convergence happens. A fault while finalizing or resetting is reported through
     ///     diagnostics rather than thrown; this call still completes.
     ///     <para>
-    ///     Cancellation is the only way a stop discards captured audio. It applies to the one
+    ///     A graceful stop discards no captured audio. Cancellation is the way to discard it on
+    ///     purpose; the only other case is abandonment, where something the stop waits on - a
+    ///     recognizer call or a capture callback - is genuinely stuck for the implementation's
+    ///     abandon interval, so the stop gives up on it rather than hang, and reports the
+    ///     abandonment as a warning diagnostic. Cancellation applies to the one
     ///     shared stop operation, so a canceled caller also shortens the drain observed by any
     ///     concurrent caller (including <see cref="IAsyncDisposable.DisposeAsync"/>); the session
     ///     still releases its capture device and resets its recognizer, and still converges on

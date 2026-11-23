@@ -22,9 +22,12 @@ the device is the only object that lives across presses.
   it holds only audio that no subscriber received.
 - `_innerRunning`, `_delivering`, `_disposed` (`bool`): whether the underlying device is
   subscribed and started, whether blocks are forwarded to subscribers (between `Start()` and
-  `Stop()`), and whether `Dispose()` ran.
-- Two locks: a lifecycle lock serializing `Start()`/`Stop()`/`Dispose()`, and a delivery lock
-  guarding `_delivering` and the buffer, held while raising `FrameCaptured`.
+  `Stop()`; volatile, set under the delivery lock but cleared without it), and whether `Dispose()`
+  ran.
+- `_frameCaptured`: the subscriber list behind the explicit `FrameCaptured` accessors.
+- Three locks: a lifecycle lock serializing `Start()`/`Stop()`/`Dispose()`, a small lock guarding
+  the subscriber list, and a delivery lock guarding the buffer and the start of delivery, held
+  while raising `FrameCaptured`.
 
 **Key Methods**:
 
@@ -40,10 +43,13 @@ the device is the only object that lives across presses.
   buffer, sets `_delivering`, and raises the drained audio (if any) as one `FrameCaptured` block.
   Because live blocks are also forwarded under that lock, the pre-roll block always precedes every
   live block of the run. Starting while already started does nothing.
-- **Stop()**: clears `_delivering`. With a non-zero pre-roll the underlying device keeps capturing
-  into the buffer; with a zero pre-roll it is unsubscribed and stopped, making the decorator a
-  pass-through.
-- **Dispose()**: idempotent; clears the buffer and stops the underlying device if running.
+- **Stop()**: clears `_delivering` - deliberately without taking the delivery lock, so a stop never
+  waits for a block a stuck subscriber is still handling (a block already being raised finishes
+  normally; every later block goes to the buffer). With a non-zero pre-roll the underlying device
+  keeps capturing into the buffer; with a zero pre-roll it is unsubscribed and stopped, making the
+  decorator a pass-through.
+- **Dispose()**: idempotent; clears `_delivering` the same lock-free way and stops the underlying
+  device if running (the buffer is abandoned with the device, which can never start again).
 - **OnInnerFrameCaptured(...)** (underlying capture thread): forwards the block when delivering
   and someone is subscribed; otherwise appends it to the buffer, overwriting the oldest samples.
   Audio arriving while a stopping session has already unsubscribed is therefore kept as pre-roll
@@ -54,8 +60,10 @@ the device is the only object that lives across presses.
   being raised (possibly to the leaving subscriber) has been fully delivered, and every later
   block sees the new handler list. A block caught at the handoff between a stopping session and
   the pre-roll buffer therefore reaches exactly one of them. Because `remove` can wait for a
-  handler to finish, a subscriber must not unsubscribe while holding a lock its own handler needs
-  (`RecognitionSession` unsubscribes outside its state lock for this reason).
+  handler to finish, a subscriber must not unsubscribe while holding a lock its own handler needs,
+  and a subscriber that must not wait indefinitely bounds the wait itself (`RecognitionSession`
+  unsubscribes outside its state lock, on another thread, abandoning the wait after its abandon
+  interval).
 
 **Error Handling**: The constructor throws `ArgumentNullException` for a null device,
 `ArgumentException` for a `WavFileAudioCaptureDevice`, and

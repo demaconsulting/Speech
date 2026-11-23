@@ -39,16 +39,18 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     has been buffered by the time it returns. Only then is the backend reset, so the next
 ///     session on the same engine starts a clean utterance. A slow drain is never cut short: the
 ///     cooperative-cancel-then-abandon policy documented on <see cref="DedicatedWorker"/> is
-///     applied only once the pump stops making progress for a whole abandon interval (a
-///     genuinely stuck native call). An abandoned stop/dispose still completes teardown as
-///     best-effort, while an abandonment that happens for any other reason transitions this
-///     session to <see cref="RecognitionSessionState.Faulted"/>.
+///     applied only to something genuinely stuck for a whole abandon interval - a pump making no
+///     progress, or a capture callback or device unsubscribe that does not return. Abandonment is
+///     the one way a graceful stop can lose audio, and it is always reported as a warning
+///     diagnostic. An abandoned stop/dispose still completes teardown as best-effort, while an
+///     abandonment that happens for any other reason transitions this session to
+///     <see cref="RecognitionSessionState.Faulted"/>.
 ///     </para>
 ///     <para>
-///     <b>Canceled stop.</b> Canceling the token passed to <see cref="StopAsync"/> is the only
-///     way to discard audio: the pump stops decoding blocks still queued, skips the final flush,
-///     and the abandon policy applies immediately. Teardown (backend reset, device stop, state
-///     convergence) still completes for every caller.
+///     <b>Canceled stop.</b> Canceling the token passed to <see cref="StopAsync"/> is the way to
+///     discard audio on purpose: the pump stops decoding blocks still queued, skips the final
+///     flush, and the abandon policy applies immediately. Teardown (backend reset, device stop,
+///     state convergence) still completes for every caller.
 ///     </para>
 /// </remarks>
 internal sealed class RecognitionSession : IRecognitionSession
@@ -153,8 +155,9 @@ internal sealed class RecognitionSession : IRecognitionSession
 
     /// <summary>
     ///     Set once a caller cancels <see cref="StopAsync"/>: the pump then discards every block
-    ///     still queued instead of decoding it, and skips the final flush. Cancellation is the
-    ///     only path that may discard captured audio.
+    ///     still queued instead of decoding it, and skips the final flush. Apart from a reported
+    ///     abandonment of something stuck, cancellation is the only path that discards captured
+    ///     audio.
     /// </summary>
     private volatile bool _discardRequested;
 
@@ -491,11 +494,11 @@ internal sealed class RecognitionSession : IRecognitionSession
                 // exit on its own (it reacts only to the channel completing, never to _pumpCts -
                 // see PumpLoop's remarks) so this session leaks neither the subscription nor the
                 // dedicated pump thread even if nobody ever calls StopAsync/DisposeAsync on this
-                // now-Faulted session. Done outside _syncRoot: see StopAcceptingFrames. Resetting
+                // now-Faulted session. Done outside _syncRoot: see StopAcceptingFramesAsync. Resetting
                 // the backend and stopping the device are still deferred to that eventual
                 // teardown call, exactly as for any other fault, since releasing the engine's
                 // lease still requires one.
-                StopAcceptingFrames();
+                await StopAcceptingFramesAsync().ConfigureAwait(false);
             }
 
             if (finalArgs is not null)
@@ -742,7 +745,7 @@ internal sealed class RecognitionSession : IRecognitionSession
         }
 
         // Nothing here touches the capture device or the queue: RunTeardownAsync stops accepting
-        // captured audio (see StopAcceptingFrames) once any in-progress device start has
+        // captured audio (see StopAcceptingFramesAsync) once any in-progress device start has
         // returned. Unsubscribing here, under _syncRoot, could deadlock against a capture
         // callback that is itself waiting for _syncRoot (FaultSession), because a decorating
         // device's unsubscribe waits for a callback it is already dispatching. Audio captured
@@ -832,7 +835,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             // not done there): every block already captured - including one whose callback is
             // still running, and for a file source the rest of a file whose synchronous Start()
             // has now returned - is queued and recognized before the queue completes.
-            StopAcceptingFrames();
+            await StopAcceptingFramesAsync().ConfigureAwait(false);
 
             // The pump thread itself never observes pumpCts while draining (see PumpLoop's
             // remarks); canceling it only starts DedicatedWorker's abandon deadline for a pump
@@ -1152,26 +1155,64 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     that are already running to finish queuing their blocks, and only then completes the
     ///     queue so the pump can drain it and exit.
     /// </summary>
+    /// <returns>A task that completes once the queue has been completed.</returns>
     /// <remarks>
     ///     Must never be called while holding <see cref="_syncRoot"/>: a capture callback may be
     ///     waiting for that lock (<see cref="FaultSession"/>), and a decorating device such as
     ///     <see cref="PreRollAudioCaptureDevice"/> makes unsubscribing wait for a block it is
-    ///     already dispatching to this session. The wait for in-flight callbacks is bounded by the
-    ///     abandon interval; a callback still running after that (a host handler blocked inside
-    ///     the session's diagnostics sink, for example) is reported as a warning diagnostic,
-    ///     because a block it may still be delivering is then not recognized. Idempotent.
+    ///     already dispatching to this session.
+    ///     <para>
+    ///     Both waits - for the unsubscribe to return and for in-flight callbacks to finish - are
+    ///     normally microseconds, and each is bounded by the abandon interval in exactly the way
+    ///     a stuck recognizer call is (see <see cref="DedicatedWorker"/>): a capture callback that
+    ///     is genuinely stuck (an audio driver, or a host handler blocked inside the diagnostics
+    ///     sink) is abandoned and reported as a warning diagnostic, because a block it may still be
+    ///     delivering is then not recognized. Apart from a canceled stop, such an abandonment is
+    ///     the only way a stop can lose captured audio, and it is never silent. An abandoned
+    ///     unsubscribe keeps running in the background and completes once the stuck callback
+    ///     returns; the closed acceptance gate already keeps any later block out of the session.
+    ///     Idempotent.
+    ///     </para>
     /// </remarks>
-    private void StopAcceptingFrames()
+    private async Task StopAcceptingFramesAsync()
     {
-        _device.FrameCaptured -= OnFrameCaptured;
+        // Unsubscribe on another thread so a device whose unsubscribe waits for a stuck
+        // dispatch cannot hang this teardown.
+        var unsubscribe = Task.Run(() => { _device.FrameCaptured -= OnFrameCaptured; }, CancellationToken.None);
+        try
+        {
+            await unsubscribe.WaitAsync(_worker.AbandonTimeout, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            _ = unsubscribe.ContinueWith(
+                static completed => _ = completed.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                "Unsubscribing from the capture device did not complete within the abandon interval because a " +
+                "capture callback is stuck; it has been abandoned, and a block still being delivered is not part " +
+                "of the recognized audio.");
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Failed to unsubscribe from the capture device: {ex.Message}");
+        }
+
         Interlocked.Exchange(ref _acceptingFrames, 0);
         if (!SpinWait.SpinUntil(() => Volatile.Read(ref _callbacksInFlight) == 0, _worker.AbandonTimeout))
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Warning,
                 DiagnosticsCategory,
-                "A capture callback was still running when the stop's abandon interval elapsed; " +
-                "a block it was still delivering is not part of the recognized audio.");
+                "A capture callback was still running when the stop's abandon interval elapsed; it has been " +
+                "abandoned, and a block it was still delivering is not part of the recognized audio.");
         }
 
         _pendingFrames?.Writer.TryComplete();
@@ -1333,7 +1374,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     Unsubscribing does not wait for a callback that is already running, so this method and
     ///     teardown share a barrier: the callback first counts itself in
     ///     <see cref="_callbacksInFlight"/> and then checks <see cref="_acceptingFrames"/>, while
-    ///     teardown (<see cref="StopAcceptingFrames"/>) unsubscribes, clears
+    ///     teardown (<see cref="StopAcceptingFramesAsync"/>) unsubscribes, clears
     ///     <see cref="_acceptingFrames"/>, and waits for the in-flight count to reach zero before
     ///     it completes the queue. Both steps use full fences, so either the callback sees the
     ///     closed gate and drops a block that arrived after it, or teardown sees the callback and

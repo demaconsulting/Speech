@@ -171,10 +171,14 @@ deadline.
 ##### Stop Never Hangs on Stuck Capture
 
 **Tests**: `RecognitionSession_StopAsync_CallbackStuckPastAbandonInterval_CompletesAndReportsWarning`,
+`RecognitionSession_StopAsync_DeviceUnsubscribeBlocks_StillConvergesAndReportsWarning`,
 `RecognitionSession_StopAsync_CanceledWhileDeviceStartNeverReturns_StillConverges`
 
 A capture callback blocked inside the session past the abandon interval does not hang the stop:
-the session reaches `Stopped` and a `Warning` names the still-running callback. A canceled stop
+the session reaches `Stopped` and a `Warning` names the still-running callback. A device whose
+unsubscribe blocks (a fake standing in for a decorator dispatching to a stuck handler) does not
+hang the stop either: the unsubscribe is abandoned with a `Warning`, the block captured before the
+stop is still recognized, and the device is stopped. A canceled stop
 while the device's `Start()` never returns reaches `Stopped` and can be disposed with a `Warning`;
 the device is stopped only after its start is released.
 

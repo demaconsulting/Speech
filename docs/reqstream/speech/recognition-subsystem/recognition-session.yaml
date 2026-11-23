@@ -192,13 +192,14 @@ sections:
               - id: Speech-Recognition-RecognitionSession-StopBoundedByStuckCapture
                 title: >-
                   A recognition session shall not let a stop wait indefinitely on a capture
-                  callback that does not return, or a canceled stop wait indefinitely on a capture
-                  device start that does not return, and shall report a warning diagnostic when it
-                  stops waiting.
+                  callback or device unsubscribe that does not return, or a canceled stop wait
+                  indefinitely on a capture device start that does not return, and shall report a
+                  warning diagnostic when it stops waiting.
                 justification: |
                   A stuck audio driver or host handler must not hang the application that stops
                   recognition, and a caller that canceled has asked not to wait; any audio that
                   may be lost as a result must be visible rather than silent.
                 tests:
                   - RecognitionSession_StopAsync_CallbackStuckPastAbandonInterval_CompletesAndReportsWarning
+                  - RecognitionSession_StopAsync_DeviceUnsubscribeBlocks_StillConvergesAndReportsWarning
                   - RecognitionSession_StopAsync_CanceledWhileDeviceStartNeverReturns_StillConverges

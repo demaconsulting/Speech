@@ -67,6 +67,16 @@ sections:
                 tests:
                   - PreRollAudioCaptureDevice_Unsubscribe_WhileBlockBeingRaised_DeliversItThenBuffersLaterAudio
 
+              - id: Speech-Audio-PreRollAudioCaptureDevice-StopNeverWaitsForSubscriber
+                title: >-
+                  The PreRollAudioCaptureDevice class's Stop and Dispose shall return without
+                  waiting for a subscriber that is still handling a block.
+                justification: |
+                  A recognition session stops its device at the end of teardown; a stuck handler
+                  must not be able to hang that stop or the host's disposal.
+                tests:
+                  - PreRollAudioCaptureDevice_StopAndDispose_WhileHandlerStuck_ReturnWithoutWaiting
+
               - id: Speech-Audio-PreRollAudioCaptureDevice-FiniteSourceRejected
                 title: >-
                   The PreRollAudioCaptureDevice class shall reject a finite WAV file capture device

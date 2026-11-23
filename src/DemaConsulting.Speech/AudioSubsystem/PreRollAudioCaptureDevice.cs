@@ -91,8 +91,12 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     /// <summary>Whether this decorator is subscribed to, and has started, the underlying device.</summary>
     private bool _innerRunning;
 
-    /// <summary>Whether captured audio is currently forwarded to subscribers (between Start and Stop).</summary>
-    private bool _delivering;
+    /// <summary>
+    ///     Whether captured audio is currently forwarded to subscribers (between Start and Stop).
+    ///     Set under <see cref="_deliveryLock"/> by <see cref="Start"/>, but cleared without it by
+    ///     <see cref="Stop"/> and <see cref="Dispose"/> so they never wait on a stuck subscriber.
+    /// </summary>
+    private volatile bool _delivering;
 
     /// <summary>Whether <see cref="Dispose"/> has run.</summary>
     private bool _disposed;
@@ -166,7 +170,10 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     ///     <c>remove</c> returns the handler receives nothing more, and a block raised to it before
     ///     that has been fully delivered - a block is never half-delivered at the handoff between a
     ///     stopping subscriber and the pre-roll buffer. Do not unsubscribe while holding a lock that
-    ///     a handler needs.
+    ///     a handler needs; and because a stuck handler makes the unsubscribe wait with it, a
+    ///     caller that must not wait indefinitely should bound the wait itself (a recognition
+    ///     session unsubscribes on another thread and abandons the wait after its abandon
+    ///     interval). <see cref="Stop"/> and <see cref="Dispose"/> never wait for a handler.
     /// </remarks>
     public event EventHandler<AudioCaptureFrameEventArgs>? FrameCaptured
     {
@@ -297,10 +304,10 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
                 return;
             }
 
-            lock (_deliveryLock)
-            {
-                _delivering = false;
-            }
+            // Not under the delivery lock: a stop must never wait for a block a stuck subscriber
+            // is still handling. A block already being raised finishes normally; every later
+            // block sees the flag and goes to the pre-roll buffer.
+            _delivering = false;
 
             if (PreRoll == TimeSpan.Zero)
             {
@@ -328,11 +335,10 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
             }
 
             Volatile.Write(ref _disposed, true);
-            lock (_deliveryLock)
-            {
-                _delivering = false;
-                _ringCount = 0;
-            }
+
+            // As in Stop, never wait for a block a stuck subscriber is still handling; the
+            // buffered audio is simply abandoned with the device, which can never start again.
+            _delivering = false;
 
             if (_innerRunning)
             {

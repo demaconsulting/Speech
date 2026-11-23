@@ -305,6 +305,47 @@ public class PreRollAudioCaptureDeviceTests
         Assert.Equal([2f], Assert.Single(nextRun));
     }
 
+    /// <summary>
+    ///     Proves that stopping (and disposing) never waits for a subscriber that is stuck handling
+    ///     a block, so a recognition session's teardown cannot hang on the device's Stop.
+    /// </summary>
+    [Fact(Timeout = 60000)]
+    public async Task PreRollAudioCaptureDevice_StopAndDispose_WhileHandlerStuck_ReturnWithoutWaiting()
+    {
+        // Arrange: a running device whose subscriber is stuck inside a block
+        var inner = CreateInnerDevice(sampleRate: 1000, channelCount: 1);
+        var device = new PreRollAudioCaptureDevice(inner);
+        using var handlerEntered = new ManualResetEventSlim(false);
+        using var releaseHandler = new ManualResetEventSlim(false);
+        device.FrameCaptured += (_, _) =>
+        {
+            handlerEntered.Set();
+            releaseHandler.Wait(TestContext.Current.CancellationToken);
+        };
+        device.Start();
+        var raise = Task.Run(() => RaiseFrame(inner, [1f]), TestContext.Current.CancellationToken);
+        Assert.True(handlerEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        try
+        {
+            // Act: stop and dispose while the handler is still stuck
+            await Task.Run(device.Stop, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            await Task.Run(device.Dispose, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            // Assert: both returned, and the underlying device was released
+            inner.Received(1).Stop();
+            Assert.False(device.IsAvailable);
+        }
+        finally
+        {
+            // Cleanup: release the stuck handler
+            releaseHandler.Set();
+            await raise;
+        }
+    }
+
     /// <summary>Builds an available substitute capture device with the given format.</summary>
     private static IAudioCaptureDevice CreateInnerDevice(int sampleRate, int channelCount)
     {

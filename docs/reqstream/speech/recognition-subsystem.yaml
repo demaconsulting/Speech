@@ -226,13 +226,16 @@ sections:
 
           - id: Speech-Recognition-CanceledStopDiscards
             title: >-
-              The RecognitionSubsystem shall discard audio not yet recognized only when the caller
-              cancels the stop.
+              The RecognitionSubsystem shall discard audio not yet recognized when the caller
+              cancels the stop, and otherwise only when it abandons a stuck call, which it shall
+              report.
             justification: |
               A caller that cancels no longer wants the result and must not wait for it; every
-              other stop must keep the user's audio.
+              other stop must keep the user's audio, unless a driver or recognizer call is stuck
+              and waiting for it would hang the application - and that loss must be visible.
             children:
               - Speech-Recognition-RecognitionSession-CanceledStopDiscards
+              - Speech-Recognition-RecognitionSession-StopBoundedByStuckCapture
             tests:
               - RecognitionSubsystem_CanceledStop_QueuedAudio_Discarded
 
