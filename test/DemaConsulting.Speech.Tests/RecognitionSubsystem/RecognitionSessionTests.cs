@@ -1410,6 +1410,97 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that a capture callback already running when a stop is accepted still has its
+    ///     block recognized: unsubscribing does not wait for an in-flight callback, so the stop
+    ///     must not complete the queue until that callback has queued its block.
+    /// </summary>
+    [Fact(Timeout = 60000)]
+    public async Task RecognitionSession_StopAsync_CallbackInFlightWhenStopAccepted_BlockStillRecognized()
+    {
+        // Arrange: a live device whose availability check (the first thing the session's
+        // callback does) blocks until the test releases it, and a long abandon interval so only
+        // the barrier - never a timeout - decides the outcome
+        using var callbackEntered = new ManualResetEventSlim(false);
+        using var releaseCallback = new ManualResetEventSlim(false);
+        var blockCallback = false;
+        var device = CreateCaptureDevice();
+        device.IsAvailable.Returns(_ =>
+        {
+            if (Volatile.Read(ref blockCallback))
+            {
+                callbackEntered.Set();
+                releaseCallback.Wait(TestContext.Current.CancellationToken);
+            }
+
+            return true;
+        });
+        var engine = new FakeRecognitionEngine();
+        await using var session = CreateSession(
+            engine, device, worker: new DedicatedWorker(abandonTimeout: TimeSpan.FromSeconds(30)));
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        // Act: a block's callback is running when the stop is requested
+        Volatile.Write(ref blockCallback, true);
+        var callback = Task.Run(() => RaiseFrameCaptured(device, [0.1f]), TestContext.Current.CancellationToken);
+        Assert.True(callbackEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        var stop = session.StopAsync(TestContext.Current.CancellationToken);
+        var completedWhileCallbackRunning = stop.IsCompleted;
+        releaseCallback.Set();
+        await callback;
+        await stop.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        // Assert: the stop waited for the in-flight callback, whose block was recognized
+        Assert.False(completedWhileCallbackRunning);
+        Assert.Equal(1, engine.AcceptSamplesCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a canceled stop of a finite file source does not hang on a recognizer call
+    ///     that never returns: cancellation starts the abandon deadline for file sources too, so
+    ///     the session still converges on <see cref="RecognitionSessionState.Stopped"/>.
+    /// </summary>
+    [Fact(Timeout = 60000)]
+    public async Task RecognitionSession_WavFileSource_CanceledStop_StuckBackend_StillConverges()
+    {
+        // Arrange: a short file and a backend stuck inside its first block, with a short abandon
+        // timeout so the test stays fast
+        var path = Path.Join(Path.GetTempPath(), $"{Guid.NewGuid():N}.wav");
+        using var neverSignaled = new ManualResetEvent(false);
+        try
+        {
+            await WriteWavFileAsync(path, 10 * WavFileAudioCaptureDevice.DefaultFrameSampleCount);
+            var engine = new FakeRecognitionEngine(acceptSamplesBlock: neverSignaled);
+            var diagnostics = CreateAbandonSignalDiagnostics(out var abandoned);
+            var worker = new DedicatedWorker(
+                abandonTimeout: TimeSpan.FromMilliseconds(50),
+                diagnostics: diagnostics,
+                diagnosticsCategory: "RecognitionSubsystem");
+            var session = CreateSession(engine, new WavFileAudioCaptureDevice(path), diagnostics: diagnostics, worker: worker);
+            await session.StartAsync(TestContext.Current.CancellationToken);
+            await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            using var canceled = new CancellationTokenSource();
+            await canceled.CancelAsync();
+
+            // Act: a canceled stop while the backend call never returns
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(canceled.Token));
+            await WaitForStateAsync(session, RecognitionSessionState.Stopped);
+
+            // Assert: the stuck call was abandoned and the session converged
+            await abandoned.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            Assert.Equal(RecognitionSessionState.Stopped, session.State);
+
+            // Cleanup: release the abandoned thread, then dispose
+            neverSignaled.Set();
+            await session.DisposeAsync();
+        }
+        finally
+        {
+            neverSignaled.Set();
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Builds a substitute capture device reporting itself available with the given capture
     ///     format.
     /// </summary>

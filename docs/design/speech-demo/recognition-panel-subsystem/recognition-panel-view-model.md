@@ -64,7 +64,10 @@ resources, a live capture device, or a stale event subscription.
 - **Push-to-talk pre-roll**: Start and Stop are used like a push-to-talk button, and people start
   speaking as they press it. `AcquireCaptureDevice` therefore wraps the selected microphone in a
   library `PreRollAudioCaptureDevice` (default 300 ms pre-roll) and caches it in
-  `_captureDevice`, reusing it for every Start while it stays available. Each new session bound to
+  `_captureDevice`, reusing it for every Start while it stays available and the current capture
+  selection still equals the selection it was created for (`_captureDeviceSelection`) - so a Start
+  that reaches the lifecycle gate before the fire-and-forget capture-device change handler can never
+  bind a new session to the previously selected microphone. Each new session bound to
   it receives the audio captured just before Start as its first block, and the session's graceful
   stop delivers the final result before Stop completes. `ReleaseCaptureDevice` disposes the cached
   device - closing the microphone the pre-roll keeps open between cycles - on a capture-device

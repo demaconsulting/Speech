@@ -116,6 +116,7 @@ sections:
                   example a stop during teardown) indefinitely.
                 tests:
                   - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+                  - RecognitionSession_WavFileSource_CanceledStop_StuckBackend_StillConverges
 
               - id: Speech-Recognition-RecognitionSession-NativeCallAbandonWarning
                 title: >-
@@ -162,6 +163,7 @@ sections:
                   trailing utterance are recognized loses the end of what the user said.
                 tests:
                   - RecognitionSession_StopAsync_QueuedLiveAudio_DecodesAndFlushesBeforeCompleting
+                  - RecognitionSession_StopAsync_CallbackInFlightWhenStopAccepted_BlockStillRecognized
 
               - id: Speech-Recognition-RecognitionSession-CanceledStopDiscards
                 title: >-

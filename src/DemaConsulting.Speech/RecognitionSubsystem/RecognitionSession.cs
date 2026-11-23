@@ -158,6 +158,21 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// </summary>
     private volatile bool _discardRequested;
 
+    /// <summary>
+    ///     1 while the session accepts captured blocks (from start until a stop or fault is
+    ///     accepted), otherwise 0. Written with <see cref="Interlocked"/> so, together with
+    ///     <see cref="_callbacksInFlight"/>, it forms the barrier described on
+    ///     <see cref="OnFrameCaptured"/>.
+    /// </summary>
+    private int _acceptingFrames;
+
+    /// <summary>
+    ///     The number of capture callbacks currently executing <see cref="OnFrameCaptured"/>.
+    ///     Teardown of a live source waits for this to reach zero before completing the queue,
+    ///     so a block whose callback was already running when the stop was accepted is still
+    ///     queued and recognized rather than lost.
+    /// </summary>
+    private int _callbacksInFlight;
     /// <summary>This session's current lifecycle state.</summary>
     private RecognitionSessionState _state = RecognitionSessionState.Created;
 
@@ -405,6 +420,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             _pumpTask = _worker.RunAsync(PumpLoop, _pumpCts.Token, out var pumpCompletion);
             _pumpRawCompletion = pumpCompletion;
 
+            Interlocked.Exchange(ref _acceptingFrames, 1);
             _device.FrameCaptured += OnFrameCaptured;
 
             // Run the native, potentially slow device.Start() call through the same dedicated
@@ -456,6 +472,7 @@ internal sealed class RecognitionSession : IRecognitionSession
                     // exactly as for any other fault, since releasing the engine's lease still
                     // requires one.
                     _device.FrameCaptured -= OnFrameCaptured;
+                    Interlocked.Exchange(ref _acceptingFrames, 0);
                     _pendingFrames.Writer.TryComplete();
                     finalArgs = TransitionTo(RecognitionSessionState.Faulted);
                 }
@@ -702,11 +719,20 @@ internal sealed class RecognitionSession : IRecognitionSession
             stoppingArgs = TransitionTo(RecognitionSessionState.Stopping);
         }
 
-        // Unsubscribing and completing the channel synchronously, while still holding the lock,
-        // closes the window in which a captured block could otherwise be queued after teardown
-        // has already decided to drain and stop.
+        // Unsubscribing and closing the acceptance gate synchronously, while still holding the
+        // lock, is the point at which this stop is accepted: no block whose callback starts after
+        // this is queued. A live source's queue is completed later by RunTeardownAsync, only once
+        // every callback that was already running has queued its block (see OnFrameCaptured), so
+        // that block is not lost; this never blocks here, because a live callback never waits.
+        // A finite file source's queue is completed right away instead: its reader thread may be
+        // blocked on backpressure, and completing the queue is what releases it - the rest of a
+        // stopped file is not part of the session.
         _device.FrameCaptured -= OnFrameCaptured;
-        _pendingFrames?.Writer.TryComplete();
+        Interlocked.Exchange(ref _acceptingFrames, 0);
+        if (_isFiniteSource)
+        {
+            _pendingFrames?.Writer.TryComplete();
+        }
 
         // Publish a not-yet-running placeholder task immediately so every concurrent caller
         // still observes exactly one shared teardown operation; only the winning caller actually
@@ -793,16 +819,29 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
             }
 
+            // A live source's queue is completed only now, once every capture callback that was
+            // already running when the stop was accepted has queued its block (see
+            // OnFrameCaptured and EnsureTeardownStartedLocked). Live callbacks never block, so this
+            // wait is normally a few microseconds; it is bounded by the abandon interval anyway so
+            // a pathological host handler can never hang teardown.
+            if (!_isFiniteSource)
+            {
+                SpinWait.SpinUntil(() => Volatile.Read(ref _callbacksInFlight) == 0, _worker.AbandonTimeout);
+                _pendingFrames?.Writer.TryComplete();
+            }
+
             // The pump thread itself never observes pumpCts while draining (see PumpLoop's
             // remarks); canceling it only starts DedicatedWorker's abandon deadline for a pump
             // thread genuinely stuck inside a blocking backend call. A graceful stop therefore
             // waits for as long as the pump keeps making progress - a long backlog or a slow
             // flush is drained in full - and requests cancellation only once the pump has made
-            // no progress for a whole abandon interval. A finite file source is never canceled
-            // here at all: the abandon deadline would cut off a slow backend (for example a large
-            // CPU model) still decoding the file's queued audio, losing the tail of a transcript
-            // the user expects in totality. A discarding stop (a canceled StopAsync) has already
-            // canceled pumpCts itself through RequestDiscard.
+            // no progress for a whole abandon interval. A graceful stop of a finite file source is
+            // never canceled here at all: the abandon deadline would cut off a slow backend (for
+            // example a large CPU model) still decoding the file's queued audio, losing the tail
+            // of a transcript the user expects in totality. A discarding stop (a canceled
+            // StopAsync) of any source, file or live, has already canceled pumpCts itself through
+            // RequestDiscard, which starts the abandon deadline immediately, so even a stuck
+            // backend cannot hang a canceled stop.
             if (pumpTask is not null && pumpCts is not null && !_isFiniteSource)
             {
                 await CancelPumpWhenStalledAsync(pumpTask, pumpCts).ConfigureAwait(false);
@@ -1163,10 +1202,27 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     callback thread and therefore does no work beyond copying and queueing, and checks
     ///     whether the device has gone unavailable mid-session.
     /// </summary>
+    /// <remarks>
+    ///     Unsubscribing does not wait for a callback that is already running, so this method and
+    ///     teardown share a barrier: the callback first counts itself in
+    ///     <see cref="_callbacksInFlight"/> and then checks <see cref="_acceptingFrames"/>, while
+    ///     teardown first clears <see cref="_acceptingFrames"/> (the moment the stop is accepted)
+    ///     and then, for a live source, waits for the in-flight count to reach zero before it
+    ///     completes the queue. Both steps use full fences, so either the callback sees the stop
+    ///     and drops a block that arrived after it, or teardown sees the callback and waits for its
+    ///     block to be queued - a block captured before the stop is never lost to the race.
+    /// </remarks>
     private void OnFrameCaptured(object? sender, AudioCaptureFrameEventArgs e)
     {
+        Interlocked.Increment(ref _callbacksInFlight);
         try
         {
+            if (Volatile.Read(ref _acceptingFrames) == 0)
+            {
+                // The stop was accepted before this block arrived; it is not part of the session.
+                return;
+            }
+
             if (!_device.IsAvailable)
             {
                 FaultSession(new SpeechRecognizerUnavailableException(
@@ -1208,6 +1264,10 @@ internal sealed class RecognitionSession : IRecognitionSession
                 DiagnosticsCategory,
                 $"A captured audio block could not be queued for recognition: {ex.Message}");
         }
+        finally
+        {
+            Interlocked.Decrement(ref _callbacksInFlight);
+        }
     }
 
     /// <summary>
@@ -1243,8 +1303,9 @@ internal sealed class RecognitionSession : IRecognitionSession
 
         if (!writer.TryWrite([.. samples]))
         {
-            // The channel was completed by teardown between the caller's check and this write:
-            // the block arrived after the stop, so it is not part of this session's audio.
+            // Teardown completes a live queue only after every in-flight callback has finished
+            // (see OnFrameCaptured), so a failed write here means the pump faulted and closed
+            // the queue itself: the session is already faulted and the block cannot be used.
             Interlocked.Add(ref _pendingLiveSamples, -count);
         }
     }

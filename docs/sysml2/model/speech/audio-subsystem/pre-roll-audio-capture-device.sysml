@@ -2,6 +2,7 @@ package Speech_PreRollAudioCaptureDevice {
     private import SoftwareItemMetadata::*;
     private import Speech_IAudioCaptureDevice::*;
     private import Speech_AudioDeviceUnavailableException::*;
+    private import Speech_WavFileAudioCaptureDevice::*;
 
     part def PreRollAudioCaptureDevice {
         doc /* Push-to-talk IAudioCaptureDevice decorator that keeps its underlying device capturing between Stop and
@@ -18,9 +19,10 @@ package Speech_PreRollAudioCaptureDevice {
             requirementFiles = ("docs/reqstream/speech/audio-subsystem/pre-roll-audio-capture-device.yaml");
         }
 
-        // Implements and wraps the capture contract, and reports an unavailable underlying device with the
-        // library's unavailable-device exception.
+        // Implements and wraps the capture contract, reports an unavailable underlying device with the
+        // library's unavailable-device exception, and rejects a finite WAV file source.
         dependency PreRollAudioCaptureDevice to IAudioCaptureDevice;
         dependency PreRollAudioCaptureDevice to AudioDeviceUnavailableException;
+        dependency PreRollAudioCaptureDevice to WavFileAudioCaptureDevice;
     }
 }

@@ -46,8 +46,10 @@ final-drain decode, and the flush) and a discard flag set only by a canceled `St
   throws `SpeechRecognizerUnavailableException` with the device's exception as `InnerException`.
 - **StopAsync(CancellationToken)**: Transitions `Running -> Stopping -> Stopped` (idempotent once
   `Stopped`/`Disposing`/`Disposed`/`Faulted`). The graceful order is: stop capture by unsubscribing
-  from `FrameCaptured` and completing the queue (no block captured after the call is accepted),
-  drain every queued block through the backend, drain any results the per-block cap left behind,
+  from `FrameCaptured` and closing the acceptance gate (no block arriving after the call is
+  accepted), complete the queue once any callback already running has queued its block (see
+  `OnFrameCaptured`), drain every queued block through the backend, drain any results the
+  per-block cap left behind,
   flush the backend (`TryFlush`) and buffer its final result, complete the result buffer, reset the
   backend, stop the capture device, and only then complete the returned task. The flush finalizes
   trailing audio the backend had accepted but not yet decoded, for example the tail of an utterance
@@ -72,7 +74,9 @@ final-drain decode, and the flush) and a discard flag set only by a canceled `St
   called sets the discard flag under the state lock before the queue is completed, so not one more
   queued block is decoded; a token canceled while the caller is waiting sets it as the caller's
   wait ends. Either way the pump drops every remaining block without decoding it, skips the final
-  drain and flush, and the pump token is canceled so a stuck backend call is abandoned promptly;
+  drain and flush, and the pump token is canceled so a stuck backend call is abandoned promptly -
+  for a file source as well as a live one, since the cancellation itself starts the dedicated
+  worker's abandon deadline;
   the caller's task completes as canceled, while the shared teardown (reset, device stop, state
   convergence, lease release on dispose) still completes for every caller. The reset, an abandoned
   pump thread, and a failed flush are best-effort: each is reported through `ISpeechDiagnostics`
@@ -87,7 +91,15 @@ final-drain decode, and the flush) and a discard flag set only by a canceled `St
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Checks `_device.IsAvailable`
   (faulting the session via `FaultSession` if it has gone unavailable mid-session), copies the
   block, and enqueues it - for a live source through the lossless, capped queue described above,
-  for a file source with backpressure; nothing else.
+  for a file source with backpressure; nothing else. Because unsubscribing does not wait for a
+  callback already running, the callback and teardown share a barrier: the callback counts itself
+  in an in-flight counter and then checks an "accepting" flag; teardown clears the flag (the moment
+  the stop is accepted, under the state lock) and, for a live source, completes the queue only
+  after the in-flight count reaches zero (in the background teardown task, bounded by the abandon
+  interval). Both steps are full fences, so a block whose callback was already running when the
+  stop was accepted is still queued and recognized, and a block that arrives after it is dropped.
+  A file source's queue is still completed immediately, because completing it is what releases a
+  file reader blocked on backpressure.
 - **PumpLoop(...)**: Runs on the `DedicatedWorker` pump thread. Converts each block through
   `AudioFrameResampler`, feeds it to the backend, then polls the backend for results and writes
   them into the `RecognitionResultBuffer`. Each result's text is passed through the owning model's

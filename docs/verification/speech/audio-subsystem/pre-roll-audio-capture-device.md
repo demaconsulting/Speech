@@ -24,7 +24,8 @@ interleaved frames; audio delivered in one run is never delivered again; a non-z
 starts the underlying device once and never stops it between runs, while a zero pre-roll stops it
 on every `Stop` and delivers nothing captured while stopped; disposal stops the underlying device
 once and leaves the device unavailable and unable to start; the default pre-roll is 300 ms and the
-reported format is the underlying device's; invalid constructor arguments throw the documented
+reported format is the underlying device's; blocks the underlying device raises during its own first
+start are delivered; a finite WAV file source is rejected; invalid constructor arguments throw the documented
 exceptions; and an unavailable underlying device is reported as unavailable and rejected by
 `Start`.
 
@@ -65,6 +66,14 @@ exceptions; and an unavailable underlying device is reported as unavailable and 
 ##### Constructor: Invalid Arguments Throw
 
 **Test**: `PreRollAudioCaptureDevice_Constructor_InvalidArguments_Throw`
+
+##### Start: Blocks Raised During the Underlying Device's Own Start Are Delivered
+
+**Test**: `PreRollAudioCaptureDevice_Start_DeviceRaisesFramesDuringItsOwnStart_DeliversThem`
+
+##### Constructor: Finite File Source Is Rejected
+
+**Test**: `PreRollAudioCaptureDevice_Constructor_FiniteFileSource_ThrowsArgumentException`
 
 ##### Start: Unavailable Underlying Device Throws AudioDeviceUnavailableException
 

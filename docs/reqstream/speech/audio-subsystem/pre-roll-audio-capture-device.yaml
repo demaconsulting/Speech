@@ -44,6 +44,28 @@ sections:
                 tests:
                   - PreRollAudioCaptureDevice_Start_AudioDeliveredInPreviousRun_IsNotReplayed
 
+              - id: Speech-Audio-PreRollAudioCaptureDevice-NoStartupLoss
+                title: >-
+                  The PreRollAudioCaptureDevice class shall deliver every block its underlying
+                  device raises once started, including blocks raised during the underlying
+                  device's own first Start.
+                justification: |
+                  Some devices raise audio synchronously from Start or report their format only
+                  once started; losing that audio would clip the first run.
+                tests:
+                  - PreRollAudioCaptureDevice_Start_DeviceRaisesFramesDuringItsOwnStart_DeliversThem
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-FiniteSourceRejected
+                title: >-
+                  The PreRollAudioCaptureDevice class shall reject a finite WAV file capture device
+                  with ArgumentException.
+                justification: |
+                  A file has no audio from before a press, and wrapping it would hide that it is a
+                  finite source, so a recognition session would no longer recognize the whole file
+                  with backpressure.
+                tests:
+                  - PreRollAudioCaptureDevice_Constructor_FiniteFileSource_ThrowsArgumentException
+
               - id: Speech-Audio-PreRollAudioCaptureDevice-ConfigurableDuration
                 title: >-
                   The PreRollAudioCaptureDevice class shall use a 300 ms pre-roll by default,

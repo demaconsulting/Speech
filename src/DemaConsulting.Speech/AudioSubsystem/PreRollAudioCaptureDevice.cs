@@ -96,8 +96,11 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     ///     existing capture device.
     /// </summary>
     /// <param name="inner">
-    ///     The capture device to wrap. Must not be <see langword="null"/>. This decorator takes
-    ///     over its Start/Stop lifecycle; callers must not start or stop it directly afterwards.
+    ///     The capture device to wrap. Must not be <see langword="null"/>, and must be a live
+    ///     device: a finite <see cref="WavFileAudioCaptureDevice"/> has no audio "before the
+    ///     press" and must reach a recognition session unwrapped so the whole file is recognized
+    ///     with backpressure. This decorator takes over the device's Start/Stop lifecycle; callers
+    ///     must not start or stop it directly afterwards.
     /// </param>
     /// <param name="preRoll">
     ///     How much of the most recent audio captured while stopped to deliver on the next
@@ -105,12 +108,19 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     ///     between <see cref="TimeSpan.Zero"/> (disabled) and <see cref="MaxPreRoll"/>.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="inner"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="inner"/> is a <see cref="WavFileAudioCaptureDevice"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
     ///     Thrown when <paramref name="preRoll"/> is negative or greater than <see cref="MaxPreRoll"/>.
     /// </exception>
     public PreRollAudioCaptureDevice(IAudioCaptureDevice inner, TimeSpan? preRoll = null)
     {
         ArgumentNullException.ThrowIfNull(inner);
+        if (inner is WavFileAudioCaptureDevice)
+        {
+            throw new ArgumentException(
+                "A finite WAV file source cannot be wrapped for pre-roll; pass it to the recognition session directly.",
+                nameof(inner));
+        }
         var duration = preRoll ?? DefaultPreRoll;
         if (duration < TimeSpan.Zero || duration > MaxPreRoll)
         {
@@ -151,8 +161,9 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     The first call starts the underlying device; later calls (after a <see cref="Stop"/>
-    ///     that kept it running) only resume delivery. Before resuming, the buffered pre-roll is
+    ///     The first call starts the underlying device, delivering anything it raises from then
+    ///     on (there is no pre-roll yet); later calls (after a <see cref="Stop"/> that kept it
+    ///     running) only resume delivery. Before resuming, the buffered pre-roll is
     ///     raised as one <see cref="FrameCaptured"/> block and the buffer is emptied. Calling
     ///     this while already started does nothing.
     /// </remarks>
@@ -173,13 +184,15 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
             }
 
             // Start the underlying device on the first run (or every run when pre-roll is
-            // disabled). Audio it captures before delivery resumes below lands in the pre-roll
-            // buffer, so nothing captured during this window is lost.
+            // disabled). Nothing can have been buffered yet in that case, so delivery resumes
+            // before the underlying device starts: a device that raises blocks synchronously from
+            // its own Start(), or reports its format only once started, therefore loses nothing.
             if (!_innerRunning)
             {
                 lock (_deliveryLock)
                 {
                     EnsureRingAllocatedLocked();
+                    _delivering = true;
                 }
 
                 _inner.FrameCaptured += OnInnerFrameCaptured;
@@ -190,10 +203,22 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
                 catch
                 {
                     _inner.FrameCaptured -= OnInnerFrameCaptured;
+                    lock (_deliveryLock)
+                    {
+                        _delivering = false;
+                    }
+
                     throw;
                 }
 
                 _innerRunning = true;
+                lock (_deliveryLock)
+                {
+                    // The format may only have become known once the device started.
+                    EnsureRingAllocatedLocked();
+                }
+
+                return;
             }
 
             // Hand over the pre-roll and resume live delivery atomically with respect to the

@@ -305,6 +305,8 @@ sections:
               - Speech-Audio-PreRollAudioCaptureDevice-DeliversPreRollFirst
               - Speech-Audio-PreRollAudioCaptureDevice-MostRecentPreRollOnly
               - Speech-Audio-PreRollAudioCaptureDevice-NoReplay
+              - Speech-Audio-PreRollAudioCaptureDevice-NoStartupLoss
+              - Speech-Audio-PreRollAudioCaptureDevice-FiniteSourceRejected
               - Speech-Audio-PreRollAudioCaptureDevice-ConfigurableDuration
               - Speech-Audio-PreRollAudioCaptureDevice-KeepsCapturingBetweenRuns
               - Speech-Audio-PreRollAudioCaptureDevice-ZeroDisables

@@ -144,12 +144,15 @@ exceed the cap is the only one discarded, and the discard is reported as a `Warn
 ##### Graceful Stop Drains, Flushes, and Then Resets
 
 **Tests**: `RecognitionSession_StopAsync_QueuedLiveAudio_DecodesAndFlushesBeforeCompleting`,
+`RecognitionSession_StopAsync_CallbackInFlightWhenStopAccepted_BlockStillRecognized`,
 `RecognitionSession_StopAsync_ThenNextSessionOnSameBackend_StartsFromResetBackend`
 
 With 100 live blocks queued behind a blocked backend, `StopAsync` has not completed while the
 backend is blocked; once released, the fake backend's ordered call log at the moment `StopAsync`
 completes is every block, then the flush, then the reset, and the flushed final result is already
-buffered. A second session over the same backend feeds its first block only after the first
+buffered. A capture callback held inside the session (its availability check blocks) when the stop
+is requested keeps the stop from completing, and its block is recognized once released. A second
+session over the same backend feeds its first block only after the first
 session's flush and reset, so it starts a clean utterance.
 
 ##### Canceled Stop Discards
@@ -160,6 +163,10 @@ session's flush and reset, so it starts a clean utterance.
 With ten blocks queued behind a blocked backend, a stop whose token is canceled before the call or
 while waiting leaves only the block already inside the backend decoded, performs no flush, and
 delivers no flushed result; the session still reaches `Stopped`.
+`RecognitionSession_WavFileSource_CanceledStop_StuckBackend_StillConverges` shows that a canceled
+stop of a file source whose backend call never returns is still abandoned (with the `Warning`
+diagnostic) and converges on `Stopped`, because the cancellation itself starts the abandon
+deadline.
 
 ##### Slow-But-Progressing Drain
 

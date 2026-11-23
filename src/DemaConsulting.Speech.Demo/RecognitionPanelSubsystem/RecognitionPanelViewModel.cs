@@ -147,6 +147,14 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     private IAudioCaptureDevice? _rawCaptureDevice;
 
     /// <summary>
+    ///     The capture selection <see cref="_captureDevice"/> was created for. The cached device
+    ///     is reused only while the current selection still equals it, so a Start that runs
+    ///     before the fire-and-forget capture-device change handler can never bind a new session
+    ///     to the previously selected microphone.
+    /// </summary>
+    private AudioDeviceSelection? _captureDeviceSelection;
+
+    /// <summary>
     ///     The background task pumping <see cref="IRecognitionSession.GetResultsAsync"/> for
     ///     <see cref="_session"/>, stored so it can be awaited on Stop and canceled/awaited on
     ///     invalidation or disposal.
@@ -402,22 +410,25 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     /// </returns>
     private IAudioCaptureDevice AcquireCaptureDevice()
     {
-        if (_captureDevice is { IsAvailable: true } cached)
+        var selection = _deviceSelection.CaptureSelection;
+        if (_captureDevice is { IsAvailable: true } cached && Equals(_captureDeviceSelection, selection))
         {
             return cached;
         }
 
-        // A cached device that stopped being usable (for example unplugged) is released so its
-        // replacement opens a fresh stream for the current selection.
+        // A cached device that stopped being usable (for example unplugged), or that was opened
+        // for a previously selected microphone, is released so its replacement opens a fresh
+        // stream for the current selection.
         ReleaseCaptureDevice();
 
-        var rawDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
+        var rawDevice = _deviceService.CreateCaptureDevice(selection);
         if (!rawDevice.IsAvailable)
         {
             return rawDevice;
         }
 
         _rawCaptureDevice = rawDevice;
+        _captureDeviceSelection = selection;
         _captureDevice = new PreRollAudioCaptureDevice(rawDevice);
         return _captureDevice;
     }
@@ -431,6 +442,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         _captureDevice?.Dispose();
         _captureDevice = null;
         _rawCaptureDevice = null;
+        _captureDeviceSelection = null;
     }
 
     /// <summary>

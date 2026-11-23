@@ -28,14 +28,18 @@ the device is the only object that lives across presses.
 
 **Key Methods**:
 
-- **PreRollAudioCaptureDevice(inner, preRoll = null)**: validates arguments; does not touch the
+- **PreRollAudioCaptureDevice(inner, preRoll = null)**: validates arguments; rejects a
+  `WavFileAudioCaptureDevice`, because a file has no audio from before a press and must reach a
+  `RecognitionSession` unwrapped, which recognizes a file source in full with backpressure (the
+  session identifies a file source by its type, which a decorator would hide); does not touch the
   underlying device.
-- **Start()**: on the first run (or every run when the pre-roll is zero) subscribes to and starts
-  the underlying device. Then, under the delivery lock, drains the buffer, sets `_delivering`, and
-  raises the drained audio (if any) as one `FrameCaptured` block. Because live blocks are also
-  forwarded under that lock, the pre-roll block always precedes every live block of the run, and
-  audio captured while the underlying device was starting lands in the buffer rather than being
-  lost. Starting while already started does nothing.
+- **Start()**: on the first run (or every run when the pre-roll is zero) resumes delivery and then
+  subscribes to and starts the underlying device; nothing can be buffered at that point, so any
+  block the underlying device raises from inside its own `Start()` - or before it has reported its
+  format - is delivered rather than lost. On later runs, under the delivery lock, drains the
+  buffer, sets `_delivering`, and raises the drained audio (if any) as one `FrameCaptured` block.
+  Because live blocks are also forwarded under that lock, the pre-roll block always precedes every
+  live block of the run. Starting while already started does nothing.
 - **Stop()**: clears `_delivering`. With a non-zero pre-roll the underlying device keeps capturing
   into the buffer; with a zero pre-roll it is unsubscribed and stopped, making the decorator a
   pass-through.
@@ -46,17 +50,19 @@ the device is the only object that lives across presses.
   for the next run, and audio already delivered is never delivered again, so a repeated press
   cannot duplicate words.
 
-**Error Handling**: The constructor throws `ArgumentNullException` for a null device and
+**Error Handling**: The constructor throws `ArgumentNullException` for a null device,
+`ArgumentException` for a `WavFileAudioCaptureDevice`, and
 `ArgumentOutOfRangeException` for a negative pre-roll or one longer than `MaxPreRoll`. `Start()`
 throws `ObjectDisposedException` after disposal and `AudioDeviceUnavailableException` when the
 underlying device is unavailable; an exception from the underlying `Start()` is propagated after
-the subscription is rolled back. `Stop()` propagates the underlying `Stop()` failure only when the
+the subscription and delivery state are rolled back. `Stop()` propagates the underlying `Stop()` failure only when the
 pre-roll is zero. `Dispose()` never throws: an `AudioDeviceUnavailableException` from the
 underlying `Stop()` is swallowed because the device is already being released. Exceptions from
 subscriber handlers are not caught, exactly as for the underlying device.
 
 **Dependencies**: `IAudioCaptureDevice`, `AudioCaptureFrameEventArgs`,
-`AudioDeviceUnavailableException`; implements `IAudioCaptureDevice` and `IDisposable`.
+`AudioDeviceUnavailableException`, `WavFileAudioCaptureDevice` (only to reject it); implements
+`IAudioCaptureDevice` and `IDisposable`.
 
 **Callers**: Push-to-talk hosts, notably the demo's `RecognitionPanelViewModel`, which keeps one
 instance per selected microphone and binds each Start's `RecognitionSession` to it.

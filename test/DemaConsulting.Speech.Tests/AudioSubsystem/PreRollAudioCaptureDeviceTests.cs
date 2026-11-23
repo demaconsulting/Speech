@@ -224,6 +224,41 @@ public class PreRollAudioCaptureDeviceTests
         Assert.Throws<AudioDeviceUnavailableException>(device.Start);
     }
 
+    /// <summary>
+    ///     Proves that blocks an underlying device raises from inside its own first Start - before
+    ///     it has even reported its format - are delivered rather than lost.
+    /// </summary>
+    [Fact]
+    public void PreRollAudioCaptureDevice_Start_DeviceRaisesFramesDuringItsOwnStart_DeliversThem()
+    {
+        // Arrange: a device reporting no format until started, which raises a block synchronously
+        // from inside Start, like a synchronous-replay source
+        var inner = CreateInnerDevice(sampleRate: 0, channelCount: 0);
+        inner.When(d => d.Start()).Do(_ => RaiseFrame(inner, [1f, 2f]));
+        using var device = new PreRollAudioCaptureDevice(inner);
+        var received = Record(device);
+
+        // Act
+        device.Start();
+
+        // Assert: the block raised during the underlying start reached the subscriber
+        Assert.Equal([1f, 2f], Assert.Single(received));
+    }
+
+    /// <summary>
+    ///     Proves that a finite file source is rejected: it has no audio "before the press", and
+    ///     must reach a recognition session unwrapped so the whole file is recognized.
+    /// </summary>
+    [Fact]
+    public void PreRollAudioCaptureDevice_Constructor_FiniteFileSource_ThrowsArgumentException()
+    {
+        // Arrange
+        var fileSource = new WavFileAudioCaptureDevice(Path.Join(Path.GetTempPath(), "unused.wav"));
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new PreRollAudioCaptureDevice(fileSource));
+    }
+
     /// <summary>Builds an available substitute capture device with the given format.</summary>
     private static IAudioCaptureDevice CreateInnerDevice(int sampleRate, int channelCount)
     {
