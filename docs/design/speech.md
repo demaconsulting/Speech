@@ -407,15 +407,19 @@ direct safety impact is introduced.
    returning `UnavailableRecognitionSession.Instance` or throwing
    `RecognitionEngineBusyException` for a concurrent second lease attempt
 3. **Capture**: `StartAsync()` subscribes to `FrameCaptured` and starts the device; each captured
-   block is copied onto a bounded queue on the audio callback thread and nothing more
+   block is copied onto a lossless queue (capped at one minute of audio, with any discard
+   reported) on the audio callback thread and nothing more. A push-to-talk host may bind
+   successive sessions to one `PreRollAudioCaptureDevice`, whose first block of each session is
+   the audio captured just before that session started
 4. **Conversion and inference**: A dedicated long-running worker thread downmixes and resamples
    each block from the device's reported `ChannelCount`/`SampleRate` to the model's declared
    `AudioFormat` via `AudioFrameResampler`, feeds it to the `IRecognitionBackend`, and polls for
    results
 5. **Output**: `GetResultsAsync()` yields each provisional and final `SpeechRecognitionResult`
    through a backpressure buffer that coalesces provisional results but never drops a
-   final one; `StopAsync()` drains the queue so no result derived from already-captured audio is
-   lost before the result stream completes
+   final one; `StopAsync()` drains the queue and flushes the backend before it returns, so no
+   result derived from already-captured audio is lost before the result stream completes; only a
+   canceled `StopAsync()` discards queued audio
 
 **Streaming synthesis path:**
 

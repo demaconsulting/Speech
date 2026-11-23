@@ -1,0 +1,142 @@
+---
+# Software Unit Requirements for PreRollAudioCaptureDevice
+#
+# These requirements describe the design-level behavior of the PreRollAudioCaptureDevice
+# unit, decomposing the parent AudioSubsystem requirement Speech-Audio-PreRollCapture.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PreRollAudioCaptureDevice Requirements
+            requirements:
+              - id: Speech-Audio-PreRollAudioCaptureDevice-DeliversPreRollFirst
+                title: >-
+                  The PreRollAudioCaptureDevice class shall deliver the audio captured while it was
+                  stopped as the first block after the next Start, before any live audio.
+                justification: |
+                  People start speaking as they press a push-to-talk button; the audio from just
+                  before the press must reach the recognizer, in capture order, or the first
+                  syllable - often the whole of a short answer - is clipped.
+                tests:
+                  - PreRollAudioCaptureDevice_Start_AfterStop_DeliversAudioCapturedWhileStoppedFirst
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-MostRecentPreRollOnly
+                title: >-
+                  The PreRollAudioCaptureDevice class shall deliver only the most recent pre-roll
+                  duration of audio captured while stopped, in whole interleaved frames.
+                justification: |
+                  Only the moment before the press matters; delivering an entire idle period
+                  would feed unrelated sound to the recognizer and grow memory without limit, and
+                  a partial frame would swap the channels of multi-channel audio.
+                tests:
+                  - PreRollAudioCaptureDevice_Start_AfterLongPause_DeliversOnlyMostRecentPreRoll
+                  - PreRollAudioCaptureDevice_Start_StereoDevice_PreRollKeepsWholeFrames
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-NoReplay
+                title: >-
+                  The PreRollAudioCaptureDevice class shall never deliver the same captured audio
+                  in two runs.
+                justification: |
+                  Replaying audio a previous session already recognized would duplicate words
+                  (for example "yes yes") in the next answer.
+                tests:
+                  - PreRollAudioCaptureDevice_Start_AudioDeliveredInPreviousRun_IsNotReplayed
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-NoStartupLoss
+                title: >-
+                  The PreRollAudioCaptureDevice class shall deliver every block its underlying
+                  device raises once started, including blocks raised during the underlying
+                  device's own first Start.
+                justification: |
+                  Some devices raise audio synchronously from Start or report their format only
+                  once started; losing that audio would clip the first run.
+                tests:
+                  - PreRollAudioCaptureDevice_Start_DeviceRaisesFramesDuringItsOwnStart_DeliversThem
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-HandoffLossless
+                title: >-
+                  When a subscriber of the PreRollAudioCaptureDevice class unsubscribes while a
+                  block is being raised to it, the class shall finish delivering that block before
+                  the unsubscribe returns and shall keep later blocks as pre-roll.
+                justification: |
+                  A recognition session unsubscribes when it stops; a block caught between that
+                  session and the pre-roll buffer must reach one of them, or the end of one answer
+                  or the start of the next is lost.
+                tests:
+                  - PreRollAudioCaptureDevice_Unsubscribe_WhileBlockBeingRaised_DeliversItThenBuffersLaterAudio
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-StopNeverWaitsForSubscriber
+                title: >-
+                  The PreRollAudioCaptureDevice class's Stop and Dispose shall return without
+                  waiting for a subscriber that is still handling a block.
+                justification: |
+                  A recognition session stops its device at the end of teardown; a stuck handler
+                  must not be able to hang that stop or the host's disposal.
+                tests:
+                  - PreRollAudioCaptureDevice_StopAndDispose_WhileHandlerStuck_ReturnWithoutWaiting
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-FiniteSourceRejected
+                title: >-
+                  The PreRollAudioCaptureDevice class shall reject a finite WAV file capture device
+                  with ArgumentException.
+                justification: |
+                  A file has no audio from before a press, and wrapping it would hide that it is a
+                  finite source, so a recognition session would no longer recognize the whole file
+                  with backpressure.
+                tests:
+                  - PreRollAudioCaptureDevice_Constructor_FiniteFileSource_ThrowsArgumentException
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-ConfigurableDuration
+                title: >-
+                  The PreRollAudioCaptureDevice class shall use a 300 ms pre-roll by default,
+                  accept a configured duration from zero to a documented maximum, and reject a
+                  negative or larger duration or a missing underlying device.
+                justification: |
+                  300 ms covers the usual delay between starting to speak and a press registering
+                  without pulling in earlier speech; hosts with other timing need to tune it, and
+                  an invalid value is a programming error to surface immediately.
+                tests:
+                  - PreRollAudioCaptureDevice_Constructor_Defaults_ReportsDefaultPreRollAndUnderlyingFormat
+                  - PreRollAudioCaptureDevice_Constructor_InvalidArguments_Throw
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-KeepsCapturingBetweenRuns
+                title: >-
+                  With a non-zero pre-roll, the PreRollAudioCaptureDevice class shall keep its
+                  underlying device capturing between Stop and the next Start.
+                justification: |
+                  Audio from before a press can only be delivered if it was captured; reopening
+                  the device on every press would also add its start-up latency to every answer.
+                tests:
+                  - PreRollAudioCaptureDevice_Stop_WithPreRoll_KeepsUnderlyingDeviceRunning
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-ZeroDisables
+                title: >-
+                  With a zero pre-roll, the PreRollAudioCaptureDevice class shall stop its
+                  underlying device on every Stop and deliver no pre-roll.
+                justification: |
+                  A host that must not keep the microphone open while idle needs a way to turn
+                  the feature off while keeping one code path.
+                tests:
+                  - PreRollAudioCaptureDevice_Stop_ZeroPreRoll_StopsUnderlyingDeviceAndDeliversNoPreRoll
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-DisposeReleasesDevice
+                title: >-
+                  Disposing the PreRollAudioCaptureDevice class shall stop its underlying device
+                  and make it report itself unavailable.
+                justification: |
+                  The microphone stays open between runs, so the host needs one call that closes
+                  it, for example before switching microphones or refreshing devices.
+                tests:
+                  - PreRollAudioCaptureDevice_Dispose_StopsUnderlyingDeviceAndReportsUnavailable
+
+              - id: Speech-Audio-PreRollAudioCaptureDevice-UnavailableDeviceRejected
+                title: >-
+                  The PreRollAudioCaptureDevice class shall report an unavailable underlying
+                  device as unavailable and throw AudioDeviceUnavailableException from Start.
+                justification: |
+                  The decorator must keep the library's honest-unavailability contract rather
+                  than silently capture nothing.
+                tests:
+                  - PreRollAudioCaptureDevice_Start_UnavailableUnderlyingDevice_ThrowsAudioDeviceUnavailableException

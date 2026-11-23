@@ -15,11 +15,14 @@ package Speech_RecognitionSession {
 
     part def RecognitionSession {
         doc /* Real streaming IRecognitionSession implementation: enqueues captured audio off the audio callback
-             * thread via a bounded drop-oldest channel, resamples it to the model's required format, drains it on a
+             * thread via a lossless channel (unbounded for a live device, with a reported one-minute safety cap;
+             * bounded with backpressure for a file), resamples it to the model's required format, drains it on a
              * DedicatedWorker pump thread through the leased IRecognitionBackend, normalizes each result's text via
              * the owning IRecognitionModel.NormalizeText, buffers ordered provisional and final results in a
-             * RecognitionResultBuffer, and streams them through GetResultsAsync. The backend stays owned and "hot" on
-             * the owning SpeechRecognizerEngine across sessions. */
+             * RecognitionResultBuffer, and streams them through GetResultsAsync. A graceful stop decodes all queued
+             * audio, flushes the backend, and buffers every final before resetting the backend and returning; only a
+             * canceled stop discards. The backend stays owned and "hot" on the owning SpeechRecognizerEngine across
+             * sessions. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSession.cs");

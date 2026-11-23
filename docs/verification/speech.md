@@ -111,6 +111,18 @@ completing. Because the consumer drains the provisional result before the final 
 the outcome never depends on thread scheduling. The recognition engine is a deterministic test
 double, so this scenario proves the composed pipeline rather than speech-recognition accuracy.
 
+### Integration: Push-to-Talk Keeps the Speech Onset and the Final Answer
+
+**Test**: `Speech_SystemIntegration_PushToTalk_PreRollAndGracefulStop_DeliverWholeUtterance`
+
+Verifies push-to-talk end to end through the public API: one `PreRollAudioCaptureDevice` wraps a
+substitute microphone and serves two sessions from one engine. After a first press and release,
+audio "captured" before the second press reaches the recognizer first, followed by the live audio
+of the second press, and the recognizer's flushed final answer is buffered by the time the second
+session's stop completes. The recognizer is a deterministic test double, so this proves the
+pipeline (no lost onset, no lost tail), not recognition accuracy for short words, which is a known
+model limitation documented in the user guide.
+
 ### Integration: Model Download Verifies and Atomically Installs the Model
 
 **Test**: `Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel`

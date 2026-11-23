@@ -34,7 +34,14 @@ wraps one result as the value yielded by `GetResultsAsync` (a null result is rej
   silently losing it. This guarantee is best-effort in the same way backend faults elsewhere are:
   if the backend itself faults while finalizing or resetting, the fault is reported rather than
   thrown and `StopAsync` still completes, but the trailing audio and/or the backend's clean state
-  can no longer be guaranteed for that one call. Idempotent once stopped or faulted.
+  can no longer be guaranteed for that one call. Idempotent once stopped or faulted. Canceling
+  `cancellationToken` (before or during the call) is the only way to discard: audio not yet
+  decoded is dropped, no final flush is performed, and the call completes with
+  `OperationCanceledException`, while the session still converges on `Stopped`. After any stop the
+  next session created from the same engine starts a clean utterance. A graceful stop discards
+  nothing unless something it waits on (a recognizer call, a capture callback, or the device
+  unsubscribe) is stuck for a whole abandon interval, in which case it is abandoned and reported as
+  a warning diagnostic.
 - **GetResultsAsync(CancellationToken cancellationToken = default)**: Returns an
   `IAsyncEnumerable<SpeechRecognitionEvent>` of results in the order they were produced. Final
   results are always delivered; of the unread provisional results only the latest is delivered, the

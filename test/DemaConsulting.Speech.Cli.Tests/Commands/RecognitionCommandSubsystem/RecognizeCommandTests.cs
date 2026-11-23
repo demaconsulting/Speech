@@ -1038,6 +1038,46 @@ public sealed class RecognizeCommandTests
         Assert.Contains("hello mic", writer.ToString());
     }
 
+    /// <summary>
+    ///     Test that canceling a mic-mode run (Ctrl+C) stops the session gracefully and still
+    ///     prints the final result the stop flushes, rather than abandoning the result stream and
+    ///     losing the tail of the last utterance.
+    /// </summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_MicModeCanceled_StopsGracefullyAndPrintsTrailingFinal()
+    {
+        // Arrange: a session whose graceful stop produces the trailing final result, and a run
+        // canceled as soon as listening starts
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireRecognizer(catalog);
+        using var cts = new CancellationTokenSource();
+        session.OnStart = _ => cts.Cancel();
+        session.OnStop = self => self.RaiseResult("trailing words", isFinal: true);
+        var probe = new FakeAudioCaptureDeviceProbe([new AudioDeviceDescription("Fake Mic", AudioDeviceDirection.Capture, 1, 16000)]);
+        var source = new Commands.ConversationCommandSubsystem.FakeCaptureDeviceSource(probe);
+        var originalOut = Console.Out;
+        using var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--mic", "--silence-timeout", "30", "--start-timeout", "30"]);
+
+            // Act
+            await RecognizeCommand.RunAsync(context, catalog, source, cts.Token);
+
+            // Assert
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal(1, session.StopCallCount);
+        Assert.Contains("trailing words", writer.ToString());
+    }
+
     // --- Disposal ordering ---
 
     /// <summary>Test that both the engine and the session are disposed exactly once after a successful file-input run.</summary>

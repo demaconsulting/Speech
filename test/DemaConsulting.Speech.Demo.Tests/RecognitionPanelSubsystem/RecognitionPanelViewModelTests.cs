@@ -585,6 +585,75 @@ public class RecognitionPanelViewModelTests
     }
 
     /// <summary>
+    ///     Proves that the panel behaves as push-to-talk: repeated Start/Stop cycles reuse one
+    ///     pre-roll capture device for the selected microphone (so speech starting just before a
+    ///     Start is kept), while each cycle still gets a fresh session.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_StartAfterStop_ReusesPreRollCaptureDevice()
+    {
+        // Arrange: a panel whose sessions record the capture device they were bound to
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        var devicesUsed = new List<IAudioCaptureDevice>();
+        var engine = new FakeSpeechRecognizerEngine
+        {
+            SessionFactory = device =>
+            {
+                devicesUsed.Add(device);
+                return new FakeRecognitionSession();
+            },
+        };
+        var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+
+        // Act: two push-to-talk cycles
+        await viewModel.StartCommand.ExecuteAsync(null);
+        await viewModel.StopCommand.ExecuteAsync(null);
+        await viewModel.StartCommand.ExecuteAsync(null);
+        await viewModel.StopCommand.ExecuteAsync(null);
+
+        // Assert: one microphone was opened and the same pre-roll device served both sessions
+        deviceService.Received(1).CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>());
+        Assert.Equal(2, engine.CreatedSessions.Count);
+        var preRollDevice = Assert.IsType<PreRollAudioCaptureDevice>(devicesUsed[0]);
+        Assert.Same(preRollDevice, devicesUsed[1]);
+        Assert.Equal(PreRollAudioCaptureDevice.DefaultPreRoll, preRollDevice.PreRoll);
+    }
+
+    /// <summary>
+    ///     Proves that the microphone kept open for pre-roll is released when the panel is
+    ///     disposed, so the demo never leaves a capture stream open behind it.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_DisposeAsync_ReleasesPreRollCaptureDevice()
+    {
+        // Arrange: a panel after one push-to-talk cycle
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        IAudioCaptureDevice? deviceUsed = null;
+        var engine = new FakeSpeechRecognizerEngine
+        {
+            SessionFactory = device =>
+            {
+                deviceUsed = device;
+                return new FakeRecognitionSession();
+            },
+        };
+        var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+        await viewModel.StartCommand.ExecuteAsync(null);
+        await viewModel.StopCommand.ExecuteAsync(null);
+        Assert.True(deviceUsed!.IsAvailable);
+
+        // Act
+        await viewModel.DisposeAsync();
+
+        // Assert: the pre-roll device was released and is no longer usable
+        Assert.False(deviceUsed.IsAvailable);
+    }
+
+    /// <summary>
     ///     Proves that changing the selected recognition model releases the previous model's
     ///     engine, so the next Start recognizes through the newly selected model instead of the
     ///     previous one.

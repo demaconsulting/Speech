@@ -104,6 +104,17 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
     /// <summary>The minimum RMS amplitude (full scale = 1.0) for the warm-up buffer to count as speech.</summary>
     private const double SpeechRmsThreshold = 0.01;
 
+    /// <summary>
+    ///     The duration, in seconds, of zero samples <see cref="TryFlush"/> appends before
+    ///     <see cref="OnlineStream.InputFinished"/>: 0.66 s, the tail padding sherpa-onnx's own
+    ///     streaming examples use to give the model enough right context to emit an utterance's
+    ///     final tokens.
+    /// </summary>
+    private const double TailPaddingSeconds = 0.66;
+
+    /// <summary>The number of zero samples <see cref="TryFlush"/> appends, derived from <see cref="TailPaddingSeconds"/>.</summary>
+    private int TailPaddingSampleCount => (int)(_sampleRate * TailPaddingSeconds);
+
     /// <summary>The rate, in Hz, declared for samples supplied to <see cref="AcceptSamples"/>.</summary>
     private readonly int _sampleRate;
 
@@ -364,9 +375,11 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
     ///     audio for this stream is coming, so it pads and decodes whatever is still buffered
     ///     instead of holding it back waiting for future context that will now never arrive. This
     ///     is what lets a push-to-talk release with no trailing silence still produce a final
-    ///     result for the word it cut off, rather than losing it. Marks the stream finished as a
-    ///     side effect, so this is only ever called once, at session end, immediately before
-    ///     <see cref="Reset"/> replaces the stream.
+    ///     result for the word it cut off, rather than losing it. Before that call it appends
+    ///     <see cref="TailPaddingSeconds"/> of zero samples, matching sherpa-onnx's own streaming
+    ///     examples, so the model has the right context it needs to emit the final tokens. Marks
+    ///     the stream finished as a side effect, so this is only ever called once, at session end,
+    ///     immediately before <see cref="Reset"/> replaces the stream.
     ///     <para>
     ///     Reports nothing if the stream's only hypothesis is one <see cref="ReplayWarmupBuffer"/>
     ///     silently produced and no genuinely-new audio has arrived since - see
@@ -380,6 +393,12 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
 
         result = null;
 
+        // Pad the stream with trailing silence before declaring the input finished, as
+        // sherpa-onnx's own streaming examples do: a streaming transducer only emits the last
+        // tokens of an utterance once enough right context has been decoded behind them, and
+        // InputFinished alone does not always supply it. Padding is not genuinely new audio, so
+        // the replay-only guard below still reports nothing when none arrived after a replay.
+        _stream.AcceptWaveform(_sampleRate, new float[TailPaddingSampleCount]);
         _stream.InputFinished();
 
         // Same drain loop as TryDecode: IsReady goes false once the buffered audio (now padded

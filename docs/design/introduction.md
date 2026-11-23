@@ -544,6 +544,7 @@ src/DemaConsulting.Speech/
     ├── WindowedSincLowpassFilter.cs           — Windowed-sinc anti-alias filter
     ├── WavFileAudioCaptureDevice.cs           — File-backed capture device (reads a mono 16-bit PCM WAV)
     ├── WavFileAudioPlaybackDevice.cs          — File-backed playback device (writes a WAV)
+    ├── PreRollAudioCaptureDevice.cs           — Push-to-talk capture decorator with pre-roll
     └── PortAudio/
         ├── IPortAudioApi.cs                   — Mockable PortAudio runtime seam
         ├── IPortAudioStream.cs                — Mockable PortAudio stream seam

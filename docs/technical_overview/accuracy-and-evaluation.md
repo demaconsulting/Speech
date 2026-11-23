@@ -107,3 +107,13 @@ the blinded listening packs is still pending (source: the Phonemes.En gate summa
   dictionary words, against 25.53 percent for a rules baseline.
 - **Readings golden.** The real analyzer chooses the intended reading in 386 of the 395 sentences of the readings
   golden; the 9 misses are pinned as forced readings rather than hidden.
+
+## Speech Recognition: Short Isolated Answers
+
+**Known limitation.** Both streaming Nemotron recognition models - the ONNX Nemotron 3.5 model and the Sherpa
+Nemotron English model - may return no text for a very short, one-word answer spoken on its own, such as "yes", "no"
+or "okay". The project's evaluation of these models found this is a limitation of the models themselves: it remained
+with a complete end-of-speech flush, extra leading or trailing silence and a lossless capture pipeline, and the
+560 ms chunk of the ONNX model is fixed by its export. The workarounds are to prompt for longer answers ("yes please")
+or to confirm the choice through the user interface. A better solution is planned; the user guide's
+speech-recognition chapter describes the limitation for application developers.

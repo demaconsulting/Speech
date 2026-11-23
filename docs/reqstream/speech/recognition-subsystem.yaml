@@ -196,6 +196,61 @@ sections:
               - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
               - RecognitionSubsystem_ResultDelivery_SlowConsumer_NeverLosesFinalResults
 
+          - id: Speech-Recognition-LiveCaptureLossless
+            title: >-
+              The RecognitionSubsystem shall recognize all audio captured from a live device while
+              recognition falls behind, discarding audio only beyond a bounded, reported backlog.
+            justification: |
+              Push-to-talk answers are short; losing even a fraction of a second of captured
+              audio while the recognizer is briefly slow can remove the whole answer. Memory must
+              still stay bounded if a recognizer is persistently slower than real time, and any
+              discard must be visible rather than silent.
+            children:
+              - Speech-Recognition-RecognitionSession-LiveSourceLossless
+              - Speech-Recognition-RecognitionSession-LiveBacklogCapReported
+            tests:
+              - RecognitionSubsystem_LiveCapture_SlowRecognizer_NoAudioDropped
+
+          - id: Speech-Recognition-GracefulStopDrain
+            title: >-
+              The RecognitionSubsystem shall, on a graceful stop, deliver the final result for all
+              audio captured before the stop before the stop completes.
+            justification: |
+              A push-to-talk host stops recognition on button release and then reads the answer;
+              a stop that completes before the queued and trailing audio is recognized loses the
+              end of what the user said.
+            children:
+              - Speech-Recognition-RecognitionSession-StopDrainsBeforeCompleting
+            tests:
+              - RecognitionSubsystem_GracefulStop_QueuedAudio_FinalDeliveredBeforeStopCompletes
+
+          - id: Speech-Recognition-CanceledStopDiscards
+            title: >-
+              The RecognitionSubsystem shall discard audio not yet recognized when the caller
+              cancels the stop, and otherwise only when it abandons a stuck call, which it shall
+              report.
+            justification: |
+              A caller that cancels no longer wants the result and must not wait for it; every
+              other stop must keep the user's audio, unless a driver or recognizer call is stuck
+              and waiting for it would hang the application - and that loss must be visible.
+            children:
+              - Speech-Recognition-RecognitionSession-CanceledStopDiscards
+              - Speech-Recognition-RecognitionSession-StopBoundedByStuckCapture
+            tests:
+              - RecognitionSubsystem_CanceledStop_QueuedAudio_Discarded
+
+          - id: Speech-Recognition-CleanRestart
+            title: >-
+              The RecognitionSubsystem shall start each new session from a recognizer state that
+              carries over nothing from the previous session on the same engine.
+            justification: |
+              A push-to-talk host pauses and resumes by stopping one session and starting the
+              next; carried-over audio or text would duplicate or corrupt the next answer.
+            children:
+              - Speech-Recognition-RecognitionSession-NextSessionStartsClean
+            tests:
+              - RecognitionSubsystem_SequentialSessions_NextSessionStartsClean
+
           - id: Speech-Recognition-FaultContainment
             title: >-
               The RecognitionSubsystem shall contain and report faults raised while recognizing
@@ -214,6 +269,7 @@ sections:
               - Speech-Recognition-RecognitionSession-DeviceLostFault
               - Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
               - Speech-Recognition-RecognitionSession-NativeCallAbandonWarning
+              - Speech-Recognition-RecognitionSession-StopBoundedByStuckCapture
               - Speech-Recognition-DedicatedWorker-BlockedCallIsolation
               - Speech-Recognition-DedicatedWorker-CooperativeCancellation
               - Speech-Recognition-DedicatedWorker-AbandonAfterTimeout

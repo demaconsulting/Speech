@@ -79,8 +79,7 @@ sections:
                   audio, even when recognition is slower than the file is delivered.
                 justification: |
                   A file is finite and delivered faster than real time, and users expect it to
-                  be transcribed in totality; only a live microphone may shed its oldest audio
-                  when recognition falls behind.
+                  be transcribed in totality without the session buffering the whole file.
                 tests:
                   - RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample
                   - RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult
@@ -106,6 +105,7 @@ sections:
                 tests:
                   - RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult
                   - RecognitionSession_WavFileSource_BackendFaults_StartAsyncStillCompletes
+                  - RecognitionSession_WavFileSource_StopDuringStart_GracefulStopRecognizesWholeFile
 
               - id: Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
                 title: >-
@@ -117,6 +117,7 @@ sections:
                   example a stop during teardown) indefinitely.
                 tests:
                   - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+                  - RecognitionSession_WavFileSource_CanceledStop_StuckBackend_StillConverges
 
               - id: Speech-Recognition-RecognitionSession-NativeCallAbandonWarning
                 title: >-
@@ -127,3 +128,78 @@ sections:
                   abandonment must be surfaced to an observer rather than silently swallowed.
                 tests:
                   - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+
+              - id: Speech-Recognition-RecognitionSession-LiveSourceLossless
+                title: >-
+                  When a recognition session reads from a live capture device, it shall not drop
+                  captured audio when recognition falls behind, without blocking the capture
+                  callback.
+                justification: |
+                  Audio dropped while the recognizer is briefly slow removes words from the
+                  middle or end of an utterance - for a push-to-talk answer such as "yes", often
+                  the whole answer. A live audio callback must never block, so the backlog is
+                  queued instead.
+                tests:
+                  - RecognitionSession_LiveSource_SlowBackend_DeliversEverySample
+
+              - id: Speech-Recognition-RecognitionSession-LiveBacklogCapReported
+                title: >-
+                  A recognition session shall bound the live audio waiting for recognition and
+                  report a warning diagnostic whenever it discards audio beyond that bound.
+                justification: |
+                  A recognizer persistently slower than real time must not grow memory without
+                  limit, and any audio that is discarded must be visible to the host rather than
+                  silently lost.
+                tests:
+                  - RecognitionSession_LiveSource_BacklogExceedsCap_DiscardsBlockAndReportsWarning
+
+              - id: Speech-Recognition-RecognitionSession-StopDrainsBeforeCompleting
+                title: >-
+                  A graceful stop of a recognition session shall decode all audio captured before
+                  the stop, flush the recognizer, and buffer every resulting final result before
+                  the stop completes.
+                justification: |
+                  A push-to-talk host stops the session the moment the button is released and
+                  then reads the answer; a stop that completes before the queued audio and the
+                  trailing utterance are recognized loses the end of what the user said.
+                tests:
+                  - RecognitionSession_StopAsync_QueuedLiveAudio_DecodesAndFlushesBeforeCompleting
+                  - RecognitionSession_StopAsync_CallbackInFlightWhenStopAccepted_BlockStillRecognized
+
+              - id: Speech-Recognition-RecognitionSession-CanceledStopDiscards
+                title: >-
+                  When the caller cancels a stop, the recognition session shall discard audio not
+                  yet recognized and skip the final flush, while still completing its teardown.
+                justification: |
+                  Cancellation is how a caller says it no longer wants the result; it is the only
+                  case in which captured audio may be discarded, and it must still release the
+                  capture device and recognizer.
+                tests:
+                  - RecognitionSession_StopAsync_PreCanceledToken_DiscardsQueuedAudioWithoutFlush
+                  - RecognitionSession_StopAsync_CanceledDuringDrain_DiscardsRemainingAudio
+                  - RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges
+
+              - id: Speech-Recognition-RecognitionSession-NextSessionStartsClean
+                title: >-
+                  After a recognition session stops, the next session on the same recognizer shall
+                  start a clean utterance that carries over nothing from the stopped session.
+                justification: |
+                  A push-to-talk host resumes by creating a new session; text or audio carried
+                  over from the previous press would duplicate or corrupt the next answer.
+                tests:
+                  - RecognitionSession_StopAsync_ThenNextSessionOnSameBackend_StartsFromResetBackend
+
+              - id: Speech-Recognition-RecognitionSession-StopBoundedByStuckCapture
+                title: >-
+                  A recognition session shall not let a stop wait indefinitely on a capture
+                  callback or device unsubscribe that does not return, or a canceled stop wait
+                  indefinitely on a capture device start that does not return, and shall report a
+                  warning diagnostic when it stops waiting.
+                justification: |
+                  A stuck audio driver or host handler must not hang the application that stops
+                  recognition, and a caller that canceled has asked not to wait; any audio that
+                  may be lost as a result must be visible rather than silent.
+                tests:
+                  - RecognitionSession_StopAsync_CallbackStuckPastAbandonInterval_CompletesAndReportsWarning
+                  - RecognitionSession_StopAsync_DeviceUnsubscribeBlocks_StillConvergesAndReportsWarning
+                  - RecognitionSession_StopAsync_CanceledWhileDeviceStartNeverReturns_StillConverges

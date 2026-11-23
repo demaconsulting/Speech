@@ -31,11 +31,13 @@ This document covers:
   the letter-to-sound model and the renderers
 - The model families of the library and which of them use the English front end
 - The listening-improvement loop: how errors are heard, flagged, triaged, fixed and kept fixed
-- The accuracy and evaluation figures recorded in the repository, with their limits
+- The accuracy and evaluation figures recorded in the repository, with their limits, and one known limitation of the
+  streaming speech-to-text models
 - In brief, the licenses and the provenance of the data behind the front end
 
-This document does not cover the public API, audio devices, model download and management, speech-to-text engines,
-voice cloning, or the build and release process. Those are described in the user guide and the design document.
+This document does not otherwise cover the public API, audio devices, model download and management, speech-to-text
+engines, voice cloning, or the build and release process. Those are described in the user guide and the design
+document.
 
 ## References
 

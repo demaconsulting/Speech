@@ -174,7 +174,23 @@ session, started exactly once; the panel is listening again.
 `DeviceSelectionViewModel.RefreshAsync()` runs and the user starts again.
 
 **Expected**: The stale session is disposed, and the new session captures from a different capture
-device object than the first and is started.
+device object than the first and is started (the pre-roll capture device kept open between cycles
+is released by the refresh).
+
+##### RecognitionPanelViewModel_StartAfterStop_ReusesPreRollCaptureDevice
+
+**Scenario**: Two push-to-talk Start/Stop cycles with no device or model change.
+
+**Expected**: Only one capture device is created; both sessions are bound to the same
+`PreRollAudioCaptureDevice` wrapping it, with the library's default 300 ms pre-roll; each cycle
+still gets its own session.
+
+##### RecognitionPanelViewModel_DisposeAsync_ReleasesPreRollCaptureDevice
+
+**Scenario**: After one Start/Stop cycle, the panel is disposed.
+
+**Expected**: The pre-roll capture device the panel kept open reports itself unavailable, proving it
+was disposed (closing the microphone).
 
 ##### RecognitionPanelViewModel_SelectedModelChanged_NextStartRecognizesThroughNewModel
 

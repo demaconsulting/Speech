@@ -37,6 +37,7 @@ input-files:
   - docs/design/speech/audio-subsystem/unavailable-audio-playback-device.md
   - docs/design/speech/audio-subsystem/wav-file-audio-capture-device.md
   - docs/design/speech/audio-subsystem/wav-file-audio-playback-device.md
+  - docs/design/speech/audio-subsystem/pre-roll-audio-capture-device.md
   - docs/design/speech/audio-subsystem/windowed-sinc-lowpass-filter.md
   - docs/design/speech/audio-subsystem/port-audio/i-port-audio-api.md
   - docs/design/speech/audio-subsystem/port-audio/i-port-audio-stream.md

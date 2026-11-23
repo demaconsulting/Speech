@@ -29,6 +29,7 @@ includes:
   - docs/reqstream/speech/audio-subsystem/port-audio.yaml
   - docs/reqstream/speech/audio-subsystem/wav-file-audio-playback-device.yaml
   - docs/reqstream/speech/audio-subsystem/wav-file-audio-capture-device.yaml
+  - docs/reqstream/speech/audio-subsystem/pre-roll-audio-capture-device.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/i-port-audio-api.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/i-port-audio-stream.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-environment.yaml

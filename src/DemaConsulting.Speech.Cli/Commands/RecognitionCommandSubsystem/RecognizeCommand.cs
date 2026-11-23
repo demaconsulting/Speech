@@ -291,17 +291,25 @@ internal static class RecognizeCommand
                 startTimeout: ResolveStartTimeout(options));
         }
 
-        // Ctrl+C stops the session cooperatively (fire-and-forget: this handler is synchronous
-        // and must not block). Stopping the session completes its result stream, which ends the
-        // pump below naturally; cancellationToken is also forwarded into GetResultsAsync as a
-        // belt-and-suspenders safety net for the documented edge case where StopAsync called
-        // while the session never started does not itself complete that stream.
-        var results = silenceTimeout?.GetResultsAsync(cancellationToken) ?? session.GetResultsAsync(cancellationToken);
+        // Ctrl+C stops the session gracefully (fire-and-forget: this handler is synchronous and
+        // must not block). Stopping the session drains and flushes it and then completes its
+        // result stream, which ends the pump below naturally - only after the trailing final
+        // result has been printed. The pump is therefore deliberately NOT bound to
+        // cancellationToken: ending it on cancellation would drop that final result even though
+        // the graceful stop produced it. Every path below guarantees the session reaches a
+        // terminal state (which completes the stream), so the pump can never be left waiting.
+        var results = silenceTimeout?.GetResultsAsync(CancellationToken.None) ?? session.GetResultsAsync(CancellationToken.None);
 
         // Started before StartAsync is awaited (see this type's remarks on live interim
         // printing): this is a genuinely async, non-blocking call, not a background thread - it
         // suspends immediately since no result exists yet, handing control straight back here.
-        var pumpTask = PumpResultsAsync(results, outputWriter, options, consoleLine, cancellationToken);
+        var pumpTask = PumpResultsAsync(results, outputWriter, options, consoleLine, CancellationToken.None);
+
+        // In mic mode, a canceled token (Ctrl+C, or a host canceling this command) means "stop
+        // listening": stop gracefully so the last utterance is still recognized and printed.
+        using var stopOnCancel = options.Mic
+            ? cancellationToken.Register(() => _ = session.StopAsync(CancellationToken.None))
+            : default;
 
         // Fire-and-forget by design: the handler is synchronous and must not block.
         using (ConsoleCancellation.Observe(() => _ = session.StopAsync(CancellationToken.None)))

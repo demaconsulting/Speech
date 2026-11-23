@@ -44,7 +44,9 @@ sections:
                   silently losing the last word a user spoke. The native engine's own
                   InputFinished mechanism exists precisely to force a decode of buffered audio
                   without needing genuine future context, so this recovers that audio instead of
-                  losing it.
+                  losing it; trailing zero-sample padding before it, as sherpa-onnx's own
+                  streaming examples use, supplies the right context the model needs to emit the
+                  final tokens.
                 tests:
                   - SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords
 

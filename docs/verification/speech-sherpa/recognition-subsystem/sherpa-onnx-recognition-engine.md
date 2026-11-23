@@ -156,9 +156,18 @@ recovered nowhere. `SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithN
 (`SherpaOnnxRecognitionEngineAccuracyTests`) verifies the fix for that: feeding the real,
 installed streaming Zipformer model the same kind of abandoned, no-trailing-silence utterance,
 then calling `TryFlush()` instead of `Reset()` directly, produces a final result whose text
-contains every word of the abandoned line - proving the native `OnlineStream.InputFinished`
-mechanism genuinely recovers audio that would otherwise be silently discarded, not merely that
-nothing crashes.
+contains every word of the abandoned line - proving the tail padding plus the native
+`OnlineStream.InputFinished` mechanism genuinely recover audio that would otherwise be silently
+discarded, not merely that nothing crashes.
+
+The 0.66 s zero-sample tail padding `TryFlush()` appends before `InputFinished` has no dedicated
+test: the engine wraps the concrete sherpa-onnx `OnlineRecognizer`/`OnlineStream` types, so the
+padding is observable only through a real model's transcript, and short-word accuracy is a known
+model limitation the project deliberately does not assert (see the user guide's "Known
+limitation: short isolated answers"). It is covered by design review against sherpa-onnx's
+streaming examples, by the flush-recovery test above, and by
+`SherpaOnnxRecognitionEngine_TryDecodeAndTryFlush_NemotronNoNewAudioAfterEndpoint_ReportNothing`,
+which shows the padding adds no text when nothing new was spoken.
 
 #### Test Environment
 

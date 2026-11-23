@@ -294,6 +294,18 @@ reports the fixture's known mono/16 kHz format, and rejects an unsupported (ster
 `docs/verification/speech/audio-subsystem/wav-file-audio-capture-device.md` for the full test
 scenario list, including malformed-file and argument-validation coverage.
 
+#### Push-to-Talk Capture Device: Pre-Roll Delivery, No Replay, and Disable
+
+**Tests**: `PreRollAudioCaptureDevice_Start_AfterStop_DeliversAudioCapturedWhileStoppedFirst`,
+`PreRollAudioCaptureDevice_Start_AudioDeliveredInPreviousRun_IsNotReplayed`,
+`PreRollAudioCaptureDevice_Stop_ZeroPreRoll_StopsUnderlyingDeviceAndDeliversNoPreRoll`
+
+Verifies, over a substitute underlying device, that `PreRollAudioCaptureDevice` delivers the audio
+captured while stopped as the first block of the next run, never delivers the same audio twice,
+and becomes a plain pass-through with a zero pre-roll. See
+`docs/verification/speech/audio-subsystem/pre-roll-audio-capture-device.md` for the full scenario
+list.
+
 #### AudioDeviceSelection: Name-Only Identity Resolution and Stale-Selection Fallback
 
 **Tests**: `AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice`,

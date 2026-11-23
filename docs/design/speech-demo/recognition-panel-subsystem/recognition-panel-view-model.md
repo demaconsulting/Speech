@@ -29,8 +29,12 @@ exists for the auto-refresh-on-install path, since installs refresh the panel au
 | `StartCommand` | generated async command | Begins a streaming session |
 | `StopCommand` | generated async command (`AllowConcurrentExecutions`) | Ends the in-flight session |
 
-Implements `IAsyncDisposable`: disposing stops and releases an active session and the cached
-engine, and unsubscribes from `IModelCatalogService.ModelInstalled` and the shared
+Private state also includes the cached engine, session, result-pump task, and the cached
+push-to-talk `PreRollAudioCaptureDevice` (`_captureDevice`) with the raw microphone it wraps
+(`_rawCaptureDevice`).
+
+Implements `IAsyncDisposable`: disposing stops and releases an active session, the cached
+engine, and the cached capture device, and unsubscribes from `IModelCatalogService.ModelInstalled` and the shared
 `DeviceSelectionViewModel`'s property-change notifications and pre-refresh hook (both registered in
 the constructor), all idempotently, so a shell shutting down never leaks unmanaged inference
 resources, a live capture device, or a stale event subscription.
@@ -57,6 +61,19 @@ resources, a live capture device, or a stale event subscription.
   disposes and clears the engine) only when the selected model changes; the cached session alone
   is invalidated whenever the selected capture device changes or the shared device-selection panel
   forces a device refresh - a session, not an engine, is bound to a capture device.
+- **Push-to-talk pre-roll**: Start and Stop are used like a push-to-talk button, and people start
+  speaking as they press it. `AcquireCaptureDevice` therefore wraps the selected microphone in a
+  library `PreRollAudioCaptureDevice` (default 300 ms pre-roll) and caches it in
+  `_captureDevice`, reusing it for every Start while it stays available and the current capture
+  selection still equals the selection it was created for (`_captureDeviceSelection`) - so a Start
+  that reaches the lifecycle gate before the fire-and-forget capture-device change handler can never
+  bind a new session to the previously selected microphone. Each new session bound to
+  it receives the audio captured just before Start as its first block, and the session's graceful
+  stop delivers the final result before Stop completes. `ReleaseCaptureDevice` disposes the cached
+  device - closing the microphone the pre-roll keeps open between cycles - on a capture-device
+  change, before a shared device refresh, when a session fails to start, and on `DisposeAsync()`.
+  A model change keeps it, since a device is not bound to a model. The temporary
+  `CaptureDebugRecorder` taps the raw microphone (`_rawCaptureDevice`), not the wrapper.
 - **Serialized lifecycle**: Start, Stop, capture-device change, model change, shared-refresh
   pre-hook and `DisposeAsync()` all run their body while holding a single lifecycle gate (a
   `SemaphoreSlim(1,1)`). The command attribute `AllowConcurrentExecutions` only lets command
@@ -111,7 +128,8 @@ resources, a live capture device, or a stale event subscription.
   changes on the UI thread.
 - **Start algorithm** (`StartAsync()`):
   1. Reports `NoModelSelectedMessage` and enters `Error` when no model is selected.
-  2. Creates the capture device through `IAudioDeviceService` before paying for the comparatively
+  2. Acquires the capture device (the cached pre-roll device, or a new one created through
+     `IAudioDeviceService` and wrapped) before paying for the comparatively
      expensive async engine load, so an honest "no device" outcome does not depend on what the
      engine-loading seam happens to return; reports `NoCaptureDeviceMessage` and enters `Error`
      when it is unavailable.
@@ -125,7 +143,8 @@ resources, a live capture device, or a stale event subscription.
   6. Clears `Finals`, `Partial`, and `StatusMessage`; captures the current
      `SynchronizationContext`; subscribes `StateChanged`; and calls `session.StartAsync()`.
   7. On `SpeechRecognizerUnavailableException` from `StartAsync()`, unsubscribes, disposes the
-     session, reports the exception's message, and enters `Error`.
+     session, releases the cached capture device, reports the exception's message, and enters
+     `Error`.
   8. On success, starts a background pump task (`PumpResultsAsync`) over `session.GetResultsAsync`,
      stored for later awaiting/canceling on Stop, invalidation, or disposal.
 - **Transcript sequencing**: `PumpResultsAsync` runs an `await foreach` over
@@ -173,7 +192,7 @@ resources, a live capture device, or a stale event subscription.
 - `IModelCatalogService`, `IAudioDeviceService`, the shared `DeviceSelectionViewModel`, and
   `IRecognizerSessionFactory`
 - The library's `ISpeechRecognizerEngine`, `IRecognitionSession` and recognition state/exception
-  types
+  types, and its `PreRollAudioCaptureDevice` for push-to-talk pre-roll
 - `CaptureDebugRecorder` for opt-in diagnostic recording (see the subsystem design)
 
 **Callers**:
