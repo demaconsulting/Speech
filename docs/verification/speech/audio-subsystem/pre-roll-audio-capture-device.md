@@ -25,7 +25,8 @@ starts the underlying device once and never stops it between runs, while a zero 
 on every `Stop` and delivers nothing captured while stopped; disposal stops the underlying device
 once and leaves the device unavailable and unable to start; the default pre-roll is 300 ms and the
 reported format is the underlying device's; blocks the underlying device raises during its own first
-start are delivered; a finite WAV file source is rejected; invalid constructor arguments throw the documented
+start are delivered; unsubscribing while a block is being raised waits for it to be delivered and later
+audio becomes pre-roll; a finite WAV file source is rejected; invalid constructor arguments throw the documented
 exceptions; and an unavailable underlying device is reported as unavailable and rejected by
 `Start`.
 
@@ -70,6 +71,14 @@ exceptions; and an unavailable underlying device is reported as unavailable and 
 ##### Start: Blocks Raised During the Underlying Device's Own Start Are Delivered
 
 **Test**: `PreRollAudioCaptureDevice_Start_DeviceRaisesFramesDuringItsOwnStart_DeliversThem`
+
+##### Unsubscribe: Waits for an In-Flight Block, Then Later Audio Becomes Pre-Roll
+
+**Test**: `PreRollAudioCaptureDevice_Unsubscribe_WhileBlockBeingRaised_DeliversItThenBuffersLaterAudio`
+
+A subscriber blocks inside its first block while another thread unsubscribes it; the unsubscribe
+has not returned while the block is still being raised, the block is delivered exactly once, and a
+block captured afterwards is the next run's pre-roll.
 
 ##### Constructor: Finite File Source Is Rejected
 

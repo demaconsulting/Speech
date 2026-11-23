@@ -259,6 +259,52 @@ public class PreRollAudioCaptureDeviceTests
         Assert.Throws<ArgumentException>(() => new PreRollAudioCaptureDevice(fileSource));
     }
 
+    /// <summary>
+    ///     Proves the handoff between a stopping subscriber and the pre-roll buffer loses nothing:
+    ///     unsubscribing while a block is being raised to that subscriber waits until it has been
+    ///     delivered, and a block captured after the unsubscribe becomes pre-roll instead.
+    /// </summary>
+    [Fact(Timeout = 60000)]
+    public async Task PreRollAudioCaptureDevice_Unsubscribe_WhileBlockBeingRaised_DeliversItThenBuffersLaterAudio()
+    {
+        // Arrange: a running device whose only subscriber blocks inside its first block
+        var inner = CreateInnerDevice(sampleRate: 1000, channelCount: 1);
+        using var device = new PreRollAudioCaptureDevice(inner);
+        using var handlerEntered = new ManualResetEventSlim(false);
+        using var releaseHandler = new ManualResetEventSlim(false);
+        var stoppingSubscriberReceived = new List<float[]>();
+        void StoppingSubscriber(object? sender, AudioCaptureFrameEventArgs e)
+        {
+            stoppingSubscriberReceived.Add([.. e.Samples]);
+            handlerEntered.Set();
+            releaseHandler.Wait(TestContext.Current.CancellationToken);
+        }
+
+        device.FrameCaptured += StoppingSubscriber;
+        device.Start();
+        var raise = Task.Run(() => RaiseFrame(inner, [1f]), TestContext.Current.CancellationToken);
+        Assert.True(handlerEntered.Wait(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+
+        // Act: the subscriber unsubscribes while its block is still being raised
+        var unsubscribe = Task.Run(() => { device.FrameCaptured -= StoppingSubscriber; }, TestContext.Current.CancellationToken);
+        var unsubscribedWhileRaising = await Task.WhenAny(unsubscribe, Task.Delay(100, TestContext.Current.CancellationToken)) == unsubscribe;
+        releaseHandler.Set();
+        await raise;
+        await unsubscribe;
+
+        // Act: audio arrives with nobody subscribed, then the next run starts
+        RaiseFrame(inner, [2f]);
+        var nextRun = Record(device);
+        device.Stop();
+        device.Start();
+
+        // Assert: the unsubscribe waited for the in-flight block, which was delivered once; the
+        // later block became the next run's pre-roll
+        Assert.False(unsubscribedWhileRaising);
+        Assert.Equal([1f], Assert.Single(stoppingSubscriberReceived));
+        Assert.Equal([2f], Assert.Single(nextRun));
+    }
+
     /// <summary>Builds an available substitute capture device with the given format.</summary>
     private static IAudioCaptureDevice CreateInnerDevice(int sampleRate, int channelCount)
     {

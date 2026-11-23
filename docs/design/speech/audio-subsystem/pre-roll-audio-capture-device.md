@@ -49,6 +49,13 @@ the device is the only object that lives across presses.
   Audio arriving while a stopping session has already unsubscribed is therefore kept as pre-roll
   for the next run, and audio already delivered is never delivered again, so a repeated press
   cannot duplicate words.
+- **FrameCaptured add/remove**: the handler list is changed under its own small lock; `remove`
+  then acquires the delivery lock once as a barrier, so it returns only after a block already
+  being raised (possibly to the leaving subscriber) has been fully delivered, and every later
+  block sees the new handler list. A block caught at the handoff between a stopping session and
+  the pre-roll buffer therefore reaches exactly one of them. Because `remove` can wait for a
+  handler to finish, a subscriber must not unsubscribe while holding a lock its own handler needs
+  (`RecognitionSession` unsubscribes outside its state lock for this reason).
 
 **Error Handling**: The constructor throws `ArgumentNullException` for a null device,
 `ArgumentException` for a `WavFileAudioCaptureDevice`, and

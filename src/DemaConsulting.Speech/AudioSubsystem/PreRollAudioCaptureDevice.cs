@@ -62,6 +62,12 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     /// <summary>Serializes <see cref="Start"/>, <see cref="Stop"/>, and <see cref="Dispose"/>.</summary>
     private readonly object _lifecycleLock = new();
 
+    /// <summary>Guards changes to <see cref="_frameCaptured"/>.</summary>
+    private readonly object _handlersLock = new();
+
+    /// <summary>The subscribers of <see cref="FrameCaptured"/>; read with <see cref="Volatile"/> when raising.</summary>
+    private EventHandler<AudioCaptureFrameEventArgs>? _frameCaptured;
+
     /// <summary>
     ///     Guards the delivery state and the pre-roll buffer, which the underlying device's capture
     ///     callback and <see cref="Start"/> both touch. Held while raising
@@ -156,8 +162,38 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     /// <remarks>
     ///     Raised on the underlying device's capture thread for live audio, and synchronously from
     ///     <see cref="Start"/> for the one pre-roll block (when any audio was buffered).
+    ///     Unsubscribing waits for a block that is already being raised to finish, so once the
+    ///     <c>remove</c> returns the handler receives nothing more, and a block raised to it before
+    ///     that has been fully delivered - a block is never half-delivered at the handoff between a
+    ///     stopping subscriber and the pre-roll buffer. Do not unsubscribe while holding a lock that
+    ///     a handler needs.
     /// </remarks>
-    public event EventHandler<AudioCaptureFrameEventArgs>? FrameCaptured;
+    public event EventHandler<AudioCaptureFrameEventArgs>? FrameCaptured
+    {
+        add
+        {
+            lock (_handlersLock)
+            {
+                _frameCaptured += value;
+            }
+        }
+
+        remove
+        {
+            lock (_handlersLock)
+            {
+                _frameCaptured -= value;
+            }
+
+            lock (_deliveryLock)
+            {
+                // Barrier: blocks are raised while holding the delivery lock, so acquiring it
+                // here waits for a block already being raised (possibly to this handler) to
+                // finish. Every block raised after this point sees the updated handler list and,
+                // if nobody is left to receive it, goes to the pre-roll buffer instead.
+            }
+        }
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -235,7 +271,7 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
                 _delivering = true;
                 if (preRoll.Length > 0)
                 {
-                    FrameCaptured?.Invoke(this, new AudioCaptureFrameEventArgs(preRoll));
+                    Volatile.Read(ref _frameCaptured)?.Invoke(this, new AudioCaptureFrameEventArgs(preRoll));
                 }
             }
         }
@@ -333,7 +369,7 @@ public sealed class PreRollAudioCaptureDevice : IAudioCaptureDevice, IDisposable
     {
         lock (_deliveryLock)
         {
-            var handlers = FrameCaptured;
+            var handlers = Volatile.Read(ref _frameCaptured);
             if (_delivering && handlers is not null)
             {
                 handlers.Invoke(this, e);

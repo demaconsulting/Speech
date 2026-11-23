@@ -168,6 +168,24 @@ stop of a file source whose backend call never returns is still abandoned (with 
 diagnostic) and converges on `Stopped`, because the cancellation itself starts the abandon
 deadline.
 
+##### Stop Never Hangs on Stuck Capture
+
+**Tests**: `RecognitionSession_StopAsync_CallbackStuckPastAbandonInterval_CompletesAndReportsWarning`,
+`RecognitionSession_StopAsync_CanceledWhileDeviceStartNeverReturns_StillConverges`
+
+A capture callback blocked inside the session past the abandon interval does not hang the stop:
+the session reaches `Stopped` and a `Warning` names the still-running callback. A canceled stop
+while the device's `Start()` never returns reaches `Stopped` and can be disposed with a `Warning`;
+the device is stopped only after its start is released.
+
+##### File Source: Graceful Stop During Start Keeps the Whole File
+
+**Test**: `RecognitionSession_WavFileSource_StopDuringStart_GracefulStopRecognizesWholeFile`
+
+A graceful stop issued while a 200-block file is still being delivered from inside the device's
+start (the backend held blocked) completes only after every sample of the file has reached the
+backend.
+
 ##### Slow-But-Progressing Drain
 
 N/A as a test - deterministic proof would require timing assertions, which this verification

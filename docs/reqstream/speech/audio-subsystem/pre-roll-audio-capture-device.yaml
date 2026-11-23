@@ -55,6 +55,18 @@ sections:
                 tests:
                   - PreRollAudioCaptureDevice_Start_DeviceRaisesFramesDuringItsOwnStart_DeliversThem
 
+              - id: Speech-Audio-PreRollAudioCaptureDevice-HandoffLossless
+                title: >-
+                  When a subscriber of the PreRollAudioCaptureDevice class unsubscribes while a
+                  block is being raised to it, the class shall finish delivering that block before
+                  the unsubscribe returns and shall keep later blocks as pre-roll.
+                justification: |
+                  A recognition session unsubscribes when it stops; a block caught between that
+                  session and the pre-roll buffer must reach one of them, or the end of one answer
+                  or the start of the next is lost.
+                tests:
+                  - PreRollAudioCaptureDevice_Unsubscribe_WhileBlockBeingRaised_DeliversItThenBuffersLaterAudio
+
               - id: Speech-Audio-PreRollAudioCaptureDevice-FiniteSourceRejected
                 title: >-
                   The PreRollAudioCaptureDevice class shall reject a finite WAV file capture device

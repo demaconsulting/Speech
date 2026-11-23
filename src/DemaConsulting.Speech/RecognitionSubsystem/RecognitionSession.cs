@@ -159,6 +159,13 @@ internal sealed class RecognitionSession : IRecognitionSession
     private volatile bool _discardRequested;
 
     /// <summary>
+    ///     Completed together with <see cref="_discardRequested"/>, so teardown can stop waiting on
+    ///     a device start that never returns once a caller cancels (see
+    ///     <see cref="WaitForDeviceStartAsync"/>).
+    /// </summary>
+    private readonly TaskCompletionSource _discardRequestedSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
     ///     1 while the session accepts captured blocks (from start until a stop or fault is
     ///     accepted), otherwise 0. Written with <see cref="Interlocked"/> so, together with
     ///     <see cref="_callbacksInFlight"/>, it forms the barrier described on
@@ -168,9 +175,9 @@ internal sealed class RecognitionSession : IRecognitionSession
 
     /// <summary>
     ///     The number of capture callbacks currently executing <see cref="OnFrameCaptured"/>.
-    ///     Teardown of a live source waits for this to reach zero before completing the queue,
-    ///     so a block whose callback was already running when the stop was accepted is still
-    ///     queued and recognized rather than lost.
+    ///     Teardown waits for this to reach zero before completing the queue, so a block whose
+    ///     callback was already running when the session stopped accepting audio is still queued
+    ///     and recognized rather than lost.
     /// </summary>
     private int _callbacksInFlight;
     /// <summary>This session's current lifecycle state.</summary>
@@ -415,7 +422,10 @@ internal sealed class RecognitionSession : IRecognitionSession
             _pendingFrames = frames;
 
             // Start the pump thread first so the channel is already being drained the instant
-            // the device starts emitting blocks (see the remarks above).
+            // the device starts emitting blocks (see the remarks above). Blocks raised
+            // synchronously from inside the device's Start() (a file source, or a pre-roll device
+            // replaying its buffer) are recognized even when a graceful stop arrives before
+            // Start() returns: teardown waits for the start before it stops accepting audio.
             _pumpCts = new CancellationTokenSource();
             _pumpTask = _worker.RunAsync(PumpLoop, _pumpCts.Token, out var pumpCompletion);
             _pumpRawCompletion = pumpCompletion;
@@ -459,29 +469,33 @@ internal sealed class RecognitionSession : IRecognitionSession
         }
         catch (Exception ex)
         {
+            var rollBack = false;
             lock (_syncRoot)
             {
                 if (_state == RecognitionSessionState.Starting)
                 {
-                    // Roll back the subscription and let the already-running pump drain out and
-                    // exit on its own (it reacts only to the channel completing, never to
-                    // _pumpCts - see PumpLoop's remarks) so this session leaks neither the
-                    // subscription nor the dedicated pump thread even if nobody ever calls
-                    // StopAsync/DisposeAsync on this now-Faulted session. Resetting the backend
-                    // and stopping the device are still deferred to that eventual teardown call,
-                    // exactly as for any other fault, since releasing the engine's lease still
-                    // requires one.
-                    _device.FrameCaptured -= OnFrameCaptured;
-                    Interlocked.Exchange(ref _acceptingFrames, 0);
-                    _pendingFrames.Writer.TryComplete();
                     finalArgs = TransitionTo(RecognitionSessionState.Faulted);
+                    rollBack = true;
                 }
                 else
                 {
                     // A concurrent teardown already moved this session on while the device was
-                    // still starting; it already unsubscribed/completed the channel itself.
+                    // still starting; it stops accepting audio and completes the channel itself.
                     finalArgs = null;
                 }
+            }
+
+            if (rollBack)
+            {
+                // Roll back the subscription and let the already-running pump drain out and
+                // exit on its own (it reacts only to the channel completing, never to _pumpCts -
+                // see PumpLoop's remarks) so this session leaks neither the subscription nor the
+                // dedicated pump thread even if nobody ever calls StopAsync/DisposeAsync on this
+                // now-Faulted session. Done outside _syncRoot: see StopAcceptingFrames. Resetting
+                // the backend and stopping the device are still deferred to that eventual
+                // teardown call, exactly as for any other fault, since releasing the engine's
+                // lease still requires one.
+                StopAcceptingFrames();
             }
 
             if (finalArgs is not null)
@@ -622,7 +636,9 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// </summary>
     /// <remarks>
     ///     Safe to call from any thread, any number of times, including after teardown has
-    ///     disposed the pump's cancellation source (the late cancel is then a no-op).
+    ///     disposed the pump's cancellation source (the late cancel is then a no-op). For a finite
+    ///     file source it also completes the queue at once, releasing a file reader blocked on
+    ///     backpressure - the rest of the file is being discarded anyway.
     /// </remarks>
     private void RequestDiscard()
     {
@@ -631,6 +647,12 @@ internal sealed class RecognitionSession : IRecognitionSession
         {
             _discardRequested = true;
             pumpCts = _pumpCts;
+        }
+
+        _discardRequestedSignal.TrySetResult();
+        if (_isFiniteSource)
+        {
+            _pendingFrames?.Writer.TryComplete();
         }
 
         CancelQuietly(pumpCts);
@@ -719,20 +741,12 @@ internal sealed class RecognitionSession : IRecognitionSession
             stoppingArgs = TransitionTo(RecognitionSessionState.Stopping);
         }
 
-        // Unsubscribing and closing the acceptance gate synchronously, while still holding the
-        // lock, is the point at which this stop is accepted: no block whose callback starts after
-        // this is queued. A live source's queue is completed later by RunTeardownAsync, only once
-        // every callback that was already running has queued its block (see OnFrameCaptured), so
-        // that block is not lost; this never blocks here, because a live callback never waits.
-        // A finite file source's queue is completed right away instead: its reader thread may be
-        // blocked on backpressure, and completing the queue is what releases it - the rest of a
-        // stopped file is not part of the session.
-        _device.FrameCaptured -= OnFrameCaptured;
-        Interlocked.Exchange(ref _acceptingFrames, 0);
-        if (_isFiniteSource)
-        {
-            _pendingFrames?.Writer.TryComplete();
-        }
+        // Nothing here touches the capture device or the queue: RunTeardownAsync stops accepting
+        // captured audio (see StopAcceptingFrames) once any in-progress device start has
+        // returned. Unsubscribing here, under _syncRoot, could deadlock against a capture
+        // callback that is itself waiting for _syncRoot (FaultSession), because a decorating
+        // device's unsubscribe waits for a callback it is already dispatching. Audio captured
+        // until then is simply recognized as part of this session.
 
         // Publish a not-yet-running placeholder task immediately so every concurrent caller
         // still observes exactly one shared teardown operation; only the winning caller actually
@@ -806,29 +820,19 @@ internal sealed class RecognitionSession : IRecognitionSession
             // task - and therefore any concurrent StopAsync/DisposeAsync awaiting it - cannot
             // complete until the device has genuinely finished starting. Any exception from a
             // failed/abandoned start is already reported and surfaced by StartAsync's own
-            // continuation; nothing further to do with it here.
-            if (deviceStartRawCompletion is not null)
-            {
-                try
-                {
-                    await deviceStartRawCompletion.ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Already handled/reported by StartAsync's own continuation.
-                }
-            }
+            // continuation; nothing further to do with it here. The one exception is a
+            // discarding stop (a canceled StopAsync): a caller that canceled must not wait
+            // forever on a device whose Start() never returns, so WaitForDeviceStartAsync then
+            // gives the start one abandon interval and, if it is still running, lets teardown
+            // converge without it - stopping the device later, once its start finally returns.
+            var deviceStartAbandoned = deviceStartRawCompletion is not null &&
+                                       !await WaitForDeviceStartAsync(deviceStartRawCompletion).ConfigureAwait(false);
 
-            // A live source's queue is completed only now, once every capture callback that was
-            // already running when the stop was accepted has queued its block (see
-            // OnFrameCaptured and EnsureTeardownStartedLocked). Live callbacks never block, so this
-            // wait is normally a few microseconds; it is bounded by the abandon interval anyway so
-            // a pathological host handler can never hang teardown.
-            if (!_isFiniteSource)
-            {
-                SpinWait.SpinUntil(() => Volatile.Read(ref _callbacksInFlight) == 0, _worker.AbandonTimeout);
-                _pendingFrames?.Writer.TryComplete();
-            }
+            // Stop accepting captured audio only now (see EnsureTeardownStartedLocked for why it is
+            // not done there): every block already captured - including one whose callback is
+            // still running, and for a file source the rest of a file whose synchronous Start()
+            // has now returned - is queued and recognized before the queue completes.
+            StopAcceptingFrames();
 
             // The pump thread itself never observes pumpCts while draining (see PumpLoop's
             // remarks); canceling it only starts DedicatedWorker's abandon deadline for a pump
@@ -882,6 +886,16 @@ internal sealed class RecognitionSession : IRecognitionSession
             _resultBuffer.Complete();
             ReportDroppedLiveAudio();
 
+            // A device whose start was abandoned is stopped only once that start genuinely
+            // returns (device.Stop() must never run concurrently with device.Start()). Nothing
+            // waits for it: the stuck start does not touch the shared backend, so neither this
+            // teardown nor the lease release in DisposeCoreAsync is held up by it.
+            var stopDevice = !deviceStartAbandoned;
+            if (deviceStartAbandoned)
+            {
+                _ = StopDeviceAfterStartReturnsAsync(deviceStartRawCompletion!);
+            }
+
             if (abandoned)
             {
                 // Defer only the backend reset/device stop until the pump thread's own raw
@@ -891,14 +905,14 @@ internal sealed class RecognitionSession : IRecognitionSession
                 // stop/dispose never hangs its caller.
                 lock (_syncRoot)
                 {
-                    _deferredBackendTeardown = ResetBackendAndStopDeviceAsync(pumpRawCompletion);
+                    _deferredBackendTeardown = ResetBackendAndStopDeviceAsync(pumpRawCompletion, stopDevice);
                 }
             }
             else
             {
                 // The pump thread already genuinely exited (it was not abandoned above, or there was
                 // no pump to begin with), so it is safe to reset the backend and stop the device now.
-                ResetBackendAndStopDeviceCore();
+                ResetBackendAndStopDeviceCore(stopDevice);
             }
 
             SessionStateChangedEventArgs? stoppedArgs = null;
@@ -996,11 +1010,16 @@ internal sealed class RecognitionSession : IRecognitionSession
 
     /// <summary>
     ///     Awaits <paramref name="pumpRawCompletion"/> (the pump thread's own raw completion),
-    ///     then resets the shared recognition backend and stops the capture device - used only
-    ///     when the pump worker was abandoned, so the shared backend is never
+    ///     then resets the shared recognition backend and (unless told not to) stops the capture
+    ///     device - used only when the pump worker was abandoned, so the shared backend is never
     ///     touched while that thread may still be inside it.
     /// </summary>
-    private async Task ResetBackendAndStopDeviceAsync(Task? pumpRawCompletion)
+    /// <param name="pumpRawCompletion">The pump thread's raw completion, or <see langword="null"/> for none.</param>
+    /// <param name="stopDevice">
+    ///     <see langword="false"/> when the device's own start was abandoned and is stopped
+    ///     separately once that start returns (see <see cref="StopDeviceAfterStartReturnsAsync"/>).
+    /// </param>
+    private async Task ResetBackendAndStopDeviceAsync(Task? pumpRawCompletion, bool stopDevice)
     {
         if (pumpRawCompletion is not null)
         {
@@ -1016,14 +1035,15 @@ internal sealed class RecognitionSession : IRecognitionSession
             }
         }
 
-        ResetBackendAndStopDeviceCore();
+        ResetBackendAndStopDeviceCore(stopDevice);
     }
 
     /// <summary>
-    ///     Resets the shared recognition backend and stops the capture device, reporting (rather
-    ///     than throwing) any failure from either step.
+    ///     Resets the shared recognition backend and (unless told not to) stops the capture
+    ///     device, reporting (rather than throwing) any failure from either step.
     /// </summary>
-    private void ResetBackendAndStopDeviceCore()
+    /// <param name="stopDevice">Whether to stop the capture device as well.</param>
+    private void ResetBackendAndStopDeviceCore(bool stopDevice)
     {
         try
         {
@@ -1037,6 +1057,15 @@ internal sealed class RecognitionSession : IRecognitionSession
                 $"Failed to reset the recognition backend after stopping: {ex.Message}");
         }
 
+        if (stopDevice)
+        {
+            StopDeviceCore();
+        }
+    }
+
+    /// <summary>Stops the capture device, reporting (rather than throwing) any failure.</summary>
+    private void StopDeviceCore()
+    {
         try
         {
             _device.Stop();
@@ -1048,6 +1077,104 @@ internal sealed class RecognitionSession : IRecognitionSession
                 DiagnosticsCategory,
                 $"Failed to stop the capture device after recognition: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    ///     Waits for an in-progress capture-device start to return before teardown touches the
+    ///     device, except that a discarding stop waits at most one abandon interval once the
+    ///     discard is requested.
+    /// </summary>
+    /// <param name="deviceStartRawCompletion">The device-start worker's raw completion.</param>
+    /// <returns>
+    ///     <see langword="true"/> once the start has returned; <see langword="false"/> when a
+    ///     discarding stop gave up waiting for it (reported as a warning diagnostic).
+    /// </returns>
+    /// <remarks>
+    ///     A graceful stop must keep waiting: a synchronous source such as a file, or a pre-roll
+    ///     device replaying its buffer, is still delivering audio that belongs to the session from
+    ///     inside its <c>Start()</c>. A caller who canceled, however, has asked not to wait, and a
+    ///     device whose native start never returns must not hang that teardown.
+    /// </remarks>
+    private async Task<bool> WaitForDeviceStartAsync(Task deviceStartRawCompletion)
+    {
+        var first = await Task.WhenAny(deviceStartRawCompletion, _discardRequestedSignal.Task).ConfigureAwait(false);
+        if (first != deviceStartRawCompletion)
+        {
+            using var intervalCts = new CancellationTokenSource();
+            var interval = Task.Delay(_worker.AbandonTimeout, intervalCts.Token);
+            if (await Task.WhenAny(deviceStartRawCompletion, interval).ConfigureAwait(false) != deviceStartRawCompletion)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Warning,
+                    DiagnosticsCategory,
+                    "The capture device did not finish starting within the abandon interval of a canceled stop; " +
+                    "teardown continues without it and the device is stopped once its start returns.");
+                return false;
+            }
+
+            await intervalCts.CancelAsync().ConfigureAwait(false);
+        }
+
+        try
+        {
+            await deviceStartRawCompletion.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Already handled/reported by StartAsync's own continuation.
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     Stops the capture device once an abandoned start finally returns, so the device is
+    ///     never left running and never stopped concurrently with its own start.
+    /// </summary>
+    /// <param name="deviceStartRawCompletion">The device-start worker's raw completion.</param>
+    private async Task StopDeviceAfterStartReturnsAsync(Task deviceStartRawCompletion)
+    {
+        try
+        {
+            await deviceStartRawCompletion.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Already handled/reported by StartAsync's own continuation.
+        }
+
+        StopDeviceCore();
+    }
+
+    /// <summary>
+    ///     Stops this session receiving captured audio and completes its pending-frame queue:
+    ///     unsubscribes from the device, closes the acceptance gate, waits for capture callbacks
+    ///     that are already running to finish queuing their blocks, and only then completes the
+    ///     queue so the pump can drain it and exit.
+    /// </summary>
+    /// <remarks>
+    ///     Must never be called while holding <see cref="_syncRoot"/>: a capture callback may be
+    ///     waiting for that lock (<see cref="FaultSession"/>), and a decorating device such as
+    ///     <see cref="PreRollAudioCaptureDevice"/> makes unsubscribing wait for a block it is
+    ///     already dispatching to this session. The wait for in-flight callbacks is bounded by the
+    ///     abandon interval; a callback still running after that (a host handler blocked inside
+    ///     the session's diagnostics sink, for example) is reported as a warning diagnostic,
+    ///     because a block it may still be delivering is then not recognized. Idempotent.
+    /// </remarks>
+    private void StopAcceptingFrames()
+    {
+        _device.FrameCaptured -= OnFrameCaptured;
+        Interlocked.Exchange(ref _acceptingFrames, 0);
+        if (!SpinWait.SpinUntil(() => Volatile.Read(ref _callbacksInFlight) == 0, _worker.AbandonTimeout))
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                "A capture callback was still running when the stop's abandon interval elapsed; " +
+                "a block it was still delivering is not part of the recognized audio.");
+        }
+
+        _pendingFrames?.Writer.TryComplete();
     }
 
     /// <inheritdoc/>
@@ -1206,11 +1333,12 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     Unsubscribing does not wait for a callback that is already running, so this method and
     ///     teardown share a barrier: the callback first counts itself in
     ///     <see cref="_callbacksInFlight"/> and then checks <see cref="_acceptingFrames"/>, while
-    ///     teardown first clears <see cref="_acceptingFrames"/> (the moment the stop is accepted)
-    ///     and then, for a live source, waits for the in-flight count to reach zero before it
-    ///     completes the queue. Both steps use full fences, so either the callback sees the stop
-    ///     and drops a block that arrived after it, or teardown sees the callback and waits for its
-    ///     block to be queued - a block captured before the stop is never lost to the race.
+    ///     teardown (<see cref="StopAcceptingFrames"/>) unsubscribes, clears
+    ///     <see cref="_acceptingFrames"/>, and waits for the in-flight count to reach zero before
+    ///     it completes the queue. Both steps use full fences, so either the callback sees the
+    ///     closed gate and drops a block that arrived after it, or teardown sees the callback and
+    ///     waits for its block to be queued - a block captured before the stop is never lost to
+    ///     the race.
     /// </remarks>
     private void OnFrameCaptured(object? sender, AudioCaptureFrameEventArgs e)
     {

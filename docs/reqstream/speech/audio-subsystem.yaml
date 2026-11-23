@@ -306,6 +306,7 @@ sections:
               - Speech-Audio-PreRollAudioCaptureDevice-MostRecentPreRollOnly
               - Speech-Audio-PreRollAudioCaptureDevice-NoReplay
               - Speech-Audio-PreRollAudioCaptureDevice-NoStartupLoss
+              - Speech-Audio-PreRollAudioCaptureDevice-HandoffLossless
               - Speech-Audio-PreRollAudioCaptureDevice-FiniteSourceRejected
               - Speech-Audio-PreRollAudioCaptureDevice-ConfigurableDuration
               - Speech-Audio-PreRollAudioCaptureDevice-KeepsCapturingBetweenRuns
