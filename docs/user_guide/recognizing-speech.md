@@ -87,16 +87,23 @@ Points worth knowing:
 - **Results are delivered through a dedicated worker thread, not the audio callback thread.**
   `GetResultsAsync` streams events produced by the session's own dedicated decoding thread, which
   pumps captured audio through the recognition backend independently of the audio device's own
-  callback thread. Two bounded buffers isolate a slow consumer from that pump: captured audio
-  waiting to be decoded queues in a bounded, drop-oldest buffer, and converted results queue in a
-  backpressure buffer that coalesces unread provisional results into a single "latest" slot while
-  keeping every final result in an unbounded FIFO — a final result is never dropped or evicted.
+  callback thread. Two buffers isolate a slow recognizer and a slow consumer from that pump:
+  captured audio waiting to be decoded queues losslessly (the audio callback never blocks, and a
+  recognizer that falls briefly behind catches up rather than losing words; only a backlog of more
+  than one minute is trimmed, and that is reported as a warning diagnostic), and converted results
+  queue in a backpressure buffer that coalesces unread provisional results into a single "latest"
+  slot while keeping every final result in an unbounded FIFO — a final result is never dropped or
+  evicted.
   A single concurrent
   `GetResultsAsync` enumeration is supported per session; a second overlapping call throws
   `InvalidOperationException`.
-- **`StopAsync` does not lose the tail of an utterance.** It drains audio already captured before
-  the call, so every result derived from it is enumerable via `GetResultsAsync` by the time
-  `StopAsync` returns.
+- **`StopAsync` does not lose the tail of an utterance.** It stops capture, decodes all audio
+  already captured, flushes the recognizer so the last word is finalized, and buffers every final
+  result before it returns, so all of them are enumerable via `GetResultsAsync` by the time
+  `StopAsync` returns. Only cancellation discards: if the token passed to `StopAsync` is canceled,
+  audio not yet decoded is dropped, no flush is performed, and the call ends with
+  `OperationCanceledException`. Pass no token (or `CancellationToken.None`) when you want the
+  answer.
 - **Dispose the session (and eventually the engine).** A real session holds a capture-device
   subscription and the engine's exclusivity lease; disposal releases both and implies `StopAsync`.
   Disposal is idempotent, and disposing the unavailable fallback is a safe no-op. A session is
@@ -163,6 +170,52 @@ only silence, so it does not invent words after the last spoken word. A download
 mirror serves its bundle from
 `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/nemotron-3.5-asr-streaming-0.6b-20261011-int4-b1.zip`. See
 "Synthesizing Speech" below for the production synthesis models.
+
+## Push-to-talk
+
+For push-to-talk, keep one engine and create a new session for every press: a stopped session is
+single-use, and each new session starts a clean utterance. People start speaking as they press
+the button, so wrap the microphone once in a `PreRollAudioCaptureDevice` and bind every session to
+that same wrapper. It keeps the microphone open between presses and delivers the last 300 ms
+captured before each `StartAsync` as the session's first audio, so the first syllable is not
+clipped. Pass a different `TimeSpan` to change the pre-roll, or `TimeSpan.Zero` to turn it off (the
+microphone is then closed between presses). Dispose the wrapper when the user changes microphone,
+before `AudioDeviceFactory.RefreshDevices()`, and on shutdown, to close the microphone.
+
+```csharp
+using var pushToTalk = new PreRollAudioCaptureDevice(captureDevice); // 300 ms pre-roll
+
+// On each button press:
+await using var session = await engine.CreateSessionAsync(pushToTalk);
+var results = Task.Run(async () =>
+{
+    await foreach (var evt in session.GetResultsAsync())
+    {
+        // ... show evt.Result ...
+    }
+});
+await session.StartAsync();
+
+// On release: every final result is buffered before StopAsync returns.
+await session.StopAsync();
+await results;
+```
+
+The demo application's speech-to-text panel works this way.
+
+## Known limitation: short isolated answers
+
+Both streaming Nemotron models - `OnnxNemotronMultilingualRecognitionModel` (ONNX) and
+`SherpaOnnxNemotronStreamingEnRecognitionModel` (Sherpa) - may return no text for a very short,
+one-word answer spoken on its own, such as "yes", "no" or "okay". The project's evaluation found
+this is a limitation of the models themselves: it remains with a complete end-of-speech flush,
+extra trailing or leading silence, and lossless capture. Until it is solved:
+
+- prompt for longer answers ("yes please", "no thank you"), which give the models more speech to
+  recognize, or
+- confirm the choice through the user interface (for example a button) rather than by voice.
+
+A better solution is planned.
 
 ## Reading WAV and FLAC files
 

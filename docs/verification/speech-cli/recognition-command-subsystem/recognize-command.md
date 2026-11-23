@@ -95,6 +95,14 @@ over a fake session whose `StopAsync` throws when given a canceled token.
 **Expected**: No exception escapes, the exit code is `0`, `StopAsync` was called twice (the second
 with a non-cancelable token) and the session and engine are disposed.
 
+##### RecognizeCommand_Run_MicModeCanceled_StopsGracefullyAndPrintsTrailingFinal
+
+**Scenario**: A microphone-mode run whose cancellation token is canceled as soon as listening
+starts, over a fake session whose stop produces a trailing final result.
+
+**Expected**: The exit code is `0`, the session was stopped exactly once (gracefully), and the
+trailing final result was printed before the command finished.
+
 ##### RecognizeCommand_ParseArguments_NullArgs_ThrowsArgumentNullException
 
 **Scenario**: `ParseArguments` receives a null argument list.

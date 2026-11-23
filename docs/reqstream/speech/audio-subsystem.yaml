@@ -291,6 +291,30 @@ sections:
               - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
               - WavFileAudioCaptureDevice_Start_FixtureFile_RaisesEndOfFileReachedExactlyOnceAfterLastFrame
 
+          - id: Speech-Audio-PreRollCapture
+            title: >-
+              The AudioSubsystem shall provide a push-to-talk capture device that keeps capturing
+              between runs and delivers the most recent audio captured before each start, with a
+              configurable pre-roll that can be disabled.
+            justification: |
+              Push-to-talk hosts start capture when a button is pressed, but people start
+              speaking as they press it; without the audio from just before the press, the first
+              syllable - often the whole of a short answer such as "yes" - is clipped. This is a
+              deliberate grouping parent: each child requirement states one criterion.
+            children:
+              - Speech-Audio-PreRollAudioCaptureDevice-DeliversPreRollFirst
+              - Speech-Audio-PreRollAudioCaptureDevice-MostRecentPreRollOnly
+              - Speech-Audio-PreRollAudioCaptureDevice-NoReplay
+              - Speech-Audio-PreRollAudioCaptureDevice-ConfigurableDuration
+              - Speech-Audio-PreRollAudioCaptureDevice-KeepsCapturingBetweenRuns
+              - Speech-Audio-PreRollAudioCaptureDevice-ZeroDisables
+              - Speech-Audio-PreRollAudioCaptureDevice-DisposeReleasesDevice
+              - Speech-Audio-PreRollAudioCaptureDevice-UnavailableDeviceRejected
+            tests:
+              - PreRollAudioCaptureDevice_Start_AfterStop_DeliversAudioCapturedWhileStoppedFirst
+              - PreRollAudioCaptureDevice_Start_AudioDeliveredInPreviousRun_IsNotReplayed
+              - PreRollAudioCaptureDevice_Stop_ZeroPreRoll_StopsUnderlyingDeviceAndDeliversNoPreRoll
+
           - id: Speech-Audio-PortAudioInterop
             title: >-
               The AudioSubsystem shall degrade gracefully, enumerating no devices, when the

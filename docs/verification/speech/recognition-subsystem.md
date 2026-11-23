@@ -207,9 +207,29 @@ does not deadlock the session.
 `RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges`
 
 Verifies that `StopAsync` before `StartAsync` completes the result buffer so a consumer is not left
-waiting, that a caller whose token is canceled mid-stop returns early without aborting the
-teardown shared with other callers, and that a pre-canceled token throws while teardown still
+waiting, that a caller whose token is canceled mid-stop returns early while the teardown shared
+with other callers still converges, and that a pre-canceled token throws while teardown still
 converges.
+
+#### Push-to-Talk Pipeline: Lossless Queue, Drain Before Stop, Discard on Cancel, Clean Restart
+
+**Tests**: `RecognitionSession_LiveSource_SlowBackend_DeliversEverySample`,
+`RecognitionSession_LiveSource_BacklogExceedsCap_DiscardsBlockAndReportsWarning`,
+`RecognitionSession_StopAsync_QueuedLiveAudio_DecodesAndFlushesBeforeCompleting`,
+`RecognitionSession_StopAsync_PreCanceledToken_DiscardsQueuedAudioWithoutFlush`,
+`RecognitionSession_StopAsync_CanceledDuringDrain_DiscardsRemainingAudio`,
+`RecognitionSession_StopAsync_ThenNextSessionOnSameBackend_StartsFromResetBackend`
+
+Verifies, with a fake backend held blocked so the queue fills deterministically, that no live
+block is dropped while the recognizer is behind; that only a block beyond the safety cap is
+discarded, with a warning diagnostic; that a graceful stop completes only after every queued block
+has been decoded, the backend flushed, and the flushed final buffered, and resets the backend only
+after the flush; that a canceled stop (before or during the call) decodes no further queued block
+and performs no flush; and that the next session over the same backend starts after the previous
+session's flush and reset. No test asserts on elapsed time. The progress-based abandon check
+(a slow but progressing drain is never abandoned) cannot be proven without timing, so it is
+covered by design review; its abandon branch is covered by the cooperative-cancel-then-abandon
+scenarios.
 
 #### Session Lifecycle: Fault Containment and Device Loss
 
@@ -337,15 +357,22 @@ three-constructor pattern.
 `RecognitionSubsystem_EngineExclusivity_SecondSession_RejectedUntilFirstDisposed`,
 `RecognitionSubsystem_Composition_InstalledAndMissingModel_NeverFails`,
 `RecognitionSubsystem_UnavailableFallback_ThrowsOnlyWhenOperated`,
-`RecognitionSubsystem_FaultContainment_DeviceLost_ReaderReceivesFaultedException`
+`RecognitionSubsystem_FaultContainment_DeviceLost_ReaderReceivesFaultedException`,
+`RecognitionSubsystem_LiveCapture_SlowRecognizer_NoAudioDropped`,
+`RecognitionSubsystem_GracefulStop_QueuedAudio_FinalDeliveredBeforeStopCompletes`,
+`RecognitionSubsystem_CanceledStop_QueuedAudio_Discarded`,
+`RecognitionSubsystem_SequentialSessions_NextSessionStartsClean`
 
 These tests (in `RecognitionSubsystemTests.cs`) drive the subsystem only through its public
 engine and session surface over fakes: a host can substitute the contracts with test doubles;
 no public type or referenced assembly names a concrete inference engine; the pipeline converts
 audio and delivers results; a slow consumer never loses a final result; an engine permits one
 active session at a time and accepts a new one after disposal; composition never fails for an
-installed or missing model; the unavailable fallback throws only when operated; and a lost
-device is contained and surfaces to a reader as the faulted-session exception.
+installed or missing model; the unavailable fallback throws only when operated; a lost
+device is contained and surfaces to a reader as the faulted-session exception; live audio
+captured behind a slow recognizer is all recognized; a graceful stop delivers the final for
+queued audio before it completes; a canceled stop discards queued audio without a flush; and
+sequential sessions from one engine each start a clean utterance.
 
 #### Fallback Versus Fault Decision Table
 

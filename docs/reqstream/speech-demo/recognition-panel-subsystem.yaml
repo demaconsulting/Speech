@@ -73,6 +73,7 @@ sections:
               - SpeechDemo-Recognition-StaleStateAfterDisposeIgnored
               - SpeechDemo-Recognition-QueuedRefreshAfterDisposeIgnored
               - SpeechDemo-Recognition-ModelSwitchDuringStartIgnored
+              - SpeechDemo-Recognition-PushToTalkPreRoll
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
 

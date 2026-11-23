@@ -40,12 +40,16 @@ window, a post-replay grace-period counter, a `_hasRecognizedTextSinceReset` fla
   Otherwise the text is emitted as provisional, suppressed when empty or unchanged since the
   previous call.
 - **TryFlush(...)**: The session-end flush (called by `RecognitionSession.StopAsync` immediately
-  before `Reset()`). Marks the stream's input finished so the native decoder pads and decodes
-  whatever audio is still buffered instead of waiting for future context that will never arrive,
-  then reports any remaining text as a final result. This is what lets a push-to-talk release with
-  no trailing silence still produce a final result for the word it cut off. Reports nothing when
+  before `Reset()`). First appends `TailPaddingSeconds` (0.66 s) of zero samples to the stream - the
+  tail padding sherpa-onnx's own streaming examples use, which gives the model the right context
+  it needs to emit an utterance's last tokens - then marks the stream's input finished so the
+  native decoder pads and decodes whatever audio is still buffered instead of waiting for future
+  context that will never arrive, then reports any remaining text as a final result. This is what
+  lets a push-to-talk release with no trailing silence still produce a final result for the word
+  it cut off. Reports nothing when
   the stream's only hypothesis was silently produced by a warm-up replay with no genuinely new
-  audio since, so discarded replay text never resurfaces as a flushed result.
+  audio since, so discarded replay text never resurfaces as a flushed result (the padding is not
+  genuinely new audio and does not clear that guard).
 - **Reset()**: The session-end reset (called by `RecognitionSession.StopAsync`). Creates a
   replacement stream and disposes the existing one, clears the remembered provisional text, and
   (if enabled) clears the warm-up buffer, the grace-period counter, and the

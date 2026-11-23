@@ -34,6 +34,7 @@ input-files:
   - docs/verification/speech/audio-subsystem/unavailable-audio-playback-device.md
   - docs/verification/speech/audio-subsystem/wav-file-audio-capture-device.md
   - docs/verification/speech/audio-subsystem/wav-file-audio-playback-device.md
+  - docs/verification/speech/audio-subsystem/pre-roll-audio-capture-device.md
   - docs/verification/speech/audio-subsystem/windowed-sinc-lowpass-filter.md
   - docs/verification/speech/audio-subsystem/port-audio/i-port-audio-api.md
   - docs/verification/speech/audio-subsystem/port-audio/i-port-audio-stream.md

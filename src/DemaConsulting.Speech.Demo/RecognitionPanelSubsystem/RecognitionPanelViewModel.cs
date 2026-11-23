@@ -57,6 +57,18 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     engine) whenever the selected capture device changes or the shared device-selection panel
 ///     forces a device refresh - a session, not an engine, is bound to a capture device.
 ///     </para>
+///     <para>
+///     <b>Push-to-talk pre-roll.</b> Start and Stop are used like a push-to-talk button, and
+///     people begin speaking as they press it. The panel therefore wraps the selected microphone
+///     in a <see cref="PreRollAudioCaptureDevice"/> (with its default 300 ms pre-roll) and reuses
+///     that one device for every Start until the selected device changes, a device refresh is
+///     requested, a start fails, or the panel is disposed - each of which releases it. Between
+///     a Stop and the next Start the microphone stays open and its most recent audio is
+///     remembered, so a new session receives the speech that began just before Start rather
+///     than clipping its first syllable. Each Start still creates a fresh single-use session,
+///     whose graceful Stop decodes every captured block and flushes the recognizer before the
+///     panel's Stop completes.
+///     </para>
 /// </remarks>
 public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsyncDisposable
 {
@@ -118,6 +130,21 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
     ///     one from the same engine.
     /// </summary>
     private IRecognitionSession? _session;
+
+    /// <summary>
+    ///     The push-to-talk capture device reused across Start/Stop cycles for the currently
+    ///     selected microphone, or <see langword="null"/> before the first Start or after it was
+    ///     released by a device change, device refresh, failed start, or disposal. Kept open
+    ///     between cycles so the next Start delivers the audio captured just before it was
+    ///     pressed (see "Push-to-talk pre-roll" in the remarks above).
+    /// </summary>
+    private PreRollAudioCaptureDevice? _captureDevice;
+
+    /// <summary>
+    ///     The raw capture device wrapped by <see cref="_captureDevice"/>, retained only so the
+    ///     temporary <see cref="CaptureDebugRecorder"/> can tap the unmodified microphone stream.
+    /// </summary>
+    private IAudioCaptureDevice? _rawCaptureDevice;
 
     /// <summary>
     ///     The background task pumping <see cref="IRecognitionSession.GetResultsAsync"/> for
@@ -356,11 +383,54 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
             }
 
             await InvalidateSessionAsync().ConfigureAwait(true);
+            ReleaseCaptureDevice();
         }
         finally
         {
             _lifecycleGate.Release();
         }
+    }
+
+    /// <summary>
+    ///     Returns the push-to-talk capture device to listen through, reusing the cached one when
+    ///     it is still usable, otherwise creating one for the current selection.
+    /// </summary>
+    /// <returns>
+    ///     The cached or newly created pre-roll device, or the raw (unavailable) device when the
+    ///     selection resolves to no usable microphone - never wrapped, so the caller can report
+    ///     it honestly.
+    /// </returns>
+    private IAudioCaptureDevice AcquireCaptureDevice()
+    {
+        if (_captureDevice is { IsAvailable: true } cached)
+        {
+            return cached;
+        }
+
+        // A cached device that stopped being usable (for example unplugged) is released so its
+        // replacement opens a fresh stream for the current selection.
+        ReleaseCaptureDevice();
+
+        var rawDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
+        if (!rawDevice.IsAvailable)
+        {
+            return rawDevice;
+        }
+
+        _rawCaptureDevice = rawDevice;
+        _captureDevice = new PreRollAudioCaptureDevice(rawDevice);
+        return _captureDevice;
+    }
+
+    /// <summary>
+    ///     Disposes and clears the cached push-to-talk capture device, if any, closing the
+    ///     microphone it kept open between Start/Stop cycles. Safe to call when nothing is cached.
+    /// </summary>
+    private void ReleaseCaptureDevice()
+    {
+        _captureDevice?.Dispose();
+        _captureDevice = null;
+        _rawCaptureDevice = null;
     }
 
     /// <summary>
@@ -650,7 +720,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         // Check the cheap, synchronous precondition (a usable capture device) before paying for
         // the comparatively expensive async engine load, so an honest "no device" outcome does
         // not depend on what an engine-loading seam happens to return for this combination.
-        var captureDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
+        var captureDevice = AcquireCaptureDevice();
         if (!captureDevice.IsAvailable)
         {
             StatusMessage = NoCaptureDeviceMessage;
@@ -700,11 +770,12 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
         _sessionStateHandler = (_, e) => OnSessionStateChanged(generation, e);
         session.StateChanged += _sessionStateHandler;
 
-        // TEMPORARY diagnostic instrumentation: an independent tap on the same capture device,
-        // used only when DEMASPEECH_CAPTURE_DEBUG_DIR is set (see CaptureDebugRecorder), for
-        // investigating a reported dropped-word bug after a mid-sentence pause. Subscribing here
-        // does not affect the session above, which owns the device's Start/Stop lifecycle.
-        _captureDebugRecorder = CaptureDebugRecorder.TryStart(captureDevice);
+        // TEMPORARY diagnostic instrumentation: an independent tap on the raw microphone (not the
+        // pre-roll wrapper), used only when DEMASPEECH_CAPTURE_DEBUG_DIR is set (see
+        // CaptureDebugRecorder), for investigating a reported dropped-word bug after a
+        // mid-sentence pause. Subscribing here does not affect the session above, which owns the
+        // device's Start/Stop lifecycle.
+        _captureDebugRecorder = CaptureDebugRecorder.TryStart(_rawCaptureDevice ?? captureDevice);
 
         try
         {
@@ -718,6 +789,9 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
             DetachSessionStateHandler(session);
             await session.DisposeAsync().ConfigureAwait(true);
             _uiContext = null;
+
+            // The device failed to start; do not keep it for the next attempt.
+            ReleaseCaptureDevice();
 
             StatusMessage = ex.Message;
             State = RecognitionStreamingState.Error;
@@ -924,6 +998,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsync
             _captureDebugRecorder = null;
 
             await InvalidateEngineAsync().ConfigureAwait(true);
+            ReleaseCaptureDevice();
         }
         finally
         {

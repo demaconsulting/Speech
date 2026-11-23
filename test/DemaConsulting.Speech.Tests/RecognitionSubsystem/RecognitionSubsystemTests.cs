@@ -220,6 +220,125 @@ public sealed class RecognitionSubsystemTests : IDisposable
             () => CollectAsync(session.GetResultsAsync(TestContext.Current.CancellationToken)));
     }
 
+    /// <summary>
+    ///     Proves that live audio captured while the recognizer is behind is queued rather than
+    ///     dropped, so every captured block is still recognized.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSubsystem_LiveCapture_SlowRecognizer_NoAudioDropped()
+    {
+        // Arrange: an engine whose recognizer is held blocked on its first block
+        using var release = new ManualResetEvent(false);
+        var backend = new FakeRecognitionEngine(acceptSamplesBlock: release);
+        await using var engine = new SpeechRecognizerEngine(backend, new FakeRecognitionModel(), NullSpeechDiagnostics.Instance);
+        var device = CreateCaptureDevice();
+        await using var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.1f]);
+        await backend.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        // Act: capture far more blocks than any small queue would hold, then catch up and stop
+        for (var i = 1; i < 500; i++)
+        {
+            RaiseFrameCaptured(device, [0.1f]);
+        }
+
+        release.Set();
+        await session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: every block reached the recognizer
+        Assert.Equal(500, backend.AcceptSamplesCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a graceful stop delivers the final result for all audio captured before
+    ///     it, including audio still queued behind a slow recognizer, before the stop completes.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSubsystem_GracefulStop_QueuedAudio_FinalDeliveredBeforeStopCompletes()
+    {
+        // Arrange: a slow recognizer with queued audio and a final produced by its flush
+        using var release = new ManualResetEvent(false);
+        var backend = new FakeRecognitionEngine(
+            scriptedFlushResult: new SpeechRecognitionResult("no", IsFinal: true),
+            acceptSamplesBlock: release);
+        await using var engine = new SpeechRecognizerEngine(backend, new FakeRecognitionModel(), NullSpeechDiagnostics.Instance);
+        var device = CreateCaptureDevice();
+        await using var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.1f]);
+        await backend.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.2f]);
+
+        // Act: stop, then let the recognizer proceed
+        var stop = session.StopAsync(TestContext.Current.CancellationToken);
+        release.Set();
+        await stop;
+        var acceptedAtStop = backend.AcceptSamplesCallCount;
+        var results = await CollectAsync(session.GetResultsAsync(TestContext.Current.CancellationToken));
+
+        // Assert: both blocks were recognized and the final was delivered
+        Assert.Equal(2, acceptedAtStop);
+        Assert.Equal("no", Assert.Single(results).Result.Text);
+    }
+
+    /// <summary>
+    ///     Proves that canceling a stop discards the audio still queued, without a final flush.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSubsystem_CanceledStop_QueuedAudio_Discarded()
+    {
+        // Arrange: a slow recognizer with audio queued behind it
+        using var release = new ManualResetEvent(false);
+        var backend = new FakeRecognitionEngine(
+            scriptedFlushResult: new SpeechRecognitionResult("tail", IsFinal: true),
+            acceptSamplesBlock: release);
+        await using var engine = new SpeechRecognizerEngine(backend, new FakeRecognitionModel(), NullSpeechDiagnostics.Instance);
+        var device = CreateCaptureDevice();
+        await using var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.1f]);
+        await backend.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.2f]);
+        using var canceled = new CancellationTokenSource();
+        await canceled.CancelAsync();
+
+        // Act: a canceled stop, then the recognizer proceeds and the session is disposed
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(canceled.Token));
+        release.Set();
+        await session.DisposeAsync();
+
+        // Assert: the queued block was never recognized and nothing was flushed
+        Assert.Equal(1, backend.AcceptSamplesCallCount);
+        Assert.Equal(0, backend.FlushCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that sequential sessions from one engine - a push-to-talk host's pause and
+    ///     resume - each start a clean utterance: nothing of the first session's audio is still
+    ///     held by the recognizer when the second session feeds it.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSubsystem_SequentialSessions_NextSessionStartsClean()
+    {
+        // Arrange
+        var backend = new FakeRecognitionEngine();
+        await using var engine = new SpeechRecognizerEngine(backend, new FakeRecognitionModel(), NullSpeechDiagnostics.Instance);
+
+        // Act: two press/release cycles
+        for (var press = 0; press < 2; press++)
+        {
+            var device = CreateCaptureDevice();
+            await using var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+            await session.StartAsync(TestContext.Current.CancellationToken);
+            RaiseFrameCaptured(device, [0.1f]);
+            await session.StopAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Assert: each session's audio was flushed and then cleared before the next one's
+        Assert.Equal(["Accept", "Flush", "Reset", "Accept", "Flush", "Reset"], backend.Calls);
+    }
+
     /// <summary>Yields one scripted result.</summary>
     private static async IAsyncEnumerable<SpeechRecognitionEvent> ScriptedResults()
     {

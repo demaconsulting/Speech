@@ -10,20 +10,30 @@ across sessions), the `IAudioCaptureDevice` it streams from, the owning `IRecogn
 only to normalize result text), an `AudioFrameResampler` configured at construction from the
 device's reported format and the model's declared `AudioFormat.SampleRate`, a `DedicatedWorker`
 that runs the pump loop, a `RecognitionResultBuffer`, a callback to release the engine's lease on
-disposal, and a diagnostics sink. While running it also holds a bounded `Channel<float[]>` of
+disposal, and a diagnostics sink. While running it also holds a `Channel<float[]>` of
 pending capture blocks and the pump `Task` draining it; both are created on start and cleared on
 stop, guarded by a lock together with `State`. `IsAvailable` is always `true`, because this type
 is only ever created after the backend loaded and the device reported itself available - every
 unavailable case is represented by `UnavailableRecognitionSession` instead.
 
-The pending-block queue holds `PendingFrameCapacity` (64) blocks and drops the oldest when full
-(`BoundedChannelFullMode.DropOldest`). Recognition that has fallen behind live audio cannot be
-caught up by queueing more of it, so bounding the backlog keeps both memory and latency flat
-instead of letting them grow without limit. A finite `WavFileAudioCaptureDevice` source is the
-exception: its channel uses `BoundedChannelFullMode.Wait` and the file device's `Start()` thread
-blocks until the pump catches up, because a file is delivered faster than real time and must
-be transcribed in totality. Likewise, teardown never cancels the pump of a file source, so the
-abandon deadline cannot truncate a slow backend's final drain.
+The pending-block queue for a live device is lossless: an unbounded channel written with
+`TryWrite`, so the audio callback never blocks and a recognizer that falls behind builds a backlog
+instead of losing audio. (Dropping the oldest blocks, as an earlier bounded queue did, silently cut
+words out of the middle and end of utterances when the decoder was briefly slow - for example at a
+push-to-talk stop.) Memory stays bounded by a safety cap, `DefaultMaxPendingLiveAudio` (one minute
+of the device's own interleaved audio, about 23 MB at 48 kHz stereo), tracked with an interlocked
+count of queued samples. A block that would grow the backlog past the cap is discarded, counted,
+and reported: the first such block of a session produces a warning diagnostic and teardown reports
+the session's total, so nothing is ever dropped silently. A block is always accepted when nothing
+else is queued. A recognizer a full minute behind real time is no longer producing useful live
+results, so the cap only guards memory against a persistently too-slow recognizer. A finite
+`WavFileAudioCaptureDevice` source instead uses a bounded channel (`FiniteSourcePendingFrameCapacity`,
+64 blocks) with `BoundedChannelFullMode.Wait`: the file device's `Start()` thread blocks until the
+pump catches up, because a file is delivered faster than real time and must be transcribed in
+totality without buffering the whole file.
+
+The session also tracks pump progress (an interlocked counter incremented after every block, every
+final-drain decode, and the flush) and a discard flag set only by a canceled `StopAsync`.
 
 **Key Methods**:
 
@@ -35,25 +45,38 @@ abandon deadline cannot truncate a slow backend's final drain.
   buffered. If the device fails to start, transitions to `Faulted`, faults the result buffer, and
   throws `SpeechRecognizerUnavailableException` with the device's exception as `InnerException`.
 - **StopAsync(CancellationToken)**: Transitions `Running -> Stopping -> Stopped` (idempotent once
-  `Stopped`/`Disposing`/`Disposed`/`Faulted`). Unsubscribes, completes the queue, cancels the pump
-  task's token (purely the `DedicatedWorker` abandon-timeout deadline - the pump loop itself never
-  observes this token while draining), awaits the pump task, completes the result buffer, resets
-  the backend, then stops the capture device. Draining the pump does two things in order: first
-  it processes every already-queued block through the backend as normal, then - as its last
-  action, still on the same pump thread - it drains any results the per-block cap left behind and
-  flushes the backend (`TryFlush`), finalizing and
-  delivering any trailing audio the backend had accepted but not yet decoded, for example the tail
-  of an utterance released with no trailing silence, which a streaming backend cannot normally
-  decode without more audio it will now never receive. Because of that flush, every result derived
-  from audio captured before the call - including that trailing fragment - has been delivered (or
-  accounted for per the backpressure policy) when `StopAsync` returns. The backend is then reset,
-  discarding whatever the flush could not recover and any stale hypothesis left over from the
-  session just stopped, so the next session the owning engine creates on the same "hot" backend
-  always begins decoding from a clean start-of-utterance state, equivalent to a freshly constructed
-  stream without the cost of reloading the model. The flush, the reset, and an abandoned pump
-  thread are all best-effort: each is reported through `ISpeechDiagnostics` rather than thrown, so
-  `StopAsync` still completes, but in those cases the trailing fragment may go undelivered and/or
-  the backend's state cannot be guaranteed clean.
+  `Stopped`/`Disposing`/`Disposed`/`Faulted`). The graceful order is: stop capture by unsubscribing
+  from `FrameCaptured` and completing the queue (no block captured after the call is accepted),
+  drain every queued block through the backend, drain any results the per-block cap left behind,
+  flush the backend (`TryFlush`) and buffer its final result, complete the result buffer, reset the
+  backend, stop the capture device, and only then complete the returned task. The flush finalizes
+  trailing audio the backend had accepted but not yet decoded, for example the tail of an utterance
+  released with no trailing silence, which a streaming backend cannot normally decode without more
+  audio it will now never receive. Because of that ordering, every result derived from audio
+  captured before the call - including that trailing fragment - is buffered for `GetResultsAsync`
+  when `StopAsync` returns. The backend is reset only after the flush, discarding whatever the flush
+  could not recover, so the next session the owning engine creates on the same "hot" backend always
+  begins decoding a clean utterance, equivalent to a freshly constructed stream without the cost of
+  reloading the model. This is what makes a push-to-talk "resume" (a new session after a stop) start
+  clean.
+
+  A slow drain is never cut short. For a live source, teardown waits on the pump for as long as the
+  pump keeps making progress, checking the progress counter once per `DedicatedWorker` abandon
+  interval; only an interval with no progress at all (a backend call that never returns) cancels
+  the pump token, which starts the worker's abandon deadline (the pump loop itself never observes
+  this token). A file source's pump is never canceled. A fixed deadline measured from the stop -
+  the earlier design - let a caller observe the stop as complete while the pump was still decoding
+  queued audio, losing the final result.
+
+  Cancellation is the only way a stop discards audio. A token already canceled when `StopAsync` is
+  called sets the discard flag under the state lock before the queue is completed, so not one more
+  queued block is decoded; a token canceled while the caller is waiting sets it as the caller's
+  wait ends. Either way the pump drops every remaining block without decoding it, skips the final
+  drain and flush, and the pump token is canceled so a stuck backend call is abandoned promptly;
+  the caller's task completes as canceled, while the shared teardown (reset, device stop, state
+  convergence, lease release on dispose) still completes for every caller. The reset, an abandoned
+  pump thread, and a failed flush are best-effort: each is reported through `ISpeechDiagnostics`
+  rather than thrown, so `StopAsync` still completes.
 - **GetResultsAsync(CancellationToken)**: Single-consumer (`Interlocked.CompareExchange` guard,
   throws `InvalidOperationException` on re-entry); awaits `RecognitionResultBuffer.ReadAllAsync`
   and yields each result.
@@ -63,7 +86,8 @@ abandon deadline cannot truncate a slow backend's final drain.
   engine's next `CreateSessionAsync` can succeed. Idempotent.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Checks `_device.IsAvailable`
   (faulting the session via `FaultSession` if it has gone unavailable mid-session), copies the
-  block, and enqueues it; nothing else.
+  block, and enqueues it - for a live source through the lossless, capped queue described above,
+  for a file source with backpressure; nothing else.
 - **PumpLoop(...)**: Runs on the `DedicatedWorker` pump thread. Converts each block through
   `AudioFrameResampler`, feeds it to the backend, then polls the backend for results and writes
   them into the `RecognitionResultBuffer`. Each result's text is passed through the owning model's
@@ -76,6 +100,8 @@ abandon deadline cannot truncate a slow backend's final drain.
   last action once the queue is drained and completed, drains the backend's remaining results
   (`TryDecode`, bounded at `MaxResultsAtFinalDrain` (1024)), then flushes the backend (`TryFlush`)
   and buffers the trailing final result the same way, before the queue-completion path returns.
+  When the discard flag is set it still reads the queue to its end (releasing a blocked file
+  reader) but drops each block and skips the final drain and flush.
 - **FaultSession(Exception)**: Transitions to `Faulted` from `Starting`/`Running`/`Stopping`,
   faults the result buffer with the cause (surfacing it to `GetResultsAsync` as
   `RecognitionSessionFaultedException`), and cancels the pump token.
@@ -106,4 +132,6 @@ warning rather than throwing at composition. Starting more than once, or consumi
 `NormalizeText`), `IAudioCaptureDevice` and `AudioCaptureFrameEventArgs` from the AudioSubsystem,
 and `ISpeechDiagnostics` from the Diagnostics subsystem.
 
-**Callers**: `SpeechRecognizerEngine.CreateSessionAsync(...)`.
+**Callers**: `SpeechRecognizerEngine.CreateSessionAsync(...)`. A push-to-talk host typically binds
+successive sessions to one `PreRollAudioCaptureDevice` (see *PreRollAudioCaptureDevice*), which
+delivers the audio captured just before each start as that session's first block.

@@ -512,6 +512,21 @@ reviews:
       - "src/DemaConsulting.Speech/AudioSubsystem/WavFileAudioCaptureDevice.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavFileAudioCaptureDeviceTests.cs"
 
+  # Speech-AudioSubsystem-PreRollAudioCaptureDevice Review (one per unit)
+  - id: Speech-AudioSubsystem-PreRollAudioCaptureDevice
+    title: Review that Speech AudioSubsystem PreRollAudioCaptureDevice Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/pre-roll-audio-capture-device.yaml"
+      - "docs/design/speech/audio-subsystem/pre-roll-audio-capture-device.md"
+      - "docs/verification/speech/audio-subsystem/pre-roll-audio-capture-device.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/PreRollAudioCaptureDevice.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/PreRollAudioCaptureDeviceTests.cs"
+
   # Speech-AudioSubsystem-PortAudio Review (one per child subsystem)
   - id: Speech-AudioSubsystem-PortAudio
     title: Review that Speech AudioSubsystem PortAudio Child Subsystem Satisfies Requirements

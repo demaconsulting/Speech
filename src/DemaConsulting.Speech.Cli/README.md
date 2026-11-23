@@ -121,7 +121,9 @@ grace period (default 8 seconds) allowed before the first result arrives; both f
 independently and always take effect in `--mic` mode, even when omitted, so mic mode can never
 listen forever with no words uttered. `--stt-param key=value` (repeatable) sets model-specific
 recognition parameters, `--interim`/`--final-only` control whether interim (in-progress) results
-are printed, and `--output-text <text-path>` writes the final recognized text to a file.
+are printed, and `--output-text <text-path>` writes the final recognized text to a file. Pressing
+`Ctrl+C` in `--mic` mode stops listening gracefully: the last utterance is still recognized and
+printed before the command exits.
 
 ### `ask` flags
 
@@ -184,6 +186,12 @@ speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model stream
 
 This `speak`/`ask` pairing is the intended integration pattern for an AI agent holding a two-way
 voice conversation with a person through this CLI.
+
+**Known limitation: short isolated answers.** The streaming Nemotron recognition models (the ONNX
+Nemotron 3.5 model and the Sherpa Nemotron English model) may return no text for a very short,
+one-word answer such as "yes", "no" or "okay"; the project's evaluation found this is a limitation
+of the models, not of the tool. Phrase questions so that a longer answer ("yes please", "no thank
+you") is natural, or confirm the choice another way. A better solution is planned.
 
 See the [full user guide][link-user-guide] and [repository][link-repository] for the underlying
 library's API, model catalog, and Natural Language Audio Tag vocabulary.

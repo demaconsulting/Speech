@@ -19,6 +19,7 @@ package Speech_AudioSubsystem {
     private import Speech_PortAudioCaptureDeviceProbe::*;
     private import Speech_PortAudioPlaybackDevice::*;
     private import Speech_PortAudioPlaybackDeviceProbe::*;
+    private import Speech_PreRollAudioCaptureDevice::*;
     private import Speech_UnavailableAudioCaptureDevice::*;
     private import Speech_UnavailableAudioCaptureDeviceProbe::*;
     private import Speech_UnavailableAudioPlaybackDevice::*;
@@ -60,6 +61,7 @@ package Speech_AudioSubsystem {
         part audioDeviceInUseException : AudioDeviceInUseException;
         part wavFileAudioPlaybackDevice : WavFileAudioPlaybackDevice;
         part wavFileAudioCaptureDevice : WavFileAudioCaptureDevice;
+        part preRollAudioCaptureDevice : PreRollAudioCaptureDevice;
         part audioFileReader : AudioFileReader;
         part audioClip : AudioClip;
         part audioResampler : AudioResampler;

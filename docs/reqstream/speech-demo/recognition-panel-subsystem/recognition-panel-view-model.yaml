@@ -206,6 +206,20 @@ sections:
                 tests:
                   - RecognitionPanelViewModel_DeviceRefresh_NextStartCapturesFromFreshDevice
 
+              - id: SpeechDemo-Recognition-PushToTalkPreRoll
+                title: >-
+                  The RecognitionPanelViewModel shall keep the selected microphone capturing with the
+                  library's default pre-roll across Start/Stop cycles, so each Start recognizes the
+                  speech that began just before it, and shall release that microphone when the
+                  panel is disposed.
+                justification: |
+                  Start and Stop are used like a push-to-talk button and people begin speaking as
+                  they press it; without the pre-roll the first syllable of a short answer is
+                  clipped. An open microphone must not outlive the panel.
+                tests:
+                  - RecognitionPanelViewModel_StartAfterStop_ReusesPreRollCaptureDevice
+                  - RecognitionPanelViewModel_DisposeAsync_ReleasesPreRollCaptureDevice
+
               - id: SpeechDemo-Recognition-TranscriptSequencing
                 title: >-
                   The RecognitionPanelViewModel shall replace the trailing provisional transcript

@@ -411,6 +411,27 @@ sections:
         tests:
           - Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults
 
+      - id: Speech-Recognition-PushToTalk
+        title: >-
+          The library shall support push-to-talk recognition, in which a host stops and restarts
+          recognition frequently, without losing speech that starts just before a restart or
+          ends just before a stop.
+        tags: [system]
+        justification: |
+          Push-to-talk hosts start recognition on a button press and stop it on release, and
+          answers are often a single short word. Speech that starts as the button is pressed,
+          audio captured while the recognizer is briefly behind, and the end of an utterance
+          released with no trailing silence must all still be recognized, and each press must
+          start a clean utterance.
+        children:
+          - Speech-Audio-PreRollCapture
+          - Speech-Recognition-LiveCaptureLossless
+          - Speech-Recognition-GracefulStopDrain
+          - Speech-Recognition-CanceledStopDiscards
+          - Speech-Recognition-CleanRestart
+        tests:
+          - Speech_SystemIntegration_PushToTalk_PreRollAndGracefulStop_DeliverWholeUtterance
+
       - id: Speech-Recognition-HonestComposition
         title: >-
           The library shall compose a recognizer without ever throwing when recognition is not

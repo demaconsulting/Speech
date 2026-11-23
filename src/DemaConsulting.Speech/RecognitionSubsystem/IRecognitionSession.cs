@@ -69,14 +69,16 @@ public interface IRecognitionSession : IAsyncDisposable
 
     /// <summary>
     ///     Stops streaming audio and drains any already-captured audio through the backend, so
-    ///     every result derived from audio accepted before this call is enumerable via
+    ///     every result derived from audio accepted before this call - including the backend's
+    ///     final flushed result for a trailing utterance - is enumerable via
     ///     <see cref="GetResultsAsync"/> before the returned task completes.
     /// </summary>
     /// <param name="cancellationToken">
-    ///     A token to observe for cancellation of waiting for this call's own completion. Does
-    ///     not abort the underlying drain/stop, which is shared with every other concurrent or
-    ///     overlapping caller and keeps running to convergence (or abandonment) regardless of
-    ///     whether this particular caller stopped waiting for it.
+    ///     A token that, when canceled before or during this call, turns it into a discarding
+    ///     stop: audio still queued is dropped rather than decoded, no final flush is performed,
+    ///     and this call's own task completes with <see cref="OperationCanceledException"/>.
+    ///     Leave it uncanceled (or pass <see cref="CancellationToken.None"/>) for a graceful stop
+    ///     that keeps the tail of the utterance.
     /// </param>
     /// <returns>A task that completes once the session has stopped.</returns>
     /// <remarks>
@@ -88,11 +90,12 @@ public interface IRecognitionSession : IAsyncDisposable
     ///     that convergence happens. A fault while finalizing or resetting is reported through
     ///     diagnostics rather than thrown; this call still completes.
     ///     <para>
-    ///     Canceling <paramref name="cancellationToken"/> lets this call's own returned task
-    ///     complete early with <see cref="OperationCanceledException"/> without waiting any
-    ///     further, but it never aborts the shared teardown itself: one canceled caller must not
-    ///     skip draining/stopping for every other caller (including <see cref="IAsyncDisposable.DisposeAsync"/>)
-    ///     sharing the same in-flight operation.
+    ///     Cancellation is the only way a stop discards captured audio. It applies to the one
+    ///     shared stop operation, so a canceled caller also shortens the drain observed by any
+    ///     concurrent caller (including <see cref="IAsyncDisposable.DisposeAsync"/>); the session
+    ///     still releases its capture device and resets its recognizer, and still converges on
+    ///     <see cref="RecognitionSessionState.Stopped"/>, for every caller. After any stop the
+    ///     next session created from the same engine starts a clean utterance.
     ///     </para>
     /// </remarks>
     Task StopAsync(CancellationToken cancellationToken = default);

@@ -37,6 +37,10 @@ subsystem:
   `IAudioPlaybackDevice`/`IAudioCaptureDevice` implementations that write/read a mono, 16-bit PCM
   `.wav` file instead of using real hardware, for deterministic file-based synthesis/recognition
   by any host application
+- **PreRollAudioCaptureDevice**: push-to-talk `IAudioCaptureDevice` decorator that keeps its
+  underlying device capturing between runs and delivers the most recent audio captured before
+  each start (300 ms by default, configurable, zero to disable), so speech that begins as a
+  button is pressed is not clipped
 - **AudioFileReader** / **AudioFileReadOptions** / **AudioClip** / **AudioResampler**: managed WAV and
   FLAC decoding into a floating-point clip (with its options record), plus down-mixing and
   resampling, with no native decoder dependency
@@ -49,21 +53,18 @@ subsystem:
 
 ### Interfaces
 
-The subsystem exposes `IAudioCaptureDevice`, `IAudioPlaybackDevice`,
-`IAudioCaptureDeviceProbe`, `IAudioPlaybackDeviceProbe`, `AudioFormat`,
-`AudioDeviceDescription`, `AudioDeviceSelection`, `AudioDeviceFactory`,
-`AudioDeviceUnavailableException`, `AudioDeviceInUseException`, `AudioFileReader`,
-`AudioFileReadOptions`, `AudioClip`, `AudioResampler`, `AudioDeviceDirection`,
-`AudioCaptureFrameEventArgs`, `UnavailableAudioCaptureDevice`, `UnavailableAudioPlaybackDevice`,
-`UnavailableAudioCaptureDeviceProbe`, `UnavailableAudioPlaybackDeviceProbe`,
-`WavFileAudioCaptureDevice` and `WavFileAudioPlaybackDevice` as its public API. The internal
-`FlacBitReader`, `FlacCrc` and `FlacFrameDecoder` helpers support `FlacDecoder`. It consumes
-`ISpeechDiagnostics` from the
-Diagnostics subsystem to report structural selection, start/stop, and fallback facts without
-ever exposing raw audio content. The ModelManagementSubsystem also consumes `AudioFormat` as a
-narrow plain-data dependency for model format declarations, rather than duplicating another
-format type there. `AudioResampler` is also consumed by the Synthesis subsystem's
-`ChatterboxTurboReferenceVoice` to convert reference-voice audio to the model's sample rate.
+The subsystem exposes `IAudioCaptureDevice`, `IAudioPlaybackDevice`, `IAudioCaptureDeviceProbe`,
+`IAudioPlaybackDeviceProbe`, `AudioFormat`, `AudioDeviceDescription`, `AudioDeviceSelection`, `AudioDeviceFactory`,
+`AudioDeviceUnavailableException`, `AudioDeviceInUseException`, `AudioFileReader`, `AudioFileReadOptions`, `AudioClip`,
+`AudioResampler`, `AudioDeviceDirection`, `AudioCaptureFrameEventArgs`, `UnavailableAudioCaptureDevice`,
+`UnavailableAudioPlaybackDevice`, `UnavailableAudioCaptureDeviceProbe`, `UnavailableAudioPlaybackDeviceProbe`,
+`WavFileAudioCaptureDevice`, `WavFileAudioPlaybackDevice` and `PreRollAudioCaptureDevice` as its public API. The
+internal `FlacBitReader`, `FlacCrc` and `FlacFrameDecoder` helpers support `FlacDecoder`. It consumes
+`ISpeechDiagnostics` from the Diagnostics subsystem to report structural selection, start/stop, and fallback facts
+without ever exposing raw audio content. The ModelManagementSubsystem also consumes `AudioFormat` as a narrow plain-data
+dependency for model format declarations, rather than duplicating another format type there. `AudioResampler` is also
+consumed by the Synthesis subsystem's `ChatterboxTurboReferenceVoice` to convert reference-voice audio to the model's
+sample rate.
 
 ### Design
 
@@ -168,3 +169,5 @@ Each of the following units is documented in its own design document under
 - **WavFileAudioPlaybackDevice** (`wav-file-audio-playback-device.md`) and
   **WavFileAudioCaptureDevice** (`wav-file-audio-capture-device.md`): file-backed playback and
   capture devices.
+- **PreRollAudioCaptureDevice** (`pre-roll-audio-capture-device.md`): push-to-talk pre-roll
+  decorator over any capture device.

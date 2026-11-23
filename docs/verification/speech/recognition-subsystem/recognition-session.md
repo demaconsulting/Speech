@@ -50,7 +50,7 @@ with teardown and the subsequent engine reset both still completing.
 #### Finite-Source Backpressure Evidence
 
 `RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample` feeds a 200-block WAV file
-(over the 64-block queue capacity) to a backend held blocked, then releases it, and verifies
+(over the 64-block file-source queue capacity) to a backend held blocked, then releases it, and verifies
 every sample is accepted - nothing is dropped from the start of the file.
 `RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult` verifies that
 `StopAsync` for a file source does not apply the 2-second abandon deadline to a slow backend,
@@ -71,26 +71,24 @@ faulted.
 
 #### Acceptance Criteria
 
-The unit is considered verified when captured audio reaches the backend downmixed and
-resampled to the model's declared `AudioFormat`, with above-target-Nyquist energy attenuated
-before any downsampling decimation; every decoded result is delivered through `GetResultsAsync` in
-order with its provisional/final flag intact; `StartAsync`/`StopAsync`/`DisposeAsync` are
-single-use to start and idempotent to stop and dispose, draining queued audio before returning;
-the session's state machine only ever makes
-forward-only, documented transitions; backend and handler faults are reported without escaping
-uncontrolled and surface to an active `GetResultsAsync` consumer as
-`RecognitionSessionFaultedException`; a capture-start or mid-session device failure surfaces the
-documented exception; and a non-cooperative native call is abandoned after its configured timeout with a `Warning`
-diagnostic. `StopAsync`/`DisposeAsync` flush the backend's trailing audio - recovering, as one last
-final result, even the tail of an utterance a streaming backend could not otherwise decode
-without audio it will now never receive (for example a push-to-talk release with no trailing
-silence) - before resetting the backend, so no accepted audio is silently lost; a fault in either
-that flush or the subsequent reset during `StopAsync`/`DisposeAsync` is reported without escaping
-and teardown still completes, in which case the trailing flush and/or the backend's clean state
-cannot be guaranteed, and in rare cases restart (via a new session from the same engine) may not
-fully recover the ability to decode. Acceptance criteria for the real sherpa-onnx backend's
-warm-up replay, transcription accuracy, `Reset()`, and `TryFlush()` behavior are defined in
-*SpeechSherpa RecognitionSubsystem Verification*.
+The unit is considered verified when captured audio reaches the backend downmixed and resampled to the model's declared
+`AudioFormat`, with above-target-Nyquist energy attenuated before any downsampling decimation; every decoded result is
+delivered through `GetResultsAsync` in order with its provisional/final flag intact;
+`StartAsync`/`StopAsync`/`DisposeAsync` are single-use to start and idempotent to stop and dispose, draining queued
+audio before returning; the session's state machine only ever makes forward-only, documented transitions; backend and
+handler faults are reported without escaping uncontrolled and surface to an active `GetResultsAsync` consumer as
+`RecognitionSessionFaultedException`; a capture-start or mid-session device failure surfaces the documented exception;
+and a non-cooperative native call is abandoned after its configured timeout with a `Warning` diagnostic. Live captured
+audio is never dropped while the recognizer is behind, except beyond the reported safety cap. `StopAsync`/`DisposeAsync`
+decode every queued block and flush the backend's trailing audio - recovering, as one last final result, even the tail
+of an utterance a streaming backend could not otherwise decode without audio it will now never receive (for example a
+push-to-talk release with no trailing silence) - before resetting the backend and completing, so no accepted audio is
+silently lost; only a canceled stop discards queued audio, and it skips the flush; a fault in either that flush or the
+subsequent reset during `StopAsync`/`DisposeAsync` is reported without escaping and teardown still completes, in which
+case the trailing flush and/or the backend's clean state cannot be guaranteed, and in rare cases restart (via a new
+session from the same engine) may not fully recover the ability to decode. Acceptance criteria for the real sherpa-onnx
+backend's warm-up replay, transcription accuracy, `Reset()`, and `TryFlush()` behavior are defined in *SpeechSherpa
+RecognitionSubsystem Verification*.
 
 #### Test Scenarios
 
@@ -131,8 +129,44 @@ a single teardown; a blocking `StateChanged` handler cannot deadlock the session
 `RecognitionSession_StopAsync_CallerTokenCanceled_ReturnsEarlyWithoutAbortingSharedTeardown`,
 `RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges`
 
-Stopping before starting completes the result buffer; a canceled caller token never aborts the
-shared teardown.
+Stopping before starting completes the result buffer; a canceled caller's wait ends promptly
+while the shared teardown still converges for every other caller.
+
+##### Live-Source Lossless Queue
+
+**Tests**: `RecognitionSession_LiveSource_SlowBackend_DeliversEverySample`,
+`RecognitionSession_LiveSource_BacklogExceedsCap_DiscardsBlockAndReportsWarning`
+
+With the backend held blocked, 300 live blocks (far more than the previous 64-block drop-oldest
+queue) are all accepted once it is released. With an injected 1-second cap, the block that would
+exceed the cap is the only one discarded, and the discard is reported as a `Warning` diagnostic.
+
+##### Graceful Stop Drains, Flushes, and Then Resets
+
+**Tests**: `RecognitionSession_StopAsync_QueuedLiveAudio_DecodesAndFlushesBeforeCompleting`,
+`RecognitionSession_StopAsync_ThenNextSessionOnSameBackend_StartsFromResetBackend`
+
+With 100 live blocks queued behind a blocked backend, `StopAsync` has not completed while the
+backend is blocked; once released, the fake backend's ordered call log at the moment `StopAsync`
+completes is every block, then the flush, then the reset, and the flushed final result is already
+buffered. A second session over the same backend feeds its first block only after the first
+session's flush and reset, so it starts a clean utterance.
+
+##### Canceled Stop Discards
+
+**Tests**: `RecognitionSession_StopAsync_PreCanceledToken_DiscardsQueuedAudioWithoutFlush`,
+`RecognitionSession_StopAsync_CanceledDuringDrain_DiscardsRemainingAudio`
+
+With ten blocks queued behind a blocked backend, a stop whose token is canceled before the call or
+while waiting leaves only the block already inside the backend decoded, performs no flush, and
+delivers no flushed result; the session still reaches `Stopped`.
+
+##### Slow-But-Progressing Drain
+
+N/A as a test - deterministic proof would require timing assertions, which this verification
+approach excludes. The progress-based abandon check is covered by design review (see
+*RecognitionSession* design, `StopAsync`), and its abandon branch by the
+cooperative-cancel-then-abandon scenarios below, which stall the pump completely.
 
 ##### Session Lifecycle: Fault Containment and Device Loss
 

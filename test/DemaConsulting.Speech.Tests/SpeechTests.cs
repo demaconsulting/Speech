@@ -419,6 +419,73 @@ public class SpeechTests
     }
 
     /// <summary>
+    ///     Proves that the system supports push-to-talk recognition end to end: a host reusing
+    ///     one <see cref="PreRollAudioCaptureDevice"/> across sessions has the speech that began
+    ///     just before a press delivered to the recognizer ahead of the live audio, and a
+    ///     graceful stop delivers the final result before it completes.
+    /// </summary>
+    [Fact]
+    public async Task Speech_SystemIntegration_PushToTalk_PreRollAndGracefulStop_DeliverWholeUtterance()
+    {
+        // Arrange: a scratch installed-model directory, a microphone wrapped for push-to-talk,
+        // and a deterministic backend whose end-of-session flush yields the final answer
+        var installedModelDirectory = Path.Join(
+            Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(installedModelDirectory);
+        try
+        {
+            var microphone = Substitute.For<IAudioCaptureDevice>();
+            microphone.IsAvailable.Returns(true);
+            microphone.SampleRate.Returns(16000);
+            microphone.ChannelCount.Returns(1);
+            using var pushToTalk = new PreRollAudioCaptureDevice(microphone);
+            var backend = new FakeRecognitionEngine(
+                scriptedFlushResult: new SpeechRecognitionResult("yes", IsFinal: true));
+            var cancellationToken = TestContext.Current.CancellationToken;
+            await using var engine = await SpeechRecognizerFactory.LoadAsync(
+                new FakeRecognitionModel(), installedModelDirectory, null, new FakeRecognitionEngineFactory(backend),
+                cancellationToken: cancellationToken);
+
+            // Act: a first press and release with no speech, which leaves the microphone open
+            await using (var first = await engine.CreateSessionAsync(pushToTalk, cancellationToken))
+            {
+                await first.StartAsync(cancellationToken);
+                await first.StopAsync(cancellationToken);
+            }
+
+            // Act: the user starts speaking just before the second press, keeps speaking, and
+            // releases
+            RaiseFrameCaptured(microphone, [0.25f, 0.5f]);
+            await using var second = await engine.CreateSessionAsync(pushToTalk, cancellationToken);
+            await second.StartAsync(cancellationToken);
+            RaiseFrameCaptured(microphone, [0.75f]);
+            await second.StopAsync(cancellationToken);
+            var results = new List<SpeechRecognitionEvent>();
+            await foreach (var result in second.GetResultsAsync(cancellationToken))
+            {
+                results.Add(result);
+            }
+
+            // Assert: the speech onset reached the recognizer first, then the live audio, and
+            // the final answer was delivered by the time the stop completed
+            Assert.Equal([0.25f, 0.5f, 0.75f], backend.AcceptedSamples);
+            var final = Assert.Single(results).Result;
+            Assert.True(final.IsFinal);
+            Assert.Equal("yes", final.Text);
+        }
+        finally
+        {
+            TryDeleteDirectory(installedModelDirectory);
+        }
+    }
+
+    /// <summary>Raises one captured block on a substitute capture device.</summary>
+    private static void RaiseFrameCaptured(IAudioCaptureDevice device, float[] samples) =>
+        device.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
+            device,
+            new AudioCaptureFrameEventArgs(samples));
+
+    /// <summary>
     ///     Proves that the system composes the full chunked streaming synthesis pipeline end to
     ///     end: <see cref="SpeechSynthesizerFactory"/> loads a real engine over an installed
     ///     model, an <see cref="ISynthesisSession"/> is bound to an available playback device,

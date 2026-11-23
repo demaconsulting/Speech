@@ -1126,6 +1126,7 @@ sections:
           - SpeechCli-RecognitionCommands-SessionStartWindowFallback
           - SpeechCli-RecognitionCommands-SessionTimeoutValidation
           - SpeechCli-RecognitionCommands-SessionTimeoutDrain
+          - SpeechCli-RecognitionCommands-MicCancellationKeepsTail
         tests:
           - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
           - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException

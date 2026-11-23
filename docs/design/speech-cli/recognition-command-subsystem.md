@@ -48,7 +48,9 @@ never block forever with only `Ctrl+C` as an escape hatch. `RecognizeCommand` re
 idle windows (start timeout 8 seconds, silence timeout 5 seconds by default, each independent of
 the other) and hands them to the decorator. The decorator ends the session by stopping the wrapped
 session when the active window elapses; stopping completes the result stream, which ends the
-command's result pump. `Ctrl+C` reaches the same terminal state by stopping the session directly.
+command's result pump. `Ctrl+C` reaches the same terminal state by stopping the session directly
+and gracefully: the result pump is not bound to the cancellation token, so the final result that
+stop flushes for the last utterance is still printed before the command exits.
 The run ends successfully when the idle timeout ends the session (the microphone idle-end
 behavior) and the capture device, session and engine are then released.
 

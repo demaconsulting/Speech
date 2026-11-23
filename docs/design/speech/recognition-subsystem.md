@@ -130,26 +130,36 @@ then waits up to a bounded timeout (`DefaultAbandonTimeout`, 2 seconds) for the 
 the delegate has not returned by then, the worker *abandons* it - the returned `Task` completes as canceled (an awaiting
 caller observes `OperationCanceledException`) without waiting for the native call to return, and the abandonment itself
 is reported through `ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate. This
-bounds how long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an abandoned native thread to
-finish on its own; it never blocks indefinitely on a stuck backend.
+bounds how long `StopAsync`/`DisposeAsync` can ever block a caller on a stuck backend, at the cost of leaving an
+abandoned native thread to finish on its own; it never blocks indefinitely on a stuck backend.
+
+A graceful `StopAsync` does not start that deadline when the stop begins: it waits for as long as the pump keeps
+making progress (a counter advanced after every decoded block and the flush) and requests cancellation only after a
+whole abandon interval with no progress. A slow but working recognizer therefore always finishes draining queued
+audio and flushing the final result, while a truly stuck native call is still abandoned. A canceled `StopAsync`
+requests cancellation immediately and switches the pump to discarding (see *RecognitionSession*), which is the only
+path on which captured audio is discarded.
 
 #### Backpressure policy
 
-`RecognitionSession` isolates a possibly-slow `GetResultsAsync` consumer from the pump
-thread with two independent, bounded buffers:
+`RecognitionSession` isolates a possibly-slow recognizer and a possibly-slow `GetResultsAsync`
+consumer from the audio callback with two independent buffers:
 
-- Captured-but-not-yet-converted audio queues in a bounded, drop-oldest `Channel<float[]>`
-  (`PendingFrameCapacity`, 64 blocks): recognition that has fallen behind live audio cannot be
-  caught up by queueing more of it, so the oldest unconverted block is dropped rather than
-  growing the backlog without bound.
+- Captured-but-not-yet-converted live audio queues losslessly in an unbounded `Channel<float[]>`
+  written without blocking, so a recognizer that falls behind builds a backlog instead of losing
+  words. A safety cap (`DefaultMaxPendingLiveAudio`, one minute of device audio) keeps memory
+  bounded for a recognizer persistently slower than real time; a block beyond the cap is
+  discarded and reported as a warning diagnostic, never silently. A finite file source instead
+  uses a small bounded queue that blocks its own reader thread (backpressure).
 - Converted results queue in a `RecognitionResultBuffer`: one overwritable "latest provisional"
   slot (an unconsumed provisional is superseded by the next one, never queued) plus a FIFO of final
   results. Provisional results may therefore be coalesced when the consumer is slow, but a final
   result is never dropped: finals are small and arrive at utterance boundaries, so retaining all
   of them is bounded by the length of the session.
 
-The capture queue bounds latency and memory when the native backend cannot keep up, and the
-single provisional slot bounds memory when a consumer cannot keep up.
+The capture queue keeps every captured sample within a bounded memory budget when the native
+backend cannot keep up, and the single provisional slot bounds memory when a consumer cannot keep
+up.
 
 #### Composition
 
@@ -166,11 +176,19 @@ across many devices or many sequential sessions over its life.
 
 The running pipeline in `RecognitionSession` still spans two threads by design. The
 capture device raises frames on a high-priority audio callback thread, so the session's frame
-handler does nothing but copy the block into the bounded, drop-oldest queue and return; all
+handler does nothing but copy the block into the lossless, capped queue and return; all
 conversion, inference, and result buffering happens on the `DedicatedWorker` pump thread.
-`StopAsync` completes the queue and awaits that pump task (subject to the abandon policy above),
-so every result derived from audio captured before the stop request is either delivered or
-delivered by the time the call returns.
+A graceful `StopAsync` stops capture, drains the queue, flushes the backend, buffers every final
+result, and resets the backend, in that order, before it returns, so every result derived from
+audio captured before the stop request is delivered by the time the call returns and the next
+session starts a clean utterance.
+
+**Push-to-talk.** Sessions stay single-use; a push-to-talk host "pauses" by stopping a session
+and "resumes" by creating the next one from the same engine. Speech that begins just before the
+press is kept by binding every session to one `PreRollAudioCaptureDevice` from the
+AudioSubsystem, which keeps the microphone capturing between sessions and delivers the most
+recent 300 ms (by default) as the next session's first block. The pre-roll lives in the capture
+device rather than the session because only the device outlives a press.
 
 `AudioFrameResampler` performs the format conversion, downmixing to mono and using simple linear
 interpolation for rate conversion except on the downsampling path, where a small windowed-sinc

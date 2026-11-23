@@ -39,6 +39,12 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     /// <summary>Every mono sample this engine has been fed, in the order it arrived.</summary>
     private readonly List<float> _acceptedSamples = [];
 
+    /// <summary>Guards <see cref="_calls"/>.</summary>
+    private readonly object _callsLock = new();
+
+    /// <summary>The ordered log of backend calls (see <see cref="Calls"/>).</summary>
+    private readonly List<string> _calls = [];
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="FakeRecognitionEngine"/> class.
     /// </summary>
@@ -95,6 +101,26 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
 
     /// <summary>Gets every mono sample this engine has been fed, in arrival order.</summary>
     public IReadOnlyList<float> AcceptedSamples => _acceptedSamples;
+
+    /// <summary>
+    ///     Gets a snapshot of the ordered backend calls received - <c>"Accept"</c>,
+    ///     <c>"Flush"</c>, and <c>"Reset"</c> - so tests can prove call ordering (for example that
+    ///     a session flushes before it resets, and resets before the next session's audio).
+    /// </summary>
+    public IReadOnlyList<string> Calls
+    {
+        get { lock (_callsLock) { return [.. _calls]; } }
+    }
+
+    /// <summary>Appends one entry to the ordered call log.</summary>
+    /// <param name="call">The call name to record.</param>
+    private void RecordCall(string call)
+    {
+        lock (_callsLock)
+        {
+            _calls.Add(call);
+        }
+    }
 
     /// <summary>Gets the number of <see cref="AcceptSamples"/> calls this engine has received.</summary>
     public int AcceptSamplesCallCount
@@ -154,6 +180,7 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     /// <inheritdoc/>
     public void AcceptSamples(ReadOnlySpan<float> monoSamples)
     {
+        RecordCall("Accept");
         _acceptedSamples.AddRange(monoSamples.ToArray());
         lock (_countLock)
         {
@@ -189,6 +216,7 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     /// <inheritdoc/>
     public bool TryFlush(out SpeechRecognitionResult? result)
     {
+        RecordCall("Flush");
         FlushCallCount++;
 
         if (_flushException is not null)
@@ -203,6 +231,7 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     /// <inheritdoc/>
     public void Reset()
     {
+        RecordCall("Reset");
         ResetCallCount++;
 
         if (_resetException is not null)

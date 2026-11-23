@@ -51,7 +51,12 @@ The application opens with four panels, one of which embeds a fifth:
   `ISpeechRecognizerEngine`/`IRecognitionSession` through a demo-owned seam over
   `SpeechRecognizerFactory`. Start loads/reuses the cached engine, creates a fresh session (a
   recognition session is single-use), and pumps `GetResultsAsync` on a background task; Stop
-  requests `StopAsync` on the active session. Listening state is derived from the session's own
+  requests `StopAsync` on the active session, which recognizes everything spoken before Stop and
+  delivers the final line before the panel settles. Start and Stop work like a push-to-talk
+  button: the panel keeps the selected microphone open between them (through
+  `PreRollAudioCaptureDevice`) and feeds the last 300 ms before each Start into the new session,
+  so speech that begins as you click Start is not clipped. The microphone is closed when you pick
+  another device, refresh devices, or close the demo. Listening state is derived from the session's own
   `State`/`StateChanged` rather than tracked ad hoc. Committed final
   results accumulate in order while a trailing partial line updates live as the recognizer
   refines it. The panel explains itself if no recognition model is installed or no capture

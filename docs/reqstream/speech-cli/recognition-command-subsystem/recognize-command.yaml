@@ -9,7 +9,8 @@
 # The requirements are grouped by concern, one criterion each:
 #   - Input source (InputSourceValidation, InputSourceMissing, FileInputSource,
 #     FileInputEofDrivenStop, InputFileValidation, TimeoutsIgnoredForFileInput)
-#   - Arguments (ArgumentValidation, ValueFlagOptionRejection, FileInputCancellation)
+#   - Arguments (ArgumentValidation, ValueFlagOptionRejection, FileInputCancellation,
+#     MicCancellationKeepsTail)
 #   - Model resolution (ModelValidation, ModelUnknown, ModelWrongRole, ModelNotDownloaded)
 #   - Model parameters (ParamValidation, ParamRejection)
 #   - Idle timeout options (SilenceTimeoutOption, SilenceTimeoutDefault,
@@ -143,6 +144,19 @@ sections:
                   stack trace or leaking the recognizer.
                 tests:
                   - RecognizeCommand_Run_FileInputCanceledDuringStart_CompletesGracefully
+
+              - id: SpeechCli-RecognitionCommands-MicCancellationKeepsTail
+                title: >-
+                  The tool shall, when the operator ends a `recognize --mic` run with `Ctrl+C`,
+                  stop listening gracefully and print the final result for the speech captured
+                  before the interruption before finishing.
+                tags: [unit]
+                justification: |
+                  `Ctrl+C` is how an operator ends live listening; abandoning the result stream at
+                  that moment would lose the last thing they said, which is often the whole
+                  answer.
+                tests:
+                  - RecognizeCommand_Run_MicModeCanceled_StopsGracefullyAndPrintsTrailingFinal
 
               - id: SpeechCli-RecognitionCommands-ModelValidation
                 title: >-

@@ -24,8 +24,11 @@ package SpeechDemo_RecognitionPanelViewModel {
              * from it on every Start, since a session is single-use; invalidates the engine - stopping and releasing
              * an active session first, even while Listening - whenever the selected model changes, and invalidates
              * only the session (keeping the engine) whenever the selected capture device changes or a shared device
-             * refresh replaces the underlying capture device. Implements IAsyncDisposable to release an active
-             * session and engine deterministically. */
+             * refresh replaces the underlying capture device. For push-to-talk it keeps one PreRollAudioCaptureDevice
+             * per selected microphone open across Start/Stop cycles, so each Start recognizes the speech that began
+             * just before it, and releases it on a device change, device refresh, failed start, or disposal.
+             * Implements IAsyncDisposable to release an active
+             * session, engine, and capture device deterministically. */
 
         metadata info : SoftwareInfo {
             sourceFiles = ("src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelViewModel.cs", "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionStreamingState.cs");
@@ -51,6 +54,7 @@ package SpeechDemo_RecognitionPanelViewModel {
         dependency RecognitionPanelViewModel to Speech_SpeechModelDescriptorEnums::SpeechModelDescriptorEnums;
         dependency RecognitionPanelViewModel to Speech_SpeechRecognitionResult::SpeechRecognitionResult;
         dependency RecognitionPanelViewModel to Speech_SpeechRecognizerUnavailableException::SpeechRecognizerUnavailableException;
+        dependency RecognitionPanelViewModel to Speech_PreRollAudioCaptureDevice::PreRollAudioCaptureDevice;
         dependency RecognitionPanelViewModel to OtsDependencies::CommunityToolkitMvvm;
     }
 }

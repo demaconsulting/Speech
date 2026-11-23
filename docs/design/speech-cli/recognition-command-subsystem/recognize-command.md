@@ -68,10 +68,12 @@ the last time the console line was settled.
   `SilenceTimeoutRecognizerSession` constructed from the resolved silence and start windows. It
   starts the result pump as a genuinely asynchronous call before awaiting `StartAsync`, so interim
   results print as they arrive: the session's buffer keeps only the latest interim update when
-  its single consumer is not reading. A `Console.CancelKeyPress` handler stops the session with a
-  fire-and-forget `StopAsync`, which completes the result stream and ends the pump; the
-  cancellation token is also passed into the result stream as a safety net for the case where
-  `StopAsync` on a session that never started does not itself complete the stream.
+  its single consumer is not reading. `Ctrl+C` (or any cancellation of the command's token) stops
+  the session gracefully with a fire-and-forget `StopAsync(CancellationToken.None)`, which drains
+  and flushes the session and then completes the result stream, ending the pump. The pump is
+  deliberately not bound to the cancellation token: ending it on cancellation would drop the final
+  result the graceful stop has just produced - the last thing the operator said. Every path
+  guarantees the session reaches a terminal state, which completes the stream.
 - **Console output**: By default an interim result is written with a carriage return and no
   trailing newline, so a live console redraws the hypothesis in place, and a final result is
   written newline-terminated, settling the line. With redirected output the carriage-return
@@ -93,8 +95,9 @@ unknown, wrong-role or not-downloaded model, an invalid `--stt-param`, and an un
 `InvalidOperationException`; so does an `--input` file that is not a WAV file or is not mono
 16-bit PCM, because the WAV device rejects it when its capture starts, and the message
 names the file or the mono requirement. Null arguments to the entry points throw
-`ArgumentNullException`. A cancellation that ends the result pump is treated as graceful
-termination; in file mode, if the drain `StopAsync` itself throws a cancellation, the command
+`ArgumentNullException`. The result pump ends only when the session's result stream completes;
+in file mode, if the drain `StopAsync` itself throws a cancellation (a canceled stop discards the
+rest of the file), the command
 stops the session again with a non-cancelable token before completing.
 Neither `IAudioCaptureDevice` nor its implementations are disposable, so the command
 needs no capture-device disposal; the engine and session are released by `await using`.

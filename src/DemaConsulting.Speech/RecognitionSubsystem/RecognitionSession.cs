@@ -14,33 +14,61 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 /// <remarks>
 ///     This type carries the per-session pump-loop logic that
 ///     <c>SherpaOnnxSpeechRecognizer</c> used to own directly before the Engine/Session split: the
-///     capture device's <c>FrameCaptured</c> callback still does nothing but copy a block into a
-///     bounded, drop-oldest <see cref="Channel{T}"/>, and a single dedicated background thread -
-///     started via the subsystem's internal <see cref="DedicatedWorker"/> - still does all the
-///     real work (downmix/resample, feed the backend, poll for results, buffer them for
+///     capture device's <c>FrameCaptured</c> callback does nothing but copy a block into a
+///     <see cref="Channel{T}"/>, and a single dedicated background thread - started via the
+///     subsystem's internal <see cref="DedicatedWorker"/> - does all the real work
+///     (downmix/resample, feed the backend, poll for results, buffer them for
 ///     <see cref="GetResultsAsync"/>). The backend itself is owned and disposed by the owning
 ///     <see cref="SpeechRecognizerEngine"/>, not by this session, so that it stays
 ///     "hot" (loaded once, reused across sequential sessions) rather than being torn down at the
 ///     end of every run.
 ///     <para>
-///     <see cref="StopAsync"/> completes the pending-frame channel and awaits the pump thread, so
-///     every block accepted before the call has been decoded and every resulting event buffered
-///     by the time it returns - including one last flushed result for a trailing utterance that
-///     had not yet been decoded (see <see cref="IRecognitionBackend.TryFlush"/>). Both
-///     <see cref="StopAsync"/> and <see cref="DisposeAsync"/> await that pump thread through the
-///     cooperative-cancel-then-abandon policy documented on <see cref="DedicatedWorker"/>: an abandoned stop/dispose still completes teardown as best-effort, while an
-///     abandonment that happens for any other reason transitions this session to
-///     <see cref="RecognitionSessionState.Faulted"/>.
+///     <b>Lossless capture queue.</b> A live device's audio callback must never block, so a
+///     live source queues into an unbounded channel: a recognizer that falls behind builds a
+///     backlog rather than losing audio. Memory is still bounded by a safety cap of
+///     <see cref="DefaultMaxPendingLiveAudio"/> of queued audio; a block that would exceed the
+///     cap is discarded and reported as a warning diagnostic (never silently). A finite file
+///     source is delivered on its own reader thread, so it instead queues into a small bounded
+///     channel that applies backpressure to the reader.
+///     </para>
+///     <para>
+///     <b>Graceful stop.</b> <see cref="StopAsync"/> (and <see cref="DisposeAsync"/>) stops
+///     capture by unsubscribing from the device, completes the pending-frame channel, and awaits
+///     the pump thread, so every block accepted before the call has been decoded, the backend has
+///     been flushed (see <see cref="IRecognitionBackend.TryFlush"/>), and every resulting event
+///     has been buffered by the time it returns. Only then is the backend reset, so the next
+///     session on the same engine starts a clean utterance. A slow drain is never cut short: the
+///     cooperative-cancel-then-abandon policy documented on <see cref="DedicatedWorker"/> is
+///     applied only once the pump stops making progress for a whole abandon interval (a
+///     genuinely stuck native call). An abandoned stop/dispose still completes teardown as
+///     best-effort, while an abandonment that happens for any other reason transitions this
+///     session to <see cref="RecognitionSessionState.Faulted"/>.
+///     </para>
+///     <para>
+///     <b>Canceled stop.</b> Canceling the token passed to <see cref="StopAsync"/> is the only
+///     way to discard audio: the pump stops decoding blocks still queued, skips the final flush,
+///     and the abandon policy applies immediately. Teardown (backend reset, device stop, state
+///     convergence) still completes for every caller.
 ///     </para>
 /// </remarks>
 internal sealed class RecognitionSession : IRecognitionSession
 {
     /// <summary>
-    ///     The maximum number of captured blocks held pending recognition before the oldest is
-    ///     dropped. Sized for roughly a second of typical capture-callback blocks, mirroring the
-    ///     bound <c>SherpaOnnxSpeechRecognizer</c> used before this split.
+    ///     The default safety cap on how much live audio may wait for recognition: one minute.
     /// </summary>
-    private const int PendingFrameCapacity = 64;
+    /// <remarks>
+    ///     A recognizer this far behind real time is no longer producing useful live results, so
+    ///     the cap only exists to keep memory bounded (one minute of 48 kHz stereo audio is about
+    ///     23 MB) if a recognizer is persistently slower than real time. Ordinary backlogs - a
+    ///     slow first decode, a busy machine, a long stop drain - are far below it.
+    /// </remarks>
+    internal static readonly TimeSpan DefaultMaxPendingLiveAudio = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    ///     The maximum number of blocks a finite file source may queue before its reader thread
+    ///     waits for the pump to catch up (backpressure, never dropping).
+    /// </summary>
+    private const int FiniteSourcePendingFrameCapacity = 64;
 
     /// <summary>
     ///     The maximum number of results drained from the backend for a single captured block, so
@@ -85,10 +113,55 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// <summary>Buffers provisional/final results for <see cref="GetResultsAsync"/>.</summary>
     private readonly RecognitionResultBuffer _resultBuffer;
 
+    /// <summary>
+    ///     Whether <see cref="_device"/> is a finite file source, which queues with backpressure
+    ///     and drains without an abandon deadline, rather than a live device.
+    /// </summary>
+    private readonly bool _isFiniteSource;
+
+    /// <summary>
+    ///     The live-source safety cap, in interleaved samples at the device's capture format:
+    ///     a captured block that would grow the queued backlog beyond this is discarded and
+    ///     reported (see <see cref="DefaultMaxPendingLiveAudio"/>).
+    /// </summary>
+    private readonly long _maxPendingLiveSamples;
+
+    /// <summary>
+    ///     The number of live interleaved samples currently queued but not yet read by the pump.
+    ///     Updated with <see cref="Interlocked"/> by the capture callback and the pump thread.
+    /// </summary>
+    private long _pendingLiveSamples;
+
+    /// <summary>
+    ///     The number of live interleaved samples discarded because the safety cap was reached,
+    ///     reported once more at teardown. Updated with <see cref="Interlocked"/>.
+    /// </summary>
+    private long _droppedLiveSamples;
+
+    /// <summary>
+    ///     1 once the first overflow of the live safety cap has been reported, so a sustained
+    ///     overflow produces one warning rather than one per captured block.
+    /// </summary>
+    private int _overflowReported;
+
+    /// <summary>
+    ///     Incremented by the pump thread after every completed backend step (one block, one
+    ///     final-drain decode, the flush), so teardown can tell a slow-but-progressing drain -
+    ///     which it waits for - from a stuck native call - which it abandons.
+    /// </summary>
+    private long _pumpProgress;
+
+    /// <summary>
+    ///     Set once a caller cancels <see cref="StopAsync"/>: the pump then discards every block
+    ///     still queued instead of decoding it, and skips the final flush. Cancellation is the
+    ///     only path that may discard captured audio.
+    /// </summary>
+    private volatile bool _discardRequested;
+
     /// <summary>This session's current lifecycle state.</summary>
     private RecognitionSessionState _state = RecognitionSessionState.Created;
 
-    /// <summary>The bounded hand-off between the audio callback thread and the pump thread.</summary>
+    /// <summary>The hand-off between the audio callback thread and the pump thread (see the type remarks).</summary>
     private Channel<float[]>? _pendingFrames;
 
     /// <summary>Signals the pump thread to stop cooperatively and bounds how long teardown waits for it.</summary>
@@ -168,6 +241,11 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// </param>
     /// <param name="diagnostics">The sink for structural lifecycle and fault events. Must not be null.</param>
     /// <param name="worker">The dedicated worker this session runs its pump loop through. Must not be null.</param>
+    /// <param name="maxPendingLiveAudio">
+    ///     The safety cap on queued live audio, or <see langword="null"/> for
+    ///     <see cref="DefaultMaxPendingLiveAudio"/>. Must be positive when supplied; tests inject a
+    ///     small value so the cap can be reached cheaply.
+    /// </param>
     internal RecognitionSession(
         IRecognitionBackend backend,
         IAudioCaptureDevice device,
@@ -175,7 +253,8 @@ internal sealed class RecognitionSession : IRecognitionSession
         IRecognitionModel model,
         Action releaseLease,
         ISpeechDiagnostics diagnostics,
-        DedicatedWorker worker)
+        DedicatedWorker worker,
+        TimeSpan? maxPendingLiveAudio = null)
     {
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentNullException.ThrowIfNull(device);
@@ -184,6 +263,14 @@ internal sealed class RecognitionSession : IRecognitionSession
         ArgumentNullException.ThrowIfNull(diagnostics);
         ArgumentNullException.ThrowIfNull(worker);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(targetSampleRate, 0);
+        var maxPending = maxPendingLiveAudio ?? DefaultMaxPendingLiveAudio;
+        if (maxPending <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxPendingLiveAudio),
+                maxPending,
+                "The live-audio safety cap must be positive.");
+        }
 
         _backend = backend;
         _device = device;
@@ -192,6 +279,7 @@ internal sealed class RecognitionSession : IRecognitionSession
         _diagnostics = diagnostics;
         _worker = worker;
         _resultBuffer = new RecognitionResultBuffer();
+        _isFiniteSource = device is WavFileAudioCaptureDevice;
 
         var deviceSampleRate = device.SampleRate;
         var deviceChannelCount = device.ChannelCount;
@@ -206,6 +294,12 @@ internal sealed class RecognitionSession : IRecognitionSession
         }
 
         _resampler = new AudioFrameResampler(deviceSampleRate, deviceChannelCount, targetSampleRate);
+
+        // The cap is expressed in the device's own interleaved samples, which is exactly what the
+        // capture callback queues, so it can be enforced without any format conversion there.
+        _maxPendingLiveSamples = Math.Max(
+            1L,
+            (long)(maxPending.TotalSeconds * deviceSampleRate * deviceChannelCount));
     }
 
     /// <inheritdoc/>
@@ -260,10 +354,10 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     torn-down session is never forced back to <see cref="RecognitionSessionState.Running"/>.
     ///     <para>
     ///     The pump is started before <see cref="IAudioCaptureDevice.Start"/>, not after: a
-    ///     synchronous-replay device (for example a file-backed capture device) can emit an
-    ///     entire file's worth of blocks before <c>Start()</c> returns, and the bounded,
-    ///     drop-oldest channel below would silently discard its earliest blocks were nothing
-    ///     already draining it.
+    ///     synchronous-replay device (for example a file-backed capture device, or a pre-roll
+    ///     device replaying its buffered audio) can emit blocks before <c>Start()</c> returns, and
+    ///     a finite source's bounded channel would otherwise block its reader with nothing
+    ///     draining it.
     ///     </para>
     /// </remarks>
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -284,17 +378,25 @@ internal sealed class RecognitionSession : IRecognitionSession
 
             startingArgs = TransitionTo(RecognitionSessionState.Starting);
 
-            var isFiniteSource = _device is WavFileAudioCaptureDevice;
-            var frames = Channel.CreateBounded<float[]>(
-                new BoundedChannelOptions(PendingFrameCapacity)
-                {
-                    // A live microphone must never stall its audio callback, so it drops the
-                    // oldest block when recognition falls behind. A finite file is delivered
-                    // faster than real time and every sample matters, so it applies backpressure.
-                    FullMode = isFiniteSource ? BoundedChannelFullMode.Wait : BoundedChannelFullMode.DropOldest,
-                    SingleReader = true,
-                    SingleWriter = false
-                });
+            // A live microphone must never stall its audio callback, and must never lose audio
+            // either, so it queues into an unbounded channel whose growth OnFrameCaptured bounds
+            // with a reported safety cap. A finite file is delivered faster than real time on its
+            // own reader thread, so it queues into a small bounded channel that applies
+            // backpressure to that reader instead.
+            var frames = _isFiniteSource
+                ? Channel.CreateBounded<float[]>(
+                    new BoundedChannelOptions(FiniteSourcePendingFrameCapacity)
+                    {
+                        FullMode = BoundedChannelFullMode.Wait,
+                        SingleReader = true,
+                        SingleWriter = false
+                    })
+                : Channel.CreateUnbounded<float[]>(
+                    new UnboundedChannelOptions
+                    {
+                        SingleReader = true,
+                        SingleWriter = false
+                    });
             _pendingFrames = frames;
 
             // Start the pump thread first so the channel is already being drained the instant
@@ -403,6 +505,15 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     stays <see cref="RecognitionSessionState.Faulted"/> rather than advancing to
     ///     <see cref="RecognitionSessionState.Stopped"/>, preserving the fault for
     ///     <see cref="GetResultsAsync"/> consumers.
+    ///     <para>
+    ///     Without cancellation this is a graceful stop: the returned task completes only after
+    ///     every queued block has been decoded, the backend has been flushed, and every final
+    ///     result has been buffered. Canceling <paramref name="cancellationToken"/> - before or
+    ///     during the call - requests a discarding stop instead (see the type remarks): queued
+    ///     audio is dropped, no flush is performed, and this caller's wait ends with
+    ///     <see cref="OperationCanceledException"/>, while the shared teardown still converges
+    ///     for every other caller.
+    ///     </para>
     /// </remarks>
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
@@ -411,6 +522,13 @@ internal sealed class RecognitionSession : IRecognitionSession
         TeardownStart? start;
         lock (_syncRoot)
         {
+            // An already-canceled token must take effect before the pump can observe the
+            // completed channel, so not a single queued block is decoded or flushed afterwards.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _discardRequested = true;
+            }
+
             if (_state is RecognitionSessionState.Disposing or RecognitionSessionState.Disposed)
             {
                 teardownTask = Task.CompletedTask;
@@ -440,15 +558,82 @@ internal sealed class RecognitionSession : IRecognitionSession
             _ = RunTeardownAsync(pending);
         }
 
-        // cancellationToken only bounds this caller's own wait for teardown: the
-        // shared teardown task above is never aborted by it, since it is shared with every other
-        // concurrent/overlapping StopAsync caller (and DisposeAsync), all of whom still need
-        // draining/resetting/stopping to genuinely happen regardless of whether this particular
-        // caller stopped waiting for it. This is the one, unconditional return statement in this
-        // method, so it is always reached regardless of which branch above produced teardownTask.
+        // A canceled caller never waits: report the cancellation deterministically, even if the
+        // (discarding) teardown happens to have finished already.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            RequestDiscard();
+            return Task.FromCanceled(cancellationToken);
+        }
+
+        // This is the one, unconditional return statement for a caller that has not (yet)
+        // canceled, so it is always reached regardless of which branch above produced
+        // teardownTask.
         return cancellationToken.CanBeCanceled
-            ? teardownTask.WaitAsync(cancellationToken)
+            ? WaitForTeardownAsync(teardownTask, cancellationToken)
             : teardownTask;
+    }
+
+    /// <summary>
+    ///     Waits for the shared teardown on behalf of one <see cref="StopAsync"/> caller whose
+    ///     token may still be canceled, turning a cancellation into a discarding stop.
+    /// </summary>
+    /// <param name="teardownTask">The shared teardown task every stop/dispose caller observes.</param>
+    /// <param name="cancellationToken">This caller's token; canceling it requests a discard.</param>
+    /// <returns>A task that completes with the teardown, or as canceled once the token is canceled.</returns>
+    private async Task WaitForTeardownAsync(Task teardownTask, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await teardownTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Requested before this caller observes its cancellation, so by the time the caller
+            // sees OperationCanceledException the pump is already discarding. (A token canceled
+            // after the teardown already finished never reaches here: there is nothing left to
+            // discard.)
+            RequestDiscard();
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     Switches the in-flight teardown to a discarding stop: the pump drops every block still
+    ///     queued, skips the final flush, and the abandon deadline for a stuck backend call starts
+    ///     immediately rather than waiting for the pump to stall.
+    /// </summary>
+    /// <remarks>
+    ///     Safe to call from any thread, any number of times, including after teardown has
+    ///     disposed the pump's cancellation source (the late cancel is then a no-op).
+    /// </remarks>
+    private void RequestDiscard()
+    {
+        CancellationTokenSource? pumpCts;
+        lock (_syncRoot)
+        {
+            _discardRequested = true;
+            pumpCts = _pumpCts;
+        }
+
+        CancelQuietly(pumpCts);
+    }
+
+    /// <summary>
+    ///     Cancels <paramref name="cancellationSource"/>, tolerating a source that teardown has
+    ///     already disposed concurrently.
+    /// </summary>
+    /// <param name="cancellationSource">The source to cancel, or <see langword="null"/> for none.</param>
+    private static void CancelQuietly(CancellationTokenSource? cancellationSource)
+    {
+        try
+        {
+            cancellationSource?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Teardown already finished with this source; there is nothing left to cancel.
+        }
     }
 
     /// <summary>
@@ -608,18 +793,19 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
             }
 
-            // Canceling here is purely the abandon-timeout deadline for DedicatedWorker:
-            // PumpLoop itself never observes this token while draining (see its own remarks), so
-            // every block already accepted is still decoded and buffered normally; this cancellation
-            // only matters if the pump thread is genuinely stuck inside a blocking backend call that
-            // never returns, in which case the worker is abandoned after its timeout rather than
-            // hanging this call forever.
-            // A finite file source is never canceled here: the abandon deadline would cut off a
-            // slow backend (for example a large CPU model) still decoding the file's queued audio,
-            // losing the tail of a transcript the user expects in totality.
-            if (pumpCts is not null && _device is not WavFileAudioCaptureDevice)
+            // The pump thread itself never observes pumpCts while draining (see PumpLoop's
+            // remarks); canceling it only starts DedicatedWorker's abandon deadline for a pump
+            // thread genuinely stuck inside a blocking backend call. A graceful stop therefore
+            // waits for as long as the pump keeps making progress - a long backlog or a slow
+            // flush is drained in full - and requests cancellation only once the pump has made
+            // no progress for a whole abandon interval. A finite file source is never canceled
+            // here at all: the abandon deadline would cut off a slow backend (for example a large
+            // CPU model) still decoding the file's queued audio, losing the tail of a transcript
+            // the user expects in totality. A discarding stop (a canceled StopAsync) has already
+            // canceled pumpCts itself through RequestDiscard.
+            if (pumpTask is not null && pumpCts is not null && !_isFiniteSource)
             {
-                await pumpCts.CancelAsync().ConfigureAwait(false);
+                await CancelPumpWhenStalledAsync(pumpTask, pumpCts).ConfigureAwait(false);
             }
 
             var abandoned = false;
@@ -646,8 +832,16 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
             }
 
+            lock (_syncRoot)
+            {
+                // RequestDiscard reads _pumpCts under this lock; clearing it first means a late
+                // cancellation never targets the source disposed below.
+                _pumpCts = null;
+            }
+
             pumpCts?.Dispose();
             _resultBuffer.Complete();
+            ReportDroppedLiveAudio();
 
             if (abandoned)
             {
@@ -693,6 +887,72 @@ internal sealed class RecognitionSession : IRecognitionSession
             // waiting on a teardown that silently stopped making progress.
             completionSource.TrySetResult();
         }
+    }
+
+    /// <summary>
+    ///     Waits for <paramref name="pumpTask"/> for as long as the pump thread keeps making
+    ///     progress, and cancels <paramref name="pumpCts"/> - starting the dedicated worker's
+    ///     abandon deadline - only once a whole abandon interval passes with no progress at all.
+    /// </summary>
+    /// <param name="pumpTask">The abandon-aware pump task being drained.</param>
+    /// <param name="pumpCts">The pump's cancellation source, canceled only when the pump stalls.</param>
+    /// <remarks>
+    ///     A fixed deadline from the moment of stopping would cut off a legitimate drain - a
+    ///     backlog of queued live audio, or a flush that decodes padding - and silently lose the
+    ///     final result the caller is waiting for. Measuring progress instead keeps the abandon
+    ///     guarantee for a genuinely stuck native call (no progress at all) while never
+    ///     discarding audio a working recognizer is still decoding.
+    /// </remarks>
+    private async Task CancelPumpWhenStalledAsync(Task pumpTask, CancellationTokenSource pumpCts)
+    {
+        var lastProgress = Interlocked.Read(ref _pumpProgress);
+        while (!pumpTask.IsCompleted)
+        {
+            // The delay is cancelable so its timer is released as soon as the pump finishes.
+            using var intervalCts = new CancellationTokenSource();
+            var interval = Task.Delay(_worker.AbandonTimeout, intervalCts.Token);
+            var finished = await Task.WhenAny(pumpTask, interval).ConfigureAwait(false);
+            if (finished == pumpTask)
+            {
+                await intervalCts.CancelAsync().ConfigureAwait(false);
+                return;
+            }
+
+            var progress = Interlocked.Read(ref _pumpProgress);
+            if (progress == lastProgress)
+            {
+                // No backend step completed for a whole interval: treat the pump as stuck.
+                CancelQuietly(pumpCts);
+                return;
+            }
+
+            lastProgress = progress;
+        }
+    }
+
+    /// <summary>
+    ///     Reports, once at teardown, how much live audio the safety cap discarded during this
+    ///     session, so a host investigating missing words can see the total rather than only the
+    ///     first overflow warning.
+    /// </summary>
+    private void ReportDroppedLiveAudio()
+    {
+        var dropped = Interlocked.Read(ref _droppedLiveSamples);
+        if (dropped > 0)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                $"Recognition fell more than {DescribeCap()} behind live capture; {dropped} captured samples were discarded during this session.");
+        }
+    }
+
+    /// <summary>Formats the live safety cap for diagnostics.</summary>
+    /// <returns>The cap in seconds of device audio, for example <c>60 s</c>.</returns>
+    private string DescribeCap()
+    {
+        var samplesPerSecond = Math.Max(1L, (long)_resampler.SourceSampleRate * _resampler.SourceChannelCount);
+        return $"{_maxPendingLiveSamples / (double)samplesPerSecond:0.###} s";
     }
 
     /// <summary>
@@ -920,7 +1180,7 @@ internal sealed class RecognitionSession : IRecognitionSession
                 return;
             }
 
-            if (_device is WavFileAudioCaptureDevice)
+            if (_isFiniteSource)
             {
                 // Runs on the file device's own Start() thread, never a live audio callback, so
                 // blocking here until the pump catches up is safe and loses no audio. The channel
@@ -937,7 +1197,7 @@ internal sealed class RecognitionSession : IRecognitionSession
                 return;
             }
 
-            frames.Writer.TryWrite([.. e.Samples]);
+            EnqueueLiveBlock(frames.Writer, e.Samples);
         }
         catch (Exception ex)
         {
@@ -947,6 +1207,45 @@ internal sealed class RecognitionSession : IRecognitionSession
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
                 $"A captured audio block could not be queued for recognition: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    ///     Queues one live block without ever blocking the audio callback, enforcing the reported
+    ///     safety cap on the queued backlog.
+    /// </summary>
+    /// <param name="writer">The pending-frame channel's writer (unbounded for a live source).</param>
+    /// <param name="samples">The captured interleaved samples to copy and queue.</param>
+    /// <remarks>
+    ///     A block is always accepted when nothing else is queued, so even a single block larger
+    ///     than the cap is still recognized; otherwise a block that would grow the backlog beyond
+    ///     the cap is discarded, counted, and - for the first such block of the session -
+    ///     reported as a warning diagnostic. Nothing is ever dropped silently.
+    /// </remarks>
+    private void EnqueueLiveBlock(ChannelWriter<float[]> writer, IReadOnlyList<float> samples)
+    {
+        var count = samples.Count;
+        var pending = Interlocked.Add(ref _pendingLiveSamples, count);
+        if (pending > _maxPendingLiveSamples && pending != count)
+        {
+            Interlocked.Add(ref _pendingLiveSamples, -count);
+            Interlocked.Add(ref _droppedLiveSamples, count);
+            if (Interlocked.Exchange(ref _overflowReported, 1) == 0)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Warning,
+                    DiagnosticsCategory,
+                    $"Recognition has fallen more than {DescribeCap()} behind live capture; newly captured audio is being discarded until it catches up.");
+            }
+
+            return;
+        }
+
+        if (!writer.TryWrite([.. samples]))
+        {
+            // The channel was completed by teardown between the caller's check and this write:
+            // the block arrived after the stop, so it is not part of this session's audio.
+            Interlocked.Add(ref _pendingLiveSamples, -count);
         }
     }
 
@@ -1007,7 +1306,10 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     reading it here as well would risk silently dropping buffered-but-undecoded frames in
     ///     a race with that cancellation, breaking the guarantee that every block accepted before
     ///     <see cref="StopAsync"/> is still decoded. Completion of <see cref="_pendingFrames"/>'s
-    ///     writer is the only signal this loop reacts to.
+    ///     writer is the only signal this loop reacts to. A discarding stop (see
+    ///     <see cref="RequestDiscard"/>) still reads the channel to its end, so a finite source's
+    ///     blocked reader is released, but drops each block instead of decoding it and skips the
+    ///     final flush.
     /// </remarks>
     private void PumpLoop(CancellationToken _)
     {
@@ -1024,6 +1326,16 @@ internal sealed class RecognitionSession : IRecognitionSession
                 break;
             }
 
+            if (!_isFiniteSource)
+            {
+                Interlocked.Add(ref _pendingLiveSamples, -frame.Length);
+            }
+
+            if (_discardRequested)
+            {
+                continue;
+            }
+
             if (!ProcessFrame(frame))
             {
                 // The backend itself failed: continuing to pump further frames
@@ -1033,9 +1345,14 @@ internal sealed class RecognitionSession : IRecognitionSession
                 // has already been faulted (result buffer included) from the pump thread itself.
                 break;
             }
+
+            Interlocked.Increment(ref _pumpProgress);
         }
 
-        FlushFinal();
+        if (!_discardRequested)
+        {
+            FlushFinal();
+        }
     }
 
     /// <summary>
@@ -1056,9 +1373,12 @@ internal sealed class RecognitionSession : IRecognitionSession
                 }
 
                 BufferResult(pending);
+                Interlocked.Increment(ref _pumpProgress);
             }
 
-            if (!_backend.TryFlush(out var result) || result is null)
+            var flushed = _backend.TryFlush(out var result);
+            Interlocked.Increment(ref _pumpProgress);
+            if (!flushed || result is null)
             {
                 return;
             }
