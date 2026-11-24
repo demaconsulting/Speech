@@ -328,7 +328,7 @@ if ($run.reviewmark) {
 if ($run.sysml2tools) {
     Write-Host "Linting: sysml2tools..."
     if (-not $skipDotnetTools -and (Test-Path docs/sysml2)) {
-        dotnet sysml2tools lint 'docs/sysml2/**/*.sysml'
+        dotnet sysml2tools lint --strict-unresolved 'docs/sysml2/**/*.sysml'
         if ($LASTEXITCODE -ne 0) { $lintError = $true }
     }
 } else {

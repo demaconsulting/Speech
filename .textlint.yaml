@@ -211,8 +211,11 @@ words:
   - zipf
   - zipformer
   # Terms used by the template-provided standards in .github/standards
+  - distinguishability
   - nestings
+  - Sensmetry
   - shopt
+  - Syside
   - unidirectionality
   # The Phonemes.En word pronouncer (a unit name that appears in file names, requirement ids and configuration)
   # and the golden corpora it regenerates (the regenerate-goldens command of the Phonemes.En tools)
