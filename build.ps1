@@ -10,20 +10,23 @@
 #   pwsh ./build.ps1 -All                      Full local build, pack verification, and all tests
 #   pwsh ./build.ps1 -Changed [-Base <ref>]    Only the test projects affected by the changes since <ref>
 #                                              (default origin/main, else main) plus uncommitted changes
-#   pwsh ./build.ps1 -Project Onnx.Kokoro,Cli  Only the test projects affected by the named projects (full or
-#                                              short names: Core is DemaConsulting.Speech, other short names are
-#                                              relative to it, so Onnx.Kokoro is DemaConsulting.Speech.Onnx.Kokoro;
-#                                              ModelBundler and ModelDownloader take their full names)
+#   pwsh ./build.ps1 -Project Onnx.Kokoro,Cli  Only the test projects affected by the named projects (full or short
+#                                              names: Kokoro finds DemaConsulting.Speech.Onnx.Kokoro, Core is
+#                                              DemaConsulting.Speech; -Help lists this repository's names)
 #   Add -DryRun to any scope to print the selection without building anything.
 #   With no arguments the usage text is printed and the script exits 1 (a scope must be chosen).
 #
 #   A changed project selects every project that references it, directly or transitively, from the
-#   ProjectReference graph, and files linked into another project (Compile/None/EmbeddedResource items
-#   that point outside the project folder) select that project too. Changes that affect the whole
+#   ProjectReference graph, and files linked into another project (any item or file property that
+#   points outside the project folder) select that project too. Changes that affect the whole
 #   build (solution, project, props/targets, global.json, .editorconfig, nuget.config, tool manifest,
 #   this script, scripts/ProjectScripts.psm1) fall back to the full build; repository files tests read
 #   at run time select their test projects through $RuntimeReads; other changes the build does not
 #   read select nothing. A scoped run skips the NuGet pack verification, which belongs to the full build.
+#
+#   The test platform is detected from global.json: "test": { "runner": "Microsoft.Testing.Platform" } runs
+#   'dotnet test --project <path> --report-trx', anything else runs VSTest 'dotnet test <path> --logger trx';
+#   results go to artifacts/tests either way. Do not customize the arguments per repository.
 #
 # EXTENSION POINTS:
 #   Search for "[PROJECT-SPECIFIC]" comments to find the designated locations
@@ -72,11 +75,36 @@ $RuntimeReads = [ordered]@{
     '^data/text-en/'            = 'DemaConsulting.Speech.Text.En.Trainer.Tests'
     '^docs/evaluation/text-en/' = 'DemaConsulting.Speech.Text.En.Trainer.Tests'
     '^test/'                    = 'DemaConsulting.Speech.Text.En.Trainer.Tests'
-    # Get-ProjectGraph does not see AvaloniaResource items or the ApplicationIcon property, so the root icons that
-    # the Demo and Proofreader link in map to those projects (their test projects follow through the references).
-    # Two keys because one key names one project; both match the same files.
-    '^Icon\.png$|^Icon\.ico$'   = 'DemaConsulting.Speech.Demo'
-    '^Icon\.(png|ico)$'         = 'DemaConsulting.Speech.Proofreader'
+}
+
+# [PROJECT-SPECIFIC] Short -Project names that no resolution rule can derive (exact name, alias, unique dot-segment
+# suffix, Core), as data: alias = project name. Empty: every name this repository uses already resolves.
+$ProjectAliases = @{}
+
+# [PROJECT-SPECIFIC] Folders scanned for projects. List every root once here when projects live outside src/, test/,
+# and tools/; leave out folders of fixture projects that are test inputs.
+$ProjectRoots = @('src', 'test', 'tools')
+
+# Test platform: global.json selects Microsoft.Testing.Platform with "test": { "runner": "Microsoft.Testing.Platform" };
+# otherwise VSTest is used. The platform decides the 'dotnet test' arguments (see Invoke-DotnetTest).
+$UseTestingPlatform = $false
+if (Test-Path global.json) {
+    try { $UseTestingPlatform = (Get-Content -Raw global.json | ConvertFrom-Json).test.runner -eq 'Microsoft.Testing.Platform' }
+    catch { Write-Host "Warning: global.json could not be read; assuming VSTest." }
+}
+
+function Invoke-DotnetTest {
+    # Runs the tests of one project, or of the whole solution when no path is given, against the existing build
+    param([string]$Path)
+
+    # @(...) keeps a one-element list an array, so the splat passes the path whole and not character by character
+    if ($UseTestingPlatform) {
+        $target = @(if ($Path) { '--project'; $Path })
+        dotnet test @target --no-build --configuration Release --report-trx --results-directory artifacts/tests
+    } else {
+        $target = @(if ($Path) { $Path })
+        dotnet test @target --no-build --configuration Release --logger trx --results-directory artifacts/tests
+    }
 }
 
 # ==============================================================================
@@ -94,6 +122,8 @@ function Show-Usage {
             '-DryRun'          = 'Print what would be built, tested, and skipped, then exit 0 without running anything.'
             '-Help'            = 'Print this text and exit 0.'
         }) `
+        -ChecksLabel 'Projects and aliases (-Project names; short names such as Core or Kokoro also work)' `
+        -Checks @(try { Get-ProjectNameList (Get-ProjectGraph -Root $ProjectRoots) $ProjectAliases } catch { }) `
         -Examples @('-Changed', '-Project Onnx.Kokoro,Cli', '-Changed -DryRun', '-All')
 }
 
@@ -194,19 +224,21 @@ function Test-NuGetPackaging {
 
 $scoped = $false
 if (-not $All) {
-    $graph = Get-ProjectGraph
+    $graph = Get-ProjectGraph -Root $ProjectRoots
     $selected = [System.Collections.Generic.HashSet[string]]::new()
     $fullReason = $null
 
     $names = @($Project | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $known = (Get-ProjectNameList $graph $ProjectAliases) -join ', '
     if ($Project -and $names.Count -eq 0) {
-        Write-Host "Error: no project named in '$($Project -join ' ')'. Known projects: $($graph.Keys -join ', ')"
+        Write-Host "Error: no project named in '$($Project -join ' ')'. Known projects: $known"
         exit 1
     }
     foreach ($single in $names) {
-        $resolved = Resolve-ProjectName $graph $single
+        try { $resolved = Resolve-ProjectName $graph $single $ProjectAliases }
+        catch { Write-Host "Error: $($_.Exception.Message)"; exit 1 }
         if (-not $resolved) {
-            Write-Host "Unknown project '$single'. Known projects: $($graph.Keys -join ', ')"
+            Write-Host "Unknown project '$single'. Known projects: $known"
             exit 1
         }
         [void]$selected.Add($resolved)
@@ -258,7 +290,7 @@ if (-not $All) {
         if (-not $buildError) {
             foreach ($entry in $tests) {
                 Write-Host "Running unit tests: $($entry.Name)..."
-                dotnet test --project $entry.Path --configuration Release --report-trx
+                Invoke-DotnetTest $entry.Path
                 if ($LASTEXITCODE -ne 0) { $buildError = $true }
             }
         } else {
@@ -275,20 +307,29 @@ if ($DryRun -and -not $scoped) { Write-Host "Dry run: would run the full build a
 
 if (-not $scoped) {
     # Each step runs only if the steps before it succeeded, so tests never run against stale binaries
-    Write-Host "Building project..."
-    dotnet build --configuration Release
-    if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    $failedStep = $null   # the step that failed first, so the skip message names the real cause
+    Write-Host "Restoring dependencies..."
+    dotnet restore
+    if ($LASTEXITCODE -ne 0) { $buildError = $true; $failedStep = 'restore' }
+
+    if (-not $buildError) {
+        Write-Host "Building project..."
+        dotnet build --no-restore --configuration Release
+        if ($LASTEXITCODE -ne 0) { $buildError = $true; $failedStep = 'build' }
+    }
 
     # [PROJECT-SPECIFIC] Pack verification: the packages must be well formed (see Test-NuGetPackaging)
     if (-not $buildError) {
         Write-Host "Verifying NuGet packaging..."
-        if (-not (Test-NuGetPackaging)) { $buildError = $true }
+        if (-not (Test-NuGetPackaging)) { $buildError = $true; $failedStep = 'pack' }
     }
 
     if (-not $buildError) {
         Write-Host "Running unit tests..."
-        dotnet test --configuration Release --report-trx
+        Invoke-DotnetTest
         if ($LASTEXITCODE -ne 0) { $buildError = $true }
+    } elseif ($failedStep -eq 'restore') {
+        Write-Host "Skipping build and tests: restore failed."
     } else {
         Write-Host "Skipping tests: the build or pack verification failed."
     }
