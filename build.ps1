@@ -72,6 +72,11 @@ $RuntimeReads = [ordered]@{
     '^data/text-en/'            = 'DemaConsulting.Speech.Text.En.Trainer.Tests'
     '^docs/evaluation/text-en/' = 'DemaConsulting.Speech.Text.En.Trainer.Tests'
     '^test/'                    = 'DemaConsulting.Speech.Text.En.Trainer.Tests'
+    # Get-ProjectGraph does not see AvaloniaResource items or the ApplicationIcon property, so the root icons that
+    # the Demo and Proofreader link in map to those projects (their test projects follow through the references).
+    # Two keys because one key names one project; both match the same files.
+    '^Icon\.png$|^Icon\.ico$'   = 'DemaConsulting.Speech.Demo'
+    '^Icon\.(png|ico)$'         = 'DemaConsulting.Speech.Proofreader'
 }
 
 # ==============================================================================
